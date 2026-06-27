@@ -1,0 +1,1 @@
+ALTER TABLE "article_publications" ADD COLUMN "published_hash" text;

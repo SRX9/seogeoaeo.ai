@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "brands_workspace_name_unique" ON "brands" USING btree ("workspace_id",lower("name"));

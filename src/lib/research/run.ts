@@ -1,0 +1,97 @@
+import { getBrandProfile, listCompetitors, type BrandScope } from "@/lib/brand/repository";
+import { createResearchTopics, listTopicTitles } from "@/lib/articles/repository";
+import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
+import { buildResearchContext, researchProviders } from "@/lib/research/providers";
+import { completeResearchRun, createResearchRun } from "@/lib/research/repository";
+import { scoreFindings } from "@/lib/research/score";
+import type { ResearchFinding } from "@/lib/research/types";
+import { uniqueByTitle } from "@/lib/research/utils";
+import { logError, logInfo } from "@/lib/logging/logger";
+
+export async function runResearch(scope: BrandScope) {
+  const { workspaceId, brandId } = scope;
+  const run = await createResearchRun(scope);
+  const job = await createAgentJob(scope, "research", "Research run started");
+
+  try {
+    const [brand, competitors, existingTitles] = await Promise.all([
+      getBrandProfile(brandId),
+      listCompetitors(brandId),
+      listTopicTitles(brandId),
+    ]);
+
+    const context = buildResearchContext(
+      {
+        productDescription: brand?.productDescription,
+        audience: brand?.audience,
+        tone: brand?.tone,
+        website: brand?.website,
+        seedKeywords: brand?.seedKeywords,
+      },
+      competitors.map((item) => ({
+        name: item.name,
+        url: item.url,
+        rssUrl: item.rssUrl,
+        sitemapUrl: item.sitemapUrl,
+      })),
+    );
+
+    const providerResults = await Promise.all(
+      researchProviders
+        .filter((provider) => provider.isAvailable())
+        .map(async (provider) => ({
+          provider: provider.id,
+          findings: await provider.discover(context),
+        })),
+    );
+
+    const findings: ResearchFinding[] = uniqueByTitle(
+      providerResults.flatMap((result) => result.findings),
+    );
+
+    const existing = new Set(existingTitles.map((title) => title.toLowerCase()));
+    const novelFindings = findings.filter(
+      (finding) => !existing.has(finding.title.toLowerCase()),
+    );
+
+    const { topics: scoredTopics, tokenUsage } = await scoreFindings(novelFindings, context);
+    const created = await createResearchTopics(scope, run.id, scoredTopics);
+
+    const summary = `Found ${findings.length} signals, kept ${created.length} ranked topics after scoring and deduplication.`;
+    await completeResearchRun(run.id, {
+      status: "completed",
+      summary,
+      findingsJson: JSON.stringify({ providers: providerResults.map((r) => r.provider), count: findings.length }),
+      topicsCreated: created.length,
+    });
+
+    await finishAgentJob(job.id, "completed", summary, {
+      researchRunId: run.id,
+      topicsCreated: created.length,
+      tokenUsage,
+    });
+
+    logInfo("research.completed", {
+      workspaceId,
+      runId: run.id,
+      topicsCreated: created.length,
+      totalTokens: tokenUsage.totalTokens,
+    });
+
+    return { runId: run.id, topicsCreated: created.length, summary };
+  } catch (error) {
+    // Store a user-friendly summary (shown in the activity feed); keep the raw
+    // error in the logs only.
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    const friendly = "Research failed — retry to try again.";
+    await completeResearchRun(run.id, {
+      status: "failed",
+      summary: friendly,
+      findingsJson: "{}",
+      topicsCreated: 0,
+    });
+    await finishAgentJob(job.id, "failed", friendly);
+    logError("research.failed", { workspaceId, runId: run.id, error: detail });
+    throw error;
+  }
+}

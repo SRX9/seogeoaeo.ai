@@ -1,0 +1,282 @@
+"use client";
+
+import { buttonVariants } from "@heroui/react/button";
+import { Card, Chip, Input, Label, toast } from "@heroui/react";
+import { Table } from "@heroui/react/table";
+import { Segment } from "@heroui-pro/react";
+import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { LoadingButton } from "@/components/ui/loading-button";
+import { InlineLoader } from "@/components/feedback/states";
+import { PenIcon, PlusIcon } from "@/components/icons";
+import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
+import { useOptimisticMutation } from "@/lib/api/optimistic";
+import { queryKeys, useTopics, type Topic } from "@/lib/api/queries";
+import { statusColor } from "@/lib/ui/status";
+
+type TopicsCache = { topics: Topic[] };
+
+type TopicQueueProps = {
+  canGenerate: boolean;
+  articleCost: number;
+};
+
+const filters = [
+  { id: "all", label: "All" },
+  { id: "research", label: "Research" },
+  { id: "manual", label: "Manual" },
+] as const;
+
+const EMPTY_TOPIC = { title: "", angle: "", keywords: "" };
+
+export function ManualTopicForm() {
+  // Controlled state — HeroUI inputs don't reliably submit via native FormData.
+  const [fields, setFields] = useState(EMPTY_TOPIC);
+
+  const set =
+    (key: keyof typeof EMPTY_TOPIC) =>
+      (event: { target: { value: string } }) =>
+        setFields((prev) => ({ ...prev, [key]: event.target.value }));
+
+  const createTopic = useOptimisticMutation<
+    unknown,
+    { title: string; angle: string; keywords: string },
+    TopicsCache
+  >({
+    mutationFn: (input) => apiPost("/api/topics", input),
+    queryKey: queryKeys.topics,
+    optimisticUpdate: (current, input) => ({
+      // Show the new manual topic at the top of the queue immediately; the
+      // settle-invalidate swaps the temp id for the server's record.
+      topics: [
+        {
+          id: `temp-${Date.now()}`,
+          title: input.title,
+          angle: input.angle || null,
+          keywords: input.keywords || null,
+          status: "pending",
+          source: "manual",
+          score: null,
+          rationale: null,
+          answerFit: null,
+          evidenceJson: null,
+        },
+        ...(current?.topics ?? []),
+      ],
+    }),
+    invalidateKeys: [queryKeys.dashboard],
+    onSuccess: () => {
+      setFields(EMPTY_TOPIC);
+      toast.success("Topic added to your queue");
+    },
+    onError: (error) => toast.danger(getErrorMessage(error, "Could not add topic")),
+  });
+
+  function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createTopic.mutate({
+      title: fields.title.trim(),
+      angle: fields.angle.trim(),
+      keywords: fields.keywords.trim(),
+    });
+  }
+
+  return (
+    <Card className="gap-0 p-7 sm:p-9">
+      {/* Header */}
+      <div className="flex items-start gap-3.5">
+        <PenIcon className="mt-1 size-5 shrink-0 text-foreground" />
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            Create a manual topic
+          </h3>
+          <p className="max-w-prose text-sm leading-relaxed text-muted">
+            Already know what you want to write? Drop it straight into the queue and generate
+            when you&apos;re ready.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleCreate} className="mt-8">
+        <div className="space-y-2">
+          <Label htmlFor="title" >Topic title</Label>
+          <Input id="title" name="title" value={fields.title} onChange={set("title")} required placeholder="How to automate SEO blog production" variant="secondary" fullWidth />
+          <p className="text-xs leading-relaxed text-muted">The headline idea — what the article is about.</p>
+        </div>
+
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="angle">Angle</Label>
+            <Input id="angle" name="angle" value={fields.angle} onChange={set("angle")} placeholder="Focus on founders with small teams" variant="secondary" fullWidth />
+            <p className="text-xs leading-relaxed text-muted">Who it&apos;s for, or the take to lead with.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="keywords">Keywords</Label>
+            <Input id="keywords" name="keywords" value={fields.keywords} onChange={set("keywords")} placeholder="seo automation, content marketing" variant="secondary" fullWidth />
+            <p className="text-xs leading-relaxed text-muted">Comma-separated terms to target.</p>
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3 border-t border-border pt-7">
+          <LoadingButton className="w-fit" type="submit" isPending={createTopic.isPending} pendingLabel="Adding…">
+            <PlusIcon className="size-4" />
+            Add to queue
+          </LoadingButton>
+          <p className="text-xs leading-relaxed text-muted">Appears at the top of your topic queue.</p>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
+  const [filter, setFilter] = useState("all");
+  const { data, isLoading } = useTopics();
+  const topics = data?.topics ?? [];
+
+  const visibleTopics = topics.filter((topic) => {
+    if (filter === "research") return topic.source === "research";
+    if (filter === "manual") return topic.source !== "research";
+    return true;
+  });
+
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-foreground">Topic queue</h2>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted tabular-nums">{visibleTopics.length} topics</span>
+          <Segment
+            aria-label="Filter topics by source"
+            size="sm"
+            selectedKey={filter}
+            onSelectionChange={(key) => setFilter(String(key))}
+          >
+            {filters.map((item) => (
+              <Segment.Item key={item.id} id={item.id}>
+                <Segment.Separator />
+                {item.label}
+              </Segment.Item>
+            ))}
+          </Segment>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <InlineLoader label="Loading topics…" />
+      ) : visibleTopics.length === 0 ? (
+        <p className="text-sm text-muted">
+          {filter === "manual"
+            ? "No manual topics yet. Add one in the Manual topic tab."
+            : "Run research to populate ranked topic ideas."}
+        </p>
+      ) : (
+        <TopicList topics={visibleTopics} canGenerate={canGenerate} articleCost={articleCost} />
+      )}
+    </section>
+  );
+}
+
+function TopicList({
+  topics,
+  canGenerate,
+  articleCost,
+}: {
+  topics: Topic[];
+  canGenerate: boolean;
+  articleCost: number;
+}) {
+  const router = useRouter();
+
+  const generate = useMutation({
+    mutationFn: (topicId: string) =>
+      apiPost<{ articleId: string }>("/api/articles/generate", { topicId }),
+    onSuccess: (result) => {
+      router.push(`/articles/${result.articleId}`);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 402) {
+        router.push("/settings?tab=billing&upgrade=1");
+        return;
+      }
+      toast.danger(getErrorMessage(error, "Could not generate article"));
+    },
+  });
+
+  return (
+    <Table>
+      <Table.ScrollContainer>
+        <Table.Content aria-label="Topic queue" className="min-w-[720px]">
+          <Table.Header>
+            <Table.Column id="topic" isRowHeader>
+              Topic
+            </Table.Column>
+            <Table.Column id="source">Source</Table.Column>
+            <Table.Column id="score">Score</Table.Column>
+            <Table.Column id="status">Status</Table.Column>
+            <Table.Column id="action">
+              <span className="sr-only">Actions</span>
+            </Table.Column>
+          </Table.Header>
+          <Table.Body>
+            {topics.map((topic) => {
+              const isGenerating = generate.isPending && generate.variables === topic.id;
+              return (
+                <Table.Row key={topic.id} id={topic.id}>
+                  <Table.Cell>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-foreground">{topic.title}</span>
+                      {topic.rationale ? (
+                        <span className="max-w-xl truncate text-xs text-muted">
+                          {topic.rationale}
+                        </span>
+                      ) : null}
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip variant="soft" size="sm" className="capitalize">
+                      {topic.source}
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <span className="text-sm text-foreground tabular-nums">
+                      {topic.score != null ? topic.score : "—"}
+                    </span>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Chip color={statusColor(topic.status)} variant="soft" size="sm">
+                      {topic.status}
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell className="text-end">
+                    {canGenerate ? (
+                      <LoadingButton
+                        size="sm"
+                        isPending={isGenerating}
+                        pendingLabel="Generating…"
+                        isDisabled={generate.isPending}
+                        onPress={() => generate.mutate(topic.id)}
+                      >
+                        Generate · {articleCost} credits
+                      </LoadingButton>
+                    ) : (
+                      <Link
+                        href="/settings?tab=billing&upgrade=1"
+                        className={buttonVariants({ variant: "secondary", size: "sm" })}
+                        title="You need credits to generate an article"
+                      >
+                        Get credits
+                      </Link>
+                    )}
+                  </Table.Cell>
+                </Table.Row>
+              );
+            })}
+          </Table.Body>
+        </Table.Content>
+      </Table.ScrollContainer>
+    </Table>
+  );
+}

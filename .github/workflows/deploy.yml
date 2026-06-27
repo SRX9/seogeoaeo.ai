@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply database migrations
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret not configured; skipping migrations."
+            exit 0
+          fi
+          npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Build for Cloudflare
+        run: npm run build:cf
+        env:
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+
+      - name: Deploy Worker and sync secrets
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_INDIE: ${{ secrets.STRIPE_PRICE_INDIE }}
+          STRIPE_PRICE_STARTUP: ${{ secrets.STRIPE_PRICE_STARTUP }}
+          STRIPE_PRICE_SCALE: ${{ secrets.STRIPE_PRICE_SCALE }}
+          STRIPE_PRICE_ENTERPRISE: ${{ secrets.STRIPE_PRICE_ENTERPRISE }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_LIGHT_MODEL: ${{ secrets.LLM_LIGHT_MODEL }}
+          LLM_HEAVY_MODEL: ${{ secrets.LLM_HEAVY_MODEL }}
+          LLM_IMAGE_MODEL: ${{ secrets.LLM_IMAGE_MODEL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+        secrets: |
+          DATABASE_URL
+          BETTER_AUTH_SECRET
+          BETTER_AUTH_URL
+          ENCRYPTION_KEY
+          CRON_SECRET
+          STRIPE_SECRET_KEY
+          STRIPE_WEBHOOK_SECRET
+          STRIPE_PRICE_INDIE
+          STRIPE_PRICE_STARTUP
+          STRIPE_PRICE_SCALE
+          STRIPE_PRICE_ENTERPRISE
+          LLM_BASE_URL
+          LLM_API_KEY
+          LLM_LIGHT_MODEL
+          LLM_HEAVY_MODEL
+          LLM_IMAGE_MODEL
+          GOOGLE_CLIENT_ID
+          GOOGLE_CLIENT_SECRET
+          GITHUB_CLIENT_ID
+          GITHUB_CLIENT_SECRET

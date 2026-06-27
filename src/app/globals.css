@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "@heroui-pro/react/css";
+@import "@heroui-pro/react/themes/glass";
+
+/*
+ * HeroUI Pro — Glass theme, used as-is.
+ *
+ * Every color, surface, border, shadow, radius, and typography token comes
+ * straight from the imported Glass theme above. We deliberately add no custom
+ * color or token overrides here so the UI reflects the Glass theme exactly.
+ *
+ * Inter is wired into HeroUI via `--font-inter` (set by next/font in
+ * `layout.tsx`); Glass already maps `--font-sans` to `var(--font-inter)`.
+ */
+
+/*
+ * Paint Glass's signature ambient gradient over the base canvas. The gradient
+ * is a Glass theme token (`--background-gradient`); `fixed` keeps the glow
+ * anchored to the viewport so translucent glass surfaces read against it.
+ */
+body {
+  background-image: var(--background-gradient);
+  background-attachment: fixed;
+}
+
+/*
+ * Light mode: replace Glass's blue ambient gradient with a calm, neutral
+ * "lunar grey" surface. The blue tint washed out translucent glass surfaces
+ * and hurt legibility; a low-chroma cool-grey canvas lets the white surfaces
+ * float clearly. Dark mode keeps Glass's stock ambient glow. Hue (264) is
+ * carried from Glass at near-zero chroma so it reads neutral, not coloured.
+ */
+.glass-light,
+html[data-theme="glass-light"] {
+  --background: oklch(96% 0.003 264);
+  --background-gradient: linear-gradient(
+    180deg,
+    oklch(98% 0.003 264) 0%,
+    oklch(93.5% 0.004 264) 100%
+  );
+}
+
+/*
+ * Sidebar: remove its own fill and edge-outline so the app's overall background
+ * shows straight through the rail.
+ */
+.sidebar {
+  background-color: transparent;
+}
+
+.sidebar--default,
+.sidebar--default.sidebar--right {
+  box-shadow: none;
+}

@@ -1,0 +1,178 @@
+import { and, asc, count, eq, sql } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { brandProfiles, brands, competitors } from "@/lib/db/schema";
+import { MAX_COMPETITORS, type BrandProfileInput, type CompetitorInput } from "@/lib/brand/schemas";
+
+/** A brand always lives inside a workspace; writes need both ids. */
+export type BrandScope = { workspaceId: string; brandId: string };
+
+/** Raised when a workspace already has a brand with the same (case-insensitive) name. */
+export class BrandExistsError extends Error {
+  constructor(name: string) {
+    super(`A brand named "${name}" already exists in this workspace.`);
+    this.name = "BrandExistsError";
+  }
+}
+
+/** Raised when a write would push a brand past {@link MAX_COMPETITORS}. */
+export class CompetitorLimitError extends Error {
+  constructor(message = `A brand can have at most ${MAX_COMPETITORS} competitors.`) {
+    super(message);
+    this.name = "CompetitorLimitError";
+  }
+}
+
+async function countCompetitors(brandId: string) {
+  const [row] = await getDb()
+    .select({ value: count() })
+    .from(competitors)
+    .where(eq(competitors.brandId, brandId));
+  return row?.value ?? 0;
+}
+
+export async function listBrands(workspaceId: string) {
+  return getDb()
+    .select()
+    .from(brands)
+    .where(eq(brands.workspaceId, workspaceId))
+    .orderBy(asc(brands.createdAt));
+}
+
+export async function getBrand(workspaceId: string, brandId: string) {
+  const [brand] = await getDb()
+    .select()
+    .from(brands)
+    .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
+    .limit(1);
+  return brand ?? null;
+}
+
+export async function createBrand(workspaceId: string, name: string) {
+  const trimmed = name.trim();
+  const [existing] = await getDb()
+    .select({ id: brands.id })
+    .from(brands)
+    .where(
+      and(eq(brands.workspaceId, workspaceId), sql`lower(${brands.name}) = lower(${trimmed})`),
+    )
+    .limit(1);
+  if (existing) {
+    throw new BrandExistsError(trimmed);
+  }
+  const [brand] = await getDb()
+    .insert(brands)
+    .values({ workspaceId, name: trimmed })
+    .returning();
+  return brand;
+}
+
+export async function renameBrand(workspaceId: string, brandId: string, name: string) {
+  const [brand] = await getDb()
+    .update(brands)
+    .set({ name, updatedAt: new Date() })
+    .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
+    .returning();
+  return brand ?? null;
+}
+
+export async function deleteBrand(workspaceId: string, brandId: string) {
+  await getDb()
+    .delete(brands)
+    .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)));
+}
+
+export async function getBrandProfile(brandId: string) {
+  const [profile] = await getDb()
+    .select()
+    .from(brandProfiles)
+    .where(eq(brandProfiles.brandId, brandId))
+    .limit(1);
+  return profile ?? null;
+}
+
+export async function upsertBrandProfile(scope: BrandScope, input: BrandProfileInput) {
+  const existing = await getBrandProfile(scope.brandId);
+  const values = {
+    productDescription: input.productDescription || null,
+    audience: input.audience || null,
+    tone: input.tone || null,
+    website: input.website || null,
+    seedKeywords: input.seedKeywords || null,
+    updatedAt: new Date(),
+  };
+
+  if (existing) {
+    const [profile] = await getDb()
+      .update(brandProfiles)
+      .set(values)
+      .where(eq(brandProfiles.id, existing.id))
+      .returning();
+    return profile;
+  }
+
+  const [profile] = await getDb()
+    .insert(brandProfiles)
+    .values({ workspaceId: scope.workspaceId, brandId: scope.brandId, ...values })
+    .returning();
+  return profile;
+}
+
+export async function listCompetitors(brandId: string) {
+  return getDb()
+    .select()
+    .from(competitors)
+    .where(eq(competitors.brandId, brandId))
+    .orderBy(asc(competitors.createdAt));
+}
+
+export async function createCompetitor(scope: BrandScope, input: CompetitorInput) {
+  if ((await countCompetitors(scope.brandId)) >= MAX_COMPETITORS) {
+    throw new CompetitorLimitError();
+  }
+  const [competitor] = await getDb()
+    .insert(competitors)
+    .values({
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      name: input.name,
+      url: input.url,
+      rssUrl: input.rssUrl || null,
+      sitemapUrl: input.sitemapUrl || null,
+    })
+    .returning();
+  return competitor;
+}
+
+/**
+ * Insert several competitors at once (the AI-discovery "Add selected" action),
+ * clipping to the brand's remaining capacity so the 10-cap always holds.
+ */
+export async function createCompetitors(scope: BrandScope, inputs: CompetitorInput[]) {
+  const remaining = MAX_COMPETITORS - (await countCompetitors(scope.brandId));
+  if (remaining <= 0) {
+    throw new CompetitorLimitError();
+  }
+  const toInsert = inputs.slice(0, remaining);
+  if (toInsert.length === 0) {
+    return [];
+  }
+  return getDb()
+    .insert(competitors)
+    .values(
+      toInsert.map((input) => ({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        name: input.name,
+        url: input.url,
+        rssUrl: input.rssUrl || null,
+        sitemapUrl: input.sitemapUrl || null,
+      })),
+    )
+    .returning();
+}
+
+export async function deleteCompetitor(brandId: string, competitorId: string) {
+  await getDb()
+    .delete(competitors)
+    .where(and(eq(competitors.id, competitorId), eq(competitors.brandId, brandId)));
+}

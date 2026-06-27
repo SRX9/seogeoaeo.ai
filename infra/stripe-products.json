@@ -1,0 +1,52 @@
+{
+  "account_id": "acct_1RNVErSAP0pNkOcM",
+  "mode": "test",
+  "created_at": "2026-06-14",
+  "plans": {
+    "indie": {
+      "product_id": "prod_Uhb9ASrmwzhqt3",
+      "price_id": "price_1TiBxXSAP0pNkOcMmd44NfpL",
+      "amount_usd": 29,
+      "monthly_credits": 2000
+    },
+    "startup": {
+      "product_id": "prod_Uhb9Z5TTiTMSYD",
+      "price_id": "price_1TiBxYSAP0pNkOcM1i1B2m20",
+      "amount_usd": 69,
+      "monthly_credits": 5000
+    },
+    "scale": {
+      "product_id": "prod_Uhb99xtDRxL5sd",
+      "price_id": "price_1TiBxaSAP0pNkOcMN1Gq3kqK",
+      "amount_usd": 199,
+      "monthly_credits": 22000
+    },
+    "enterprise": {
+      "product_id": "prod_Uhb90C6NAYRXsO",
+      "price_id": "price_1TiBxbSAP0pNkOcMojGbiYjz",
+      "amount_usd": 499,
+      "monthly_credits": 130000
+    }
+  },
+  "packs": {
+    "_comment": "One-time credit top-up packs. Provision these in Stripe as one-time prices and fill in the ids, then set STRIPE_PRICE_PACK_SMALL|MEDIUM|LARGE.",
+    "small": {
+      "product_id": "",
+      "price_id": "price_1Tmrg5SAP0pNkOcM5NwqjtuT",
+      "amount_usd": 19,
+      "credits": 2000
+    },
+    "medium": {
+      "product_id": "",
+      "price_id": "",
+      "amount_usd": 49,
+      "credits": 6000
+    },
+    "large": {
+      "product_id": "",
+      "price_id": "",
+      "amount_usd": 99,
+      "credits": 15000
+    }
+  }
+}

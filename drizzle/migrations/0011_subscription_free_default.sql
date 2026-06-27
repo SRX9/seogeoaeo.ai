@@ -1,0 +1,1 @@
+ALTER TABLE "subscriptions" ALTER COLUMN "plan_id" SET DEFAULT 'free';
