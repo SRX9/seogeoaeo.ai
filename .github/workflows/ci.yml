@@ -10,20 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/seo_ai
           BETTER_AUTH_SECRET: ci-build-secret-minimum-32-characters
           BETTER_AUTH_URL: http://localhost:3000
           ENCRYPTION_KEY: ci-encryption-key-32-characters-long
-      - run: npm run build:cf
+      - run: pnpm build:cf
         env:
           BETTER_AUTH_URL: https://seo-ai.example.com

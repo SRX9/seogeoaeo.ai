@@ -4,22 +4,23 @@ import { Chip, toast } from "@heroui/react";
 import { Table } from "@heroui/react/table";
 import { EmptyState } from "@heroui-pro/react/empty-state";
 import { LoadingButton } from "@/components/ui/loading-button";
-import { ActivityIcon, PenIcon, SearchIcon } from "@/components/icons";
+import { ActivityIcon, PenIcon, SearchIcon, UsersIcon } from "@/components/icons";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
-import { queryKeys, type AgentJob, type ResearchRun } from "@/lib/api/queries";
+import { queryKeys, type ActivityResponse } from "@/lib/api/queries";
 import { statusColor } from "@/lib/ui/status";
 
-type ActivityCache = { jobs: AgentJob[]; runs: ResearchRun[] };
+type ActivityCache = ActivityResponse;
 
 type ActivityItem = {
   id: string;
-  type: "research_run" | "agent_job";
+  type: "research_run" | "agent_job" | "competitor_run";
   title: string;
   status: string;
   message: string;
   createdAt: string;
   detail: string;
+  credits: number;
   canRetry: boolean;
 };
 
@@ -28,9 +29,12 @@ type ActivityPanelProps = {
 };
 
 // Research runs and research jobs surface a search glyph; writing jobs use the
-// pen. Everything else (e.g. the weekly pipeline) falls back to the activity
-// pulse so each row reads at a glance.
+// pen; competitor discoveries use the people glyph. Everything else (e.g. the
+// weekly pipeline) falls back to the activity pulse so each row reads at a glance.
 function eventIcon(item: ActivityItem) {
+  if (item.type === "competitor_run") {
+    return UsersIcon;
+  }
   if (item.type === "research_run" || item.detail === "research") {
     return SearchIcon;
   }
@@ -90,6 +94,7 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
               Event
             </Table.Column>
             <Table.Column id="status">Status</Table.Column>
+            <Table.Column id="credits">Credits</Table.Column>
             <Table.Column id="time">Time</Table.Column>
             <Table.Column id="action">
               <span className="sr-only">Actions</span>
@@ -118,6 +123,15 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
                     <Chip color={statusColor(item.status)} variant="soft" size="sm">
                       {item.status}
                     </Chip>
+                  </Table.Cell>
+                  <Table.Cell>
+                    {item.credits > 0 ? (
+                      <span className="font-medium text-foreground tabular-nums">
+                        -{item.credits.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </Table.Cell>
                   <Table.Cell>
                     <span className="text-xs text-muted tabular-nums">

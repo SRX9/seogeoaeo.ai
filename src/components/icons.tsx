@@ -245,6 +245,15 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+export function SparklesIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+      <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
+    </Icon>
+  );
+}
+
 export function ArrowRightIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -260,3 +269,133 @@ export function ChevronRightIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function SgaLogoIcon({ className, ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className ?? "size-10"}
+      {...props}
+    >
+      <defs>
+        {/* iOS Squircle Background Gradient */}
+        <linearGradient id="ios-bg-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#1e1e30" />
+          <stop offset="100%" stopColor="#0a0a0f" />
+        </linearGradient>
+
+        {/* Outer Metallic Chamfered Rim Gradient */}
+        <linearGradient id="ios-rim-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.15" />
+          <stop offset="50%" stopColor="#ffffff" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.4" />
+        </linearGradient>
+
+        {/* Glyphic Holographic SGA Ribbon Gradient */}
+        <linearGradient id="ios-glyph-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#6366f1" /> {/* Royal Indigo */}
+          <stop offset="40%" stopColor="#06b6d4" /> {/* Electric Cyan */}
+          <stop offset="100%" stopColor="#10b981" /> {/* Mint Green */}
+        </linearGradient>
+
+        {/* Ambient Drop Shadow for iOS Squircle Depth */}
+        <filter id="ios-shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="4" stdDeviation="5" floodColor="#000000" floodOpacity="0.5" />
+        </filter>
+
+        {/* Glow for the Central Symbolic Glyph */}
+        <filter id="ios-glyph-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      {/* Main iOS App Icon Squircle Container with drop shadow */}
+      <rect
+        x="6"
+        y="6"
+        width="88"
+        height="82"
+        rx="24"
+        fill="url(#ios-bg-gradient)"
+        filter="url(#ios-shadow)"
+      />
+
+      {/* Inner Metallic Bevel / Precise Chamfered Rim */}
+      <rect
+        x="6.5"
+        y="6.5"
+        width="87"
+        height="81"
+        rx="23.5"
+        stroke="url(#ios-rim-gradient)"
+        strokeWidth="1"
+        fill="none"
+      />
+
+      {/* Ambient Inner Glow (subtle accent background light) */}
+      <circle
+        cx="50"
+        cy="45"
+        r="28"
+        fill="#06b6d4"
+        className="opacity-15 blur-[12px]"
+      />
+
+      {/* The Central Symbolic SGA Monogram Glyph */}
+      <g filter="url(#ios-glyph-glow)">
+        {/* Main Ribbon S Path */}
+        <path
+          d="M34 35 C34 26.5, 46 23.5, 52 23.5 C63 23.5, 65 31, 60 37.5 C55 44, 45 44, 40 50.5 C35 57, 37 68.5, 48 68.5 C59 68.5, 66 61.5, 66 54.5"
+          stroke="url(#ios-glyph-gradient)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* SEO Search Loop Ring */}
+        <circle
+          cx="42.5"
+          cy="32.5"
+          r="5.5"
+          stroke="url(#ios-glyph-gradient)"
+          strokeWidth="2"
+        />
+
+        {/* GEO AI Sparkle in the center of the squircle */}
+        <path
+          d="M50 42 L51.5 45.5 L55.5 47 L51.5 48.5 L50 52 L48.5 48.5 L44.5 47 L48.5 45.5 Z"
+          fill="url(#ios-glyph-gradient)"
+        />
+
+        {/* AEO Answer Engine Pointer node at the ending tip */}
+        <circle cx="66" cy="54.5" r="4.5" fill="#10b981" />
+        <path
+          d="M66 54.5 L71 59.5 L69 51.5 Z"
+          fill="#10b981"
+        />
+      </g>
+
+      {/* Premium iOS 3D Gloss / Glass Highlight Overlay */}
+      <path
+        d="M6 30 C6 16.7, 16.7 6, 30 6 L70 6 C83.3 6, 94 16.7, 94 30 C94 30.5, 80 34, 50 34 C20 34, 6 30.5, 6 30 Z"
+        fill="#ffffff"
+        className="opacity-[0.06]"
+      />
+    </svg>
+  );
+}
+
+export function SgaLogo({ className, iconClassName, ...props }: { className?: string; iconClassName?: string } & IconProps) {
+  return (
+    <div className={className ?? "flex items-center gap-2.5"}>
+      <SgaLogoIcon className={iconClassName ?? "size-9"} {...props} />
+      <div className="text-xl font-bold tracking-tight text-foreground bg-clip-text">
+        SeoGeoAeo<span className="text-muted font-normal">.ai</span>
+      </div>
+    </div>
+  );
+}
+

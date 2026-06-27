@@ -10,9 +10,39 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SEO_AI — Autonomous SEO content",
+  title: "seogeoaeo.ai — Autonomous SEO, GEO & AEO on autopilot",
   description:
-    "Research topics, generate SEO-ready articles, and publish to your connected platforms.",
+    "Supercharge your search presence with autonomous SEO, GEO, and AEO. Research high-intent topics, generate search-optimized articles, and publish automatically to dev.to, Ghost, Hashnode, WordPress, and more.",
+  metadataBase: new URL("https://seogeoaeo.ai"),
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.ico" }
+    ],
+    apple: "/favicon.png",
+  },
+  openGraph: {
+    title: "seogeoaeo.ai — Autonomous SEO, GEO & AEO on autopilot",
+    description: "Supercharge your search presence with autonomous SEO, GEO, and AEO.",
+    url: "https://seogeoaeo.ai",
+    siteName: "seogeoaeo.ai",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "seogeoaeo.ai (SGA) — Autonomous SEO, GEO & AEO Platform",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "seogeoaeo.ai — Autonomous SEO, GEO & AEO on autopilot",
+    description: "Supercharge your search presence with autonomous SEO, GEO, and AEO.",
+    images: ["/og-image.png"],
+  },
 };
 
 // Runs before paint to set the Glass theme classes from the saved preference

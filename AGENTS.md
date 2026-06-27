@@ -11,29 +11,29 @@ Postgres. v1 is complete on `main` per `docs/v1-implementation-phases.md`.
 
 | Task | Command |
 |------|---------|
-| Install deps | `npm install` |
-| Dev server | `npm run dev` (port 3000) |
-| Lint | `npm run lint` |
-| Typecheck | `npm run typecheck` |
-| Test | `npm run test` |
-| Build | `npm run build` |
-| Cloudflare build | `npm run build:cf` |
-| DB migrate | `npm run db:migrate` |
+| Install deps | `pnpm install` |
+| Dev server | `pnpm dev` (port 3000) |
+| Lint | `pnpm lint` |
+| Typecheck | `pnpm typecheck` |
+| Test | `pnpm test` |
+| Build | `pnpm build` |
+| Cloudflare build | `pnpm build:cf` |
+| DB migrate | `pnpm db:migrate` |
 
 ## Services
 
 | Service | Required? | Notes |
 |---------|-----------|--------|
-| Next.js dev server | For local UI | `npm run dev` |
+| Next.js dev server | For local UI | `pnpm dev` |
 | PlanetScale Postgres | For DB features | Set `DATABASE_URL` in `.env.local` |
-| Cloudflare Workers | For production deploy | `npm run deploy:cf` after wrangler auth |
+| Cloudflare Workers | For production deploy | `pnpm deploy:cf` after wrangler auth |
 
 ## Cursor Cloud specific instructions
 
-- **Update script**: `npm install` (idempotent).
+- **Update script**: `pnpm install` (idempotent).
 - **Local auth preview**: set `AUTH_DEV_BYPASS=true` in `.env.local` to access
-  dashboard routes without Better Auth (Phase 1).
+ dashboard routes without Better Auth (Phase 1).
 - **Database**: set `DATABASE_URL` as a Worker secret (Hyperdrive optional later).
 - **Production setup**: see `docs/production-setup.md`; Stripe test prices in `infra/stripe-products.json`.
-- **Toolchain**: Node.js v22.x is used; package manager is npm.
+- **Toolchain**: Node.js v22.x is used; package manager is pnpm (see `packageManager` in `package.json`).
 - **Git**: use branch prefix `cursor/<name>-5e25` for cloud agent branches.

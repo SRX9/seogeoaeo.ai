@@ -10,14 +10,14 @@ export function Hero() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-20 text-center">
       <p className="mb-4 text-sm font-medium uppercase tracking-wider text-muted">
-        Autonomous SEO content
+        Autonomous SEO, GEO & AEO
       </p>
       <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-        Research, write, and publish SEO articles on autopilot
+        Research, write, and publish optimized content on autopilot
       </h1>
       <p className="mx-auto mt-6 max-w-2xl text-lg text-muted">
-        SEO_AI learns your brand, discovers high-intent topics, generates
-        publish-ready articles, and ships them to every platform you connect.
+        seogeoaeo.ai learns your brand, discovers high-intent topics across search & AI engines,
+        generates optimized articles, and ships them to every platform you connect.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Link href="/login" className={buttonVariants({ size: "lg" })}>

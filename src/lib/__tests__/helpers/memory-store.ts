@@ -531,6 +531,12 @@ export const creditsRepo = {
   async listCreditLedger() {
     return [];
   },
+  async creditsForRefs() {
+    return new Map<string, number>();
+  },
+  async listCompetitorDiscoveries() {
+    return [];
+  },
 };
 
 export const llmClient = {

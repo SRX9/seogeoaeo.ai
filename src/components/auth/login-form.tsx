@@ -28,7 +28,7 @@ export function LoginForm() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <Card.Header>
-          <Card.Title>Sign in to SEO_AI</Card.Title>
+          <Card.Title>Sign in to seogeoaeo.ai</Card.Title>
           <Card.Description>
             Use Google or GitHub to create your workspace and set up your first brand.
           </Card.Description>

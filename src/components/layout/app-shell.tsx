@@ -14,6 +14,7 @@ import {
   ArticlesIcon,
   ChevronUpDownIcon,
   OverviewIcon,
+  SgaLogo,
   SettingsIcon,
   TopicsIcon,
 } from "@/components/icons";
@@ -136,12 +137,6 @@ function SidebarContent({
   return (
     <>
       <Sidebar.Header className="flex flex-col gap-1.5">
-        <Link
-          href="/dashboard"
-          className="flex items-center px-2 pt-1 text-xs font-semibold uppercase tracking-widest text-muted"
-        >
-          SEO<span className="text-foreground">_AI</span>
-        </Link>
         <BrandSwitcher brands={brands} activeBrandId={activeBrandId} />
       </Sidebar.Header>
       <Sidebar.Content>

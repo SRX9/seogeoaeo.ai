@@ -1,8 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Card, Chip, Input, Label, toast } from "@heroui/react";
-import { Table } from "@heroui/react/table";
+import { Button, Card, Chip, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
 import { Segment } from "@heroui-pro/react";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
@@ -10,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { InlineLoader } from "@/components/feedback/states";
-import { PenIcon, PlusIcon } from "@/components/icons";
+import { PenIcon, PlusIcon, SparklesIcon } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useTopics, type Topic } from "@/lib/api/queries";
@@ -206,77 +205,72 @@ function TopicList({
   });
 
   return (
-    <Table>
-      <Table.ScrollContainer>
-        <Table.Content aria-label="Topic queue" className="min-w-[720px]">
-          <Table.Header>
-            <Table.Column id="topic" isRowHeader>
-              Topic
-            </Table.Column>
-            <Table.Column id="source">Source</Table.Column>
-            <Table.Column id="score">Score</Table.Column>
-            <Table.Column id="status">Status</Table.Column>
-            <Table.Column id="action">
-              <span className="sr-only">Actions</span>
-            </Table.Column>
-          </Table.Header>
-          <Table.Body>
-            {topics.map((topic) => {
-              const isGenerating = generate.isPending && generate.variables === topic.id;
-              return (
-                <Table.Row key={topic.id} id={topic.id}>
-                  <Table.Cell>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium text-foreground">{topic.title}</span>
-                      {topic.rationale ? (
-                        <span className="max-w-xl truncate text-xs text-muted">
-                          {topic.rationale}
-                        </span>
-                      ) : null}
-                    </div>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Chip variant="soft" size="sm" className="capitalize">
-                      {topic.source}
-                    </Chip>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <span className="text-sm text-foreground tabular-nums">
-                      {topic.score != null ? topic.score : "—"}
-                    </span>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Chip color={statusColor(topic.status)} variant="soft" size="sm">
-                      {topic.status}
-                    </Chip>
-                  </Table.Cell>
-                  <Table.Cell className="text-end">
-                    {canGenerate ? (
-                      <LoadingButton
-                        size="sm"
-                        isPending={isGenerating}
-                        pendingLabel="Generating…"
-                        isDisabled={generate.isPending}
-                        onPress={() => generate.mutate(topic.id)}
-                      >
-                        Generate · {articleCost} credits
-                      </LoadingButton>
+    <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+      {topics.map((topic) => {
+        const isGenerating = generate.isPending && generate.variables === topic.id;
+        return (
+          <li
+            key={topic.id}
+            className="flex items-start justify-between gap-3 p-4 transition-colors hover:bg-surface-secondary/40"
+          >
+            {/* Title, subtitle, and details — stacked so the row never needs horizontal scroll */}
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="space-y-1">
+                <p className="font-medium leading-snug text-foreground">{topic.title}</p>
+                {topic.rationale ? (
+                  <p className="line-clamp-2 text-xs leading-relaxed text-muted">
+                    {topic.rationale}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Chip variant="soft" size="sm" className="capitalize">
+                  {topic.source}
+                </Chip>
+                <Chip color={statusColor(topic.status)} variant="soft" size="sm">
+                  {topic.status}
+                </Chip>
+                {topic.score != null ? (
+                  <span className="text-xs text-muted tabular-nums">Score {topic.score}</span>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Action stays pinned to the right and always visible */}
+            <div className="shrink-0">
+              {canGenerate ? (
+                <Tooltip delay={300}>
+                  <Button
+                    size="sm"
+                    isIconOnly
+                    aria-label={`Generate article · ${articleCost} credits`}
+                    isPending={isGenerating}
+                    isDisabled={generate.isPending}
+                    onPress={() => generate.mutate(topic.id)}
+                  >
+                    {isGenerating ? (
+                      <Spinner color="current" size="sm" />
                     ) : (
-                      <Link
-                        href="/settings?tab=billing&upgrade=1"
-                        className={buttonVariants({ variant: "secondary", size: "sm" })}
-                        title="You need credits to generate an article"
-                      >
-                        Get credits
-                      </Link>
+                      <SparklesIcon className="size-4" />
                     )}
-                  </Table.Cell>
-                </Table.Row>
-              );
-            })}
-          </Table.Body>
-        </Table.Content>
-      </Table.ScrollContainer>
-    </Table>
+                  </Button>
+                  <Tooltip.Content>
+                    <p>Generate article · {articleCost} credits</p>
+                  </Tooltip.Content>
+                </Tooltip>
+              ) : (
+                <Link
+                  href="/settings?tab=billing&upgrade=1"
+                  className={buttonVariants({ variant: "secondary", size: "sm" })}
+                  title="You need credits to generate an article"
+                >
+                  Get credits
+                </Link>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

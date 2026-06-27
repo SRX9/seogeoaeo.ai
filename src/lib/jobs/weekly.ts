@@ -46,11 +46,13 @@ export async function runWeeklyPipelineForBrand(scope: BrandScope) {
       await assertHasCredits(scope.workspaceId, CREDIT_COSTS.research_run);
       const research = await runResearch(scope);
       researchTopics = research.topicsCreated;
+      // Key the spend on the run id (matching POST /api/research) so the
+      // activity feed can attribute these credits to the research-run row.
       await spendCredits(scope.workspaceId, CREDIT_COSTS.research_run, {
         reason: "research_run",
         brandId: scope.brandId,
-        refType: "brand",
-        refId: scope.brandId,
+        refType: "research_run",
+        refId: research.runId,
       });
     } catch (error) {
       if (!(error instanceof InsufficientCreditsError)) {

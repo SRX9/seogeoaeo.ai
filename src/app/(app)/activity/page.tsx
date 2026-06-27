@@ -31,6 +31,7 @@ export default function ActivityPage() {
           message: run.summary ?? "No summary",
           createdAt: run.createdAt,
           detail: `${run.topicsCreated ?? 0} topics added`,
+          credits: run.creditsSpent,
           canRetry: run.status === "failed",
         })),
         ...data.jobs.map((job) => ({
@@ -41,7 +42,19 @@ export default function ActivityPage() {
           message: job.message ?? "No message",
           createdAt: job.createdAt,
           detail: job.kind,
+          credits: job.creditsSpent,
           canRetry: job.status === "failed",
+        })),
+        ...data.competitors.map((run) => ({
+          id: run.id,
+          type: "competitor_run" as const,
+          title: "Competitor discovery",
+          status: run.status,
+          message: "Discovered competitor suggestions",
+          createdAt: run.createdAt,
+          detail: "competitor",
+          credits: run.creditsSpent,
+          canRetry: false,
         })),
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     : [];

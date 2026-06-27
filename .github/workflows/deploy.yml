@@ -15,12 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Apply database migrations
         run: |
@@ -28,12 +32,12 @@ jobs:
             echo "DATABASE_URL secret not configured; skipping migrations."
             exit 0
           fi
-          npm run db:migrate
+          pnpm db:migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Build for Cloudflare
-        run: npm run build:cf
+        run: pnpm build:cf
         env:
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
 

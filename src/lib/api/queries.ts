@@ -154,6 +154,24 @@ export type ResearchRun = {
   createdAt: string;
 };
 
+/** A competitor discovery surfaced on the activity feed from its ledger spend. */
+export type CompetitorRun = {
+  id: string;
+  status: string;
+  createdAt: string;
+  creditsSpent: number;
+};
+
+/**
+ * Activity feed entries, each annotated with the credits it spent. Competitor
+ * discoveries have no job/run record, so they come through as their own list.
+ */
+export type ActivityResponse = {
+  jobs: (AgentJob & { creditsSpent: number })[];
+  runs: (ResearchRun & { creditsSpent: number })[];
+  competitors: CompetitorRun[];
+};
+
 export type IntegrationView = {
   provider: string;
   name: string;
@@ -186,7 +204,7 @@ const articlesQueryOptions = () => ({
 });
 const activityQueryOptions = () => ({
   queryKey: queryKeys.activity,
-  queryFn: () => apiGet<{ jobs: AgentJob[]; runs: ResearchRun[] }>("/api/activity"),
+  queryFn: () => apiGet<ActivityResponse>("/api/activity"),
 });
 
 export function useMe() {

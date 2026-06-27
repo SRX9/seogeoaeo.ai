@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { creditLedger, subscriptions } from "@/lib/db/schema";
 
@@ -266,6 +266,43 @@ export async function listCreditLedger(workspaceId: string, limit = 20) {
     .select()
     .from(creditLedger)
     .where(eq(creditLedger.workspaceId, workspaceId))
+    .orderBy(desc(creditLedger.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Credits spent by a brand, keyed by the `refId` each spend paid for (a research
+ * run id or an article id). Looks up only the refs the activity feed is showing,
+ * so attribution stays accurate no matter how old the row is.
+ */
+export async function creditsForRefs(brandId: string, refIds: string[]) {
+  const map = new Map<string, number>();
+  if (refIds.length === 0) return map;
+  const rows = await getDb()
+    .select({ refId: creditLedger.refId, delta: creditLedger.delta })
+    .from(creditLedger)
+    .where(
+      and(
+        eq(creditLedger.brandId, brandId),
+        lt(creditLedger.delta, 0),
+        inArray(creditLedger.refId, refIds),
+      ),
+    );
+  for (const row of rows) {
+    if (row.refId) map.set(row.refId, (map.get(row.refId) ?? 0) + Math.abs(row.delta));
+  }
+  return map;
+}
+
+/**
+ * Recent competitor discoveries for the activity feed. They leave no job/run
+ * record, so their ledger spends are the only trace.
+ */
+export async function listCompetitorDiscoveries(brandId: string, limit = 10) {
+  return getDb()
+    .select({ id: creditLedger.id, delta: creditLedger.delta, createdAt: creditLedger.createdAt })
+    .from(creditLedger)
+    .where(and(eq(creditLedger.brandId, brandId), eq(creditLedger.reason, "competitor_discovery")))
     .orderBy(desc(creditLedger.createdAt))
     .limit(limit);
 }

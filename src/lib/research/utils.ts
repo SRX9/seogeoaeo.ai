@@ -21,7 +21,7 @@ export async function fetchText(url: string, timeoutMs = 8000) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { "User-Agent": "SEO_AI Research Bot/1.0" },
+      headers: { "User-Agent": "seogeoaeo.ai Research Bot/1.0" },
     });
     if (!response.ok) {
       return null;

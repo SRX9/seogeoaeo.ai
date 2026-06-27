@@ -43,7 +43,7 @@ export function BrandSection() {
         <Card.Header>
           <Card.Title>Brand context</Card.Title>
           <Card.Description>
-            SEO_AI uses this to research topics and write in your voice.
+            seogeoaeo.ai uses this to research topics and write in your voice.
           </Card.Description>
         </Card.Header>
         <Card.Content>
