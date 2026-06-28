@@ -46,40 +46,22 @@ jobs:
         env:
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
 
-      - name: Deploy Worker and sync secrets
+      # Deploy first so the Worker exists, THEN sync secrets. wrangler-action's
+      # built-in `secrets:` uploads before deploy (fails on a brand-new Worker)
+      # and hard-fails on any empty value, so we sync via secrets:cf instead,
+      # which skips empty/unconfigured secrets.
+      - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
-          secrets: |
-            DATABASE_URL
-            BETTER_AUTH_SECRET
-            BETTER_AUTH_URL
-            ENCRYPTION_KEY
-            CRON_SECRET
-            STRIPE_SECRET_KEY
-            STRIPE_WEBHOOK_SECRET
-            STRIPE_PRICE_INDIE
-            STRIPE_PRICE_STARTUP
-            STRIPE_PRICE_SCALE
-            STRIPE_PRICE_ENTERPRISE
-            STRIPE_PRICE_PACK_SMALL
-            STRIPE_PRICE_PACK_MEDIUM
-            STRIPE_PRICE_PACK_LARGE
-            LLM_BASE_URL
-            LLM_API_KEY
-            LLM_LIGHT_MODEL
-            LLM_HEAVY_MODEL
-            LLM_IMAGE_MODEL
-            GOOGLE_CLIENT_ID
-            GOOGLE_CLIENT_SECRET
-            GITHUB_CLIENT_ID
-            GITHUB_CLIENT_SECRET
-            TAVILY_API_KEY
-            SERPER_API_KEY
-            KEYWORD_API_URL
+
+      - name: Sync Worker secrets
+        run: pnpm secrets:cf
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
