@@ -25,6 +25,11 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+        env:
+          # Required so the @heroui-pro/react postinstall can download the
+          # licensed component code in CI (otherwise it exits 0 with a stub
+          # and the build fails with "Cannot find module '@heroui-pro/react'").
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
 
       - name: Apply database migrations
         run: |
