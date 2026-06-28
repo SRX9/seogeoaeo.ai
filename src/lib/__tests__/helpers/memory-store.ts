@@ -89,6 +89,7 @@ type Store = {
   integrations: Map<string, IntegrationView[]>;
   secrets: Map<string, string>;
   usage: Map<string, number>;
+  counters: Map<string, { generated: number; published: number }>;
   publications: Map<string, PublicationRow>;
   seq: number;
 };
@@ -102,6 +103,7 @@ export const store: Store = {
   integrations: new Map(),
   secrets: new Map(),
   usage: new Map(),
+  counters: new Map(),
   publications: new Map(),
   seq: 0,
 };
@@ -160,6 +162,7 @@ export function resetStore() {
   store.integrations.clear();
   store.secrets.clear();
   store.usage.clear();
+  store.counters.clear();
   store.publications.clear();
   store.seq = 0;
 
@@ -304,6 +307,10 @@ export function publicationsFor(workspaceId: string, articleId: string) {
   return [...store.publications.values()].filter(
     (row) => row.workspaceId === workspaceId && row.articleId === articleId,
   );
+}
+
+export function countersFor(workspaceId: string) {
+  return store.counters.get(workspaceId) ?? { generated: 0, published: 0 };
 }
 
 // ---- Mock module implementations (each closes over the singleton store) ----
@@ -483,6 +490,24 @@ export const jobsRepo = {
     return [...store.jobs.values()]
       .filter((job) => job.workspaceId === workspaceId)
       .slice(0, limit);
+  },
+  async incrementArticlesGenerated(scope: { workspaceId: string; brandId: string }, amount = 1) {
+    const current = store.counters.get(scope.brandId) ?? { generated: 0, published: 0 };
+    current.generated += amount;
+    store.counters.set(scope.brandId, current);
+  },
+  async incrementArticlesPublished(scope: { workspaceId: string; brandId: string }, amount = 1) {
+    const current = store.counters.get(scope.brandId) ?? { generated: 0, published: 0 };
+    current.published += amount;
+    store.counters.set(scope.brandId, current);
+  },
+  async getUsageTotals(brandId: string) {
+    const current = store.counters.get(brandId) ?? { generated: 0, published: 0 };
+    return {
+      articlesWritten: current.generated,
+      articlesPublished: current.published,
+      thisWeek: { articlesWritten: current.generated, articlesPublished: current.published },
+    };
   },
 };
 

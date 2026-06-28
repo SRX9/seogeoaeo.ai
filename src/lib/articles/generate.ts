@@ -19,7 +19,7 @@ import {
   type ArticleMetadata,
   type BrandContext,
 } from "@/lib/llm/prompts";
-import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
+import { createAgentJob, finishAgentJob, incrementArticlesGenerated } from "@/lib/jobs/repository";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { assertHasCredits, spendCredits } from "@/lib/usage/credits";
 import { articleStatusForAutonomy } from "@/lib/workspace/settings";
@@ -163,6 +163,18 @@ export async function generateArticleFromTopic(
     }
 
     await updateTopicStatus(topicId, "completed");
+
+    // Tally the agent's weekly output. Non-critical — never fail a finished
+    // article because the metrics write hiccupped.
+    try {
+      await incrementArticlesGenerated(scope);
+    } catch (error) {
+      logWarn("usage.generated_counter_skipped", {
+        workspaceId,
+        articleId: article.id,
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
 
     const trace: GenerationTrace = {
       summaryModel: summary.model,

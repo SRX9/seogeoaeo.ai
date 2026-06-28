@@ -3,18 +3,24 @@ node_modules/
 .pnp
 .pnp.js
 
+inspiration-code/
+
 # build
 .next/
 .open-next/
 out/
 dist/
 .wrangler/
+.wrangler-*/
 
 # env
 .env
+.env.production
 .env.local
 .env.*.local
 .env.production.local
+.dev.vars
+.dev.vars.*
 
 # debug
 npm-debug.log*

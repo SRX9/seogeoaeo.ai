@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ENV_FILE="${1:-$ROOT/.env.production.local}"
+ENV_FILE="${1:-$ROOT/.env.production}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Missing $ENV_FILE"
-  echo "Copy .env.production.example and fill in values first."
+  echo "Create .env.production and fill in the production values first."
   exit 1
 fi
 
@@ -31,7 +31,7 @@ put_secret() {
   echo "set $key"
 }
 
-REQUIRED=(DATABASE_URL BETTER_AUTH_SECRET BETTER_AUTH_URL CRON_SECRET)
+REQUIRED=(DATABASE_URL BETTER_AUTH_SECRET BETTER_AUTH_URL ENCRYPTION_KEY CRON_SECRET)
 for key in "${REQUIRED[@]}"; do
   if [[ -z "${!key:-}" ]]; then
     echo "Required variable $key is missing in $ENV_FILE"

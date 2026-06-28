@@ -2,7 +2,6 @@
 
 import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { AppLayout, Sidebar } from "@heroui-pro/react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { authClient } from "@/lib/auth/client";
@@ -14,7 +13,6 @@ import {
   ArticlesIcon,
   ChevronUpDownIcon,
   OverviewIcon,
-  SgaLogo,
   SettingsIcon,
   TopicsIcon,
 } from "@/components/icons";
@@ -26,13 +24,10 @@ const primaryNav = [
   { href: "/topics", label: "Topics", icon: TopicsIcon },
   { href: "/articles", label: "Articles", icon: ArticlesIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
-] as const;
-
-const settingsNav = [
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ] as const;
 
-const allNav = [...primaryNav, ...settingsNav];
+const allNav = primaryNav;
 
 function isActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === href;
@@ -63,7 +58,7 @@ function UserMenu({ user }: { user: SessionUser }) {
       <Button
         variant="ghost"
         aria-label="Account menu"
-        className="h-auto w-full justify-start gap-2.5 px-2 py-2"
+        className="h-auto min-w-0 flex-1 justify-start gap-2.5 px-2 py-2"
       >
         <Avatar size="sm">
           {user.image ? <Avatar.Image alt={user.name} src={user.image} /> : null}
@@ -97,7 +92,7 @@ function NavMenu({
   pathname,
   label,
 }: {
-  items: typeof primaryNav | typeof settingsNav;
+  items: typeof primaryNav;
   pathname: string;
   label: string;
 }) {
@@ -143,18 +138,12 @@ function SidebarContent({
         <Sidebar.Group>
           <NavMenu items={primaryNav} pathname={pathname} label="Primary" />
         </Sidebar.Group>
-        <Sidebar.Separator />
-        <Sidebar.Group>
-          <Sidebar.GroupLabel>Workspace</Sidebar.GroupLabel>
-          <NavMenu items={settingsNav} pathname={pathname} label="Settings" />
-        </Sidebar.Group>
       </Sidebar.Content>
       <Sidebar.Footer className="gap-2">
-        <div className="flex items-center justify-between gap-2 px-2 py-1">
-          <span className="text-xs font-medium text-muted">Appearance</span>
+        <div className="flex items-center gap-2">
           <ThemeToggle />
+          <UserMenu user={user} />
         </div>
-        <UserMenu user={user} />
       </Sidebar.Footer>
     </>
   );

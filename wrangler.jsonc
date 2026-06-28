@@ -1,14 +1,31 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "seo-ai",
-  "main": "cf-worker.ts",
+  "main": ".open-next/worker.js",
+  "keep_vars": true,
+  "routes": [
+    {
+      "pattern": "seogeoaeo.ai",
+      "custom_domain": true
+    }
+  ],
   "triggers": {
     "crons": ["0 9 * * 1"]
   },
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat"],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "29f7a53988fc495d90086fdd4b1ee859"
+    }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
   }
 }

@@ -3,6 +3,7 @@
  * sizes to `size-5` by default; pass `className` to override.
  */
 import type { SVGProps } from "react";
+import { cn } from "@/lib/cn";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -270,129 +271,108 @@ export function ChevronRightIcon(props: IconProps) {
   );
 }
 
-export function SgaLogoIcon({ className, ...props }: IconProps) {
+export function GaugeIcon(props: IconProps) {
   return (
-    <svg
-      viewBox="0 0 100 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className ?? "size-10"}
-      {...props}
-    >
-      <defs>
-        {/* iOS Squircle Background Gradient */}
-        <linearGradient id="ios-bg-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#1e1e30" />
-          <stop offset="100%" stopColor="#0a0a0f" />
-        </linearGradient>
-
-        {/* Outer Metallic Chamfered Rim Gradient */}
-        <linearGradient id="ios-rim-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.15" />
-          <stop offset="50%" stopColor="#ffffff" stopOpacity="0.03" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.4" />
-        </linearGradient>
-
-        {/* Glyphic Holographic SGA Ribbon Gradient */}
-        <linearGradient id="ios-glyph-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#6366f1" /> {/* Royal Indigo */}
-          <stop offset="40%" stopColor="#06b6d4" /> {/* Electric Cyan */}
-          <stop offset="100%" stopColor="#10b981" /> {/* Mint Green */}
-        </linearGradient>
-
-        {/* Ambient Drop Shadow for iOS Squircle Depth */}
-        <filter id="ios-shadow" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="4" stdDeviation="5" floodColor="#000000" floodOpacity="0.5" />
-        </filter>
-
-        {/* Glow for the Central Symbolic Glyph */}
-        <filter id="ios-glyph-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-      </defs>
-
-      {/* Main iOS App Icon Squircle Container with drop shadow */}
-      <rect
-        x="6"
-        y="6"
-        width="88"
-        height="82"
-        rx="24"
-        fill="url(#ios-bg-gradient)"
-        filter="url(#ios-shadow)"
-      />
-
-      {/* Inner Metallic Bevel / Precise Chamfered Rim */}
-      <rect
-        x="6.5"
-        y="6.5"
-        width="87"
-        height="81"
-        rx="23.5"
-        stroke="url(#ios-rim-gradient)"
-        strokeWidth="1"
-        fill="none"
-      />
-
-      {/* Ambient Inner Glow (subtle accent background light) */}
-      <circle
-        cx="50"
-        cy="45"
-        r="28"
-        fill="#06b6d4"
-        className="opacity-15 blur-[12px]"
-      />
-
-      {/* The Central Symbolic SGA Monogram Glyph */}
-      <g filter="url(#ios-glyph-glow)">
-        {/* Main Ribbon S Path */}
-        <path
-          d="M34 35 C34 26.5, 46 23.5, 52 23.5 C63 23.5, 65 31, 60 37.5 C55 44, 45 44, 40 50.5 C35 57, 37 68.5, 48 68.5 C59 68.5, 66 61.5, 66 54.5"
-          stroke="url(#ios-glyph-gradient)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* SEO Search Loop Ring */}
-        <circle
-          cx="42.5"
-          cy="32.5"
-          r="5.5"
-          stroke="url(#ios-glyph-gradient)"
-          strokeWidth="2"
-        />
-
-        {/* GEO AI Sparkle in the center of the squircle */}
-        <path
-          d="M50 42 L51.5 45.5 L55.5 47 L51.5 48.5 L50 52 L48.5 48.5 L44.5 47 L48.5 45.5 Z"
-          fill="url(#ios-glyph-gradient)"
-        />
-
-        {/* AEO Answer Engine Pointer node at the ending tip */}
-        <circle cx="66" cy="54.5" r="4.5" fill="#10b981" />
-        <path
-          d="M66 54.5 L71 59.5 L69 51.5 Z"
-          fill="#10b981"
-        />
-      </g>
-
-      {/* Premium iOS 3D Gloss / Glass Highlight Overlay */}
-      <path
-        d="M6 30 C6 16.7, 16.7 6, 30 6 L70 6 C83.3 6, 94 16.7, 94 30 C94 30.5, 80 34, 50 34 C20 34, 6 30.5, 6 30 Z"
-        fill="#ffffff"
-        className="opacity-[0.06]"
-      />
-    </svg>
+    <Icon {...props}>
+      <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+      <path d="m13.4 12.6 3.6-3.6" />
+      <path d="M3.5 18a9 9 0 1 1 17 0" />
+    </Icon>
   );
 }
 
-export function SgaLogo({ className, iconClassName, ...props }: { className?: string; iconClassName?: string } & IconProps) {
+export function PlugIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 2v6M15 2v6" />
+      <path d="M6 8h12v2a6 6 0 0 1-12 0z" />
+      <path d="M12 16v6" />
+    </Icon>
+  );
+}
+
+export function RocketIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2 0-2.8a2 2 0 0 0-3 0z" />
+      <path d="M12 15 9 12a13 13 0 0 1 9-9c1.5 0 3 1.5 3 3a13 13 0 0 1-9 9z" />
+      <path d="M9 12H4s.5-2.8 2-4c1.6-1.3 4-1 4-1M12 15v5s2.8-.5 4-2c1.3-1.6 1-4 1-4" />
+    </Icon>
+  );
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" />
+    </Icon>
+  );
+}
+
+export function LayersIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m12 2 9 5-9 5-9-5z" />
+      <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+    </Icon>
+  );
+}
+
+export function BoltIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
+    </Icon>
+  );
+}
+
+export function ShieldIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z" />
+      <path d="m9 12 2 2 4-4" />
+    </Icon>
+  );
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4.5" width="18" height="17" rx="2" />
+      <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+    </Icon>
+  );
+}
+
+export function ChartBarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 3v18h18" />
+      <path d="M7 16v-4M12 16V8M17 16v-7" />
+    </Icon>
+  );
+}
+
+export function SgaLogoIcon({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- static brand mark; avoids the Image optimizer on Cloudflare
+    <img
+      src="/web-app-manifest-192x192.png"
+      alt=""
+      width={36}
+      height={36}
+      // rounded-[22%] mirrors the Apple icon corner radius (~22% of the size) and scales with any size class
+      className={cn("rounded-[22%]", className ?? "size-9")}
+    />
+  );
+}
+
+export function SgaLogo({ className, iconClassName }: { className?: string; iconClassName?: string }) {
   return (
     <div className={className ?? "flex items-center gap-2.5"}>
-      <SgaLogoIcon className={iconClassName ?? "size-9"} {...props} />
-      <div className="text-xl font-bold tracking-tight text-foreground bg-clip-text">
+      <SgaLogoIcon className={iconClassName ?? "size-9"} />
+      <div className="text-xl font-bold tracking-tight text-foreground">
         SeoGeoAeo<span className="text-muted font-normal">.ai</span>
       </div>
     </div>

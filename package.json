@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cf": "DATABASE_URL=postgresql://ci:ci@localhost:5432/seo_ai BETTER_AUTH_SECRET=ci-build-secret-minimum-32-characters BETTER_AUTH_URL=https://seo-ai.example.com ENCRYPTION_KEY=ci-encryption-key-32-characters-long opennextjs-cloudflare build",
+    "build:cf": "node scripts/build-cloudflare.mjs",
     "preview:cf": "pnpm run build:cf && opennextjs-cloudflare preview",
-    "deploy:cf": "pnpm run build:cf && opennextjs-cloudflare deploy",
+    "deploy:cf": "node scripts/deploy-cloudflare.mjs",
+    "secrets:cf": "node scripts/set-worker-secrets.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

@@ -25,13 +25,13 @@ Postgres. v1 is complete on `main` per `docs/v1-implementation-phases.md`.
 | Service | Required? | Notes |
 |---------|-----------|--------|
 | Next.js dev server | For local UI | `pnpm dev` |
-| PlanetScale Postgres | For DB features | Set `DATABASE_URL` in `.env.local` |
+| PlanetScale Postgres | For DB features | Set `DATABASE_URL` in `.env` |
 | Cloudflare Workers | For production deploy | `pnpm deploy:cf` after wrangler auth |
 
 ## Cursor Cloud specific instructions
 
 - **Update script**: `pnpm install` (idempotent).
-- **Local auth preview**: set `AUTH_DEV_BYPASS=true` in `.env.local` to access
+- **Local auth preview**: set `AUTH_DEV_BYPASS=true` in `.env` to access
  dashboard routes without Better Auth (Phase 1).
 - **Database**: set `DATABASE_URL` as a Worker secret (Hyperdrive optional later).
 - **Production setup**: see `docs/production-setup.md`; Stripe test prices in `infra/stripe-products.json`.

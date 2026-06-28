@@ -69,6 +69,21 @@ type IntegrationFields = {
   apiKey: string;
 };
 
+type IntegrationConfigKey = keyof IntegrationView["config"];
+
+/**
+ * The fields publishing actually needs before a provider can run, mirroring the
+ * guards in each publishing adapter. Used to gate the Enable button so a brand
+ * can't switch on an integration that would fail on the first publish.
+ */
+const REQUIRED_FIELDS: Record<string, { config: IntegrationConfigKey[]; secret: boolean }> = {
+  webhook: { config: ["webhookUrl"], secret: false },
+  devto: { config: [], secret: true },
+  hashnode: { config: ["publicationId"], secret: true },
+  wordpress: { config: ["siteUrl", "username"], secret: true },
+  ghost: { config: ["adminApiUrl"], secret: true },
+};
+
 function buildConfig(provider: string, fields: IntegrationFields): Record<string, string> {
   switch (provider) {
     case "webhook":
@@ -137,6 +152,16 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
 
   const busy = toggle.isPending || save.isPending;
 
+  // A required field counts as satisfied if it's freshly typed or already saved.
+  // Secrets never round-trip to the client, so a saved one shows via hasSecret.
+  const requirements = REQUIRED_FIELDS[integration.provider];
+  const requirementsMet =
+    !requirements ||
+    (requirements.config.every((key) => Boolean(fields[key].trim() || integration.config[key])) &&
+      (!requirements.secret || Boolean(fields.apiKey.trim() || integration.hasSecret)));
+  // Only block enabling — disabling an already-enabled provider stays allowed.
+  const canToggle = integration.enabled || requirementsMet;
+
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const apiKey = fields.apiKey.trim();
@@ -199,12 +224,18 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
           variant="secondary"
           isPending={toggle.isPending}
           pendingLabel="Saving…"
-          isDisabled={busy}
+          isDisabled={busy || !canToggle}
           onPress={() => toggle.mutate(!integration.enabled)}
         >
           {integration.enabled ? "Disable" : "Enable"}
         </LoadingButton>
       </div>
+
+      {!canToggle ? (
+        <p className="text-sm text-muted">
+          Enter the required details above to enable this integration.
+        </p>
+      ) : null}
     </form>
   );
 }

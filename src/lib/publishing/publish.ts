@@ -2,6 +2,8 @@ import { parseTags } from "@/lib/articles/format";
 import { getArticle } from "@/lib/articles/repository";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getRequestOrigin } from "@/lib/billing/access";
+import { incrementArticlesPublished } from "@/lib/jobs/repository";
+import { logWarn } from "@/lib/logging/logger";
 import {
   listIntegrations,
   readIntegrationSecret,
@@ -149,6 +151,22 @@ export async function publishArticleToDestinations(
     results.push(
       await publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint),
     );
+  }
+
+  // Count the article once if it newly reached at least one destination (a pure
+  // no-op re-publish where every destination was skipped doesn't count). Metrics
+  // are non-critical, so a counter failure never breaks publishing.
+  const newlyPublished = results.some((entry) => entry.result.ok && !entry.result.skipped);
+  if (newlyPublished) {
+    try {
+      await incrementArticlesPublished(scope);
+    } catch (error) {
+      logWarn("usage.published_counter_skipped", {
+        workspaceId: scope.workspaceId,
+        articleId,
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   return results;

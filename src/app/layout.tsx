@@ -14,13 +14,8 @@ export const metadata: Metadata = {
   description:
     "Supercharge your search presence with autonomous SEO, GEO, and AEO. Research high-intent topics, generate search-optimized articles, and publish automatically to dev.to, Ghost, Hashnode, WordPress, and more.",
   metadataBase: new URL("https://seogeoaeo.ai"),
-  icons: {
-    icon: [
-      { url: "/favicon.png", type: "image/png" },
-      { url: "/favicon.ico" }
-    ],
-    apple: "/favicon.png",
-  },
+  // Favicon / app icons are generated from the file-based conventions in
+  // src/app (favicon.ico, icon0.svg, icon1.png, apple-icon.png).
   openGraph: {
     title: "seogeoaeo.ai — Autonomous SEO, GEO & AEO on autopilot",
     description: "Supercharge your search presence with autonomous SEO, GEO, and AEO.",
@@ -61,6 +56,7 @@ export default function RootLayout({
     <html lang="en" className="light glass-light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <meta name="apple-mobile-web-app-title" content="SeoGeoAeo AI" />
       </head>
       <body
         className={`${inter.variable} min-h-screen bg-background font-sans text-foreground antialiased`}

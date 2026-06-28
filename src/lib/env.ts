@@ -17,11 +17,17 @@ const serverSchema = z.object({
   STRIPE_PRICE_PACK_SMALL: z.string().optional(),
   STRIPE_PRICE_PACK_MEDIUM: z.string().optional(),
   STRIPE_PRICE_PACK_LARGE: z.string().optional(),
+  ENCRYPTION_KEY: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
+  AUTH_DEV_BYPASS: z.string().optional(),
   LLM_BASE_URL: z.string().url().optional(),
   LLM_API_KEY: z.string().optional(),
   LLM_LIGHT_MODEL: z.string().optional(),
   LLM_HEAVY_MODEL: z.string().optional(),
   LLM_IMAGE_MODEL: z.string().optional(),
+  TAVILY_API_KEY: z.string().optional(),
+  SERPER_API_KEY: z.string().optional(),
+  KEYWORD_API_URL: z.string().url().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

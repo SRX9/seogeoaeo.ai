@@ -5,6 +5,7 @@ import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 import Link from "next/link";
 import { DashboardKpis } from "@/components/dashboard/dashboard-kpis";
+import { AutomationCard } from "@/components/dashboard/automation-card";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageError, PageLoader } from "@/components/feedback/states";
@@ -83,6 +84,8 @@ export default function DashboardPage() {
         approvedArticles={data.approvedArticles}
         pendingTopics={data.pendingTopics}
       />
+
+      <AutomationCard automation={data.automation} />
 
       <OnboardingChecklist steps={data.onboardingSteps} />
 

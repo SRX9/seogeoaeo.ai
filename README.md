@@ -16,12 +16,13 @@ SEO-ready articles, and publishes them to the user's connected platforms.
 | Build (Cloudflare) | `pnpm build:cf` |
 | Preview on Workers | `pnpm preview:cf` |
 | Deploy to Cloudflare | `pnpm deploy:cf` |
+| Push Worker secrets | `pnpm secrets:cf` |
 | Generate migration | `pnpm db:generate` |
 | Apply migrations | `pnpm db:migrate` |
 
-Copy `.env.example` to `.env.local` and fill in values. Set
-`AUTH_DEV_BYPASS=true` locally to preview authenticated dashboard routes before
-Phase 1 auth is implemented.
+Use `.env` for local development and `.env.production` for production
+deployment values. Set `AUTH_DEV_BYPASS=true` locally only when you want to
+preview authenticated dashboard routes without real auth.
 
 ## Stack
 
@@ -34,6 +35,8 @@ Phase 1 auth is implemented.
 
 - [Product and architecture plan](docs/content-agent-plan.md)
 - [Phased v1 implementation plan](docs/v1-implementation-phases.md)
+- [SEO·AEO·GEO tools & features catalog](docs/tools-catalog.md)
+- [Visibility suite build plan (phased tickets)](docs/visibility-suite/README.md)
 - [Production setup checklist](docs/production-setup.md)
 
 ## Current status
@@ -55,15 +58,17 @@ Quick start:
 export DATABASE_URL="postgresql://..."
 pnpm db:migrate
 
-# 2. Copy and fill production env, then push Worker secrets
-cp .env.production.example .env.production.local
-chmod +x scripts/set-worker-secrets.sh
+# 2. First deploy creates the Cloudflare Worker, Assets, and cron trigger
 pnpm exec wrangler login
-./scripts/set-worker-secrets.sh
+pnpm deploy:cf
 
-# 3. Deploy
+# 3. Edit .env.production with production values, then push Worker secrets
+pnpm secrets:cf
+
+# 4. Redeploy with production secrets available
 pnpm deploy:cf
 ```
 
-GitHub Actions deploy (`.github/workflows/deploy.yml`) syncs Worker secrets from
-repository secrets on each push to `main`.
+After the first deploy, prefer Git-backed production deploys: GitHub Actions
+(`.github/workflows/deploy.yml`) runs migrations, builds OpenNext, deploys the
+Worker, and syncs Worker secrets on each push to `main`.

@@ -80,8 +80,30 @@ export type DashboardResponse = {
   approvedArticles: number;
   pendingTopics: number;
   latestRun: { status: string; summary: string | null; topicsCreated: number | null } | null;
+  automation: AutomationStats;
   onboardingSteps: OnboardingStep[];
   recentArticles: { id: string; title: string; status: string }[];
+};
+
+export type AutomationStats = {
+  /** Whether the weekly auto-run pipeline is active (requires a subscription). */
+  enabled: boolean;
+  autoPublish: boolean;
+  schedule: string;
+  nextRunAt: string | null;
+  /** When the workspace (its content agent) was created. */
+  workingSince: string;
+  totalRuns: number;
+  /** Lifetime articles written / published, from durable usage_counters. */
+  articlesWritten: number;
+  articlesPublished: number;
+  thisWeek: { articlesWritten: number; articlesPublished: number };
+  lastRun: {
+    status: string;
+    createdAt: string;
+    articlesGenerated: number;
+    topicsResearched: number;
+  } | null;
 };
 
 export type BrandProfile = {

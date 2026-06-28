@@ -1,15 +1,41 @@
-import { Hero, Pricing } from "@/components/marketing/landing-sections";
+import type { Metadata } from "next";
+import {
+  ContentEmployee,
+  Faq,
+  Features,
+  FinalCta,
+  Hero,
+  HowItWorks,
+  Pricing,
+  Publish,
+  TrustBar,
+} from "@/components/marketing/landing-sections";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "seogeoaeo.ai — Autonomous SEO, GEO & AEO on autopilot",
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: SITE_URL },
+};
 
 export default function HomePage() {
   return (
     <div>
       <SiteHeader />
-      <Hero />
-      <Pricing />
-      <footer className="mx-auto max-w-6xl px-4 py-10 text-center text-sm text-muted">
-        © {new Date().getFullYear()} seogeoaeo.ai
-      </footer>
+      <main>
+        <Hero />
+        <TrustBar />
+        <Features />
+        <HowItWorks />
+        <ContentEmployee />
+        <Publish />
+        <Pricing />
+        <Faq />
+        <FinalCta />
+      </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -29,11 +29,14 @@ export const usageCounters = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
     weekStart: text("week_start").notNull(),
     articlesGenerated: integer("articles_generated").notNull().default(0),
     articlesPublished: integer("articles_published").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [uniqueIndex("usage_counters_workspace_week_idx").on(table.workspaceId, table.weekStart)],
+  (table) => [uniqueIndex("usage_counters_brand_week_idx").on(table.brandId, table.weekStart)],
 );

@@ -47,6 +47,33 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
+          secrets: |
+            DATABASE_URL
+            BETTER_AUTH_SECRET
+            BETTER_AUTH_URL
+            ENCRYPTION_KEY
+            CRON_SECRET
+            STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET
+            STRIPE_PRICE_INDIE
+            STRIPE_PRICE_STARTUP
+            STRIPE_PRICE_SCALE
+            STRIPE_PRICE_ENTERPRISE
+            STRIPE_PRICE_PACK_SMALL
+            STRIPE_PRICE_PACK_MEDIUM
+            STRIPE_PRICE_PACK_LARGE
+            LLM_BASE_URL
+            LLM_API_KEY
+            LLM_LIGHT_MODEL
+            LLM_HEAVY_MODEL
+            LLM_IMAGE_MODEL
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            GITHUB_CLIENT_ID
+            GITHUB_CLIENT_SECRET
+            TAVILY_API_KEY
+            SERPER_API_KEY
+            KEYWORD_API_URL
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
@@ -59,6 +86,9 @@ jobs:
           STRIPE_PRICE_STARTUP: ${{ secrets.STRIPE_PRICE_STARTUP }}
           STRIPE_PRICE_SCALE: ${{ secrets.STRIPE_PRICE_SCALE }}
           STRIPE_PRICE_ENTERPRISE: ${{ secrets.STRIPE_PRICE_ENTERPRISE }}
+          STRIPE_PRICE_PACK_SMALL: ${{ secrets.STRIPE_PRICE_PACK_SMALL }}
+          STRIPE_PRICE_PACK_MEDIUM: ${{ secrets.STRIPE_PRICE_PACK_MEDIUM }}
+          STRIPE_PRICE_PACK_LARGE: ${{ secrets.STRIPE_PRICE_PACK_LARGE }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_LIGHT_MODEL: ${{ secrets.LLM_LIGHT_MODEL }}
@@ -68,24 +98,6 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
           GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
-        secrets: |
-          DATABASE_URL
-          BETTER_AUTH_SECRET
-          BETTER_AUTH_URL
-          ENCRYPTION_KEY
-          CRON_SECRET
-          STRIPE_SECRET_KEY
-          STRIPE_WEBHOOK_SECRET
-          STRIPE_PRICE_INDIE
-          STRIPE_PRICE_STARTUP
-          STRIPE_PRICE_SCALE
-          STRIPE_PRICE_ENTERPRISE
-          LLM_BASE_URL
-          LLM_API_KEY
-          LLM_LIGHT_MODEL
-          LLM_HEAVY_MODEL
-          LLM_IMAGE_MODEL
-          GOOGLE_CLIENT_ID
-          GOOGLE_CLIENT_SECRET
-          GITHUB_CLIENT_ID
-          GITHUB_CLIENT_SECRET
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          KEYWORD_API_URL: ${{ secrets.KEYWORD_API_URL }}

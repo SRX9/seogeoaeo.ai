@@ -22,6 +22,7 @@ vi.mock("@/lib/research/run", async () => (await import("./helpers/memory-store"
 
 import { runWeeklyPipelineForWorkspace } from "@/lib/jobs/weekly";
 import {
+  countersFor,
   jobsFor,
   publicationsFor,
   research,
@@ -58,6 +59,10 @@ describe("weekly pipeline workflow", () => {
     expect(metadata.researchTopics).toBe(3);
     expect(metadata.generatedArticleIds).toHaveLength(2);
     expect(metadata.skippedTopicIds).toHaveLength(0);
+
+    // Durable usage counters track the agent's output. REVIEW mode writes but
+    // does not publish, so only the generated tally moves.
+    expect(countersFor("ws-1")).toEqual({ generated: 2, published: 0 });
   });
 
   it("processes the highest-scoring topics first", async () => {
@@ -114,6 +119,9 @@ describe("weekly pipeline workflow", () => {
     expect(publications).toHaveLength(1);
     expect(publications[0].status).toBe("published");
     expect(publications[0].externalUrl).toContain(`/api/articles/${article.id}/export`);
+
+    // FULL_AUTO writes and publishes, so both counters advance.
+    expect(countersFor("ws-1")).toEqual({ generated: 1, published: 1 });
   });
 
   it("fails the pipeline job when the research step throws", async () => {

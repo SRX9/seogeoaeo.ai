@@ -1,0 +1,75 @@
+import type { Metadata } from "next";
+import { LegalShell, type LegalSection } from "@/components/marketing/legal-shell";
+import { SITE_URL } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "Terms of Service — seogeoaeo.ai",
+  description:
+    "The terms that govern your use of seogeoaeo.ai, the all-in-one SEO·AEO·GEO suite.",
+  alternates: { canonical: `${SITE_URL}/terms` },
+};
+
+const sections: LegalSection[] = [
+  {
+    heading: "Acceptance of terms",
+    body: [
+      "By creating an account or using seogeoaeo.ai (the “service”), you agree to these Terms of Service. If you are using the service on behalf of an organization, you represent that you have authority to bind that organization.",
+    ],
+  },
+  {
+    heading: "Your account",
+    body: [
+      "You are responsible for activity that happens under your account and for keeping your sign-in method secure. You must provide accurate information and use the service in compliance with applicable laws.",
+    ],
+  },
+  {
+    heading: "Plans, credits & billing",
+    body: [
+      "Paid plans include a monthly allowance of credits that resets each billing cycle and does not roll over. One-time credit packs you purchase do not expire and stack on top of your plan.",
+      "Subscriptions renew automatically until cancelled. You can cancel at any time and will retain access through the end of the period you have paid for. Except where required by law, payments are non-refundable.",
+    ],
+  },
+  {
+    heading: "Acceptable use",
+    body: [
+      "You agree not to use the service to produce or publish content that is unlawful, infringing, deceptive, or harmful, and not to abuse, reverse engineer, or disrupt the service or its infrastructure.",
+      "You are responsible for the content you generate and publish through connected platforms, and for ensuring it complies with each platform’s rules and with applicable law.",
+    ],
+  },
+  {
+    heading: "AI-generated content",
+    body: [
+      "The service uses AI to research and generate content. Output may contain inaccuracies and should be reviewed before publishing. You are responsible for verifying and editing content to meet your standards.",
+    ],
+  },
+  {
+    heading: "Intellectual property",
+    body: [
+      "You retain ownership of the content you create with the service. We retain all rights to the software, design, and underlying technology. You grant us the limited rights needed to operate the service on your behalf.",
+    ],
+  },
+  {
+    heading: "Disclaimers & limitation of liability",
+    body: [
+      "The service is provided “as is” without warranties of any kind. We do not guarantee specific search rankings, AI citations, or traffic outcomes.",
+      "To the maximum extent permitted by law, seogeoaeo.ai will not be liable for indirect, incidental, or consequential damages arising from your use of the service.",
+    ],
+  },
+  {
+    heading: "Changes & termination",
+    body: [
+      "We may update these terms or the service over time. Material changes will be reflected by the date above. We may suspend or terminate accounts that violate these terms, and you may stop using the service at any time.",
+    ],
+  },
+];
+
+export default function TermsPage() {
+  return (
+    <LegalShell
+      title="Terms of Service"
+      lastUpdated="June 28, 2026"
+      intro="These terms govern your access to and use of seogeoaeo.ai. Please read them carefully — they form a binding agreement between you and seogeoaeo.ai."
+      sections={sections}
+    />
+  );
+}
