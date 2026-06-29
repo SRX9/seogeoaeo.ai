@@ -4,6 +4,9 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const envFile = resolve(process.argv[2] ?? ".env.production");
+// In CI there is no dotenv file; values come from process.env (GitHub Actions
+// secrets) instead. Locally we read .env.production. Either source is fine.
+const useEnvFallback = !existsSync(envFile);
 
 const required = ["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "ENCRYPTION_KEY", "CRON_SECRET"];
 const secretNames = [
@@ -70,22 +73,29 @@ function runWrangler(args, options = {}) {
   });
 }
 
-if (!existsSync(envFile)) {
-  console.error(`Missing ${envFile}`);
-  console.error("Create .env.production and fill in the production values first.");
-  process.exit(1);
-}
-
 const auth = runWrangler(["whoami"]);
 if (auth.status !== 0) {
-  console.error("Wrangler is not authenticated. Run: pnpm exec wrangler login");
+  console.error(
+    "Wrangler is not authenticated. Run `pnpm exec wrangler login` locally, " +
+      "or set CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID in CI.",
+  );
   process.exit(auth.status ?? 1);
 }
 
-const values = parseDotenv(readFileSync(envFile, "utf8"));
+let fileValues = {};
+if (useEnvFallback) {
+  console.log(`No ${envFile} found; reading secret values from process.env.`);
+} else {
+  fileValues = parseDotenv(readFileSync(envFile, "utf8"));
+}
+// Prefer the dotenv file value, fall back to the matching environment variable.
+const values = Object.fromEntries(
+  secretNames.map((key) => [key, fileValues[key] ?? process.env[key] ?? ""]),
+);
 const missing = required.filter((key) => !values[key]);
 if (missing.length > 0) {
-  console.error(`Required variables missing in ${envFile}: ${missing.join(", ")}`);
+  const source = useEnvFallback ? "environment" : envFile;
+  console.error(`Required variables missing in ${source}: ${missing.join(", ")}`);
   process.exit(1);
 }
 
