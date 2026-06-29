@@ -18,6 +18,11 @@ export function getWeekStart(date = new Date()) {
   return utc.toISOString().slice(0, 10);
 }
 
+/** UTC calendar-day key, "YYYY-MM-DD" — the per-day bucket the daily agent uses. */
+export function getUtcDayKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
 export function articleStatusForAutonomy(mode: string) {
   return mode === "FULL_AUTO" ? "approved" : "draft";
 }
@@ -27,6 +32,23 @@ export function articleStatusForAutonomy(mode: string) {
  * with the cron in `wrangler.jsonc` (`"0 9 * * 1"` = Mondays 09:00 UTC).
  */
 export const WEEKLY_RUN_SCHEDULE_LABEL = "Mondays · 09:00 UTC";
+
+/**
+ * Human-readable schedule for the daily content agent. Must stay in sync with the
+ * cron in `wrangler.jsonc` (`"0 8 * * *"` = every day 08:00 UTC).
+ */
+export const DAILY_RUN_SCHEDULE_LABEL = "Every day · 08:00 UTC";
+
+/** Next time the daily pipeline cron will fire (08:00 UTC), relative to `from`. */
+export function getNextDailyRun(from = new Date()): Date {
+  const next = new Date(
+    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), 8, 0, 0, 0),
+  );
+  if (from.getTime() >= next.getTime()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next;
+}
 
 /** Next time the weekly pipeline cron will fire, relative to `from`. */
 export function getNextWeeklyRun(from = new Date()): Date {

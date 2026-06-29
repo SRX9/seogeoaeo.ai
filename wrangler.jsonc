@@ -10,8 +10,14 @@
     }
   ],
   "triggers": {
-    "crons": ["0 9 * * 1"]
+    "crons": ["0 8 * * *"]
   },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "remote": true
+    }
+  ],
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat"],
   "hyperdrive": [

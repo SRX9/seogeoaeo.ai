@@ -22,19 +22,41 @@ export type Plan = {
   price: number;
   /** Credits granted each billing cycle (reset, use-it-or-lose-it). */
   monthlyCredits: number;
+  /**
+   * Upper bound on how many articles the daily content agent writes per day for
+   * this plan. The daily cron spreads work evenly (this many per day) instead of
+   * burning the whole month in one Monday run. Credits remain the real budget —
+   * whichever runs out first (this cap or the credit balance) stops writing.
+   */
+  dailyArticleCap: number;
 };
 
 const planIds: PlanId[] = ["indie", "startup", "scale", "enterprise"];
 
 export const plans: Record<PlanId, Plan> = {
-  indie: { id: "indie", name: "Indie", price: 29, monthlyCredits: 2000 },
-  startup: { id: "startup", name: "Startup", price: 69, monthlyCredits: 5000 },
-  scale: { id: "scale", name: "Scale", price: 199, monthlyCredits: 22000 },
-  enterprise: { id: "enterprise", name: "Enterprise", price: 499, monthlyCredits: 130000 },
+  indie: { id: "indie", name: "Indie", price: 29, monthlyCredits: 2000, dailyArticleCap: 1 },
+  startup: { id: "startup", name: "Startup", price: 69, monthlyCredits: 5000, dailyArticleCap: 3 },
+  scale: { id: "scale", name: "Scale", price: 199, monthlyCredits: 22000, dailyArticleCap: 10 },
+  enterprise: {
+    id: "enterprise",
+    name: "Enterprise",
+    price: 499,
+    monthlyCredits: 130000,
+    dailyArticleCap: 40,
+  },
 };
 
 export function getPlan(planId: string): Plan | undefined {
   return plans[planId as PlanId];
+}
+
+/**
+ * Daily article cap for a plan id. Unknown / "free" (unsubscribed) plans get 0 —
+ * the daily agent only writes for active, paid plans.
+ */
+export function dailyArticleCapForPlan(planId: string | null | undefined): number {
+  if (!planId) return 0;
+  return plans[planId as PlanId]?.dailyArticleCap ?? 0;
 }
 
 /** Approximate articles a plan's monthly credits buy — for display only. */

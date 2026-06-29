@@ -80,6 +80,16 @@ export type PublicationRow = {
   publishedHash: string | null;
 };
 
+export type DailyRunRow = {
+  workspaceId: string;
+  brandId: string;
+  runDate: string;
+  articlesWritten: number;
+  topicsResearched: number;
+  status: string;
+  note: string | null;
+};
+
 type Store = {
   workspaces: Map<string, WorkspaceRow>;
   topics: Map<string, TopicRow>;
@@ -91,6 +101,7 @@ type Store = {
   usage: Map<string, number>;
   counters: Map<string, { generated: number; published: number }>;
   publications: Map<string, PublicationRow>;
+  dailyRuns: Map<string, DailyRunRow>;
   seq: number;
 };
 
@@ -105,6 +116,7 @@ export const store: Store = {
   usage: new Map(),
   counters: new Map(),
   publications: new Map(),
+  dailyRuns: new Map(),
   seq: 0,
 };
 
@@ -147,10 +159,17 @@ export const llm: LlmState = {
   jsonCalls: 0,
 };
 
-/** Controls the mocked weekly research step. */
+/** Controls the mocked research step (weekly + daily). */
 export const research = {
   topicsCreated: 0,
   fail: false,
+  /** Number of times runResearch was invoked (for the daily replenish tests). */
+  calls: 0,
+};
+
+/** Captures out-of-credits emails the daily agent tried to send. */
+export const email: { sent: Array<{ workspaceId: string; brandName?: string; pendingTopics: number }> } = {
+  sent: [],
 };
 
 export function resetStore() {
@@ -164,6 +183,7 @@ export function resetStore() {
   store.usage.clear();
   store.counters.clear();
   store.publications.clear();
+  store.dailyRuns.clear();
   store.seq = 0;
 
   llm.textResponses = [
@@ -187,6 +207,8 @@ export function resetStore() {
 
   research.topicsCreated = 0;
   research.fail = false;
+  research.calls = 0;
+  email.sent = [];
 }
 
 // ---- Seed helpers ----
@@ -661,9 +683,46 @@ export const billingAccess = {
 
 export const researchRun = {
   async runResearch() {
+    research.calls += 1;
     if (research.fail) {
       throw new Error("Research step failed");
     }
-    return { topicsCreated: research.topicsCreated };
+    return { runId: nextId("research-run"), topicsCreated: research.topicsCreated };
+  },
+};
+
+export function dailyRunFor(brandId: string, runDate: string) {
+  return store.dailyRuns.get(`${brandId}:${runDate}`) ?? null;
+}
+
+export const dailyRepo = {
+  async getDailyRun(brandId: string, runDate: string) {
+    return store.dailyRuns.get(`${brandId}:${runDate}`) ?? null;
+  },
+  async upsertDailyRun(
+    scope: { workspaceId: string; brandId: string },
+    runDate: string,
+    input: {
+      articlesWritten: number;
+      topicsResearched: number;
+      status: string;
+      note?: string | null;
+    },
+  ) {
+    store.dailyRuns.set(`${scope.brandId}:${runDate}`, {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      runDate,
+      articlesWritten: input.articlesWritten,
+      topicsResearched: input.topicsResearched,
+      status: input.status,
+      note: input.note ?? null,
+    });
+  },
+};
+
+export const emailNotify = {
+  async sendOutOfCreditsEmail(notice: { workspaceId: string; brandName?: string; pendingTopics: number }) {
+    email.sent.push(notice);
   },
 };

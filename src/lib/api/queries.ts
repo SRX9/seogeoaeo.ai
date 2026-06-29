@@ -85,12 +85,26 @@ export type DashboardResponse = {
   recentArticles: { id: string; title: string; status: string }[];
 };
 
+export type AgentState =
+  | "active"
+  | "paused_no_credits"
+  | "paused_no_subscription"
+  | "idle_caught_up";
+
 export type AutomationStats = {
-  /** Whether the weekly auto-run pipeline is active (requires a subscription). */
+  /** Whether the daily auto-run pipeline is active (requires a subscription). */
   enabled: boolean;
   autoPublish: boolean;
   schedule: string;
   nextRunAt: string | null;
+  /** Current high-level state of the content agent, for the overview banner. */
+  agentState: AgentState;
+  /** Max articles the agent writes per day on the current plan. */
+  dailyCap: number;
+  /** Articles already written for this brand today (UTC). */
+  writtenToday: number;
+  /** Scored topics queued and waiting to be written. */
+  pendingTopics: number;
   /** When the workspace (its content agent) was created. */
   workingSince: string;
   totalRuns: number;

@@ -1,7 +1,7 @@
 import { Card } from "@heroui/react/card";
 import { Chip } from "@heroui/react/chip";
 import Link from "next/link";
-import type { AutomationStats } from "@/lib/api/queries";
+import type { AgentState, AutomationStats } from "@/lib/api/queries";
 import { statusColor } from "@/lib/ui/status";
 
 type AutomationCardProps = {
@@ -29,13 +29,36 @@ function monthYear(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
-function headline(enabled: boolean, autoPublish: boolean): string {
-  if (!enabled) {
-    return "Put a writer on the job — researching, writing, and publishing for your brand every week. Subscribe to start.";
+type ChipColor = "success" | "default" | "danger" | "accent";
+
+function stateChip(state: AgentState): { color: ChipColor; label: string } {
+  switch (state) {
+    case "paused_no_subscription":
+      return { color: "default", label: "Paused" };
+    case "paused_no_credits":
+      return { color: "danger", label: "Out of credits" };
+    case "idle_caught_up":
+      return { color: "accent", label: "Caught up" };
+    default:
+      return { color: "success", label: "On the job" };
   }
-  return autoPublish
-    ? "Researches your niche, writes, and auto-publishes to your channels every week — hands-free."
-    : "Researches your niche and writes fresh articles for your brand every week. You approve, it publishes.";
+}
+
+function headline(state: AgentState, autoPublish: boolean): string {
+  switch (state) {
+    case "paused_no_subscription":
+      return "Put a writer on the job — researching and writing for your brand every day. Subscribe to start.";
+    case "paused_no_credits":
+      return "Your agent is out of credits — paused with topics ready to write. Top up add-on credits to put it back to work.";
+    case "idle_caught_up":
+      return autoPublish
+        ? "All caught up — every researched topic is written. Your agent will surface fresh topics on its next run."
+        : "All caught up — drafts are waiting for your review. Your agent will surface fresh topics on its next run.";
+    default:
+      return autoPublish
+        ? "Researches your niche, writes, and auto-publishes to your channels every day — hands-free."
+        : "Researches your niche and writes fresh articles for your brand every day. You approve, it publishes.";
+  }
 }
 
 function Tile({
@@ -62,6 +85,10 @@ export function AutomationCard({ automation }: AutomationCardProps) {
     autoPublish,
     schedule,
     nextRunAt,
+    agentState,
+    dailyCap,
+    writtenToday,
+    pendingTopics,
     workingSince,
     totalRuns,
     articlesWritten,
@@ -70,22 +97,52 @@ export function AutomationCard({ automation }: AutomationCardProps) {
     lastRun,
   } = automation;
 
+  const chip = stateChip(agentState);
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-foreground">Your content agent</h2>
-          <p className="mt-1 text-sm text-muted">{headline(enabled, autoPublish)}</p>
+          <p className="mt-1 text-sm text-muted">{headline(agentState, autoPublish)}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Chip color={enabled ? "success" : "default"} variant="soft" size="sm">
-            {enabled ? "On the job" : "Paused"}
+          <Chip color={chip.color} variant="soft" size="sm">
+            {chip.label}
           </Chip>
           <Chip color={autoPublish ? "success" : "default"} variant="soft" size="sm">
             {autoPublish ? "Auto-publish" : "Review mode"}
           </Chip>
         </div>
       </div>
+
+      {enabled ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+          <span>
+            Writes up to <span className="font-medium text-foreground">{dailyCap}/day</span>
+          </span>
+          <span aria-hidden>·</span>
+          <span>
+            <span className="font-medium text-foreground">{writtenToday}</span> today
+          </span>
+          <span aria-hidden>·</span>
+          <span>
+            <span className="font-medium text-foreground">{pendingTopics}</span>{" "}
+            {pendingTopics === 1 ? "topic" : "topics"} queued
+          </span>
+          {agentState === "paused_no_credits" ? (
+            <>
+              <span aria-hidden>·</span>
+              <Link
+                href="/pricing"
+                className="font-medium text-danger underline-offset-2 hover:underline"
+              >
+                Buy add-on credits
+              </Link>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile
@@ -129,7 +186,7 @@ export function AutomationCard({ automation }: AutomationCardProps) {
 
       <p className="text-xs text-muted">
         On the job since {monthYear(workingSince)}
-        {totalRuns > 0 ? ` · ${totalRuns} weekly run${totalRuns === 1 ? "" : "s"} so far` : ""}.
+        {totalRuns > 0 ? ` · ${totalRuns} run${totalRuns === 1 ? "" : "s"} so far` : ""}.
         {!autoPublish && enabled ? (
           <>
             {" "}

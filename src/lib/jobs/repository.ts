@@ -1,10 +1,10 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { agentJobs, usageCounters } from "@/lib/db/schema";
 import { getWeekStart } from "@/lib/workspace/settings";
 
-export type JobKind = "research" | "writing" | "weekly_pipeline";
+export type JobKind = "research" | "writing" | "weekly_pipeline" | "daily_pipeline";
 export type JobStatus = "running" | "completed" | "failed";
 
 export async function createAgentJob(scope: BrandScope, kind: JobKind, message?: string) {
@@ -80,11 +80,13 @@ function parseWeeklyMetadata(metadataJson: string | null) {
   if (!metadataJson) return { articlesGenerated: 0, topicsResearched: 0 };
   try {
     const meta = JSON.parse(metadataJson) as {
+      // Weekly runs record the full id list; daily runs record a count.
       generatedArticleIds?: string[];
+      generatedCount?: number;
       researchTopics?: number;
     };
     return {
-      articlesGenerated: meta.generatedArticleIds?.length ?? 0,
+      articlesGenerated: meta.generatedArticleIds?.length ?? meta.generatedCount ?? 0,
       topicsResearched: meta.researchTopics ?? 0,
     };
   } catch {
@@ -93,15 +95,20 @@ function parseWeeklyMetadata(metadataJson: string | null) {
 }
 
 /**
- * Aggregate stats for the automated weekly pipeline (kind `weekly_pipeline`),
+ * Aggregate stats for the automated content agent (daily + legacy weekly runs),
  * used to surface auto-run health on the overview. Scans the most recent
- * {@link WEEKLY_STATS_WINDOW} runs — at one run/week that covers ~2 years.
+ * {@link WEEKLY_STATS_WINDOW} runs.
  */
 export async function getWeeklyPipelineStats(brandId: string): Promise<WeeklyPipelineStats> {
   const runs = await getDb()
     .select()
     .from(agentJobs)
-    .where(and(eq(agentJobs.brandId, brandId), eq(agentJobs.kind, "weekly_pipeline")))
+    .where(
+      and(
+        eq(agentJobs.brandId, brandId),
+        inArray(agentJobs.kind, ["daily_pipeline", "weekly_pipeline"]),
+      ),
+    )
     .orderBy(desc(agentJobs.createdAt))
     .limit(WEEKLY_STATS_WINDOW);
 

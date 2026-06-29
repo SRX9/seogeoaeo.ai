@@ -31,6 +31,10 @@ export const subscriptions = pgTable("subscriptions", {
   monthlyCreditGrant: integer("monthly_credit_grant").notNull().default(0),
   creditsRefreshedAt: timestamp("credits_refreshed_at", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  // Last time we emailed the owner that the agent paused for lack of credits.
+  // Throttles the notification; cleared on any credit top-up so a fresh
+  // low-credit episode re-notifies.
+  lastLowCreditEmailAt: timestamp("last_low_credit_email_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

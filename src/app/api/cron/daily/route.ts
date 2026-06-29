@@ -1,8 +1,5 @@
-// NOTE: No longer triggered by a Cloudflare cron — the agent runs daily via
-// `/api/cron/daily`. This endpoint is kept as a manual/admin "run the whole
-// weekly pipeline now" tool (same CRON_SECRET auth).
 import { NextResponse } from "next/server";
-import { runWeeklyCron } from "@/lib/jobs/weekly";
+import { runDailyCron } from "@/lib/jobs/daily";
 
 function isAuthorized(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -23,7 +20,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const results = await runWeeklyCron();
+  const results = await runDailyCron();
   return NextResponse.json({ ok: true, results });
 }
 

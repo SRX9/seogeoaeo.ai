@@ -1,6 +1,18 @@
+/** Cloudflare `send_email` binding (high-level send API). */
+interface SendEmailBinding {
+  send(message: {
+    to: string;
+    from: string;
+    subject: string;
+    html?: string;
+    text?: string;
+  }): Promise<{ messageId: string }>;
+}
+
 interface CloudflareEnv {
   ASSETS: Fetcher;
   HYPERDRIVE: Hyperdrive;
+  EMAIL?: SendEmailBinding;
   CRON_SECRET: string;
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;

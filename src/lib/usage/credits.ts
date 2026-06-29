@@ -160,6 +160,9 @@ export async function grantCredits(
       .set({
         monthlyCredits: newMonthly,
         purchasedCredits: newPurchased,
+        // A top-up ends any low-credit episode; clear the throttle so the next
+        // time the agent runs dry the owner gets notified again.
+        lastLowCreditEmailAt: null,
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.id, sub.id));
@@ -243,6 +246,8 @@ export async function resetMonthlyCredits(
         monthlyCredits: grant,
         monthlyCreditGrant: grant,
         creditsRefreshedAt: new Date(),
+        // Fresh billing cycle ends any low-credit episode; re-arm the notification.
+        lastLowCreditEmailAt: null,
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.id, sub.id));

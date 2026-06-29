@@ -53,7 +53,7 @@ if (!worker.includes("defaultServerHandler")) {
 if (!worker.includes("async scheduled(")) {
   const fetchEnd = "    },\n};";
   const scheduledHandler = `    },
-    async scheduled(_event, env, _ctx) {
+    async scheduled(event, env, _ctx) {
         const secret = env.CRON_SECRET;
         const origin = env.BETTER_AUTH_URL;
         if (!secret || !origin) {
@@ -61,13 +61,18 @@ if (!worker.includes("async scheduled(")) {
             return;
         }
 
-        const response = await fetch(new URL("/api/cron/weekly", origin), {
+        // event.cron is the exact expression that fired; map it to a route so
+        // adding a cron is just a new entry here + in wrangler.jsonc.
+        const cronRoutes = { "0 8 * * *": "/api/cron/daily" };
+        const path = cronRoutes[event.cron] ?? "/api/cron/daily";
+
+        const response = await fetch(new URL(path, origin), {
             method: "POST",
             headers: { Authorization: \`Bearer \${secret}\` },
         });
 
         if (!response.ok) {
-            console.error("Weekly cron failed", response.status, await response.text());
+            console.error("Daily cron failed", response.status, await response.text());
         }
     },
 };`;

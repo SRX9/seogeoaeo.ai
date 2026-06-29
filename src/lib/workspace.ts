@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { FREE_PLAN_ID } from "@/lib/billing/plans";
 import { SIGNUP_GRANT_CREDITS } from "@/lib/billing/credits";
-import { creditLedger, subscriptions, workspaces } from "@/lib/db/schema";
+import { creditLedger, subscriptions, user, workspaces } from "@/lib/db/schema";
 import type { AutonomyMode } from "@/lib/workspace/settings";
 
 export async function ensureUserWorkspace(ownerId: string, name: string) {
@@ -77,6 +77,17 @@ export async function getWorkspaceById(workspaceId: string) {
     .where(eq(workspaces.id, workspaceId))
     .limit(1);
   return workspace ?? null;
+}
+
+/** Email address of the workspace owner (workspaces.ownerId → user.email). */
+export async function getWorkspaceOwnerEmail(workspaceId: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ email: user.email })
+    .from(workspaces)
+    .innerJoin(user, eq(user.id, workspaces.ownerId))
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  return row?.email ?? null;
 }
 
 export async function updateWorkspaceAutonomy(workspaceId: string, autonomyMode: AutonomyMode) {

@@ -22,6 +22,7 @@ export async function listActiveWorkspaceIds() {
     .select({
       workspaceId: workspaces.id,
       status: subscriptions.status,
+      planId: subscriptions.planId,
     })
     .from(workspaces)
     .innerJoin(subscriptions, eq(subscriptions.workspaceId, workspaces.id));
