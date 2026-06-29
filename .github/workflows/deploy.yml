@@ -41,18 +41,20 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Build for Cloudflare
-        run: pnpm build:cf
+      # Deploy via the project's own script (same path used locally). It builds
+      # OpenNext, bundles the worker with `wrangler deploy --dry-run --outdir`,
+      # patches the middleware-manifest dynamic require, then deploys the
+      # prebuilt bundle through a plain-worker config. This deliberately avoids
+      # `wrangler deploy` delegating to `opennextjs-cloudflare deploy`, whose
+      # getPlatformProxy (Miniflare) step demands a local Hyperdrive connection
+      # string that is irrelevant to a production deploy.
+      #
+      # Runtime Worker secrets are NOT synced from CI — they are set once from a
+      # developer machine with `pnpm secrets:cf` and persist on the Worker.
+      # wrangler authenticates from CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID.
+      - name: Build and deploy Worker
+        run: pnpm deploy:cf
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
-
-      # Runtime Worker secrets are NOT synced from CI. They are set once from a
-      # developer machine with `pnpm secrets:cf .env` and persist on the Worker
-      # across deploys. CI only needs the values used at build/deploy time
-      # (CLOUDFLARE_*, HEROUI_AUTH_TOKEN, DATABASE_URL, BETTER_AUTH_URL).
-      - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
