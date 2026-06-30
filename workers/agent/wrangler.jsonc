@@ -1,0 +1,27 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "agent-workflow",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-06-05",
+	"workflows": [
+		{
+			"name": "daily-content-agent",
+			"binding": "AGENT_WORKFLOW",
+			"class_name": "DailyBrandWorkflow"
+		}
+	],
+	"send_email": [
+		{
+			"name": "EMAIL"
+		}
+	],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"vars": {
+		// Origin of the Next.js app the Workflow calls back into. Override per-env at
+		// deploy time; CRON_SECRET is a secret (wrangler secret put CRON_SECRET).
+		"APP_ORIGIN": "https://seogeoaeo.ai"
+	}
+}

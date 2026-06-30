@@ -56,6 +56,12 @@ export async function assertHasCredits(workspaceId: string, cost: number) {
  * before the purchased (permanent) one. Re-checks the balance under a row lock
  * so concurrent spends can't overdraw. Call this only after the paid work has
  * succeeded — failed work must never burn credits.
+ *
+ * Idempotent when `refId` is supplied: a repeat with the same reason+refId is a
+ * no-op (returns the current balance). This makes a retried Workflow step that
+ * re-charges the same article/research-run id safe — mirrors the dedupe in
+ * {@link grantCredits}, and is backstopped by the `credit_ledger_ref_unique_idx`
+ * unique index.
  */
 export async function spendCredits(workspaceId: string, cost: number, ref: LedgerRef) {
   return getDb().transaction(async (tx) => {
@@ -69,6 +75,25 @@ export async function spendCredits(workspaceId: string, cost: number, ref: Ledge
       .where(eq(subscriptions.workspaceId, workspaceId))
       .for("update")
       .limit(1);
+
+    // Lock first, then dedupe: a concurrent retry serializes on the row lock and
+    // the second one sees the first's ledger entry, so it never double-charges.
+    if (sub && ref.refId) {
+      const [dupe] = await tx
+        .select({ id: creditLedger.id })
+        .from(creditLedger)
+        .where(
+          and(
+            eq(creditLedger.workspaceId, workspaceId),
+            eq(creditLedger.reason, ref.reason),
+            eq(creditLedger.refId, ref.refId),
+          ),
+        )
+        .limit(1);
+      if (dupe) {
+        return { monthly: sub.monthly, purchased: sub.purchased, total: sub.monthly + sub.purchased };
+      }
+    }
 
     const monthly = sub?.monthly ?? 0;
     const purchased = sub?.purchased ?? 0;

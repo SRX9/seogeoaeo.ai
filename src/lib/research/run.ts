@@ -1,16 +1,56 @@
 import { getBrandProfile, listCompetitors, type BrandScope } from "@/lib/brand/repository";
-import { createResearchTopics, listTopicTitles } from "@/lib/articles/repository";
+import {
+  createResearchTopics,
+  deleteResearchTopicsForRun,
+  listTopicTitles,
+} from "@/lib/articles/repository";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { buildResearchContext, researchProviders } from "@/lib/research/providers";
-import { completeResearchRun, createResearchRun } from "@/lib/research/repository";
+import {
+  completeResearchRun,
+  createResearchRun,
+  getResearchRunByKey,
+} from "@/lib/research/repository";
 import { scoreFindings } from "@/lib/research/score";
 import type { ResearchFinding } from "@/lib/research/types";
 import { uniqueByTitle } from "@/lib/research/utils";
 import { logError, logInfo } from "@/lib/logging/logger";
 
-export async function runResearch(scope: BrandScope) {
+export type RunResearchOptions = {
+  /**
+   * Stable key (the Workflow instance id) that makes the run idempotent. A
+   * retried step with the same key returns the already-completed run instead of
+   * re-discovering and inserting a fresh set of duplicate topics.
+   */
+  idempotencyKey?: string;
+};
+
+export async function runResearch(scope: BrandScope, options: RunResearchOptions = {}) {
   const { workspaceId, brandId } = scope;
-  const run = await createResearchRun(scope);
+  const idempotencyKey = options.idempotencyKey ?? null;
+
+  // Idempotent reuse. A finished run for this key short-circuits. A stale partial
+  // attempt (failed before completing) has its pending topics cleared and its row
+  // reused — the unique index forbids inserting a second run with the same key.
+  let run: Awaited<ReturnType<typeof createResearchRun>> | null = null;
+  if (idempotencyKey) {
+    const existing = await getResearchRunByKey(brandId, idempotencyKey);
+    if (existing) {
+      if (existing.status === "completed") {
+        return {
+          runId: existing.id,
+          topicsCreated: existing.topicsCreated,
+          summary: existing.summary ?? "",
+        };
+      }
+      await deleteResearchTopicsForRun(existing.id);
+      run = existing;
+    }
+  }
+  if (!run) {
+    run = await createResearchRun(scope, idempotencyKey);
+  }
+
   const job = await createAgentJob(scope, "research", "Research run started");
 
   try {

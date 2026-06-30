@@ -1,4 +1,5 @@
-import { index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { workspaces } from "./app";
 import { brands } from "./brand";
 
@@ -16,10 +17,19 @@ export const researchRuns = pgTable(
     summary: text("summary"),
     findingsJson: text("findings_json"),
     topicsCreated: integer("topics_created").notNull().default(0),
+    // Caller-supplied key (the Workflow instance id) that makes a research run
+    // idempotent: a retried step reuses the existing run + its topics instead of
+    // re-discovering and inserting duplicates. Null for ad-hoc/manual runs.
+    idempotencyKey: text("idempotency_key"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("research_runs_brand_id_idx").on(table.brandId)],
+  (table) => [
+    index("research_runs_brand_id_idx").on(table.brandId),
+    uniqueIndex("research_runs_idempotency_idx")
+      .on(table.brandId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} is not null`),
+  ],
 );
 
 export const topics = pgTable(

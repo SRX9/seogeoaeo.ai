@@ -127,6 +127,13 @@
       "when": 1782833524026,
       "tag": "0017_light_donald_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782837607400,
+      "tag": "0018_overjoyed_black_knight",
+      "breakpoints": true
     }
   ]
 }

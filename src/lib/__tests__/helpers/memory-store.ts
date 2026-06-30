@@ -102,6 +102,8 @@ type Store = {
   counters: Map<string, { generated: number; published: number }>;
   publications: Map<string, PublicationRow>;
   dailyRuns: Map<string, DailyRunRow>;
+  /** (workspace:reason:refId) tuples already charged — models the ledger unique index. */
+  creditRefs: Set<string>;
   seq: number;
 };
 
@@ -117,6 +119,7 @@ export const store: Store = {
   counters: new Map(),
   publications: new Map(),
   dailyRuns: new Map(),
+  creditRefs: new Set(),
   seq: 0,
 };
 
@@ -184,6 +187,7 @@ export function resetStore() {
   store.counters.clear();
   store.publications.clear();
   store.dailyRuns.clear();
+  store.creditRefs.clear();
   store.seq = 0;
 
   llm.textResponses = [
@@ -571,7 +575,21 @@ export const creditsRepo = {
     }
     return { monthly: total, purchased: 0, total };
   },
-  async spendCredits(workspaceId: string, cost: number) {
+  async spendCredits(
+    workspaceId: string,
+    cost: number,
+    ref?: { reason: string; refId?: string | null },
+  ) {
+    // Dedupe on (workspace, reason, refId) like the real ledger unique index, so a
+    // retried charge with the same refId is a no-op rather than a double-spend.
+    if (ref?.refId) {
+      const key = `${workspaceId}:${ref.reason}:${ref.refId}`;
+      if (store.creditRefs.has(key)) {
+        const total = store.usage.get(workspaceId) ?? 0;
+        return { monthly: total, purchased: 0, total };
+      }
+      store.creditRefs.add(key);
+    }
     const total = store.usage.get(workspaceId) ?? 0;
     if (total < cost) {
       throw new InsufficientCreditsError(cost, total);

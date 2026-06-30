@@ -45,6 +45,11 @@ function patchDynamicRequire(bundlePath) {
   writeFileSync(bundlePath, bundle.replaceAll(readableDynamicRequireNeedle, readablePatchedDynamicRequire));
 }
 
+// Deploy the agent-workflow Worker first so the app's cross-script
+// `AGENT_WORKFLOW` binding (script_name: "agent-workflow") has a target to
+// resolve against. It's an independent Worker with its own wrangler config.
+run("pnpm exec wrangler deploy --config workers/agent/wrangler.jsonc");
+
 run("pnpm run build:cf");
 run("pnpm exec wrangler deploy --dry-run --outdir .wrangler-bundle");
 patchDynamicRequire(resolve(".wrangler-bundle/worker.js"));

@@ -60,6 +60,12 @@ export async function createResearchTopics(
     .returning();
 }
 
+/** Remove the topics a (partial, non-completed) research run created, so the run
+ * can be safely retried without leaving duplicate pending topics behind. */
+export async function deleteResearchTopicsForRun(researchRunId: string) {
+  await getDb().delete(topics).where(eq(topics.researchRunId, researchRunId));
+}
+
 export async function listPendingTopicsForWriting(brandId: string, limit: number) {
   return getDb()
     .select()

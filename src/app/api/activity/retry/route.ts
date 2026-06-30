@@ -5,7 +5,6 @@ import { isActiveSubscription } from "@/lib/billing/plans";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
 import { getAgentJob } from "@/lib/jobs/repository";
-import { runWeeklyPipelineForBrand } from "@/lib/jobs/weekly";
 import { runResearch } from "@/lib/research/run";
 import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
@@ -68,13 +67,6 @@ export async function POST(request: Request) {
       } else if (job.kind === "writing" && typeof metadata.topicId === "string") {
         await assertWorkspaceRateLimit(workspace.id, "generate_article", 20, ONE_HOUR_MS);
         await generateArticleFromTopic(scope, metadata.topicId, { forceDraft: !active });
-      } else if (job.kind === "weekly_pipeline") {
-        if (!active) {
-          throw new HttpError(402, "The weekly pipeline requires an active plan", {
-            code: "UPGRADE_REQUIRED",
-          });
-        }
-        await runWeeklyPipelineForBrand(scope);
       }
     } catch (error) {
       if (error instanceof RateLimitError) {

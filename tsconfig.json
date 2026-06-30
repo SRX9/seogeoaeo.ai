@@ -19,5 +19,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "cloudflare-env.d.ts"],
-  "exclude": ["node_modules", "cf-worker.ts"]
+  "exclude": ["node_modules", "cf-worker.ts", "workers"]
 }
