@@ -7,7 +7,7 @@ import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
-import { queryKeys, useCompetitors, useDashboard, type Competitor } from "@/lib/api/queries";
+import { queryKeys, useCompetitors, useCredits, type Competitor } from "@/lib/api/queries";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 
 type Suggestion = { name: string; url: string };
@@ -22,9 +22,9 @@ type CompetitorsCache = { competitors: Competitor[] };
 export function CompetitorDiscovery() {
   const queryClient = useQueryClient();
   const { data } = useCompetitors();
-  const dashboard = useDashboard();
+  const credits = useCredits();
   const competitors = data?.competitors ?? [];
-  const cost = dashboard.data?.creditCosts.competitor_discovery;
+  const cost = credits.data?.costs.competitor_discovery;
 
   const remaining = MAX_COMPETITORS - competitors.length;
   const atLimit = remaining <= 0;
@@ -40,7 +40,6 @@ export function CompetitorDiscovery() {
       setSuggestions(found);
       setSelected(new Set(found.map((s) => s.url)));
       queryClient.invalidateQueries({ queryKey: queryKeys.credits });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
       if (found.length === 0) {
         toast.info("No new competitors found. Try refining your brand profile.");
       }
@@ -72,7 +71,6 @@ export function CompetitorDiscovery() {
         })),
       ],
     }),
-    invalidateKeys: [queryKeys.dashboard],
     onSuccess: (_data, picked) => {
       setSuggestions([]);
       setSelected(new Set());
@@ -133,7 +131,7 @@ export function CompetitorDiscovery() {
             {showUpgrade ? (
               <p className="rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
                 You&apos;re out of credits.{" "}
-                <Link href="/settings?tab=billing" className="font-medium underline">
+                <Link href="/account?tab=billing" className="font-medium underline">
                   Get more credits
                 </Link>{" "}
                 to let AI find competitors for you.

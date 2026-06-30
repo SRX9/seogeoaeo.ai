@@ -191,7 +191,10 @@ export function AutomationCard({ automation }: AutomationCardProps) {
           <>
             {" "}
             Articles wait as drafts for your review —{" "}
-            <Link href="/settings" className="text-foreground underline-offset-2 hover:underline">
+            <Link
+              href="/settings?tab=automation"
+              className="text-foreground underline-offset-2 hover:underline"
+            >
               turn on auto-publish
             </Link>{" "}
             to let it ship on its own.

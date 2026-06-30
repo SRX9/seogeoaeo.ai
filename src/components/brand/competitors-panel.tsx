@@ -48,7 +48,6 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
         },
       ],
     }),
-    invalidateKeys: [queryKeys.dashboard],
     onSuccess: () => toast.success("Competitor added"),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not add competitor")),
   });
@@ -59,7 +58,6 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
     optimisticUpdate: (current, id) => ({
       competitors: (current?.competitors ?? []).filter((item) => item.id !== id),
     }),
-    invalidateKeys: [queryKeys.dashboard],
     onSuccess: () => toast.success("Competitor removed"),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not remove competitor")),
   });

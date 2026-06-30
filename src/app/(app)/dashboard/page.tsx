@@ -8,22 +8,39 @@ import { DashboardKpis } from "@/components/dashboard/dashboard-kpis";
 import { AutomationCard } from "@/components/dashboard/automation-card";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { PageHeader } from "@/components/layout/page-header";
-import { PageError, PageLoader } from "@/components/feedback/states";
-import { useDashboard } from "@/lib/api/queries";
+import { Section } from "@/components/feedback/section";
+import {
+  CardSkeleton,
+  ChipRowSkeleton,
+  StatGridSkeleton,
+  TableSkeleton,
+} from "@/components/feedback/skeletons";
+import {
+  combineQueries,
+  useArticles,
+  useAutomation,
+  useCredits,
+  useMe,
+  useOnboarding,
+  useResearch,
+  useTopics,
+} from "@/lib/api/queries";
+import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
 import { statusColor } from "@/lib/ui/status";
 import { autonomyLabel } from "@/lib/workspace/settings";
 
 export default function DashboardPage() {
-  const { data, isLoading, error, refetch } = useDashboard();
+  const me = useMe();
+  const credits = useCredits();
+  const research = useResearch();
+  const articles = useArticles();
+  const topics = useTopics();
+  const automation = useAutomation();
+  const onboarding = useOnboarding();
 
-  if (isLoading) {
-    return <PageLoader label="Loading your overview…" />;
-  }
-  if (error || !data) {
-    return <PageError error={error} onRetry={() => refetch()} />;
-  }
-
-  const { latestRun, recentArticles } = data;
+  // Header chips + the free-tier banner share the same inputs.
+  const overview = combineQueries(me, credits, research);
+  const kpis = combineQueries(me, credits, articles, topics);
 
   return (
     <div className="space-y-8">
@@ -36,129 +53,187 @@ export default function DashboardPage() {
           </Link>
         }
         meta={
-          <>
-            <Chip color={data.active ? "success" : "warning"} variant="soft">
-              {data.active ? (data.plan?.name ?? "Active plan") : "Free plan"}
-            </Chip>
-            <Chip variant="soft">{autonomyLabel(data.autonomyMode)}</Chip>
-            {latestRun ? (
-              <Chip color={statusColor(latestRun.status)} variant="soft">
-                Research {latestRun.status}
-              </Chip>
-            ) : null}
-          </>
+          <Section query={overview} skeleton={<ChipRowSkeleton count={3} />}>
+            {([meData, , researchData]) => {
+              const active = isActiveSubscription(meData.subscription?.status);
+              const planName =
+                active && meData.subscription?.planId
+                  ? (getPlan(meData.subscription.planId)?.name ?? "Active plan")
+                  : null;
+              const activeBrand =
+                meData.brands.find((brand) => brand.id === meData.activeBrandId) ??
+                meData.brands[0] ??
+                null;
+              const latestRun = researchData.latest;
+              return (
+                <>
+                  <Chip color={active ? "success" : "warning"} variant="soft">
+                    {active ? (planName ?? "Active plan") : "Free plan"}
+                  </Chip>
+                  {activeBrand ? (
+                    <Chip variant="soft">{autonomyLabel(activeBrand.autonomyMode)}</Chip>
+                  ) : null}
+                  {latestRun ? (
+                    <Chip color={statusColor(latestRun.status)} variant="soft">
+                      Research {latestRun.status}
+                    </Chip>
+                  ) : null}
+                </>
+              );
+            }}
+          </Section>
         }
       />
 
-      {!data.active ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {data.canGenerate ? "You're ready to generate" : "You're on the free tier"}
-            </p>
-            <p className="mt-0.5 text-sm text-muted">
-              {data.canGenerate
-                ? `You have ${data.credits.total.toLocaleString()} credits — enough for ${Math.floor(
-                    data.credits.total / data.creditCosts.article_generation,
-                  )} article${
-                    Math.floor(data.credits.total / data.creditCosts.article_generation) === 1
-                      ? ""
-                      : "s"
-                  }. Subscribe for a monthly allowance and to publish.`
-                : "You're out of credits. Pick a plan for a monthly credit allowance and auto-publishing."}
-            </p>
-          </div>
-          <Link
-            href={data.canGenerate ? "/topics" : "/settings?tab=billing"}
-            className={`${buttonVariants({ size: "sm" })} shrink-0`}
-          >
-            {data.canGenerate ? "Generate an article" : "View plans"}
-          </Link>
-        </div>
-      ) : null}
-
-      <DashboardKpis
-        credits={data.credits}
-        monthlyCreditGrant={data.monthlyCreditGrant}
-        totalArticles={data.totalArticles}
-        approvedArticles={data.approvedArticles}
-        pendingTopics={data.pendingTopics}
-      />
-
-      <AutomationCard automation={data.automation} />
-
-      <OnboardingChecklist steps={data.onboardingSteps} />
-
-      <section className="rounded-xl border border-border bg-surface p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground">Topic research</h2>
-            <p className="mt-1 text-sm text-muted">
-              {latestRun
-                ? `Last run ${latestRun.status}${
-                    typeof latestRun.topicsCreated === "number"
-                      ? ` · ${latestRun.topicsCreated} topics added`
-                      : ""
-                  }`
-                : "No research yet — discover ranked topics worth writing about."}
-            </p>
-            {latestRun?.summary ? (
-              <p className="mt-1 text-sm text-muted">{latestRun.summary}</p>
-            ) : null}
-          </div>
-          <Link
-            href="/topics"
-            className={`${buttonVariants({ size: "sm", variant: "secondary" })} shrink-0`}
-          >
-            Manage topics
-          </Link>
-        </div>
-      </section>
-
-      {recentArticles.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Recent articles</h2>
-            <Link href="/articles" className="text-sm text-muted hover:text-foreground">
-              View all
-            </Link>
-          </div>
-          <Table>
-            <Table.ScrollContainer>
-              <Table.Content
-                aria-label="Recent articles"
-                className="min-w-[480px]"
+      {/* Free-tier banner — only shown for unsubscribed workspaces. */}
+      <Section query={overview} skeleton={null}>
+        {([meData, creditsData]) => {
+          if (isActiveSubscription(meData.subscription?.status)) return null;
+          const total = creditsData.balance.total;
+          const articleCost = creditsData.costs.article_generation;
+          const canGenerate = total >= articleCost;
+          const articleCount = Math.floor(total / articleCost);
+          return (
+            <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {canGenerate ? "You're ready to generate" : "You're on the free tier"}
+                </p>
+                <p className="mt-0.5 text-sm text-muted">
+                  {canGenerate
+                    ? `You have ${total.toLocaleString()} credits — enough for ${articleCount} article${
+                        articleCount === 1 ? "" : "s"
+                      }. Subscribe for a monthly allowance and to publish.`
+                    : "You're out of credits. Pick a plan for a monthly credit allowance and auto-publishing."}
+                </p>
+              </div>
+              <Link
+                href={canGenerate ? "/topics" : "/account?tab=billing"}
+                className={`${buttonVariants({ size: "sm" })} shrink-0`}
               >
-                <Table.Header>
-                  <Table.Column id="title" isRowHeader>
-                    Title
-                  </Table.Column>
-                  <Table.Column id="status">Status</Table.Column>
-                </Table.Header>
-                <Table.Body>
-                  {recentArticles.map((article) => (
-                    <Table.Row
-                      key={article.id}
-                      id={article.id}
-                      href={`/articles/${article.id}`}
-                      className="cursor-pointer"
-                    >
-                      <Table.Cell>
-                        <span className="font-medium text-foreground">{article.title}</span>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Chip color={statusColor(article.status)} variant="soft" size="sm">
-                          {article.status}
-                        </Chip>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Content>
-            </Table.ScrollContainer>
-          </Table>
-        </section>
-      ) : null}
+                {canGenerate ? "Generate an article" : "View plans"}
+              </Link>
+            </div>
+          );
+        }}
+      </Section>
+
+      <Section query={kpis} skeleton={<StatGridSkeleton />} errorLabel="Couldn't load your stats.">
+        {([meData, creditsData, articlesData, topicsData]) => {
+          const approvedArticles = articlesData.articles.filter(
+            (article) => article.status === "approved",
+          ).length;
+          const pendingTopics = topicsData.topics.filter(
+            (topic) => topic.status === "pending" && topic.score != null,
+          ).length;
+          return (
+            <DashboardKpis
+              credits={creditsData.balance}
+              monthlyCreditGrant={meData.subscription?.monthlyCreditGrant ?? 0}
+              totalArticles={articlesData.articles.length}
+              approvedArticles={approvedArticles}
+              pendingTopics={pendingTopics}
+            />
+          );
+        }}
+      </Section>
+
+      <Section
+        query={automation}
+        skeleton={<StatGridSkeleton />}
+        errorLabel="Couldn't load your content agent."
+      >
+        {(data) => <AutomationCard automation={data} />}
+      </Section>
+
+      <Section query={onboarding} skeleton={<CardSkeleton lines={5} />}>
+        {(data) => <OnboardingChecklist steps={data.steps} />}
+      </Section>
+
+      <Section
+        query={research}
+        skeleton={<CardSkeleton lines={1} />}
+        errorLabel="Couldn't load research."
+      >
+        {(data) => {
+          const latestRun = data.latest;
+          return (
+            <section className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-foreground">Topic research</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {latestRun
+                      ? `Last run ${latestRun.status}${
+                          typeof latestRun.topicsCreated === "number"
+                            ? ` · ${latestRun.topicsCreated} topics added`
+                            : ""
+                        }`
+                      : "No research yet — discover ranked topics worth writing about."}
+                  </p>
+                  {latestRun?.summary ? (
+                    <p className="mt-1 text-sm text-muted">{latestRun.summary}</p>
+                  ) : null}
+                </div>
+                <Link
+                  href="/topics"
+                  className={`${buttonVariants({ size: "sm", variant: "secondary" })} shrink-0`}
+                >
+                  Manage topics
+                </Link>
+              </div>
+            </section>
+          );
+        }}
+      </Section>
+
+      <Section query={articles} skeleton={<TableSkeleton rows={3} />}>
+        {(data) => {
+          const recentArticles = data.articles.slice(0, 5);
+          if (recentArticles.length === 0) return null;
+          return (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">Recent articles</h2>
+                <Link href="/articles" className="text-sm text-muted hover:text-foreground">
+                  View all
+                </Link>
+              </div>
+              <Table>
+                <Table.ScrollContainer>
+                  <Table.Content aria-label="Recent articles" className="min-w-[480px]">
+                    <Table.Header>
+                      <Table.Column id="title" isRowHeader>
+                        Title
+                      </Table.Column>
+                      <Table.Column id="status">Status</Table.Column>
+                    </Table.Header>
+                    <Table.Body>
+                      {recentArticles.map((article) => (
+                        <Table.Row
+                          key={article.id}
+                          id={article.id}
+                          href={`/articles/${article.id}`}
+                          className="cursor-pointer"
+                        >
+                          <Table.Cell>
+                            <span className="font-medium text-foreground">{article.title}</span>
+                          </Table.Cell>
+                          <Table.Cell>
+                            <Chip color={statusColor(article.status)} variant="soft" size="sm">
+                              {article.status}
+                            </Chip>
+                          </Table.Cell>
+                        </Table.Row>
+                      ))}
+                    </Table.Body>
+                  </Table.Content>
+                </Table.ScrollContainer>
+              </Table>
+            </section>
+          );
+        }}
+      </Section>
     </div>
   );
 }

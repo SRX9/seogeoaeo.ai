@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 vi.mock("@/lib/billing/subscription", () => ({
   syncSubscriptionFromStripe: vi.fn(),
   markSubscriptionInactive: vi.fn(),
+  setStripeCustomerId: vi.fn(),
 }));
 
 import {

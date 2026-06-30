@@ -27,10 +27,16 @@ export async function sendOutOfCreditsEmail(notice: OutOfCreditsNotice): Promise
     if (!isEmailConfigured()) return;
 
     const [sub] = await getDb()
-      .select({ lastLowCreditEmailAt: subscriptions.lastLowCreditEmailAt })
+      .select({
+        lastLowCreditEmailAt: subscriptions.lastLowCreditEmailAt,
+        creditEmailsEnabled: subscriptions.creditEmailsEnabled,
+      })
       .from(subscriptions)
       .where(eq(subscriptions.workspaceId, notice.workspaceId))
       .limit(1);
+
+    // Owner opted out of credit emails — skip without touching the throttle.
+    if (sub && !sub.creditEmailsEnabled) return;
 
     const last = sub?.lastLowCreditEmailAt;
     if (last && Date.now() - new Date(last).getTime() < LOW_CREDIT_EMAIL_THROTTLE_MS) {

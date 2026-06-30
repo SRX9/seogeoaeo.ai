@@ -1,7 +1,8 @@
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { brandProfiles, brands, competitors } from "@/lib/db/schema";
 import { MAX_COMPETITORS, type BrandProfileInput, type CompetitorInput } from "@/lib/brand/schemas";
+import type { AutonomyMode } from "@/lib/workspace/settings";
 
 /** A brand always lives inside a workspace; writes need both ids. */
 export type BrandScope = { workspaceId: string; brandId: string };
@@ -59,9 +60,23 @@ export async function createBrand(workspaceId: string, name: string) {
   if (existing) {
     throw new BrandExistsError(trimmed);
   }
+  // Inherit autonomy from the workspace's most recent brand so a new brand runs
+  // the way the rest already do — preserving the pre-per-brand behaviour where
+  // all brands shared one mode. The very first brand falls back to the column
+  // default (FULL_AUTO).
+  const [sibling] = await getDb()
+    .select({ autonomyMode: brands.autonomyMode })
+    .from(brands)
+    .where(eq(brands.workspaceId, workspaceId))
+    .orderBy(desc(brands.createdAt))
+    .limit(1);
   const [brand] = await getDb()
     .insert(brands)
-    .values({ workspaceId, name: trimmed })
+    .values({
+      workspaceId,
+      name: trimmed,
+      ...(sibling ? { autonomyMode: sibling.autonomyMode } : {}),
+    })
     .returning();
   return brand;
 }
@@ -70,6 +85,20 @@ export async function renameBrand(workspaceId: string, brandId: string, name: st
   const [brand] = await getDb()
     .update(brands)
     .set({ name, updatedAt: new Date() })
+    .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
+    .returning();
+  return brand ?? null;
+}
+
+/** Set a single brand's autonomy mode (auto-publish vs review). */
+export async function updateBrandAutonomy(
+  workspaceId: string,
+  brandId: string,
+  autonomyMode: AutonomyMode,
+) {
+  const [brand] = await getDb()
+    .update(brands)
+    .set({ autonomyMode, updatedAt: new Date() })
     .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
     .returning();
   return brand ?? null;

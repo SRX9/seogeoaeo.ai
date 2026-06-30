@@ -12,7 +12,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
-import { queryKeys, useDashboard, useResearch } from "@/lib/api/queries";
+import { queryKeys, useCredits, useResearch } from "@/lib/api/queries";
 
 const sources = [
   {
@@ -36,23 +36,24 @@ export function ResearchPanel() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data } = useResearch();
-  const dashboard = useDashboard();
+  const credits = useCredits();
   const latest = data?.latest ?? null;
-  const cost = dashboard.data?.creditCosts.research_run;
+  const cost = credits.data?.costs.research_run;
 
   const run = useMutation({
     mutationFn: () => apiPost("/api/research"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.research });
       queryClient.invalidateQueries({ queryKey: queryKeys.topics });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      queryClient.invalidateQueries({ queryKey: queryKeys.automation });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
       queryClient.invalidateQueries({ queryKey: queryKeys.credits });
       queryClient.invalidateQueries({ queryKey: queryKeys.activity });
       toast.success("Research finished — see your topic queue.");
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/settings?tab=billing&upgrade=1");
+        router.push("/account?tab=billing&upgrade=1");
         return;
       }
       toast.danger(getErrorMessage(error, "Research failed. Try again."));

@@ -65,7 +65,7 @@ export function ManualTopicForm() {
         ...(current?.topics ?? []),
       ],
     }),
-    invalidateKeys: [queryKeys.dashboard],
+    invalidateKeys: [queryKeys.automation],
     onSuccess: () => {
       setFields(EMPTY_TOPIC);
       toast.success("Topic added to your queue");
@@ -197,7 +197,7 @@ function TopicList({
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/settings?tab=billing&upgrade=1");
+        router.push("/account?tab=billing&upgrade=1");
         return;
       }
       toast.danger(getErrorMessage(error, "Could not generate article"));
@@ -260,7 +260,7 @@ function TopicList({
                 </Tooltip>
               ) : (
                 <Link
-                  href="/settings?tab=billing&upgrade=1"
+                  href="/account?tab=billing&upgrade=1"
                   className={buttonVariants({ variant: "secondary", size: "sm" })}
                   title="You need credits to generate an article"
                 >

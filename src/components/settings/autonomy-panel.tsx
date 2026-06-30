@@ -7,10 +7,11 @@ import { apiPatch, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/queries";
 
 type AutonomyPanelProps = {
+  brandId: string;
   currentMode: string;
 };
 
-export function AutonomyPanel({ currentMode }: AutonomyPanelProps) {
+export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
   const [mode, setMode] = useState(currentMode);
   const queryClient = useQueryClient();
   const confirm = useOverlayState();
@@ -18,10 +19,10 @@ export function AutonomyPanel({ currentMode }: AutonomyPanelProps) {
 
   const update = useMutation({
     mutationFn: (autonomyMode: "FULL_AUTO" | "REVIEW") =>
-      apiPatch("/api/workspace/settings", { autonomyMode }),
+      apiPatch("/api/brand/settings", { brandId, autonomyMode }),
     onSuccess: (_data, autonomyMode) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      queryClient.invalidateQueries({ queryKey: queryKeys.automation });
       toast.success(
         autonomyMode === "FULL_AUTO"
           ? "Auto-publish on — new articles publish automatically."
@@ -56,7 +57,8 @@ export function AutonomyPanel({ currentMode }: AutonomyPanelProps) {
       <Card.Header>
         <Card.Title>Autonomy mode</Card.Title>
         <Card.Description>
-          Controls the default status for scheduled and generated articles.
+          Controls the default status for this brand&apos;s scheduled and generated articles. Each
+          brand is set independently.
         </Card.Description>
       </Card.Header>
       <Card.Content>

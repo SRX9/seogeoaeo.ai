@@ -125,7 +125,7 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
     queryKey: queryKeys.integrations,
     optimisticUpdate: (current, enabled) =>
       patchIntegration(current, integration.provider, (item) => ({ ...item, enabled })),
-    invalidateKeys: [queryKeys.dashboard],
+    invalidateKeys: [queryKeys.onboarding],
     onSuccess: (_data, enabled) =>
       toast.success(enabled ? `${integration.name} enabled` : `${integration.name} disabled`),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not update integration")),
@@ -145,7 +145,7 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
         config: { ...item.config, ...payload.config },
         hasSecret: payload.apiKey ? true : item.hasSecret,
       })),
-    invalidateKeys: [queryKeys.dashboard],
+    invalidateKeys: [queryKeys.onboarding],
     onSuccess: () => toast.success(`${integration.name} connection saved`),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not save connection")),
   });

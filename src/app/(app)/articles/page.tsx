@@ -2,11 +2,12 @@
 
 import { ArticlesList } from "@/components/articles/articles-list";
 import { PageHeader } from "@/components/layout/page-header";
-import { PageError, PageLoader } from "@/components/feedback/states";
+import { Section } from "@/components/feedback/section";
+import { TableSkeleton } from "@/components/feedback/skeletons";
 import { useArticles } from "@/lib/api/queries";
 
 export default function ArticlesPage() {
-  const { data, isLoading, error, refetch } = useArticles();
+  const articles = useArticles();
 
   return (
     <div className="space-y-6">
@@ -14,13 +15,13 @@ export default function ArticlesPage() {
         title="Articles"
         description="Generated drafts, edits, and publication status."
       />
-      {isLoading ? (
-        <PageLoader label="Loading articles…" />
-      ) : error || !data ? (
-        <PageError error={error} onRetry={() => refetch()} />
-      ) : (
-        <ArticlesList articles={data.articles} />
-      )}
+      <Section
+        query={articles}
+        skeleton={<TableSkeleton rows={6} />}
+        errorLabel="Couldn't load your articles."
+      >
+        {(data) => <ArticlesList articles={data.articles} />}
+      </Section>
     </div>
   );
 }

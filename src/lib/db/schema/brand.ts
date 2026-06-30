@@ -10,6 +10,10 @@ export const brands = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    // Per-brand autonomy: "FULL_AUTO" auto-publishes the agent's articles,
+    // "REVIEW" leaves them as drafts. Each brand (site) runs independently;
+    // billing is the only setting shared across a workspace's brands.
+    autonomyMode: text("autonomy_mode").notNull().default("FULL_AUTO"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

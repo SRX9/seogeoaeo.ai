@@ -10,6 +10,7 @@
     "preview:cf": "pnpm run build:cf && opennextjs-cloudflare preview",
     "deploy:cf": "node scripts/deploy-cloudflare.mjs",
     "secrets:cf": "node scripts/set-worker-secrets.mjs",
+    "cron:daily": "node --env-file=.env scripts/run-daily-cron.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

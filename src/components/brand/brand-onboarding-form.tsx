@@ -4,7 +4,8 @@ import { Button } from "@heroui/react/button";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextArea } from "@heroui/react/textarea";
-import { NativeSelect } from "@heroui-pro/react/native-select";
+import { Select } from "@heroui/react/select";
+import { ListBox } from "@heroui/react/list-box";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -36,6 +37,10 @@ const INITIAL_FIELDS = {
 };
 
 type Fields = typeof INITIAL_FIELDS;
+
+// Sentinel key for the "skip" option in the publishing Select. The Select works
+// in terms of keys, so we map this back to an empty `integrationProvider`.
+const SKIP_PROVIDER_KEY = "__skip__";
 
 // Fields the AI prefill can populate. Kept in sync with the prefill API response.
 const PREFILL_KEYS = ["productDescription", "audience", "tone", "seedKeywords"] as const;
@@ -84,7 +89,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     // new brand — otherwise the layout bounces us straight back to /onboarding.
     await queryClient.invalidateQueries({ queryKey: queryKeys.me });
     queryClient.invalidateQueries({ queryKey: queryKeys.brands });
-    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
     queryClient.invalidateQueries({ queryKey: queryKeys.brandProfile });
     queryClient.invalidateQueries({ queryKey: queryKeys.competitors });
     queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
@@ -365,7 +370,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
           />
         </div>
         <p className="text-xs text-muted">
-          On a paid plan you can auto-discover competitors with AI from Settings → Brand once this
+          On a paid plan you can auto-discover competitors with AI from Brand settings once this
           brand is created.
         </p>
       </div>
@@ -373,22 +378,40 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
       {/* Step 5 — publishing */}
       <div hidden={step !== lastStep} className="flex flex-col gap-4">
         <div className="space-y-2">
-          <Label htmlFor="integrationProvider">Publishing destination</Label>
-          <NativeSelect variant="secondary" fullWidth>
-            <NativeSelect.Trigger
-              id="integrationProvider"
-              name="integrationProvider"
-              value={fields.integrationProvider}
-              onChange={set("integrationProvider")}
-            >
-              <NativeSelect.Option value="">Skip for now</NativeSelect.Option>
-              {providers.map((item) => (
-                <NativeSelect.Option key={item.id} value={item.id}>
-                  {item.name}
-                </NativeSelect.Option>
-              ))}
-            </NativeSelect.Trigger>
-          </NativeSelect>
+          <Label>Publishing destination</Label>
+          <Select
+            aria-label="Publishing destination"
+            name="integrationProvider"
+            variant="secondary"
+            fullWidth
+            placeholder="Skip for now"
+            value={fields.integrationProvider || null}
+            onChange={(value) =>
+              setFields((prev) => ({
+                ...prev,
+                integrationProvider: value && value !== SKIP_PROVIDER_KEY ? String(value) : "",
+              }))
+            }
+          >
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id={SKIP_PROVIDER_KEY} textValue="Skip for now">
+                  Skip for now
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                {providers.map((item) => (
+                  <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
+                    {item.name}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
           {fields.integrationProvider ? (
             <p className="text-xs text-muted">
               {providers.find((item) => item.id === fields.integrationProvider)?.description}

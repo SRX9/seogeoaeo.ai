@@ -4,23 +4,18 @@ import { Tabs } from "@heroui/react";
 import { ManualTopicForm, TopicQueue } from "@/components/articles/topics-panel";
 import { ResearchPanel } from "@/components/research/research-panel";
 import { PageHeader } from "@/components/layout/page-header";
-import { PageError, PageLoader } from "@/components/feedback/states";
-import { useDashboard, useMe } from "@/lib/api/queries";
+import { Section } from "@/components/feedback/section";
+import { CardSkeleton } from "@/components/feedback/skeletons";
+import { combineQueries, useCredits, useMe } from "@/lib/api/queries";
+import { isActiveSubscription } from "@/lib/billing/plans";
 
 export default function TopicsPage() {
   const me = useMe();
-  const dashboard = useDashboard();
+  const credits = useCredits();
+  const hint = combineQueries(me, credits);
 
-  if (me.isLoading || dashboard.isLoading) {
-    return <PageLoader label="Loading topics…" />;
-  }
-  if (dashboard.error || !dashboard.data) {
-    return <PageError error={dashboard.error} onRetry={() => dashboard.refetch()} />;
-  }
-
-  const { active, canGenerate, credits, creditCosts } = dashboard.data;
-  const articleCost = creditCosts.article_generation;
-  const showFreeHint = !active && canGenerate;
+  // Read without gating — defaults to "ready" until /api/me resolves so the
+  // warning only appears when we actually know the LLM env is unconfigured.
   const llmReady = me.data?.llmReady ?? true;
 
   return (
@@ -38,17 +33,26 @@ export default function TopicsPage() {
         }
       />
 
-      {showFreeHint ? (
-        <div className="rounded-xl border border-accent/30 bg-accent-soft/40 p-4">
-          <p className="text-sm font-medium text-foreground">
-            You have {credits.total.toLocaleString()} credits to spend
-          </p>
-          <p className="mt-0.5 text-sm text-muted">
-            Each article costs {articleCost} credits. Pick a topic in the queue and hit Generate —
-            subscribe later to unlock auto-publishing.
-          </p>
-        </div>
-      ) : null}
+      <Section query={hint} skeleton={null}>
+        {([meData, creditsData]) => {
+          const active = isActiveSubscription(meData.subscription?.status);
+          const total = creditsData.balance.total;
+          const articleCost = creditsData.costs.article_generation;
+          const canGenerate = total >= articleCost;
+          if (active || !canGenerate) return null;
+          return (
+            <div className="rounded-xl border border-accent/30 bg-accent-soft/40 p-4">
+              <p className="text-sm font-medium text-foreground">
+                You have {total.toLocaleString()} credits to spend
+              </p>
+              <p className="mt-0.5 text-sm text-muted">
+                Each article costs {articleCost} credits. Pick a topic in the queue and hit
+                Generate — subscribe later to unlock auto-publishing.
+              </p>
+            </div>
+          );
+        }}
+      </Section>
 
       <Tabs defaultSelectedKey="research">
         <Tabs.ListContainer>
@@ -76,7 +80,18 @@ export default function TopicsPage() {
           <ManualTopicForm />
         </Tabs.Panel>
         <Tabs.Panel id="queue">
-          <TopicQueue canGenerate={canGenerate} articleCost={articleCost} />
+          <Section
+            query={credits}
+            skeleton={<CardSkeleton lines={4} />}
+            errorLabel="Couldn't load your credits."
+          >
+            {(creditsData) => (
+              <TopicQueue
+                canGenerate={creditsData.balance.total >= creditsData.costs.article_generation}
+                articleCost={creditsData.costs.article_generation}
+              />
+            )}
+          </Section>
         </Tabs.Panel>
       </Tabs>
     </div>

@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/billing/stripe";
 import {
   markSubscriptionInactive,
+  setStripeCustomerId,
   syncSubscriptionFromStripe,
 } from "@/lib/billing/subscription";
 import { getCreditPack } from "@/lib/billing/credits";
@@ -41,6 +42,15 @@ export async function processStripeWebhookEvent(
             refType: "stripe_session",
             refId: checkoutSession.id,
           });
+          // Checkout may have created the customer (first-time buyer with no saved
+          // id) — persist it so future purchases reuse the same customer.
+          const customerId =
+            typeof checkoutSession.customer === "string"
+              ? checkoutSession.customer
+              : checkoutSession.customer?.id;
+          if (customerId) {
+            await setStripeCustomerId(workspaceId, customerId);
+          }
           logInfo("stripe.topup.completed", { workspaceId, packId, credits: pack.credits });
           return { handled: true, action: "checkout.session.completed.topup" };
         }

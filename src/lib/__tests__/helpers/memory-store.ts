@@ -457,6 +457,19 @@ export const brandRepo = {
   async getBrandProfile(brandId: string) {
     return store.brand.get(brandId) ?? null;
   },
+  async getBrand(workspaceId: string, brandId: string) {
+    // Autonomy is per-brand in production. Tests still express it via
+    // seedWorkspace({ autonomyMode }) — and use a single brand whose id equals
+    // the workspace id — so mirror the seeded workspace's mode onto the brand.
+    return {
+      id: brandId,
+      workspaceId,
+      name: "Test Brand",
+      autonomyMode: store.workspaces.get(workspaceId)?.autonomyMode ?? "REVIEW",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  },
   async listBrands(workspaceId: string) {
     // Tests use a single brand whose id equals the workspace id.
     return [
@@ -464,6 +477,7 @@ export const brandRepo = {
         id: workspaceId,
         workspaceId,
         name: "Test Brand",
+        autonomyMode: store.workspaces.get(workspaceId)?.autonomyMode ?? "REVIEW",
         createdAt: new Date(),
         updatedAt: new Date(),
       },

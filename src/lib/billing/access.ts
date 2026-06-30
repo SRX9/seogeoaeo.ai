@@ -34,6 +34,8 @@ export async function getBillingContext() {
         monthlyCreditGrant: 5000,
         creditsRefreshedAt: null,
         currentPeriodEnd: null,
+        lastLowCreditEmailAt: null,
+        creditEmailsEnabled: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       },

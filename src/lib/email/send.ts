@@ -5,10 +5,13 @@ import { logError, logInfo, logWarn } from "@/lib/logging/logger";
  * Sender identity for every transactional email. "Claudia" is the content
  * agent's persona (see the content-agent narrative), so a message reads as
  * coming from the writer the customer hired rather than a faceless no-reply.
- * Must be an address on the verified sending domain. Change this one line to
- * rename it.
+ * `email` must be an address on the verified sending domain; `name` is the
+ * display name Gmail (and other clients) show in place of the raw address.
+ * The Cloudflare `send_email` binding needs this as a structured object — a
+ * single "Name <addr>" string is treated as a bare address and the name is
+ * dropped. Change these two fields to rename the sender.
  */
-export const EMAIL_FROM = "Claudia from seogeoaeo.ai <claudia@seogeoaeo.ai>";
+export const EMAIL_FROM = { email: "claudia@seogeoaeo.ai", name: "Claudia" } as const;
 
 export type SendEmailInput = {
   to: string;

@@ -1,4 +1,4 @@
-import { getBrandProfile, type BrandScope } from "@/lib/brand/repository";
+import { getBrand, getBrandProfile, type BrandScope } from "@/lib/brand/repository";
 import {
   createArticle,
   getArticleByTopic,
@@ -23,7 +23,6 @@ import { createAgentJob, finishAgentJob, incrementArticlesGenerated } from "@/li
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { assertHasCredits, spendCredits } from "@/lib/usage/credits";
 import { articleStatusForAutonomy } from "@/lib/workspace/settings";
-import { getWorkspaceById } from "@/lib/workspace";
 
 export type GenerationTrace = {
   summaryModel: string;
@@ -63,9 +62,11 @@ export async function generateArticleFromTopic(
     return { article: existing, trace: null };
   }
 
-  const workspace = await getWorkspaceById(workspaceId);
-  if (!workspace) {
-    throw new Error("Workspace not found");
+  // Autonomy is per-brand: it decides whether this article auto-publishes or
+  // waits as a draft. Fetched here (before any LLM spend) from the brand row.
+  const brand = await getBrand(workspaceId, brandId);
+  if (!brand) {
+    throw new Error("Brand not found");
   }
 
   const creditCost = options.creditCost ?? CREDIT_COSTS.article_generation;
@@ -78,13 +79,13 @@ export async function generateArticleFromTopic(
   await updateTopicStatus(topicId, "generating");
 
   try {
-    const brand = await getBrandProfile(brandId);
+    const profile = await getBrandProfile(brandId);
     const brandContext: BrandContext = {
-      productDescription: brand?.productDescription,
-      audience: brand?.audience,
-      tone: brand?.tone,
-      website: brand?.website,
-      seedKeywords: brand?.seedKeywords,
+      productDescription: profile?.productDescription,
+      audience: profile?.audience,
+      tone: profile?.tone,
+      website: profile?.website,
+      seedKeywords: profile?.seedKeywords,
     };
 
     const topicInput = {
@@ -137,7 +138,7 @@ export async function generateArticleFromTopic(
       metaDescription: metadata.data.metaDescription,
       tags: metadata.data.tags ?? [],
       bodyMarkdown: seoEdited.text,
-      status: options.forceDraft ? "draft" : articleStatusForAutonomy(workspace.autonomyMode),
+      status: options.forceDraft ? "draft" : articleStatusForAutonomy(brand.autonomyMode),
     });
 
     // Charge only after the article exists, so a failed generation never burns
@@ -187,7 +188,7 @@ export async function generateArticleFromTopic(
     await finishAgentJob(job.id, "completed", `Article generated: ${article.title}`, {
       articleId: article.id,
       topicId: topic.id,
-      autonomyMode: workspace.autonomyMode,
+      autonomyMode: brand.autonomyMode,
       status: article.status,
       tokenUsage,
     });

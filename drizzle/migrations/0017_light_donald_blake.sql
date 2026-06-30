@@ -1,0 +1,1 @@
+ALTER TABLE "subscriptions" ADD COLUMN "credit_emails_enabled" boolean DEFAULT true NOT NULL;

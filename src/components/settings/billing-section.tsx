@@ -5,9 +5,10 @@ import { Meter } from "@heroui/react/meter";
 import { Table } from "@heroui/react/table";
 import { useSearchParams } from "next/navigation";
 import { BillingActions } from "@/components/billing/billing-actions";
-import { PageError, PageLoader } from "@/components/feedback/states";
+import { Section } from "@/components/feedback/section";
+import { CardSkeleton } from "@/components/feedback/skeletons";
 import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
-import { useCredits, useMe } from "@/lib/api/queries";
+import { combineQueries, useCredits, useMe } from "@/lib/api/queries";
 
 const REASON_LABELS: Record<string, string> = {
   signup_grant: "Signup bonus",
@@ -41,26 +42,33 @@ export function BillingSection() {
   const upgrade = searchParams.get("upgrade");
   const me = useMe();
   const credits = useCredits();
-
-  if (me.isLoading || credits.isLoading) {
-    return <PageLoader label="Loading billing…" />;
-  }
-  if (me.error || !me.data || credits.error || !credits.data) {
-    return <PageError error={me.error ?? credits.error} onRetry={() => me.refetch()} />;
-  }
-
-  const subscription = me.data.subscription;
-  const active = isActiveSubscription(subscription?.status);
-  const plan = active && subscription?.planId ? getPlan(subscription.planId) : null;
-  const balance = credits.data.balance;
-  const costs = credits.data.costs;
-  const ledger = credits.data.ledger;
-  const grant = subscription?.monthlyCreditGrant ?? 0;
-  const pct = grant > 0 ? (balance.monthly / grant) * 100 : 0;
-  const meterColor = balance.total <= 0 ? "danger" : grant > 0 && pct <= 20 ? "warning" : "success";
+  const query = combineQueries(me, credits);
 
   return (
-    <div className="space-y-6">
+    <Section
+      query={query}
+      errorLabel="Couldn't load billing."
+      skeleton={
+        <div className="space-y-10">
+          <CardSkeleton lines={3} />
+          <CardSkeleton lines={3} />
+        </div>
+      }
+    >
+      {([meData, creditsData]) => {
+        const subscription = meData.subscription;
+        const active = isActiveSubscription(subscription?.status);
+        const plan = active && subscription?.planId ? getPlan(subscription.planId) : null;
+        const balance = creditsData.balance;
+        const costs = creditsData.costs;
+        const ledger = creditsData.ledger;
+        const grant = subscription?.monthlyCreditGrant ?? 0;
+        const pct = grant > 0 ? (balance.monthly / grant) * 100 : 0;
+        const meterColor =
+          balance.total <= 0 ? "danger" : grant > 0 && pct <= 20 ? "warning" : "success";
+
+        return (
+          <div className="space-y-10">
       {!active && upgrade ? (
         <p className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">
           You&apos;re out of credits. Pick a plan or grab a top-up pack below to keep generating.
@@ -123,7 +131,7 @@ export function BillingSection() {
       </div>
 
       {/* What credits buy */}
-      <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="rounded-xl ">
         <h3 className="text-sm font-semibold text-foreground">What credits buy</h3>
         <Table className="mt-3">
           <Table.Content aria-label="Credit costs">
@@ -149,7 +157,7 @@ export function BillingSection() {
 
       {/* Recent activity */}
       {ledger.length > 0 ? (
-        <div className="rounded-xl border border-border bg-surface p-4">
+        <div className="rounded-xl ">
           <h3 className="text-sm font-semibold text-foreground">Recent credit activity</h3>
           <Table className="mt-3">
             <Table.ScrollContainer>
@@ -171,9 +179,8 @@ export function BillingSection() {
                       </Table.Cell>
                       <Table.Cell>
                         <span
-                          className={`tabular-nums ${
-                            entry.delta >= 0 ? "text-success" : "text-foreground"
-                          }`}
+                          className={`tabular-nums ${entry.delta >= 0 ? "text-success" : "text-foreground"
+                            }`}
                         >
                           {entry.delta >= 0 ? "+" : ""}
                           {entry.delta.toLocaleString()}
@@ -193,10 +200,13 @@ export function BillingSection() {
         </div>
       ) : null}
 
-      <BillingActions
-        currentPlanId={plan?.id ?? null}
-        hasCustomer={Boolean(subscription?.hasStripeCustomer)}
-      />
-    </div>
+            <BillingActions
+              currentPlanId={plan?.id ?? null}
+              hasCustomer={Boolean(subscription?.hasStripeCustomer)}
+            />
+          </div>
+        );
+      }}
+    </Section>
   );
 }

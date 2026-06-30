@@ -7,7 +7,8 @@ import { apiGet } from "@/lib/api/fetcher";
 /** Central query keys so mutations can invalidate the right caches. */
 export const queryKeys = {
   me: ["me"] as const,
-  dashboard: ["dashboard"] as const,
+  automation: ["dashboard", "automation"] as const,
+  onboarding: ["onboarding"] as const,
   brands: ["brands"] as const,
   brandProfile: ["brand", "profile"] as const,
   competitors: ["brand", "competitors"] as const,
@@ -47,7 +48,7 @@ export type CreditsResponse = {
 export type MeResponse = {
   user: SessionUser;
   llmReady: boolean;
-  workspace: { id: string; name: string; autonomyMode: string };
+  workspace: { id: string; name: string };
   subscription: {
     planId: string;
     status: string;
@@ -55,8 +56,9 @@ export type MeResponse = {
     monthlyCreditGrant: number;
     currentPeriodEnd: string | null;
     hasStripeCustomer: boolean;
+    creditEmailsEnabled: boolean;
   } | null;
-  brands: { id: string; name: string }[];
+  brands: { id: string; name: string; autonomyMode: string }[];
   activeBrandId: string | null;
 };
 
@@ -68,22 +70,7 @@ export type OnboardingStep = {
   completed: boolean;
 };
 
-export type DashboardResponse = {
-  active: boolean;
-  plan: { id: string; name: string } | null;
-  autonomyMode: string;
-  credits: CreditBalance;
-  creditCosts: CreditCosts;
-  monthlyCreditGrant: number;
-  canGenerate: boolean;
-  totalArticles: number;
-  approvedArticles: number;
-  pendingTopics: number;
-  latestRun: { status: string; summary: string | null; topicsCreated: number | null } | null;
-  automation: AutomationStats;
-  onboardingSteps: OnboardingStep[];
-  recentArticles: { id: string; title: string; status: string }[];
-};
+export type OnboardingResponse = { steps: OnboardingStep[] };
 
 export type AgentState =
   | "active"
@@ -226,9 +213,21 @@ export type IntegrationView = {
 };
 
 // Shared query options so a hook and its prefetch call can't drift apart.
-const dashboardQueryOptions = () => ({
-  queryKey: queryKeys.dashboard,
-  queryFn: () => apiGet<DashboardResponse>("/api/dashboard"),
+const automationQueryOptions = () => ({
+  queryKey: queryKeys.automation,
+  queryFn: () => apiGet<AutomationStats>("/api/dashboard/automation"),
+});
+const onboardingQueryOptions = () => ({
+  queryKey: queryKeys.onboarding,
+  queryFn: () => apiGet<OnboardingResponse>("/api/onboarding"),
+});
+const creditsQueryOptions = () => ({
+  queryKey: queryKeys.credits,
+  queryFn: () => apiGet<CreditsResponse>("/api/credits"),
+});
+const researchQueryOptions = () => ({
+  queryKey: queryKeys.research,
+  queryFn: () => apiGet<{ latest: ResearchRun | null; runs: ResearchRun[] }>("/api/research"),
 });
 const topicsQueryOptions = () => ({
   queryKey: queryKeys.topics,
@@ -243,12 +242,49 @@ const activityQueryOptions = () => ({
   queryFn: () => apiGet<ActivityResponse>("/api/activity"),
 });
 
+/** The minimal shape `<Section>` consumes; `combineQueries` produces it too. */
+export type QueryLike<T> = {
+  data: T | undefined;
+  error: unknown;
+  refetch: () => unknown;
+};
+
+// `infer D` greedily keeps the `| undefined` from `QueryLike.data`, so strip it
+// — once `combineQueries` resolves, every element is guaranteed present.
+type DataOf<Q> = Q extends QueryLike<infer D> ? Exclude<D, undefined> : never;
+
+/**
+ * Merge several query results into one `<Section>`-compatible result: `data` is
+ * a tuple present only once every query has resolved, `error` is the first
+ * failure, and `refetch` re-runs them all. Lets one section depend on several
+ * endpoints while still loading/erroring as a unit.
+ */
+export function combineQueries<T extends readonly QueryLike<unknown>[]>(
+  ...queries: [...T]
+): QueryLike<{ [K in keyof T]: DataOf<T[K]> }> {
+  const failed = queries.find((query) => query.error != null);
+  const ready = queries.every((query) => query.data !== undefined);
+  return {
+    data: ready
+      ? (queries.map((query) => query.data) as { [K in keyof T]: DataOf<T[K]> })
+      : undefined,
+    error: failed?.error ?? null,
+    refetch: () => {
+      for (const query of queries) query.refetch();
+    },
+  };
+}
+
 export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: () => apiGet<MeResponse>("/api/me") });
 }
 
-export function useDashboard() {
-  return useQuery(dashboardQueryOptions());
+export function useAutomation() {
+  return useQuery(automationQueryOptions());
+}
+
+export function useOnboarding() {
+  return useQuery(onboardingQueryOptions());
 }
 
 export function useBrandProfile() {
@@ -296,7 +332,12 @@ export function usePrefetchAppData(enabled: boolean) {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!enabled) return;
-    queryClient.prefetchQuery(dashboardQueryOptions());
+    // Dashboard sections (each loads independently from its own endpoint).
+    queryClient.prefetchQuery(creditsQueryOptions());
+    queryClient.prefetchQuery(automationQueryOptions());
+    queryClient.prefetchQuery(onboardingQueryOptions());
+    queryClient.prefetchQuery(researchQueryOptions());
+    // Shared across pages.
     queryClient.prefetchQuery(topicsQueryOptions());
     queryClient.prefetchQuery(articlesQueryOptions());
     queryClient.prefetchQuery(activityQueryOptions());
@@ -304,10 +345,7 @@ export function usePrefetchAppData(enabled: boolean) {
 }
 
 export function useResearch() {
-  return useQuery({
-    queryKey: queryKeys.research,
-    queryFn: () => apiGet<{ latest: ResearchRun | null; runs: ResearchRun[] }>("/api/research"),
-  });
+  return useQuery(researchQueryOptions());
 }
 
 export function useIntegrations() {
@@ -318,8 +356,5 @@ export function useIntegrations() {
 }
 
 export function useCredits() {
-  return useQuery({
-    queryKey: queryKeys.credits,
-    queryFn: () => apiGet<CreditsResponse>("/api/credits"),
-  });
+  return useQuery(creditsQueryOptions());
 }

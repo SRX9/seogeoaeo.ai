@@ -8,7 +8,6 @@ import {
 } from "@/lib/billing/credits";
 import { getBillingContext, getRequestOrigin } from "@/lib/billing/access";
 import { getStripe } from "@/lib/billing/stripe";
-import { setStripeCustomerId } from "@/lib/billing/subscription";
 
 type CheckoutBody = { planId?: PlanId; packId?: CreditPackId };
 
@@ -27,21 +26,19 @@ export async function POST(request: Request) {
     const stripe = getStripe();
     const origin = await getRequestOrigin();
 
-    let customerId = subscription?.stripeCustomerId ?? undefined;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: session.user.email,
-        metadata: {
-          workspaceId: workspace.id,
-          userId: session.user.id,
-        },
-      });
-      customerId = customer.id;
-      await setStripeCustomerId(workspace.id, customerId);
-    }
+    // Reuse a saved customer when we have one; otherwise let Checkout create the
+    // customer from the email. Skipping a pre-emptive `customers.create` removes
+    // a second sequential Stripe round trip on a user's first purchase — the
+    // customer id is captured from the webhook instead (the subscription sync and
+    // the topup branch both persist it).
+    const customerId = subscription?.stripeCustomerId ?? undefined;
+    const customerTarget: Pick<
+      Stripe.Checkout.SessionCreateParams,
+      "customer" | "customer_email"
+    > = customerId ? { customer: customerId } : { customer_email: session.user.email };
 
-    const successUrl = `${origin}/settings?tab=billing&checkout=success`;
-    const cancelUrl = `${origin}/settings?tab=billing&checkout=canceled`;
+    const successUrl = `${origin}/account?tab=billing&checkout=success`;
+    const cancelUrl = `${origin}/account?tab=billing&checkout=canceled`;
 
     let params: Stripe.Checkout.SessionCreateParams;
 
@@ -53,7 +50,10 @@ export async function POST(request: Request) {
       }
       params = {
         mode: "payment",
-        customer: customerId,
+        ...customerTarget,
+        // When Checkout creates the customer (no saved id), force a real Customer
+        // — not a guest — so the topup webhook can persist it for reuse.
+        ...(customerId ? {} : { customer_creation: "always" as const }),
         line_items: [{ price: packPriceId, quantity: 1 }],
         success_url: successUrl,
         cancel_url: cancelUrl,
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       }
       params = {
         mode: "subscription",
-        customer: customerId,
+        ...customerTarget,
         line_items: [{ price: stripePriceId, quantity: 1 }],
         success_url: successUrl,
         cancel_url: cancelUrl,

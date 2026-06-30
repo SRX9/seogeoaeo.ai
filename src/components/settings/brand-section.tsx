@@ -3,55 +3,54 @@
 import { Card } from "@heroui/react";
 import { BrandProfileForm } from "@/components/brand/brand-profile-form";
 import { CompetitorsPanel } from "@/components/brand/competitors-panel";
-import { PageError, PageLoader } from "@/components/feedback/states";
-import { useBrandProfile, useCompetitors, useMe } from "@/lib/api/queries";
+import { Section } from "@/components/feedback/section";
+import { CardSkeleton } from "@/components/feedback/skeletons";
+import { combineQueries, useBrandProfile, useCompetitors, useMe } from "@/lib/api/queries";
 
 export function BrandSection() {
   const me = useMe();
   const profile = useBrandProfile();
   const competitors = useCompetitors();
-
-  const isLoading = me.isLoading || profile.isLoading || competitors.isLoading;
-  const error = me.error || profile.error || competitors.error;
-
-  if (isLoading) {
-    return <PageLoader label="Loading brand profile…" />;
-  }
-  if (error || !profile.data || !competitors.data) {
-    return (
-      <PageError
-        error={error}
-        onRetry={() => {
-          profile.refetch();
-          competitors.refetch();
-        }}
-      />
-    );
-  }
-
-  const brandName =
-    me.data?.brands.find((brand) => brand.id === me.data?.activeBrandId)?.name ?? "your brand";
+  const query = combineQueries(me, profile, competitors);
 
   return (
-    <div className="space-y-8">
-      <p className="text-sm text-muted">
-        Editing <span className="font-medium text-foreground">{brandName}</span> — product,
-        audience, tone, and seed keywords for content generation.
-      </p>
+    <Section
+      query={query}
+      errorLabel="Couldn't load brand settings."
+      skeleton={
+        <div className="space-y-8">
+          <CardSkeleton lines={5} />
+          <CardSkeleton lines={3} />
+        </div>
+      }
+    >
+      {([meData, profileData, competitorsData]) => {
+        const brandName =
+          meData.brands.find((brand) => brand.id === meData.activeBrandId)?.name ?? "your brand";
 
-      <Card>
-        <Card.Header>
-          <Card.Title>Brand context</Card.Title>
-          <Card.Description>
-            seogeoaeo.ai uses this to research topics and write in your voice.
-          </Card.Description>
-        </Card.Header>
-        <Card.Content>
-          <BrandProfileForm initial={profile.data.profile} />
-        </Card.Content>
-      </Card>
+        return (
+          <div className="space-y-8">
+            <p className="text-sm text-muted">
+              Editing <span className="font-medium text-foreground">{brandName}</span> — product,
+              audience, tone, and seed keywords for content generation.
+            </p>
 
-      <CompetitorsPanel competitors={competitors.data.competitors} />
-    </div>
+            <Card>
+              <Card.Header>
+                <Card.Title>Brand context</Card.Title>
+                <Card.Description>
+                  seogeoaeo.ai uses this to research topics and write in your voice.
+                </Card.Description>
+              </Card.Header>
+              <Card.Content>
+                <BrandProfileForm initial={profileData.profile} />
+              </Card.Content>
+            </Card>
+
+            <CompetitorsPanel competitors={competitorsData.competitors} />
+          </div>
+        );
+      }}
+    </Section>
   );
 }

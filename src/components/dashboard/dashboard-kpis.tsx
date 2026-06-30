@@ -61,7 +61,7 @@ function CreditsTile({
         </>
       ) : (
         <Link
-          href="/settings?tab=billing"
+          href="/account?tab=billing"
           className={`${buttonVariants({ size: "sm" })} mt-3`}
         >
           {credits.total > 0 ? "Get more credits" : "View plans"}

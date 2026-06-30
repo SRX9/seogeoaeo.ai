@@ -67,7 +67,12 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
         ),
       };
     },
-    invalidateKeys: [queryKeys.dashboard, queryKeys.topics, queryKeys.articles],
+    invalidateKeys: [
+      queryKeys.automation,
+      queryKeys.onboarding,
+      queryKeys.topics,
+      queryKeys.articles,
+    ],
     onSuccess: () => toast.success("Retry started."),
     onError: (error) => toast.danger(getErrorMessage(error, "Retry failed. Try again.")),
   });

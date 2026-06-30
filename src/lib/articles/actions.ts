@@ -76,7 +76,7 @@ export async function generateArticleAction(topicId: string): Promise<void> {
   } catch (error) {
     if (error instanceof InsufficientCreditsError) {
       revalidatePath("/dashboard");
-      redirect("/settings?tab=billing&upgrade=1");
+      redirect("/account?tab=billing&upgrade=1");
     }
     throw error;
   }
@@ -123,7 +123,7 @@ export async function publishArticleAction(articleId: string): Promise<void> {
   // Publishing to live destinations is a paid feature. Free users can generate a
   // sample draft, but must subscribe to publish it.
   if (!isActiveSubscription(subscription?.status)) {
-    redirect("/settings?tab=billing&upgrade=1");
+    redirect("/account?tab=billing&upgrade=1");
   }
 
   try {

@@ -5,14 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BrandSection } from "@/components/settings/brand-section";
-import { BillingSection } from "@/components/settings/billing-section";
-import { GeneralSection } from "@/components/settings/general-section";
+import { AutomationSection } from "@/components/settings/automation-section";
 import { IntegrationsSection } from "@/components/settings/integrations-section";
 
 const tabs = [
-  { id: "general", label: "General" },
   { id: "brand", label: "Brand" },
-  { id: "billing", label: "Billing" },
+  { id: "automation", label: "Automation" },
   { id: "integrations", label: "Integrations" },
 ] as const;
 
@@ -26,7 +24,7 @@ function SettingsContent() {
   const requested = searchParams.get("tab");
   const selected: TabId = tabs.some((tab) => tab.id === requested)
     ? (requested as TabId)
-    : "general";
+    : "brand";
 
   function selectTab(id: string) {
     const params = new URLSearchParams(searchParams);
@@ -36,10 +34,10 @@ function SettingsContent() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <PageHeader title="Settings" description="Workspace preferences and defaults." />
+      <PageHeader title="Brand settings" description="Settings for the selected brand." />
 
       <Segment
-        aria-label="Settings sections"
+        aria-label="Brand settings sections"
         selectedKey={selected}
         onSelectionChange={(key) => selectTab(String(key))}
       >
@@ -51,9 +49,8 @@ function SettingsContent() {
         ))}
       </Segment>
 
-      {selected === "general" ? <GeneralSection /> : null}
       {selected === "brand" ? <BrandSection /> : null}
-      {selected === "billing" ? <BillingSection /> : null}
+      {selected === "automation" ? <AutomationSection /> : null}
       {selected === "integrations" ? <IntegrationsSection /> : null}
     </div>
   );

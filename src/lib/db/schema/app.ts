@@ -1,9 +1,11 @@
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerId: text("owner_id").notNull().unique(),
   name: text("name").notNull(),
+  // Deprecated: autonomy moved to a per-brand setting (`brands.autonomy_mode`).
+  // Kept (unused) to avoid a destructive migration; safe to drop in a later one.
   autonomyMode: text("autonomy_mode").notNull().default("FULL_AUTO"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -35,6 +37,8 @@ export const subscriptions = pgTable("subscriptions", {
   // Throttles the notification; cleared on any credit top-up so a fresh
   // low-credit episode re-notifies.
   lastLowCreditEmailAt: timestamp("last_low_credit_email_at", { withTimezone: true }),
+  // When false, the owner has opted out of the agent's low/out-of-credits emails.
+  creditEmailsEnabled: boolean("credit_emails_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

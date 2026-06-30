@@ -3,7 +3,6 @@ import { getDb } from "@/lib/db";
 import { FREE_PLAN_ID } from "@/lib/billing/plans";
 import { SIGNUP_GRANT_CREDITS } from "@/lib/billing/credits";
 import { creditLedger, subscriptions, user, workspaces } from "@/lib/db/schema";
-import type { AutonomyMode } from "@/lib/workspace/settings";
 
 export async function ensureUserWorkspace(ownerId: string, name: string) {
   const db = getDb();
@@ -79,6 +78,14 @@ export async function getWorkspaceById(workspaceId: string) {
   return workspace ?? null;
 }
 
+/** Toggle the owner's low/out-of-credits email notifications for a workspace. */
+export async function setCreditEmailsEnabled(workspaceId: string, enabled: boolean) {
+  await getDb()
+    .update(subscriptions)
+    .set({ creditEmailsEnabled: enabled, updatedAt: new Date() })
+    .where(eq(subscriptions.workspaceId, workspaceId));
+}
+
 /** Email address of the workspace owner (workspaces.ownerId → user.email). */
 export async function getWorkspaceOwnerEmail(workspaceId: string): Promise<string | null> {
   const [row] = await getDb()
@@ -88,13 +95,4 @@ export async function getWorkspaceOwnerEmail(workspaceId: string): Promise<strin
     .where(eq(workspaces.id, workspaceId))
     .limit(1);
   return row?.email ?? null;
-}
-
-export async function updateWorkspaceAutonomy(workspaceId: string, autonomyMode: AutonomyMode) {
-  const [workspace] = await getDb()
-    .update(workspaces)
-    .set({ autonomyMode, updatedAt: new Date() })
-    .where(eq(workspaces.id, workspaceId))
-    .returning();
-  return workspace;
 }

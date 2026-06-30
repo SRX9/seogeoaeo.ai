@@ -34,7 +34,7 @@ export function BrandProfileForm({ initial }: BrandProfileFormProps) {
     mutationFn: (payload: BrandProfile) => apiPut("/api/brand/profile", payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.brandProfile });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
       toast.success("Brand profile saved.");
     },
     onError: (error) =>

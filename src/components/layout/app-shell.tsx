@@ -12,6 +12,7 @@ import {
   ActivityIcon,
   ArticlesIcon,
   ChevronUpDownIcon,
+  CreditCardIcon,
   OverviewIcon,
   SettingsIcon,
   TopicsIcon,
@@ -24,7 +25,7 @@ const primaryNav = [
   { href: "/topics", label: "Topics", icon: TopicsIcon },
   { href: "/articles", label: "Articles", icon: ArticlesIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
+  { href: "/settings", label: "Brand settings", icon: SettingsIcon },
 ] as const;
 
 const allNav = primaryNav;
@@ -53,6 +54,7 @@ function signOut() {
 }
 
 function UserMenu({ user }: { user: SessionUser }) {
+  const router = useRouter();
   return (
     <Dropdown>
       <Button
@@ -75,9 +77,17 @@ function UserMenu({ user }: { user: SessionUser }) {
       <Dropdown.Popover placement="top start">
         <Dropdown.Menu
           onAction={(key) => {
-            if (key === "sign-out") signOut();
+            if (key === "sign-out") {
+              signOut();
+            } else if (key === "billing") {
+              router.push("/account");
+            }
           }}
         >
+          <Dropdown.Item id="billing" textValue="Billing">
+            <CreditCardIcon className="size-4 text-muted" />
+            <Label>Billing</Label>
+          </Dropdown.Item>
           <Dropdown.Item id="sign-out" variant="danger" textValue="Sign out">
             <Label>Sign out</Label>
           </Dropdown.Item>

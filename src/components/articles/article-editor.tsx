@@ -139,12 +139,13 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: queryKeys.article(article.id) });
     queryClient.invalidateQueries({ queryKey: queryKeys.articles });
-    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    queryClient.invalidateQueries({ queryKey: queryKeys.automation });
+    queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
   }
 
   function handleApiError(error: unknown) {
     if (error instanceof ApiError && error.status === 402) {
-      router.push("/settings?tab=billing&upgrade=1");
+      router.push("/account?tab=billing&upgrade=1");
       return;
     }
     toast.danger(getErrorMessage(error));
@@ -279,7 +280,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
                 </p>
               ) : (
                 <Link
-                  href="/settings?tab=billing&upgrade=1"
+                  href="/account?tab=billing&upgrade=1"
                   className={buttonVariants({ variant: "secondary" })}
                 >
                   Upgrade to publish
@@ -311,7 +312,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
                 </LoadingButton>
               ) : (
                 <Link
-                  href="/settings?tab=billing&upgrade=1"
+                  href="/account?tab=billing&upgrade=1"
                   className={buttonVariants({ variant: "secondary" })}
                 >
                   Upgrade to publish

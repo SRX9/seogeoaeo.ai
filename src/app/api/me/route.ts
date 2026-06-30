@@ -11,7 +11,6 @@ export async function GET() {
       workspace: {
         id: ctx.workspace.id,
         name: ctx.workspace.name,
-        autonomyMode: ctx.workspace.autonomyMode,
       },
       subscription: ctx.subscription
         ? {
@@ -25,9 +24,14 @@ export async function GET() {
             monthlyCreditGrant: ctx.subscription.monthlyCreditGrant,
             currentPeriodEnd: ctx.subscription.currentPeriodEnd,
             hasStripeCustomer: Boolean(ctx.subscription.stripeCustomerId),
+            creditEmailsEnabled: ctx.subscription.creditEmailsEnabled,
           }
         : null,
-      brands: ctx.brands.map((brand) => ({ id: brand.id, name: brand.name })),
+      brands: ctx.brands.map((brand) => ({
+        id: brand.id,
+        name: brand.name,
+        autonomyMode: brand.autonomyMode,
+      })),
       activeBrandId: ctx.brand?.id ?? null,
     });
   });

@@ -15,17 +15,52 @@ const valueProps = [
   "Start free — no credit card required",
 ];
 
+const PROVIDER_LABELS: Record<"google" | "github", string> = {
+  google: "Google",
+  github: "GitHub",
+};
+
+// better-auth signals failure by resolving with an `error` object (it doesn't
+// throw), shaped like { code?, message?, status? }. Map the cases we can
+// actually hit at this call to copy the user can act on; the most common is a
+// provider whose OAuth env vars aren't set, which comes back as PROVIDER_NOT_FOUND.
+// We never surface the raw server `message` ("Provider not found" is developer
+// speak), matching how the API fetcher treats non-user-facing errors.
+function signInErrorMessage(
+  error: { code?: string; status?: number },
+  providerLabel: string,
+): string {
+  if (error.code === "PROVIDER_NOT_FOUND") {
+    return `${providerLabel} sign-in isn't available right now. Try the other option or contact support.`;
+  }
+  if (error.status === 429) {
+    return "Too many sign-in attempts. Please wait a moment, then try again.";
+  }
+  if (error.status !== undefined && error.status >= 500) {
+    return "Our sign-in service is having trouble. Please try again in a moment.";
+  }
+  return "Sign in failed. Please try again.";
+}
+
 export function LoginForm() {
   const [loading, setLoading] = useState<"google" | "github" | null>(null);
 
   async function signIn(provider: "google" | "github") {
     setLoading(provider);
     try {
-      await authClient.signIn.social({
+      const { error } = await authClient.signIn.social({
         provider,
         // Land in the app. The dashboard sends brand-less new users to onboarding.
         callbackURL: "/dashboard",
       });
+      // better-auth resolves with an `error` object rather than throwing, so a
+      // failed request would otherwise leave the spinner running forever. On
+      // success the client redirects to the provider, so we keep the spinner up
+      // until the browser navigates away.
+      if (error) {
+        setLoading(null);
+        toast.danger(signInErrorMessage(error, PROVIDER_LABELS[provider]));
+      }
     } catch (error) {
       setLoading(null);
       toast.danger(getErrorMessage(error, "Sign in failed. Please try again."));
