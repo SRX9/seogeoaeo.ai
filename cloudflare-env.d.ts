@@ -2,7 +2,9 @@
 interface SendEmailBinding {
   send(message: {
     to: string;
-    from: string;
+    // A bare string is treated as just the address; pass `{ email, name }` so
+    // clients show the display name instead of the raw address.
+    from: string | { email: string; name?: string };
     subject: string;
     html?: string;
     text?: string;
