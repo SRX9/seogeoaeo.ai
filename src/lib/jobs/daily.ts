@@ -1,59 +1,75 @@
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
-import { listBrands } from "@/lib/brand/repository";
-import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { sendOutOfCreditsEmail } from "@/lib/email/notify";
 import { getDailyRun, upsertDailyRun, type DailyRunStatus } from "@/lib/jobs/daily-repository";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
-import { listActiveWorkspaceIds } from "@/lib/jobs/weekly";
-import { logError } from "@/lib/logging/logger";
 import { runResearch } from "@/lib/research/run";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
-import { getUtcDayKey } from "@/lib/workspace/settings";
 
-type Brand = { id: string; name: string };
+/**
+ * The daily content agent, decomposed into idempotent steps that the
+ * `DailyBrandWorkflow` drives over HTTP (one Workflow instance per brand per
+ * UTC day). Each function here is a single unit of work the Workflow checkpoints
+ * and may retry, so all of them are safe to call repeatedly.
+ *
+ * Pipeline shape: plan → (optional) research → write N → settle. Credits remain
+ * the real budget — generation stops the moment the workspace can't afford the
+ * next article — and the plan's `dailyArticleCap` bounds the agent's output so a
+ * single day never burns the month.
+ */
 
-export type DailyBrandResult = {
-  generated: number;
-  researchTopics: number;
-  status: DailyRunStatus;
+export type DailyPlan = {
+  /** Nothing to do today (no allowance, or the cap is already met). */
+  skip: boolean;
+  /** Terminal daily-run status recorded when skipping. */
+  skipStatus: DailyRunStatus | null;
+  cap: number;
+  /** Articles the agent may still write today (cap − already-written). */
+  budget: number;
+  writtenToday: number;
+  priorResearched: number;
+  /** Queued topic ids to draw from, highest score first, already clipped to budget. */
+  topicIds: string[];
+  /** Queue can't cover the budget, so one research run is warranted. */
+  needsResearch: boolean;
 };
 
 /**
- * One day's work for a single brand. The agent writes up to the plan's daily cap,
- * topping up its topic backlog with ONE research run first if the queue is below
- * the day's budget — and it never lowers the score bar to manufacture topics, so a
- * thin queue simply means fewer (or zero) articles today. When real work is queued
- * but credits are exhausted, it records `paused_no_credits` and emails the owner.
- *
- * Idempotent: the day's budget is derived from how many articles already exist for
- * the brand today, so a re-fired cron converges instead of double-writing.
+ * Decide a brand's work for the day. Pure reads plus an idempotent upsert when
+ * the cap is already met — safe to call repeatedly.
  */
-export async function runDailyPipelineForBrand(
-  workspaceId: string,
-  brand: Brand,
+export async function planDailyForBrand(
+  scope: BrandScope,
   planId: string | null | undefined,
-): Promise<DailyBrandResult> {
-  const scope: BrandScope = { workspaceId, brandId: brand.id };
+  runDate: string,
+): Promise<DailyPlan> {
   const cap = dailyArticleCapForPlan(planId);
-  const runDate = getUtcDayKey();
 
   // Plans with no daily allowance (free / unknown) are skipped entirely.
   if (cap <= 0) {
-    return { generated: 0, researchTopics: 0, status: "idle" };
+    return {
+      skip: true,
+      skipStatus: "idle",
+      cap,
+      budget: 0,
+      writtenToday: 0,
+      priorResearched: 0,
+      topicIds: [],
+      needsResearch: false,
+    };
   }
 
-  // The agent's own articles-written-today live on the daily-run row, so the cap
-  // bounds the AGENT's output (manual generation never eats into it) while a
-  // re-fired cron stays idempotent.
-  const existing = await getDailyRun(brand.id, runDate);
+  // The agent's articles-written-today live on the daily-run row, so the cap
+  // bounds the AGENT's output (manual generation never eats into it) and a
+  // re-fired day stays idempotent.
+  const existing = await getDailyRun(scope.brandId, runDate);
   const writtenToday = existing?.articlesWritten ?? 0;
   const priorResearched = existing?.topicsResearched ?? 0;
   const budget = cap - writtenToday;
 
-  // Already hit today's cap — nothing more to do.
+  // Already hit today's cap — record idle and stop.
   if (budget <= 0) {
     await upsertDailyRun(scope, runDate, {
       articlesWritten: writtenToday,
@@ -61,148 +77,125 @@ export async function runDailyPipelineForBrand(
       status: "idle",
       note: "Daily cap already met.",
     });
-    return { generated: 0, researchTopics: 0, status: "idle" };
+    return {
+      skip: true,
+      skipStatus: "idle",
+      cap,
+      budget: 0,
+      writtenToday,
+      priorResearched,
+      topicIds: [],
+      needsResearch: false,
+    };
   }
 
-  const job = await createAgentJob(scope, "daily_pipeline", "Daily content run started");
-  const origin = process.env.BETTER_AUTH_URL;
-  let researchTopics = 0;
-  let generated = 0;
-  let outOfCredits = false;
+  const pending = await listPendingTopicsForWriting(scope.brandId, budget);
+  return {
+    skip: false,
+    skipStatus: null,
+    cap,
+    budget,
+    writtenToday,
+    priorResearched,
+    topicIds: pending.map((topic) => topic.id),
+    needsResearch: pending.length < budget,
+  };
+}
 
+/**
+ * Lean, quality-safe replenish: at most one research run, only when the queue
+ * can't cover the day's budget. Idempotent on `idempotencyKey` (the Workflow
+ * instance id) so a retried step reuses the same run and never double-charges.
+ * Insufficient-credit errors are swallowed — research is optional; the day still
+ * writes whatever is already queued. Returns the refreshed write targets.
+ */
+export async function researchForDaily(
+  scope: BrandScope,
+  budget: number,
+  idempotencyKey: string,
+): Promise<{ researchTopics: number; topicIds: string[] }> {
+  let researchTopics = 0;
   try {
-    // 1. Lean, quality-safe replenish: at most one research run, and only when the
-    //    queue can't cover today's budget. runResearch keeps only topics scoring
-    //    >= MIN_SCORE and de-duped against existing titles, so nothing is forced.
-    let pending = await listPendingTopicsForWriting(brand.id, budget);
-    if (pending.length < budget) {
-      try {
-        await assertHasCredits(workspaceId, CREDIT_COSTS.research_run);
-        const research = await runResearch(scope);
-        researchTopics = research.topicsCreated;
-        await spendCredits(workspaceId, CREDIT_COSTS.research_run, {
-          reason: "research_run",
-          brandId: brand.id,
-          refType: "research_run",
-          refId: research.runId,
-        });
-        pending = await listPendingTopicsForWriting(brand.id, budget);
-      } catch (error) {
-        // Can't afford research — fine, write whatever is already queued.
-        if (!(error instanceof InsufficientCreditsError)) {
-          throw error;
-        }
-      }
-    }
-
-    const pendingExisted = pending.length > 0;
-
-    // 2. Write up to the day's budget, highest score first. generateArticleFromTopic
-    //    asserts credits up front, so the first unaffordable topic stops the loop.
-    for (const topic of pending.slice(0, budget)) {
-      try {
-        await generateArticleFromTopic(scope, topic.id, { origin });
-        generated += 1;
-      } catch (error) {
-        if (error instanceof InsufficientCreditsError) {
-          outOfCredits = true;
-          break;
-        }
-        // A single article failing (e.g. an LLM hiccup) shouldn't sink the day.
-      }
-    }
-
-    // 3. Settle the day's state.
-    const finalWritten = writtenToday + generated;
-    let status: DailyRunStatus;
-    if (outOfCredits) {
-      status = "paused_no_credits";
-    } else if (!pendingExisted && generated === 0) {
-      status = "no_topics";
-    } else {
-      status = "active";
-    }
-
-    await upsertDailyRun(scope, runDate, {
-      articlesWritten: finalWritten,
-      topicsResearched: priorResearched + researchTopics,
-      status,
+    await assertHasCredits(scope.workspaceId, CREDIT_COSTS.research_run);
+    const research = await runResearch(scope, { idempotencyKey });
+    researchTopics = research.topicsCreated;
+    // Key the spend on the run id so the activity feed can attribute it, and so a
+    // retry (same run id) is deduped by spendCredits.
+    await spendCredits(scope.workspaceId, CREDIT_COSTS.research_run, {
+      reason: "research_run",
+      brandId: scope.brandId,
+      refType: "research_run",
+      refId: research.runId,
     });
-
-    await finishAgentJob(
-      job.id,
-      "completed",
-      `Wrote ${generated} article${generated === 1 ? "" : "s"}` +
-        (researchTopics ? `; researched ${researchTopics} new topics.` : "."),
-      { generatedCount: generated, researchTopics, status, dailyCap: cap },
-    );
-
-    // 4. Out of credits with work still queued — nudge the owner (throttled).
-    if (status === "paused_no_credits") {
-      const remaining = await listPendingTopicsForWriting(brand.id, 50);
-      await sendOutOfCreditsEmail({
-        workspaceId,
-        brandName: brand.name,
-        pendingTopics: remaining.length,
-      });
-    }
-
-    return { generated, researchTopics, status };
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "Unknown error";
-    await finishAgentJob(job.id, "failed", "Daily run failed — it will retry tomorrow.");
-    await upsertDailyRun(scope, runDate, {
-      articlesWritten: writtenToday + generated,
-      topicsResearched: priorResearched + researchTopics,
-      status: "active",
-      note: "Run errored; will retry next day.",
+    if (!(error instanceof InsufficientCreditsError)) {
+      throw error;
+    }
+  }
+
+  const pending = await listPendingTopicsForWriting(scope.brandId, budget);
+  return { researchTopics, topicIds: pending.map((topic) => topic.id) };
+}
+
+export type SettleInput = {
+  cap: number;
+  writtenToday: number;
+  priorResearched: number;
+  generated: number;
+  researchTopics: number;
+  /** Whether any topics were available to write (drives the no_topics status). */
+  hadTargets: boolean;
+  /** Whether the day stopped because the workspace ran out of credits. */
+  outOfCredits: boolean;
+  brandName?: string;
+};
+
+/**
+ * Record the day's final state for a brand: settle the daily-run row (absolute
+ * values, idempotent upsert), log a `daily_pipeline` job for the overview, and —
+ * when paused for credits — nudge the owner (throttled). Returns the status.
+ */
+export async function settleDailyForBrand(
+  scope: BrandScope,
+  runDate: string,
+  input: SettleInput,
+): Promise<DailyRunStatus> {
+  const finalWritten = input.writtenToday + input.generated;
+  let status: DailyRunStatus;
+  if (input.outOfCredits) {
+    status = "paused_no_credits";
+  } else if (!input.hadTargets && input.generated === 0) {
+    status = "no_topics";
+  } else {
+    status = "active";
+  }
+
+  await upsertDailyRun(scope, runDate, {
+    articlesWritten: finalWritten,
+    topicsResearched: input.priorResearched + input.researchTopics,
+    status,
+  });
+
+  // A single completed job per brand-day powers the overview stats; the research
+  // and writing sub-jobs already record their own activity-feed entries.
+  const job = await createAgentJob(scope, "daily_pipeline", "Daily content run");
+  await finishAgentJob(
+    job.id,
+    "completed",
+    `Wrote ${input.generated} article${input.generated === 1 ? "" : "s"}` +
+      (input.researchTopics ? `; researched ${input.researchTopics} new topics.` : "."),
+    { generatedCount: input.generated, researchTopics: input.researchTopics, status, dailyCap: input.cap },
+  );
+
+  // Out of credits with work still queued — nudge the owner (throttled).
+  if (status === "paused_no_credits") {
+    const remaining = await listPendingTopicsForWriting(scope.brandId, 50);
+    await sendOutOfCreditsEmail({
+      workspaceId: scope.workspaceId,
+      brandName: input.brandName,
+      pendingTopics: remaining.length,
     });
-    logError("daily.pipeline_failed", { workspaceId, brandId: brand.id, error: detail });
-    return { generated, researchTopics, status: "active" };
-  }
-}
-
-/** Run the daily pipeline for every brand in a workspace (shared credit pool). */
-export async function runDailyForWorkspace(workspaceId: string, planId: string | null | undefined) {
-  const brands = await listBrands(workspaceId);
-  let generated = 0;
-  let researchTopics = 0;
-
-  for (const brand of brands) {
-    try {
-      const result = await runDailyPipelineForBrand(workspaceId, brand, planId);
-      generated += result.generated;
-      researchTopics += result.researchTopics;
-    } catch (error) {
-      // One brand failing (e.g. a transient DB error during setup) must not skip
-      // its siblings — log and carry on.
-      logError("daily.brand_failed", {
-        workspaceId,
-        brandId: brand.id,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
   }
 
-  return { generated, researchTopics, brands: brands.length };
-}
-
-export async function runDailyCron() {
-  const activeWorkspaces = await listActiveWorkspaceIds();
-  const results = [];
-
-  for (const workspace of activeWorkspaces) {
-    try {
-      const result = await runDailyForWorkspace(workspace.workspaceId, workspace.planId);
-      results.push({ workspaceId: workspace.workspaceId, ...result, status: "completed" });
-    } catch (error) {
-      results.push({
-        workspaceId: workspace.workspaceId,
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-
-  return results;
+  return status;
 }

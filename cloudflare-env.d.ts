@@ -11,10 +11,22 @@ interface SendEmailBinding {
   }): Promise<{ messageId: string }>;
 }
 
+/**
+ * Cloudflare Workflows binding for the daily content agent. The Workflow class
+ * (`DailyBrandWorkflow`) lives in the separate `agent-workflow` Worker; this app
+ * binds to it cross-script (see `wrangler.jsonc`) only to create instances.
+ */
+interface AgentWorkflowBinding {
+  create(options?: { id?: string; params?: unknown }): Promise<{ id: string }>;
+  createBatch(batch: Array<{ id?: string; params?: unknown }>): Promise<Array<{ id: string }>>;
+  get(id: string): Promise<{ id: string }>;
+}
+
 interface CloudflareEnv {
   ASSETS: Fetcher;
   HYPERDRIVE: Hyperdrive;
   EMAIL?: SendEmailBinding;
+  AGENT_WORKFLOW?: AgentWorkflowBinding;
   CRON_SECRET: string;
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;

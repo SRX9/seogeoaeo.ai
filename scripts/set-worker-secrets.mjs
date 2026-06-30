@@ -114,3 +114,14 @@ for (const key of secretNames) {
 }
 
 console.log("Worker secrets updated for seo-ai.");
+
+// The agent-workflow Worker calls back into the app's /api/agent/* routes with
+// the same CRON_SECRET bearer token, so it needs the secret too.
+const agentResult = runWrangler(
+  ["secret", "put", "CRON_SECRET", "--config", "workers/agent/wrangler.jsonc"],
+  { input: values.CRON_SECRET },
+);
+if (agentResult.status !== 0) {
+  process.exit(agentResult.status ?? 1);
+}
+console.log("set CRON_SECRET for agent-workflow.");

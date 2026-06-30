@@ -5,7 +5,6 @@ import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { requireBrand } from "@/lib/brand/context";
 import { getAgentJob } from "@/lib/jobs/repository";
-import { runWeeklyPipelineForBrand } from "@/lib/jobs/weekly";
 import { runResearch } from "@/lib/research/run";
 import { assertWorkspaceRateLimit } from "@/lib/security/rate-limit";
 
@@ -49,9 +48,6 @@ export async function retryAgentJobAction(jobId: string): Promise<void> {
     // Generation is credit-gated; the article stays a draft without a plan.
     await assertWorkspaceRateLimit(workspace.id, "generate_article", 20, ONE_HOUR_MS);
     await generateArticleFromTopic(scope, metadata.topicId, { forceDraft: !active });
-  } else if (job.kind === "weekly_pipeline") {
-    if (!active) return;
-    await runWeeklyPipelineForBrand(scope);
   }
 
   revalidatePath("/activity");

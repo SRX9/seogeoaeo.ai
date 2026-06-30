@@ -1,11 +1,13 @@
 /**
  * End-to-end tests for the daily content agent.
  *
- * Drives the real `runDailyPipelineForBrand` / `runDailyForWorkspace` against the
- * in-memory store. The research step is mocked (it declares how many topics it
- * "created" and tracks call counts, but doesn't seed topics — pending topics are
- * seeded directly), and the out-of-credits email is mocked so we can assert it
- * fires exactly when the agent pauses for lack of credits.
+ * The agent now runs as a Cloudflare Workflow whose steps call the decomposed
+ * pipeline functions (`planDailyForBrand` -> `researchForDaily` -> per-article
+ * `generateArticleFromTopic` -> `settleDailyForBrand`). `runDaily` below composes
+ * them exactly as `DailyBrandWorkflow.run` does, so these tests exercise the real
+ * step logic against the in-memory store. Research is mocked (it declares how many
+ * topics it "created" without seeding them — pending topics are seeded directly),
+ * and the out-of-credits email is mocked so we can assert it fires on pause.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,7 +25,9 @@ vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-stor
 vi.mock("@/lib/research/run", async () => (await import("./helpers/memory-store")).researchRun);
 vi.mock("@/lib/email/notify", async () => (await import("./helpers/memory-store")).emailNotify);
 
-import { runDailyForWorkspace, runDailyPipelineForBrand } from "@/lib/jobs/daily";
+import { generateArticleFromTopic } from "@/lib/articles/generate";
+import { planDailyForBrand, researchForDaily, settleDailyForBrand } from "@/lib/jobs/daily";
+import { InsufficientCreditsError } from "@/lib/usage/credits";
 import { getUtcDayKey } from "@/lib/workspace/settings";
 import {
   dailyRunFor,
@@ -42,8 +46,53 @@ import {
 const BRAND = { id: "ws-1", name: "Test Brand" };
 const today = () => getUtcDayKey();
 
-function runDaily(planId: string) {
-  return runDailyPipelineForBrand("ws-1", BRAND, planId);
+/** Compose the decomposed steps the way `DailyBrandWorkflow.run` does. */
+async function runDaily(planId: string) {
+  const scope = { workspaceId: "ws-1", brandId: BRAND.id };
+  const runDate = today();
+
+  const plan = await planDailyForBrand(scope, planId, runDate);
+  if (plan.skip) {
+    return { generated: 0, researchTopics: 0, status: plan.skipStatus };
+  }
+
+  let targets = plan.topicIds;
+  let researchTopics = 0;
+  if (plan.needsResearch) {
+    const result = await researchForDaily(scope, plan.budget, `daily-${BRAND.id}-${runDate}`);
+    researchTopics = result.researchTopics;
+    targets = result.topicIds;
+  }
+
+  const writeTargets = targets.slice(0, plan.budget);
+  const hadTargets = writeTargets.length > 0;
+  let generated = 0;
+  let outOfCredits = false;
+  for (const topicId of writeTargets) {
+    try {
+      await generateArticleFromTopic(scope, topicId, {});
+      generated += 1;
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        outOfCredits = true;
+        break;
+      }
+      // A single article failing shouldn't sink the day — skip it.
+    }
+  }
+
+  const status = await settleDailyForBrand(scope, runDate, {
+    cap: plan.cap,
+    writtenToday: plan.writtenToday,
+    priorResearched: plan.priorResearched,
+    generated,
+    researchTopics,
+    hadTargets,
+    outOfCredits,
+    brandName: BRAND.name,
+  });
+
+  return { generated, researchTopics, status };
 }
 
 function pendingTopics() {
@@ -139,6 +188,22 @@ describe("daily content agent", () => {
     expect(store.articles.size).toBe(1); // no second article the same day
   });
 
+  it("a retried article write neither double-writes nor double-charges", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
+    setCredits("ws-1", 5000);
+    const topic = seedTopic({ workspaceId: "ws-1", status: "pending", score: 80, title: "Retry me" });
+    const scope = { workspaceId: "ws-1", brandId: BRAND.id };
+
+    await generateArticleFromTopic(scope, topic.id, {});
+    const balanceAfterFirst = store.usage.get("ws-1");
+    expect(store.articles.size).toBe(1);
+
+    // Simulate a Workflow step retry: same topic again.
+    await generateArticleFromTopic(scope, topic.id, {});
+    expect(store.articles.size).toBe(1); // guarded by getArticleByTopic
+    expect(store.usage.get("ws-1")).toBe(balanceAfterFirst); // not charged twice
+  });
+
   it("skips plans with no daily allowance (free/unsubscribed) without a job", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     setCredits("ws-1", 5000);
@@ -166,16 +231,5 @@ describe("daily content agent", () => {
     const publications = publicationsFor("ws-1", article.id);
     expect(publications).toHaveLength(1);
     expect(publications[0].status).toBe("published");
-  });
-
-  it("aggregates across the workspace's brands", async () => {
-    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
-    setCredits("ws-1", 5000);
-    seedScoredTopics(3);
-
-    const result = await runDailyForWorkspace("ws-1", "scale"); // cap 10, only 3 topics
-
-    expect(result.brands).toBe(1);
-    expect(result.generated).toBe(3);
   });
 });
