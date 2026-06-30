@@ -3,6 +3,7 @@ import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { listBrands } from "@/lib/brand/repository";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { listActiveWorkspaceIds } from "@/lib/jobs/enumerate";
+import { isWorkflowInstanceExistsError } from "@/lib/jobs/workflow";
 import { logError, logInfo } from "@/lib/logging/logger";
 import { getUtcDayKey } from "@/lib/workspace/settings";
 
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
 
   let created = 0;
   let skipped = 0;
+  let failed = 0;
   for (let i = 0; i < instances.length; i += BATCH_SIZE) {
     const chunk = instances.slice(i, i + BATCH_SIZE);
     try {
@@ -66,8 +68,20 @@ export async function GET(request: Request) {
         try {
           await workflow.create(instance);
           created += 1;
-        } catch {
-          skipped += 1; // already enqueued for today, or transient — safe to drop.
+        } catch (error) {
+          if (isWorkflowInstanceExistsError(error)) {
+            skipped += 1; // already enqueued for today — idempotent, safe to drop.
+            continue;
+          }
+          // Transient (rate limit, binding, API blip). Do NOT count as skipped:
+          // this brand never enqueued, so the failure must be surfaced (below) to
+          // get a retry instead of silently dropping the day's run.
+          failed += 1;
+          logError("cron.daily.create_failed", {
+            instanceId: instance.id,
+            brandId: instance.params.brandId,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     }
@@ -79,8 +93,20 @@ export async function GET(request: Request) {
     brands: instances.length,
     created,
     skipped,
+    failed,
   });
-  return NextResponse.json({ ok: true, runDate, brands: instances.length, created, skipped });
+
+  // Real failures must not look like success: return 5xx so the scheduled
+  // handler logs the failure (and any alerting fires) and the cron can be
+  // re-fired. Re-firing is safe — created instances collide on their id and are
+  // skipped, so only the dropped brands re-enqueue.
+  if (failed > 0) {
+    return NextResponse.json(
+      { ok: false, runDate, brands: instances.length, created, skipped, failed },
+      { status: 500 },
+    );
+  }
+  return NextResponse.json({ ok: true, runDate, brands: instances.length, created, skipped, failed });
 }
 
 export async function POST(request: Request) {

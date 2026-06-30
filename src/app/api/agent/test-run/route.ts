@@ -19,6 +19,7 @@ import { getBrand } from "@/lib/brand/repository";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
+import { isWorkflowInstanceExistsError } from "@/lib/jobs/workflow";
 import { getUtcDayKey } from "@/lib/workspace/settings";
 
 async function resolve(request: Request) {
@@ -81,12 +82,23 @@ async function handle(request: Request) {
   const runDate = getUtcDayKey();
   const params = { workspaceId, brandId, brandName: brand.name, planId, runDate };
 
-  // Fresh id each call so you can re-trigger freely (the real daily run uses the
-  // idempotent `daily-<brandId>-<runDate>` id instead).
-  const id = `test-${brandId}-${Date.now()}`;
-  const instance = await workflow.create({ id, params });
-
-  return NextResponse.json({ ok: true, instanceId: instance.id, params });
+  // Reuse the daily cron's idempotent id instead of a fresh per-call one. A smoke
+  // test must NOT spin up a second instance beside today's real run: two workflows
+  // would each plan from their own snapshot and settle absolute `articlesWritten`,
+  // double-charging credits and corrupting the day's counts. With a shared id
+  // there's exactly one run per brand-day — whoever enqueues first wins, and a
+  // repeat call (or a collision with the cron) is a no-op that returns it.
+  const id = `daily-${brandId}-${runDate}`;
+  try {
+    const instance = await workflow.create({ id, params });
+    return NextResponse.json({ ok: true, instanceId: instance.id, params });
+  } catch (error) {
+    if (isWorkflowInstanceExistsError(error)) {
+      const existing = await workflow.get(id);
+      return NextResponse.json({ ok: true, alreadyRunning: true, instanceId: existing.id, params });
+    }
+    throw error;
+  }
 }
 
 export async function GET(request: Request) {
