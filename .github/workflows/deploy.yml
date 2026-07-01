@@ -30,7 +30,10 @@ jobs:
           # disabled here so dependency install code cannot read the token.
           HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
       # Run allowed dependency build scripts after the secret-bearing install step.
-      - run: pnpm rebuild
+      - run: pnpm rebuild @heroui-pro/react
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
+      - run: node scripts/verify-heroui-pro.mjs
 
       - name: Apply database migrations
         run: |

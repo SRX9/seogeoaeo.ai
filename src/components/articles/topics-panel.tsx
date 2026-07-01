@@ -3,6 +3,7 @@
 import { buttonVariants } from "@heroui/react/button";
 import { Button, Card, Chip, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
 import { Segment } from "@heroui-pro/react";
+import type { Key } from "react-aria-components";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -151,7 +152,7 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
             aria-label="Filter topics by source"
             size="sm"
             selectedKey={filter}
-            onSelectionChange={(key) => setFilter(String(key))}
+            onSelectionChange={(key: Key) => setFilter(String(key))}
           >
             {filters.map((item) => (
               <Segment.Item key={item.id} id={item.id}>

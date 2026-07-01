@@ -40,7 +40,7 @@ export function ArticlesList({ articles }: ArticlesListProps) {
 
   const rows = useMemo(() => {
     const column = sort.column ?? "updated";
-    return articles.toSorted((a, b) => {
+    return [...articles].sort((a, b) => {
       const result = compare(a, b, column);
       return sort.direction === "descending" ? -result : result;
     });
