@@ -23,7 +23,7 @@ export function jsonOk<T>(data: T, init?: ResponseInit) {
   return NextResponse.json(data ?? { ok: true }, init);
 }
 
-export function jsonError(message: string, status = 400, details?: unknown) {
+function jsonError(message: string, status = 400, details?: unknown) {
   return NextResponse.json(details ? { error: message, details } : { error: message }, { status });
 }
 

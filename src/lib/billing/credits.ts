@@ -26,8 +26,6 @@ export type CreditPack = {
   price: number;
 };
 
-const packIds: CreditPackId[] = ["small", "medium", "large"];
-
 /**
  * One-time top-up packs. Purchased credits never expire and stack on top of the
  * monthly plan allowance — overage capacity for subscribers who burn through
@@ -52,11 +50,3 @@ export function getPackStripePriceId(packId: CreditPackId): string | undefined {
   return envMap[packId];
 }
 
-export function packFromStripePriceId(priceId: string): CreditPackId | null {
-  for (const packId of packIds) {
-    if (getPackStripePriceId(packId) === priceId) {
-      return packId;
-    }
-  }
-  return null;
-}

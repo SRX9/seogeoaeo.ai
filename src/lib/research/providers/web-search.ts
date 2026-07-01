@@ -62,16 +62,20 @@ async function searchTavily(query: string): Promise<ResearchFinding[]> {
     results?: Array<{ title?: string; url?: string; content?: string }>;
   };
 
-  return (payload.results ?? [])
-    .filter((item) => item.title)
-    .map((item) => ({
-      title: item.title!,
-      query,
-      source: "Web search (Tavily)",
-      sourceType: "web_search" as const,
-      evidenceUrls: item.url ? [item.url] : [],
-      snippet: item.content,
-    }));
+  return (payload.results ?? []).flatMap((item) =>
+    item.title
+      ? [
+          {
+            title: item.title,
+            query,
+            source: "Web search (Tavily)",
+            sourceType: "web_search" as const,
+            evidenceUrls: item.url ? [item.url] : [],
+            snippet: item.content,
+          },
+        ]
+      : [],
+  );
 }
 
 export const webSearchProvider: ResearchProvider = {
@@ -81,15 +85,15 @@ export const webSearchProvider: ResearchProvider = {
   },
   async discover(context: ResearchContext) {
     const queries = context.seedQueries;
-    const findings: ResearchFinding[] = [];
+    const findingsByQuery = await Promise.all(
+      queries.slice(0, 4).map(async (query) => {
+        const serper = await searchSerper(query);
+        const tavily = serper.length > 0 ? [] : await searchTavily(query);
+        return [...serper, ...tavily];
+      }),
+    );
 
-    for (const query of queries.slice(0, 4)) {
-      const serper = await searchSerper(query);
-      const tavily = serper.length > 0 ? [] : await searchTavily(query);
-      findings.push(...serper, ...tavily);
-    }
-
-    return findings;
+    return findingsByQuery.flat();
   },
 };
 
@@ -128,8 +132,11 @@ export const keywordProvider: ResearchProvider = {
     const findings: ResearchFinding[] = [];
     const seen = new Set<string>();
 
-    for (const query of queries) {
-      const suggestions = await fetchAutocomplete(query, baseUrl);
+    const suggestionsByQuery = await Promise.all(
+      queries.map(async (query) => fetchAutocomplete(query, baseUrl)),
+    );
+
+    for (const suggestions of suggestionsByQuery) {
       for (const keyword of suggestions.slice(0, 6)) {
         const normalized = keyword.trim().toLowerCase();
         if (!normalized || seen.has(normalized)) {

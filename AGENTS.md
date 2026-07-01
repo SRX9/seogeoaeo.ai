@@ -26,6 +26,7 @@ Postgres. v1 is complete on `main` per `docs/v1-implementation-phases.md`.
 |---------|-----------|--------|
 | Next.js dev server | For local UI | `pnpm dev` |
 | PlanetScale Postgres | For DB features | Set `DATABASE_URL` in `.env` |
+| HeroUI Pro | For Pro UI components | Set `HEROUI_AUTH_TOKEN` in CI; run `pnpm rebuild @heroui-pro/react` after install if types are missing |
 | Cloudflare Workers | For production deploy | `pnpm deploy:cf` after wrangler auth |
 
 ## Cursor Cloud specific instructions

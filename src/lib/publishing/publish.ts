@@ -133,10 +133,12 @@ export async function publishArticleToDestinations(
   }
 
   const integrations = await listIntegrations(scope.brandId);
-  const enabledProviders = integrations
-    .filter((integration) => integration.enabled && integration.available)
-    .map((integration) => integration.provider)
-    .filter((provider) => getPublishingAdapter(provider));
+  const enabledProviders = integrations.flatMap((integration) => {
+    if (!integration.enabled || !integration.available) {
+      return [];
+    }
+    return getPublishingAdapter(integration.provider) ? [integration.provider] : [];
+  });
 
   if (enabledProviders.length === 0) {
     throw new Error("No enabled publishing destinations");
@@ -145,13 +147,11 @@ export async function publishArticleToDestinations(
   const publishArticle = toPublishArticle(article);
   const resolvedOrigin = origin ?? (await getRequestOrigin());
   const fingerprint = await contentFingerprint(publishArticle);
-  const results: DestinationPublishResult[] = [];
-
-  for (const provider of enabledProviders) {
-    results.push(
-      await publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint),
-    );
-  }
+  const results: DestinationPublishResult[] = await Promise.all(
+    enabledProviders.map((provider) =>
+      publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint),
+    ),
+  );
 
   // Count the article once if it newly reached at least one destination (a pure
   // no-op re-publish where every destination was skipped doesn't count). Metrics

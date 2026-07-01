@@ -22,35 +22,40 @@ export async function POST() {
     const { workspace, brand, scope } = await requireApiBrand();
     const cost = CREDIT_COSTS.research_run;
 
-    try {
+    const assertResearchAllowed = async () => {
       await assertHasCredits(workspace.id, cost);
+      await assertWorkspaceRateLimit(workspace.id, "research", 10, ONE_HOUR_MS);
+    };
+
+    try {
+      await assertResearchAllowed();
     } catch (error) {
       if (error instanceof InsufficientCreditsError) {
         throw new HttpError(402, "Not enough credits to run research", {
           code: "INSUFFICIENT_CREDITS",
         });
       }
-      throw error;
-    }
-
-    try {
-      await assertWorkspaceRateLimit(workspace.id, "research", 10, ONE_HOUR_MS);
-    } catch (error) {
       if (error instanceof RateLimitError) {
-        throw new HttpError(429, "Too many research runs — try again later", { code: "RATE_LIMITED" });
+        throw new HttpError(429, "Too many research runs - try again later", {
+          code: "RATE_LIMITED",
+        });
       }
       throw error;
     }
 
-    const { runId } = await runResearch(scope);
-    // Charge only after the run succeeds so failed research never burns credits.
-    await spendCredits(workspace.id, cost, {
-      reason: "research_run",
-      brandId: brand.id,
-      refType: "research_run",
-      refId: runId,
-    });
-    const latest = await getLatestResearchRun(brand.id);
+    const runAndCharge = async () => {
+      const { runId } = await runResearch(scope);
+      // Charge only after the run succeeds so failed research never burns credits.
+      await spendCredits(workspace.id, cost, {
+        reason: "research_run",
+        brandId: brand.id,
+        refType: "research_run",
+        refId: runId,
+      });
+      return getLatestResearchRun(brand.id);
+    };
+
+    const latest = await runAndCharge();
     return jsonOk({ latest });
   });
 }

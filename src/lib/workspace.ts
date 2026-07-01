@@ -28,20 +28,21 @@ export async function ensureUserWorkspace(ownerId: string, name: string) {
   // one-time signup grant of credits (never-expiring bucket) lets new users
   // generate their first article before subscribing. The Stripe webhook fills
   // in the real plan + monthly credits at checkout.
-  await db.insert(subscriptions).values({
-    workspaceId: workspace.id,
-    status: "inactive",
-    planId: FREE_PLAN_ID,
-    purchasedCredits: SIGNUP_GRANT_CREDITS,
-  });
-
-  await db.insert(creditLedger).values({
-    workspaceId: workspace.id,
-    delta: SIGNUP_GRANT_CREDITS,
-    balanceAfter: SIGNUP_GRANT_CREDITS,
-    reason: "signup_grant",
-    refType: "workspace",
-    refId: workspace.id,
+  await db.transaction(async (tx) => {
+    await tx.insert(subscriptions).values({
+      workspaceId: workspace.id,
+      status: "inactive",
+      planId: FREE_PLAN_ID,
+      purchasedCredits: SIGNUP_GRANT_CREDITS,
+    });
+    await tx.insert(creditLedger).values({
+      workspaceId: workspace.id,
+      delta: SIGNUP_GRANT_CREDITS,
+      balanceAfter: SIGNUP_GRANT_CREDITS,
+      reason: "signup_grant",
+      refType: "workspace",
+      refId: workspace.id,
+    });
   });
 
   return workspace;

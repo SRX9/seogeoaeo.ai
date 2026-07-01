@@ -2,6 +2,7 @@
 
 import { Segment } from "@heroui-pro/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Key } from "react-aria-components";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { BrandSection } from "@/components/settings/brand-section";
@@ -39,7 +40,7 @@ function SettingsContent() {
       <Segment
         aria-label="Brand settings sections"
         selectedKey={selected}
-        onSelectionChange={(key) => selectTab(String(key))}
+        onSelectionChange={(key: Key) => selectTab(String(key))}
       >
         {tabs.map((tab) => (
           <Segment.Item key={tab.id} id={tab.id}>

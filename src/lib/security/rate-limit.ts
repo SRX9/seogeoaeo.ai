@@ -9,7 +9,7 @@ export class RateLimitError extends Error {
   }
 }
 
-export async function assertRateLimit(bucketKey: string, limit: number, windowMs: number) {
+async function assertRateLimit(bucketKey: string, limit: number, windowMs: number) {
   const now = new Date();
   const resetAt = new Date(now.getTime() + windowMs);
   const [existing] = await getDb()

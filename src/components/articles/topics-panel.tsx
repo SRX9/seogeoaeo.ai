@@ -3,7 +3,8 @@
 import { buttonVariants } from "@heroui/react/button";
 import { Button, Card, Chip, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
 import { Segment } from "@heroui-pro/react";
-import { useMutation } from "@tanstack/react-query";
+import type { Key } from "react-aria-components";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -151,7 +152,7 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
             aria-label="Filter topics by source"
             size="sm"
             selectedKey={filter}
-            onSelectionChange={(key) => setFilter(String(key))}
+            onSelectionChange={(key: Key) => setFilter(String(key))}
           >
             {filters.map((item) => (
               <Segment.Item key={item.id} id={item.id}>
@@ -188,11 +189,17 @@ function TopicList({
   articleCost: number;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const generate = useMutation({
     mutationFn: (topicId: string) =>
       apiPost<{ articleId: string }>("/api/articles/generate", { topicId }),
     onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.topics });
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles });
+      queryClient.invalidateQueries({ queryKey: queryKeys.credits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activity });
+      queryClient.invalidateQueries({ queryKey: queryKeys.automation });
       router.push(`/articles/${result.articleId}`);
     },
     onError: (error) => {

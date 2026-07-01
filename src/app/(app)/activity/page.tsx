@@ -6,6 +6,8 @@ import { Section } from "@/components/feedback/section";
 import { TableSkeleton } from "@/components/feedback/skeletons";
 import { useActivity, type ActivityResponse } from "@/lib/api/queries";
 
+const activitySkeleton = <TableSkeleton rows={6} />;
+
 function jobLabel(kind: string) {
   switch (kind) {
     case "weekly_pipeline":
@@ -68,7 +70,7 @@ export default function ActivityPage() {
       />
       <Section
         query={activity}
-        skeleton={<TableSkeleton rows={6} />}
+        skeleton={activitySkeleton}
         errorLabel="Couldn't load activity."
       >
         {(data) => <ActivityPanel items={toItems(data)} />}

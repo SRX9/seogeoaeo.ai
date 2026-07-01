@@ -5,13 +5,15 @@ import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { useMe } from "@/lib/api/queries";
 
+const automationSkeleton = <CardSkeleton lines={3} />;
+
 export function AutomationSection() {
   const me = useMe();
 
   return (
     <Section
       query={me}
-      skeleton={<CardSkeleton lines={3} />}
+      skeleton={automationSkeleton}
       errorLabel="Couldn't load automation settings."
     >
       {(data) => {

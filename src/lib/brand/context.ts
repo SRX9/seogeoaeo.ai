@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getBillingContext } from "@/lib/billing/access";
 import { listBrands } from "@/lib/brand/repository";
 
-export const ACTIVE_BRAND_COOKIE = "active_brand_id";
+const ACTIVE_BRAND_COOKIE = "active_brand_id";
 
 type BrandRow = Awaited<ReturnType<typeof listBrands>>[number];
 
@@ -52,16 +52,6 @@ export async function requireBrand() {
     brand,
     scope: { workspaceId: ctx.workspace.id, brandId: brand.id },
   };
-}
-
-/** Lightweight, non-throwing fetch for the sidebar brand switcher. */
-export async function getBrandSwitcherData() {
-  try {
-    const ctx = await getActiveBrandContext();
-    return { brands: ctx.brands, activeBrandId: ctx.brand?.id ?? null };
-  } catch {
-    return { brands: [], activeBrandId: null };
-  }
 }
 
 export async function setActiveBrandCookie(brandId: string) {

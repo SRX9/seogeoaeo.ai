@@ -31,8 +31,8 @@ export function LegalShell({ title, lastUpdated, intro, sections }: LegalShellPr
                 {index + 1}. {section.heading}
               </h2>
               <div className="mt-3 space-y-3">
-                {section.body.map((paragraph, i) => (
-                  <p key={i} className="text-pretty leading-relaxed text-muted">
+                {section.body.map((paragraph) => (
+                  <p key={paragraph} className="text-pretty leading-relaxed text-muted">
                     {paragraph}
                   </p>
                 ))}

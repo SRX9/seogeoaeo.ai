@@ -12,7 +12,7 @@ export type Session = {
   user: SessionUser;
 };
 
-export async function getSession(): Promise<Session | null> {
+async function getSession(): Promise<Session | null> {
   if (process.env.AUTH_DEV_BYPASS === "true") {
     return {
       user: {

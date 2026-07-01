@@ -16,7 +16,7 @@
     "workflow:typecheck": "tsc -p workers/agent/tsconfig.json --noEmit",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/verify-heroui-pro.mjs && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
@@ -76,7 +76,7 @@
     "eslint-config-next": "^15.3.4",
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
+    "vitest": "^3.2.6",
     "wrangler": "^4.20.5"
   },
   "pnpm": {

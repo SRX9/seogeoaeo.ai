@@ -93,7 +93,9 @@ export function LoginForm() {
           </ul>
         </div>
 
-        <p className="text-xs text-muted">© {new Date().getFullYear()} seogeoaeo.ai</p>
+        <p className="text-xs text-muted" suppressHydrationWarning>
+          © {new Date().getFullYear()} seogeoaeo.ai
+        </p>
       </aside>
 
       {/* Sign-in panel */}

@@ -68,12 +68,7 @@ export function TableSkeleton({ rows = 5, className }: { rows?: number; classNam
 }
 
 /** A single text line; pass a width via className. */
-export function LineSkeleton({ className }: { className?: string }) {
-  return <Box className={cn("h-4 w-full", className)} />;
-}
-
-/** A pill-shaped placeholder for status chips. */
-export function ChipSkeleton({ className }: { className?: string }) {
+function ChipSkeleton({ className }: { className?: string }) {
   return <Box className={cn("h-6 w-20 rounded-full", className)} />;
 }
 

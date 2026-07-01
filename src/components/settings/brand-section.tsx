@@ -7,6 +7,13 @@ import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { combineQueries, useBrandProfile, useCompetitors, useMe } from "@/lib/api/queries";
 
+const brandSkeleton = (
+  <div className="space-y-8">
+    <CardSkeleton lines={5} />
+    <CardSkeleton lines={3} />
+  </div>
+);
+
 export function BrandSection() {
   const me = useMe();
   const profile = useBrandProfile();
@@ -17,12 +24,7 @@ export function BrandSection() {
     <Section
       query={query}
       errorLabel="Couldn't load brand settings."
-      skeleton={
-        <div className="space-y-8">
-          <CardSkeleton lines={5} />
-          <CardSkeleton lines={3} />
-        </div>
-      }
+      skeleton={brandSkeleton}
     >
       {([meData, profileData, competitorsData]) => {
         const brandName =
@@ -43,7 +45,10 @@ export function BrandSection() {
                 </Card.Description>
               </Card.Header>
               <Card.Content>
-                <BrandProfileForm initial={profileData.profile} />
+                <BrandProfileForm
+                  key={meData.activeBrandId ?? "brand-profile"}
+                  initial={profileData.profile}
+                />
               </Card.Content>
             </Card>
 

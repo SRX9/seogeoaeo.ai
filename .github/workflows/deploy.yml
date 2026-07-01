@@ -24,12 +24,16 @@ jobs:
           node-version: "22"
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
         env:
-          # Required so the @heroui-pro/react postinstall can download the
-          # licensed component code in CI (otherwise it exits 0 with a stub
-          # and the build fails with "Cannot find module '@heroui-pro/react'").
+          # Required for HeroUI Pro package access in CI. Lifecycle scripts are
+          # disabled here so dependency install code cannot read the token.
           HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
+      # Run allowed dependency build scripts after the secret-bearing install step.
+      - run: pnpm rebuild @heroui-pro/react
+        env:
+          HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
+      - run: node scripts/verify-heroui-pro.mjs
 
       - name: Apply database migrations
         run: |

@@ -77,12 +77,16 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
     );
 
     const providerResults = await Promise.all(
-      researchProviders
-        .filter((provider) => provider.isAvailable())
-        .map(async (provider) => ({
-          provider: provider.id,
-          findings: await provider.discover(context),
-        })),
+      researchProviders.flatMap((provider) =>
+        provider.isAvailable()
+          ? [
+              provider.discover(context).then((findings) => ({
+                provider: provider.id,
+                findings,
+              })),
+            ]
+          : [],
+      ),
     );
 
     const findings: ResearchFinding[] = uniqueByTitle(

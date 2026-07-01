@@ -1,4 +1,4 @@
-import type { LlmTextResult, LlmUsage, ModelTier } from "@/lib/llm/client";
+import type { LlmTextResult, ModelTier } from "@/lib/llm/client";
 
 export type TokenUsageSummary = {
   promptTokens: number;
@@ -64,17 +64,3 @@ export function mergeTokenUsage(...summaries: TokenUsageSummary[]): TokenUsageSu
   return merged;
 }
 
-export function usageFromResult(usage?: LlmUsage): TokenUsageSummary | null {
-  if (!usage) {
-    return null;
-  }
-
-  return {
-    promptTokens: usage.promptTokens,
-    completionTokens: usage.completionTokens,
-    totalTokens: usage.totalTokens,
-    calls: 1,
-    byTier: {},
-    byModel: {},
-  };
-}

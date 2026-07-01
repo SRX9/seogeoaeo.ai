@@ -8,7 +8,7 @@ import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/queries";
@@ -70,11 +70,10 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   // value through native FormData when used bare, so we own the state here.
   const [fields, setFields] = useState<Fields>(INITIAL_FIELDS);
   const [error, setError] = useState<string | null>(null);
-  const [prefilled, setPrefilled] = useState(false);
-  const [prefillMessage, setPrefillMessage] = useState(0);
+  const [prefillState, setPrefillState] = useState({ prefilled: false, messageIndex: 0 });
   // The name+website we last sent to prefill, so re-entering step 1 only re-runs
   // it when the inputs actually changed.
-  const [lastPrefillKey, setLastPrefillKey] = useState("");
+  const lastPrefillKey = useRef("");
   const lastStep = STEPS.length - 1;
   const canAdvance = step !== 0 || fields.name.trim().length > 0;
 
@@ -82,18 +81,6 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     (key: keyof Fields) =>
     (event: { target: { value: string } }) =>
       setFields((prev) => ({ ...prev, [key]: event.target.value }));
-
-  async function invalidateBrandCaches() {
-    // Await the `me` refetch: the app layout decides "needs onboarding" from its
-    // brand count, so we must not navigate to /dashboard until `me` reflects the
-    // new brand — otherwise the layout bounces us straight back to /onboarding.
-    await queryClient.invalidateQueries({ queryKey: queryKeys.me });
-    queryClient.invalidateQueries({ queryKey: queryKeys.brands });
-    queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
-    queryClient.invalidateQueries({ queryKey: queryKeys.brandProfile });
-    queryClient.invalidateQueries({ queryKey: queryKeys.competitors });
-    queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
-  }
 
   // AI prefill — best-effort, runs on the entered name + website without saving
   // anything. Only fills fields the user hasn't touched, and a failure is silent
@@ -115,21 +102,26 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
           }
         }
         if (changed) {
-          setPrefilled(true);
+          setPrefillState((state) => ({ ...state, prefilled: true }));
         }
         return next;
       });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
     },
   });
 
   // Cycle the overlay copy while prefill runs so it feels alive, not stuck.
   useEffect(() => {
     if (!prefill.isPending) {
-      setPrefillMessage(0);
+      setPrefillState((state) => ({ ...state, messageIndex: 0 }));
       return;
     }
     const id = setInterval(
-      () => setPrefillMessage((index) => (index + 1) % PREFILL_MESSAGES.length),
+      () =>
+        setPrefillState((state) => ({
+          ...state,
+          messageIndex: (state.messageIndex + 1) % PREFILL_MESSAGES.length,
+        })),
       1500,
     );
     return () => clearInterval(id);
@@ -141,7 +133,15 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     mutationFn: (data: Fields) =>
       apiPost<{ brand: { id: string; name: string } }>("/api/brands", data),
     onSuccess: async () => {
-      await invalidateBrandCaches();
+      // Await the `me` refetch: the app layout decides "needs onboarding" from its
+      // brand count, so we must not navigate to /dashboard until `me` reflects the
+      // new brand - otherwise the layout bounces us straight back to /onboarding.
+      await queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      queryClient.invalidateQueries({ queryKey: queryKeys.brands });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
+      queryClient.invalidateQueries({ queryKey: queryKeys.brandProfile });
+      queryClient.invalidateQueries({ queryKey: queryKeys.competitors });
+      queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
       router.push("/dashboard");
     },
     onError: (err) => {
@@ -166,9 +166,9 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     // Kick off prefill in the background (only when the inputs changed) and move
     // on — the overlay on the positioning step shows it working.
     const key = `${name}|${website}`;
-    if (key !== lastPrefillKey) {
-      setLastPrefillKey(key);
-      setPrefilled(false);
+    if (key !== lastPrefillKey.current) {
+      lastPrefillKey.current = key;
+      setPrefillState((state) => ({ ...state, prefilled: false }));
       prefill.mutate({ name, website });
     }
     setStep(1);
@@ -260,7 +260,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
 
       {/* Step 2 — positioning */}
       <div hidden={step !== 1} className="relative">
-        {!prefill.isPending && prefilled ? (
+        {!prefill.isPending && prefillState.prefilled ? (
           <p className="mb-4 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
             AI prefilled these from the web — review and edit before continuing.
           </p>
@@ -314,13 +314,15 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
         {prefill.isPending ? (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl bg-surface/60 text-center backdrop-blur-sm">
             <div className="flex gap-1.5">
-              <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-accent [animation-delay:-0.3s]" />
-              <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-accent [animation-delay:-0.15s]" />
-              <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-accent" />
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent [animation-delay:-0.3s]" />
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent [animation-delay:-0.15s]" />
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" />
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Understanding your brand</p>
-              <p className="mt-1 text-xs text-muted">{PREFILL_MESSAGES[prefillMessage]}</p>
+              <p className="mt-1 text-xs text-muted">
+                {PREFILL_MESSAGES[prefillState.messageIndex]}
+              </p>
             </div>
           </div>
         ) : null}

@@ -24,6 +24,17 @@ body {
   background-attachment: fixed;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /*
  * Light mode: replace Glass's blue ambient gradient with a calm, neutral
  * "lunar grey" surface. The blue tint washed out translucent glass surfaces

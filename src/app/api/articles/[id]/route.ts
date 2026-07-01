@@ -26,8 +26,7 @@ const articleSchema = z.object({
 /** Get a single article. */
 export async function GET(_request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const { id } = await params;
-    const { brand } = await requireApiBrand();
+    const [{ id }, { brand }] = await Promise.all([params, requireApiBrand()]);
     const [article, publications] = await Promise.all([
       getArticle(brand.id, id),
       listPublicationsForArticle(brand.id, id),
@@ -51,16 +50,24 @@ export async function GET(_request: Request, { params }: RouteProps) {
 /** Save edits to an article (title, slug, meta, body, tags, status). */
 export async function PATCH(request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const { id } = await params;
-    const { brand } = await requireApiBrand();
-    const data = parseBody(articleSchema, await readJson(request));
+    const [{ id }, { brand }, body] = await Promise.all([
+      params,
+      requireApiBrand(),
+      readJson(request),
+    ]);
+    const data = parseBody(articleSchema, body);
 
     const tags = Array.isArray(data.tags)
-      ? data.tags.map((tag) => tag.trim()).filter(Boolean)
+      ? data.tags.flatMap((tag) => {
+          const trimmed = tag.trim();
+          return trimmed ? [trimmed] : [];
+        })
       : String(data.tags ?? "")
           .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean);
+          .flatMap((tag) => {
+            const trimmed = tag.trim();
+            return trimmed ? [trimmed] : [];
+          });
 
     const article = await updateArticle(brand.id, id, {
       title: data.title,

@@ -40,8 +40,10 @@ export function ArticlesList({ articles }: ArticlesListProps) {
 
   const rows = useMemo(() => {
     const column = sort.column ?? "updated";
-    const sorted = [...articles].sort((a, b) => compare(a, b, column));
-    return sort.direction === "descending" ? sorted.reverse() : sorted;
+    return [...articles].sort((a, b) => {
+      const result = compare(a, b, column);
+      return sort.direction === "descending" ? -result : result;
+    });
   }, [articles, sort]);
 
   if (articles.length === 0) {

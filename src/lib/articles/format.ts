@@ -20,8 +20,10 @@ export function parseTags(tags: string | null | undefined) {
   } catch {
     return tags
       .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean);
+      .flatMap((tag) => {
+        const trimmed = tag.trim();
+        return trimmed ? [trimmed] : [];
+      });
   }
   return [];
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/feedback/toaster";
@@ -55,7 +56,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="light glass-light" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <meta name="apple-mobile-web-app-title" content="SeoGeoAeo AI" />
       </head>
       <body

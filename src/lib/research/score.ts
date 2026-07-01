@@ -115,12 +115,20 @@ export async function scoreFindings(findings: ResearchFinding[], context: Resear
     rawScored = scoreHeuristically(unique, context);
   }
 
+  const seenSlugs = new Set<string>();
   const topics = rawScored
-    .filter((topic) => topic.score >= MIN_SCORE)
-    .filter((topic, index, list) => {
+    .reduce<ScoredTopic[]>((eligible, topic) => {
+      if (topic.score < MIN_SCORE) {
+        return eligible;
+      }
       const slug = slugify(topic.title);
-      return list.findIndex((item) => slugify(item.title) === slug) === index;
-    })
+      if (seenSlugs.has(slug)) {
+        return eligible;
+      }
+      seenSlugs.add(slug);
+      eligible.push(topic);
+      return eligible;
+    }, [])
     .sort((a, b) => b.score - a.score)
     .slice(0, 15);
 

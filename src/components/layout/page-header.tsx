@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 type PageHeaderProps = {
@@ -13,6 +13,57 @@ type PageHeaderProps = {
   className?: string;
 };
 
+function createStickyHeaderStore() {
+  let node: HTMLDivElement | null = null;
+  let observer: IntersectionObserver | null = null;
+  let stuck = false;
+  const listeners = new Set<() => void>();
+
+  function emit() {
+    for (const listener of listeners) listener();
+  }
+
+  function setStuck(next: boolean) {
+    if (stuck === next) return;
+    stuck = next;
+    emit();
+  }
+
+  return {
+    setNode(next: HTMLDivElement | null) {
+      if (node === next) return;
+      observer?.disconnect();
+      observer = null;
+      node = next;
+
+      if (!node || typeof IntersectionObserver === "undefined") {
+        setStuck(false);
+        return;
+      }
+
+      observer = new IntersectionObserver(
+        ([entry]) => setStuck(entry.intersectionRatio < 1),
+        // Shrink the root's top edge by 1px: while pinned at top:0 the header's
+        // top clips past it, dropping the ratio below 1 -> compact state.
+        { threshold: [1], rootMargin: "-1px 0px 0px 0px" },
+      );
+      observer.observe(node);
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    getSnapshot() {
+      return stuck;
+    },
+    getServerSnapshot() {
+      return false;
+    },
+  };
+}
+
 /**
  * Consistent page title block used across every app view: a Title-Case heading,
  * muted one-line description, optional meta row, and end-aligned actions. Keeps
@@ -20,27 +71,22 @@ type PageHeaderProps = {
  *
  * Sticks to the top of the scroll area and smoothly morphs into a compact bar
  * (shrunk title, frosted background, collapsed description) once the page is
- * scrolled — handy on long lists like the topic queue, activity, and articles.
- * "Pinned" is detected by observing the header against a 1px-inset top edge, so
- * it works whether the window or an inner column owns the scroll, and the header
- * stays a single, first-in-flow element (no sentinel to disturb `space-y`).
+ * scrolled. "Pinned" is detected by observing the header against a 1px-inset top
+ * edge, so it works whether the window or an inner column owns the scroll, and
+ * the header stays a single, first-in-flow element (no sentinel to disturb `space-y`).
  */
 export function PageHeader({ title, description, actions, meta, className }: PageHeaderProps) {
-  const headerRef = useRef<HTMLDivElement>(null);
-  const [stuck, setStuck] = useState(false);
-
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setStuck(entry.intersectionRatio < 1),
-      // Shrink the root's top edge by 1px: while pinned at top:0 the header's
-      // top clips past it, dropping the ratio below 1 → compact state.
-      { threshold: [1], rootMargin: "-1px 0px 0px 0px" },
-    );
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, []);
+  const storeRef = useRef<ReturnType<typeof createStickyHeaderStore> | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createStickyHeaderStore();
+  }
+  const store = storeRef.current;
+  const stuck = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getServerSnapshot,
+  );
+  const headerRef = useCallback((node: HTMLDivElement | null) => store.setNode(node), [store]);
 
   return (
     <div

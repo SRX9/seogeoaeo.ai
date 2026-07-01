@@ -103,29 +103,40 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<Env, Params> {
 
     // 3. Write up to the day's budget, one article per step. A step that exhausts
     //    its retries is isolated (caught) so one bad article never sinks the day.
-    let generated = 0;
-    let outOfCredits = false;
-    for (const topicId of writeTargets) {
-      let result: WriteResult;
-      try {
-        result = await step.do(`write:${topicId}`, { retries: RETRIES, timeout: STEP_TIMEOUT }, () =>
-          call<WriteResult>("/api/agent/write-article", {
-            workspaceId: p.workspaceId,
-            brandId: p.brandId,
-            topicId,
-          }),
-        );
-      } catch {
-        continue;
-      }
-      if (result.status === "insufficient_credits") {
-        outOfCredits = true;
-        break;
-      }
-      if (result.status === "written") {
-        generated += 1;
-      }
-    }
+    const writeSummary = await writeTargets.reduce(
+      async (previous, topicId): Promise<{ generated: number; outOfCredits: boolean }> => {
+        const summary = await previous;
+        if (summary.outOfCredits) {
+          return summary;
+        }
+
+        let result: WriteResult;
+        try {
+          result = await step.do(
+            `write:${topicId}`,
+            { retries: RETRIES, timeout: STEP_TIMEOUT },
+            () =>
+              call<WriteResult>("/api/agent/write-article", {
+                workspaceId: p.workspaceId,
+                brandId: p.brandId,
+                topicId,
+              }),
+          );
+        } catch {
+          return summary;
+        }
+
+        if (result.status === "insufficient_credits") {
+          return { ...summary, outOfCredits: true };
+        }
+        if (result.status === "written") {
+          return { ...summary, generated: summary.generated + 1 };
+        }
+        return summary;
+      },
+      Promise.resolve({ generated: 0, outOfCredits: false }),
+    );
+    const { generated, outOfCredits } = writeSummary;
 
     // 4. Settle: record final state + (if paused) email the owner.
     const settle = await step.do("settle", { retries: RETRIES }, () =>

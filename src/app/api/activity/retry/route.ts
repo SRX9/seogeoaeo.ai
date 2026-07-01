@@ -36,8 +36,12 @@ export async function POST(request: Request) {
     // charge too. Mirrors POST /api/research. Credit/rate-limit errors bubble to
     // the shared catch below, which maps them to 402/429.
     const retryResearchCharged = async () => {
+      const assertRetryAllowed = async () => {
       await assertHasCredits(workspace.id, CREDIT_COSTS.research_run);
       await assertWorkspaceRateLimit(workspace.id, "research", 10, ONE_HOUR_MS);
+      };
+
+      const runAndCharge = async () => {
       const { runId } = await runResearch(scope);
       await spendCredits(workspace.id, CREDIT_COSTS.research_run, {
         reason: "research_run",
@@ -45,6 +49,10 @@ export async function POST(request: Request) {
         refType: "research_run",
         refId: runId,
       });
+      };
+
+      await assertRetryAllowed();
+      await runAndCharge();
     };
 
     try {
