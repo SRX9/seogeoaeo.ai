@@ -1,15 +1,23 @@
 "use client";
 
 import { Card, Chip, Input, Label, toast } from "@heroui/react";
+import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
-import { apiPatch, apiPut, getErrorMessage } from "@/lib/api/fetcher";
+import { apiDelete, apiPatch, apiPut, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, type IntegrationView } from "@/lib/api/queries";
+import {
+  emptySecretStates,
+  integrationRequirements,
+  type IntegrationConfig,
+  type IntegrationConfigKey,
+  type IntegrationSecretKey,
+  type IntegrationSecretStates,
+} from "@/lib/integrations/providers";
 
 type IntegrationsCache = { integrations: IntegrationView[] };
 
-/** Update one provider's entry in the cached integrations list in place. */
 function patchIntegration(
   current: IntegrationsCache | undefined,
   provider: string,
@@ -30,6 +38,22 @@ type IntegrationsPanelProps = {
 export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">Need setup help?</p>
+          <p className="mt-1 text-sm text-muted">
+            Follow the integration guide for required fields, saved secrets, and
+            troubleshooting.
+          </p>
+        </div>
+        <Link
+          href="/help/integrations"
+          className="text-sm font-medium text-foreground/80 hover:text-foreground"
+        >
+          View guide
+        </Link>
+      </div>
+
       {integrations.map((integration) => (
         <Card key={integration.provider}>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -38,11 +62,7 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
               <Card.Description>{integration.description}</Card.Description>
             </div>
             <div className="flex items-center gap-2">
-              {!integration.available ? (
-                <Chip color="warning" variant="soft">
-                  Coming soon
-                </Chip>
-              ) : null}
+              <StatusChip integration={integration} />
               {integration.enabled ? (
                 <Chip color="success" variant="soft">
                   Enabled
@@ -51,73 +71,110 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
             </div>
           </div>
 
-          {integration.configurable && integration.available ? (
+          <p className="mt-3 text-sm text-muted">{integration.requirements.summary}</p>
+          <p className="mt-1 text-xs text-muted">{integration.requirements.helpText}</p>
+
+          {integration.status === "available" ? (
             <IntegrationForm integration={integration} />
-          ) : null}
+          ) : (
+            <div className="mt-4 rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+              This destination is not configurable yet. No credentials are needed here.
+            </div>
+          )}
         </Card>
       ))}
     </div>
   );
 }
 
-type IntegrationFields = {
-  webhookUrl: string;
-  publicationId: string;
-  siteUrl: string;
-  username: string;
-  adminApiUrl: string;
-  apiKey: string;
-};
-
-type IntegrationConfigKey = keyof IntegrationView["config"];
-
-/**
- * The fields publishing actually needs before a provider can run, mirroring the
- * guards in each publishing adapter. Used to gate the Enable button so a brand
- * can't switch on an integration that would fail on the first publish.
- */
-const REQUIRED_FIELDS: Record<string, { config: IntegrationConfigKey[]; secret: boolean }> = {
-  webhook: { config: ["webhookUrl"], secret: false },
-  devto: { config: [], secret: true },
-  hashnode: { config: ["publicationId"], secret: true },
-  wordpress: { config: ["siteUrl", "username"], secret: true },
-  ghost: { config: ["adminApiUrl"], secret: true },
-};
-
-function buildConfig(provider: string, fields: IntegrationFields): Record<string, string> {
-  switch (provider) {
-    case "webhook":
-      return { webhookUrl: fields.webhookUrl.trim() };
-    case "hashnode":
-      return { publicationId: fields.publicationId.trim() };
-    case "wordpress":
-      return {
-        siteUrl: fields.siteUrl.trim(),
-        username: fields.username.trim(),
-      };
-    case "ghost":
-      return { adminApiUrl: fields.adminApiUrl.trim() };
-    default:
-      return {};
+function StatusChip({ integration }: { integration: IntegrationView }) {
+  if (integration.status === "available") {
+    return (
+      <Chip color="success" variant="soft">
+        Available
+      </Chip>
+    );
   }
+  if (integration.status === "gated") {
+    return (
+      <Chip color="warning" variant="soft">
+        Gated
+      </Chip>
+    );
+  }
+  return (
+    <Chip color="danger" variant="soft">
+      Unavailable
+    </Chip>
+  );
+}
+
+type DraftState = {
+  config: Record<string, string>;
+  secrets: Record<string, string>;
+};
+
+function initialDraft(integration: IntegrationView): DraftState {
+  return {
+    config: Object.fromEntries(
+      integration.fields.map((field) => [field.key, integration.config[field.key] ?? ""]),
+    ),
+    secrets: Object.fromEntries(integration.secrets.map((secret) => [secret.key, ""])),
+  };
+}
+
+function draftConfig(integration: IntegrationView, draft: DraftState): IntegrationConfig {
+  return Object.fromEntries(
+    integration.fields.map((field) => [field.key, draft.config[field.key]?.trim() ?? ""]),
+  ) as IntegrationConfig;
+}
+
+function draftSecrets(integration: IntegrationView, draft: DraftState) {
+  const secrets: Partial<Record<IntegrationSecretKey, string>> = {};
+  for (const secret of integration.secrets) {
+    const value = draft.secrets[secret.key]?.trim();
+    if (value) {
+      secrets[secret.key] = value;
+    }
+  }
+  return secrets;
+}
+
+function draftSecretStates(
+  integration: IntegrationView,
+  draft: DraftState,
+): IntegrationSecretStates {
+  const enteredSecretStates: IntegrationSecretStates = {};
+  for (const secret of integration.secrets) {
+    if (draft.secrets[secret.key]?.trim()) {
+      enteredSecretStates[secret.key] = true;
+    }
+  }
+
+  return {
+    ...integration.secretStates,
+    ...enteredSecretStates,
+  };
 }
 
 function IntegrationForm({ integration }: { integration: IntegrationView }) {
-  // Controlled state — HeroUI inputs don't reliably submit via native FormData.
-  // Secrets are never sent back to the client, so apiKey starts empty.
-  const [fields, setFields] = useState<IntegrationFields>({
-    webhookUrl: integration.config.webhookUrl ?? "",
-    publicationId: integration.config.publicationId ?? "",
-    siteUrl: integration.config.siteUrl ?? "",
-    username: integration.config.username ?? "",
-    adminApiUrl: integration.config.adminApiUrl ?? "",
-    apiKey: "",
-  });
+  const [draft, setDraft] = useState<DraftState>(() => initialDraft(integration));
 
-  const set =
-    (key: keyof IntegrationFields): ChangeEventHandler<HTMLInputElement> =>
+  const setConfig =
+    (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
     (event) =>
-      setFields((prev) => ({ ...prev, [key]: event.target.value }));
+      setDraft((prev) => ({
+        ...prev,
+        config: { ...prev.config, [key]: event.target.value },
+      }));
+
+  const setSecret =
+    (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
+    (event) =>
+      setDraft((prev) => ({
+        ...prev,
+        secrets: { ...prev.secrets, [key]: event.target.value },
+      }));
 
   const toggle = useOptimisticMutation<unknown, boolean, IntegrationsCache>({
     mutationFn: (enabled) =>
@@ -133,51 +190,73 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
 
   const save = useOptimisticMutation<
     unknown,
-    { apiKey?: string; config?: Record<string, string> },
+    { config: IntegrationConfig; secrets: Partial<Record<IntegrationSecretKey, string>> },
     IntegrationsCache
   >({
     mutationFn: (payload) =>
       apiPut("/api/integrations", { provider: integration.provider, ...payload }),
     queryKey: queryKeys.integrations,
     optimisticUpdate: (current, payload) =>
-      patchIntegration(current, integration.provider, (item) => ({
-        ...item,
-        config: { ...item.config, ...payload.config },
-        hasSecret: payload.apiKey ? true : item.hasSecret,
-      })),
+      patchIntegration(current, integration.provider, (item) => {
+        const secretStates = {
+          ...item.secretStates,
+          ...Object.fromEntries(Object.keys(payload.secrets).map((key) => [key, true])),
+        };
+        return {
+          ...item,
+          config: { ...item.config, ...payload.config },
+          secretStates,
+          requirementsMet: integrationRequirements(item, payload.config, secretStates).met,
+        };
+      }),
     invalidateKeys: [queryKeys.onboarding],
     onSuccess: () => toast.success(`${integration.name} connection saved`),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not save connection")),
   });
 
-  const busy = toggle.isPending || save.isPending;
+  const clear = useOptimisticMutation<unknown, void, IntegrationsCache>({
+    mutationFn: () =>
+      apiDelete(`/api/integrations?provider=${encodeURIComponent(integration.provider)}`),
+    queryKey: queryKeys.integrations,
+    optimisticUpdate: (current) =>
+      patchIntegration(current, integration.provider, (item) => ({
+        ...item,
+        enabled: false,
+        config: {},
+        secretStates: emptySecretStates(item),
+        requirementsMet: integrationRequirements(item, {}, emptySecretStates(item)).met,
+      })),
+    invalidateKeys: [queryKeys.onboarding],
+    onSuccess: () => {
+      setDraft(initialDraft({ ...integration, config: {}, secretStates: emptySecretStates(integration) }));
+      toast.success(`${integration.name} connection cleared`);
+    },
+    onError: (error) => toast.danger(getErrorMessage(error, "Could not clear connection")),
+  });
 
-  // A required field counts as satisfied if it's freshly typed or already saved.
-  // Secrets never round-trip to the client, so a saved one shows via hasSecret.
-  const requirements = REQUIRED_FIELDS[integration.provider];
-  const requirementsMet =
-    !requirements ||
-    (requirements.config.every((key) => Boolean(fields[key].trim() || integration.config[key])) &&
-      (!requirements.secret || Boolean(fields.apiKey.trim() || integration.hasSecret)));
-  // Only block enabling — disabling an already-enabled provider stays allowed.
-  const canToggle = integration.enabled || requirementsMet;
+  const config = draftConfig(integration, draft);
+  const secretStates = draftSecretStates(integration, draft);
+  const requirements = integrationRequirements(integration, config, secretStates);
+  const busy = toggle.isPending || save.isPending || clear.isPending;
+  const canToggle = integration.enabled || requirements.met;
+  const hasSetupFields = integration.fields.length > 0 || integration.secrets.length > 0;
 
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const apiKey = fields.apiKey.trim();
-    save.mutate({ apiKey: apiKey || undefined, config: buildConfig(integration.provider, fields) });
+    save.mutate({ config, secrets: draftSecrets(integration, draft) });
   }
 
-  if (integration.provider === "markdown_export") {
+  if (!hasSetupFields) {
     return (
       <div className="mt-4">
         <LoadingButton
           variant={integration.enabled ? "secondary" : "primary"}
           isPending={toggle.isPending}
-          pendingLabel="Saving…"
+          pendingLabel="Saving..."
+          isDisabled={busy}
           onPress={() => toggle.mutate(!integration.enabled)}
         >
-          {integration.enabled ? "Disable Markdown export" : "Enable Markdown export"}
+          {integration.enabled ? `Disable ${integration.name}` : `Enable ${integration.name}`}
         </LoadingButton>
       </div>
     );
@@ -185,55 +264,67 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
 
   return (
     <form onSubmit={handleSave} className="mt-4 space-y-3">
-      {integration.provider === "webhook" ? (
-        <>
-          <Field id="webhookUrl" label="Webhook URL" name="webhookUrl" type="url" value={fields.webhookUrl} onChange={set("webhookUrl")} placeholder="https://example.com/hooks/articles" />
-          <SecretField hasSecret={integration.hasSecret} value={fields.apiKey} onChange={set("apiKey")} />
-        </>
-      ) : null}
+      {integration.fields.map((field) => (
+        <Field
+          key={field.key}
+          id={`${integration.provider}-${field.key}`}
+          label={field.label}
+          name={field.key}
+          type={field.validation === "url" ? "url" : "text"}
+          value={draft.config[field.key] ?? ""}
+          onChange={setConfig(field.key)}
+          placeholder={field.placeholder}
+          required={field.required}
+          helpText={field.helpText}
+        />
+      ))}
 
-      {integration.provider === "devto" ? <SecretField id="apiKey" label="Dev.to API key" hasSecret={integration.hasSecret} value={fields.apiKey} onChange={set("apiKey")} /> : null}
-
-      {integration.provider === "hashnode" ? (
-        <>
-          <Field id="publicationId" label="Publication ID" name="publicationId" value={fields.publicationId} onChange={set("publicationId")} placeholder="64abc..." />
-          <SecretField hasSecret={integration.hasSecret} label="Personal access token" value={fields.apiKey} onChange={set("apiKey")} />
-        </>
-      ) : null}
-
-      {integration.provider === "wordpress" ? (
-        <>
-          <Field id="siteUrl" label="Site URL" name="siteUrl" type="url" value={fields.siteUrl} onChange={set("siteUrl")} placeholder="https://blog.example.com" />
-          <Field id="username" label="WordPress username" name="username" value={fields.username} onChange={set("username")} placeholder="editor" />
-          <SecretField hasSecret={integration.hasSecret} label="Application password" value={fields.apiKey} onChange={set("apiKey")} />
-        </>
-      ) : null}
-
-      {integration.provider === "ghost" ? (
-        <>
-          <Field id="adminApiUrl" label="Admin API URL" name="adminApiUrl" type="url" value={fields.adminApiUrl} onChange={set("adminApiUrl")} placeholder="https://blog.example.com" />
-          <SecretField hasSecret={integration.hasSecret} label="Admin API key (id:secret)" value={fields.apiKey} onChange={set("apiKey")} />
-        </>
-      ) : null}
+      {integration.secrets.map((secret) => (
+        <SecretField
+          key={secret.key}
+          id={`${integration.provider}-${secret.key}`}
+          label={secret.label}
+          hasSecret={Boolean(integration.secretStates[secret.key])}
+          value={draft.secrets[secret.key] ?? ""}
+          onChange={setSecret(secret.key)}
+          placeholder={secret.placeholder}
+          required={secret.required}
+          helpText={secret.helpText}
+        />
+      ))}
 
       <div className="flex flex-wrap gap-2">
-        <LoadingButton type="submit" isPending={save.isPending} pendingLabel="Saving…" isDisabled={busy}>
+        <LoadingButton
+          type="submit"
+          isPending={save.isPending}
+          pendingLabel="Saving..."
+          isDisabled={busy}
+        >
           Save connection
         </LoadingButton>
         <LoadingButton
           variant="secondary"
           isPending={toggle.isPending}
-          pendingLabel="Saving…"
+          pendingLabel="Saving..."
           isDisabled={busy || !canToggle}
           onPress={() => toggle.mutate(!integration.enabled)}
         >
           {integration.enabled ? "Disable" : "Enable"}
         </LoadingButton>
+        <LoadingButton
+          variant="ghost"
+          isPending={clear.isPending}
+          pendingLabel="Clearing..."
+          isDisabled={busy}
+          onPress={() => clear.mutate()}
+        >
+          Clear
+        </LoadingButton>
       </div>
 
       {!canToggle ? (
         <p className="text-sm text-muted">
-          Enter the required details above to enable this integration.
+          Add {requirements.missing.join(", ")} before enabling this integration.
         </p>
       ) : null}
     </form>
@@ -248,6 +339,8 @@ function Field({
   onChange,
   placeholder,
   type = "text",
+  required,
+  helpText,
 }: {
   id: string;
   label: string;
@@ -256,42 +349,61 @@ function Field({
   onChange: ChangeEventHandler<HTMLInputElement>;
   placeholder?: string;
   type?: string;
+  required?: boolean;
+  helpText?: string;
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={name} type={type} value={value} onChange={onChange} placeholder={placeholder} variant="secondary" fullWidth />
+      <Label htmlFor={id}>{required ? `${label} *` : label}</Label>
+      <Input
+        id={id}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        variant="secondary"
+        fullWidth
+      />
+      {helpText ? <p className="text-xs text-muted">{helpText}</p> : null}
     </div>
   );
 }
 
 function SecretField({
-  id = "apiKey",
-  label = "Signing secret",
+  id,
+  label,
   hasSecret,
   value,
   onChange,
+  placeholder,
+  required,
+  helpText,
 }: {
-  id?: string;
-  label?: string;
+  id: string;
+  label: string;
   hasSecret: boolean;
   value: string;
   onChange: ChangeEventHandler<HTMLInputElement>;
+  placeholder?: string;
+  required?: boolean;
+  helpText?: string;
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>{required ? `${label} *` : label}</Label>
       <Input
         id={id}
         name={id}
         type="password"
         value={value}
         onChange={onChange}
-        placeholder={hasSecret ? "Saved — enter to replace" : "Required"}
+        placeholder={hasSecret ? "Saved, enter to replace" : (placeholder ?? "Required")}
         autoComplete="new-password"
         variant="secondary"
         fullWidth
       />
+      {helpText ? <p className="text-xs text-muted">{helpText}</p> : null}
     </div>
   );
 }

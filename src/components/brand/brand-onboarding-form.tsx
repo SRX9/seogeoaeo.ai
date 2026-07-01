@@ -8,12 +8,18 @@ import { Select } from "@heroui/react/select";
 import { ListBox } from "@heroui/react/list-box";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEventHandler, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/queries";
+import type {
+  IntegrationConfigKey,
+  IntegrationProviderDefinition,
+  IntegrationProviderId,
+  IntegrationSecretKey,
+} from "@/lib/integrations/providers";
 
-type ProviderOption = { id: string; name: string; description: string };
+type ProviderOption = IntegrationProviderDefinition;
 
 const STEPS = [
   { title: "Brand basics", hint: "Name and website" },
@@ -23,7 +29,23 @@ const STEPS = [
   { title: "Publishing", hint: "Optional — connect a destination" },
 ] as const;
 
-const INITIAL_FIELDS = {
+type Fields = {
+  name: string;
+  website: string;
+  productDescription: string;
+  audience: string;
+  tone: string;
+  seedKeywords: string;
+  competitorName: string;
+  competitorUrl: string;
+  integrationProvider: "" | IntegrationProviderId;
+  integrationConfig: Record<string, string>;
+  integrationSecrets: Record<string, string>;
+};
+
+type TextFieldKey = Exclude<keyof Fields, "integrationConfig" | "integrationSecrets">;
+
+const INITIAL_FIELDS: Fields = {
   name: "",
   website: "",
   productDescription: "",
@@ -33,10 +55,9 @@ const INITIAL_FIELDS = {
   competitorName: "",
   competitorUrl: "",
   integrationProvider: "",
-  integrationApiKey: "",
+  integrationConfig: {},
+  integrationSecrets: {},
 };
-
-type Fields = typeof INITIAL_FIELDS;
 
 // Sentinel key for the "skip" option in the publishing Select. The Select works
 // in terms of keys, so we map this back to an empty `integrationProvider`.
@@ -62,6 +83,12 @@ function isValidUrl(value: string) {
   }
 }
 
+function trimRecord(record: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key, value.trim()]),
+  );
+}
+
 export function BrandOnboardingForm({ providers }: { providers: ProviderOption[] }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -78,9 +105,25 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   const canAdvance = step !== 0 || fields.name.trim().length > 0;
 
   const set =
-    (key: keyof Fields) =>
+    (key: TextFieldKey) =>
     (event: { target: { value: string } }) =>
       setFields((prev) => ({ ...prev, [key]: event.target.value }));
+
+  const setIntegrationConfig =
+    (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
+    (event) =>
+      setFields((prev) => ({
+        ...prev,
+        integrationConfig: { ...prev.integrationConfig, [key]: event.target.value },
+      }));
+
+  const setIntegrationSecret =
+    (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
+    (event) =>
+      setFields((prev) => ({
+        ...prev,
+        integrationSecrets: { ...prev.integrationSecrets, [key]: event.target.value },
+      }));
 
   // AI prefill — best-effort, runs on the entered name + website without saving
   // anything. Only fills fields the user hasn't touched, and a failure is silent
@@ -178,9 +221,19 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     event.preventDefault();
     setError(null);
 
-    const trimmed = Object.fromEntries(
-      Object.entries(fields).map(([key, value]) => [key, value.trim()]),
-    ) as Fields;
+    const trimmed: Fields = {
+      ...fields,
+      name: fields.name.trim(),
+      website: fields.website.trim(),
+      productDescription: fields.productDescription.trim(),
+      audience: fields.audience.trim(),
+      tone: fields.tone.trim(),
+      seedKeywords: fields.seedKeywords.trim(),
+      competitorName: fields.competitorName.trim(),
+      competitorUrl: fields.competitorUrl.trim(),
+      integrationConfig: trimRecord(fields.integrationConfig),
+      integrationSecrets: trimRecord(fields.integrationSecrets),
+    };
 
     if (!trimmed.name) {
       setError("Brand name is required.");
@@ -391,7 +444,10 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
             onChange={(value) =>
               setFields((prev) => ({
                 ...prev,
-                integrationProvider: value && value !== SKIP_PROVIDER_KEY ? String(value) : "",
+                integrationProvider:
+                  value && value !== SKIP_PROVIDER_KEY ? (String(value) as IntegrationProviderId) : "",
+                integrationConfig: {},
+                integrationSecrets: {},
               }))
             }
           >
@@ -407,7 +463,12 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                 </ListBox.Item>
                 {providers.map((item) => (
                   <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
-                    {item.name}
+                    <span className="flex flex-col">
+                      <span>{item.name}</span>
+                      {item.status !== "available" ? (
+                        <span className="text-xs text-muted">Finish in Settings</span>
+                      ) : null}
+                    </span>
                     <ListBox.ItemIndicator />
                   </ListBox.Item>
                 ))}
@@ -420,21 +481,13 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
             </p>
           ) : null}
         </div>
-        {fields.integrationProvider ? (
-          <div className="space-y-2">
-            <Label htmlFor="integrationApiKey">API key (optional)</Label>
-            <Input
-              id="integrationApiKey"
-              name="integrationApiKey"
-              type="password"
-              value={fields.integrationApiKey}
-              onChange={set("integrationApiKey")}
-              placeholder="Paste an API key — you can finish setup in Settings"
-              variant="secondary"
-              fullWidth
-            />
-          </div>
-        ) : null}
+        <OnboardingIntegrationFields
+          provider={providers.find((item) => item.id === fields.integrationProvider) ?? null}
+          config={fields.integrationConfig}
+          secrets={fields.integrationSecrets}
+          onConfigChange={setIntegrationConfig}
+          onSecretChange={setIntegrationSecret}
+        />
       </div>
 
       {error ? (
@@ -467,5 +520,78 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
         )}
       </div>
     </form>
+  );
+}
+
+function OnboardingIntegrationFields({
+  provider,
+  config,
+  secrets,
+  onConfigChange,
+  onSecretChange,
+}: {
+  provider: ProviderOption | null;
+  config: Record<string, string>;
+  secrets: Record<string, string>;
+  onConfigChange: (key: IntegrationConfigKey) => ChangeEventHandler<HTMLInputElement>;
+  onSecretChange: (key: IntegrationSecretKey) => ChangeEventHandler<HTMLInputElement>;
+}) {
+  if (!provider) {
+    return null;
+  }
+
+  if (provider.status !== "available") {
+    return (
+      <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+        {provider.requirements.summary} Finish setup in Settings when this connector is available.
+      </div>
+    );
+  }
+
+  const requiredFields = provider.fields.filter((field) => field.required);
+  const requiredSecrets = provider.secrets.filter((secret) => secret.required);
+
+  if (requiredFields.length === 0 && requiredSecrets.length === 0) {
+    return (
+      <p className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+        {provider.requirements.summary}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {requiredFields.map((field) => (
+        <div key={field.key} className="space-y-2">
+          <Label htmlFor={`onboarding-${field.key}`}>{field.label}</Label>
+          <Input
+            id={`onboarding-${field.key}`}
+            name={`integrationConfig.${field.key}`}
+            type={field.validation === "url" ? "url" : "text"}
+            value={config[field.key] ?? ""}
+            onChange={onConfigChange(field.key)}
+            placeholder={field.placeholder}
+            variant="secondary"
+            fullWidth
+          />
+        </div>
+      ))}
+      {requiredSecrets.map((secret) => (
+        <div key={secret.key} className="space-y-2">
+          <Label htmlFor={`onboarding-${secret.key}`}>{secret.label}</Label>
+          <Input
+            id={`onboarding-${secret.key}`}
+            name={`integrationSecrets.${secret.key}`}
+            type="password"
+            value={secrets[secret.key] ?? ""}
+            onChange={onSecretChange(secret.key)}
+            placeholder={secret.placeholder ?? "Required"}
+            autoComplete="new-password"
+            variant="secondary"
+            fullWidth
+          />
+        </div>
+      ))}
+    </div>
   );
 }

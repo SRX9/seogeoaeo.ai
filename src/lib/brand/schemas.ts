@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { INTEGRATION_PROVIDER_IDS } from "@/lib/integrations/providers";
 
 export const brandProfileSchema = z.object({
   productDescription: z.string().max(4000).optional().default(""),
@@ -40,8 +41,9 @@ export const brandOnboardingSchema = z.object({
   seedKeywords: z.string().max(1000).optional().default(""),
   competitorName: z.string().max(200).optional().or(z.literal("")),
   competitorUrl: z.string().url().optional().or(z.literal("")),
-  integrationProvider: z.string().max(60).optional().or(z.literal("")),
-  integrationApiKey: z.string().max(400).optional().or(z.literal("")),
+  integrationProvider: z.enum(INTEGRATION_PROVIDER_IDS).optional().or(z.literal("")),
+  integrationConfig: z.record(z.string().max(500)).optional().default({}),
+  integrationSecrets: z.record(z.string().max(1000)).optional().default({}),
 });
 
 export type BrandProfileInput = z.infer<typeof brandProfileSchema>;

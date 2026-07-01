@@ -33,7 +33,7 @@ describe("publishing adapters", () => {
     const result = await webhookAdapter.publish(sampleArticle, {
       workspaceId: "ws-1",
       config: { webhookUrl: "https://hooks.example.com/articles" },
-      secrets: { api_key: "secret-token" },
+      secrets: { webhook_bearer_token: "secret-token" },
       origin: "https://app.example.com",
     });
 
@@ -63,7 +63,7 @@ describe("publishing adapters", () => {
     const result = await hashnodeAdapter.publish(sampleArticle, {
       workspaceId: "ws-1",
       config: { publicationId: "pub-1" },
-      secrets: { api_key: "hashnode-token" },
+      secrets: { hashnode_token: "hashnode-token" },
       origin: "https://app.example.com",
     });
 
@@ -86,7 +86,7 @@ describe("publishing adapters", () => {
     const result = await hashnodeAdapter.publish(sampleArticle, {
       workspaceId: "ws-1",
       config: { publicationId: "pub-1" },
-      secrets: { api_key: "bad" },
+      secrets: { hashnode_token: "bad" },
       origin: "https://app.example.com",
     });
 
@@ -111,5 +111,17 @@ describe("publishing adapters", () => {
     expect(result.error).toContain("500");
 
     vi.unstubAllGlobals();
+  });
+
+  it("labels missing Hashnode tokens accurately", async () => {
+    const result = await hashnodeAdapter.publish(sampleArticle, {
+      workspaceId: "ws-1",
+      config: { publicationId: "pub-1" },
+      secrets: {},
+      origin: "https://app.example.com",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("personal access token");
   });
 });

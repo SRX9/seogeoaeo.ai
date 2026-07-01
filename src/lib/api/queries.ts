@@ -3,6 +3,16 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { apiGet } from "@/lib/api/fetcher";
+import type {
+  IntegrationConfig,
+  IntegrationFieldDefinition,
+  IntegrationProviderId,
+  IntegrationProviderStatus,
+  IntegrationPublishMode,
+  IntegrationRequirements,
+  IntegrationSecretDefinition,
+  IntegrationSecretKey,
+} from "@/lib/integrations/providers";
 
 /** Central query keys so mutations can invalidate the right caches. */
 export const queryKeys = {
@@ -196,20 +206,21 @@ export type ActivityResponse = {
 };
 
 export type IntegrationView = {
-  provider: string;
+  provider: IntegrationProviderId;
+  id: IntegrationProviderId;
   name: string;
   description: string;
+  publishMode: IntegrationPublishMode;
+  status: IntegrationProviderStatus;
+  fields: IntegrationFieldDefinition[];
+  secrets: IntegrationSecretDefinition[];
+  requirements: IntegrationRequirements;
   enabled: boolean;
   available: boolean;
   configurable: boolean;
-  config: {
-    webhookUrl?: string;
-    siteUrl?: string;
-    username?: string;
-    publicationId?: string;
-    adminApiUrl?: string;
-  };
-  hasSecret: boolean;
+  config: IntegrationConfig;
+  secretStates: Partial<Record<IntegrationSecretKey, boolean>>;
+  requirementsMet: boolean;
 };
 
 // Shared query options so a hook and its prefetch call can't drift apart.

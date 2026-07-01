@@ -30,7 +30,7 @@ export const ghostAdapter: PublishingAdapter = {
   id: "ghost",
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
     const adminApiUrl = context.config.adminApiUrl?.trim();
-    const adminApiKey = context.secrets.api_key;
+    const adminApiKey = context.secrets.ghost_admin_api_key ?? context.secrets.api_key;
 
     if (!adminApiUrl) {
       return { ok: false, error: "Ghost admin API URL is not configured" };

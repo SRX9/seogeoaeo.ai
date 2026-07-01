@@ -3,7 +3,7 @@ import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter }
 export const devtoAdapter: PublishingAdapter = {
   id: "devto",
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
-    const apiKey = context.secrets.api_key;
+    const apiKey = context.secrets.devto_api_key ?? context.secrets.api_key;
     if (!apiKey) {
       return { ok: false, error: "Dev.to API key is not configured" };
     }
