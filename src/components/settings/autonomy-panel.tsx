@@ -12,7 +12,7 @@ type AutonomyPanelProps = {
 };
 
 export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
-  const [mode, setMode] = useState(currentMode);
+  const [mode, setMode] = useState(() => currentMode);
   const queryClient = useQueryClient();
   const confirm = useOverlayState();
   const isAuto = mode === "FULL_AUTO";

@@ -4,6 +4,7 @@ import { buttonVariants } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 import Link from "next/link";
+import { useMemo } from "react";
 import { DashboardKpis } from "@/components/dashboard/dashboard-kpis";
 import { AutomationCard } from "@/components/dashboard/automation-card";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
@@ -29,6 +30,18 @@ import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
 import { statusColor } from "@/lib/ui/status";
 import { autonomyLabel } from "@/lib/workspace/settings";
 
+const manageTopicsAction = (
+  <Link href="/topics" className={buttonVariants({ size: "sm" })}>
+    Manage topics
+  </Link>
+);
+const overviewMetaSkeleton = <ChipRowSkeleton count={3} />;
+const kpiSkeleton = <StatGridSkeleton />;
+const automationSkeleton = <StatGridSkeleton />;
+const onboardingSkeleton = <CardSkeleton lines={5} />;
+const researchSkeleton = <CardSkeleton lines={1} />;
+const recentArticlesSkeleton = <TableSkeleton rows={3} />;
+
 export default function DashboardPage() {
   const me = useMe();
   const credits = useCredits();
@@ -39,50 +52,53 @@ export default function DashboardPage() {
   const onboarding = useOnboarding();
 
   // Header chips + the free-tier banner share the same inputs.
-  const overview = combineQueries(me, credits, research);
-  const kpis = combineQueries(me, credits, articles, topics);
+  const overview = useMemo(() => combineQueries(me, credits, research), [me, credits, research]);
+  const kpis = useMemo(
+    () => combineQueries(me, credits, articles, topics),
+    [me, credits, articles, topics],
+  );
+  const overviewMeta = useMemo(
+    () => (
+      <Section query={overview} skeleton={overviewMetaSkeleton}>
+        {([meData, , researchData]) => {
+          const active = isActiveSubscription(meData.subscription?.status);
+          const planName =
+            active && meData.subscription?.planId
+              ? (getPlan(meData.subscription.planId)?.name ?? "Active plan")
+              : null;
+          const activeBrand =
+            meData.brands.find((brand) => brand.id === meData.activeBrandId) ??
+            meData.brands[0] ??
+            null;
+          const latestRun = researchData.latest;
+          return (
+            <>
+              <Chip color={active ? "success" : "warning"} variant="soft">
+                {active ? (planName ?? "Active plan") : "Free plan"}
+              </Chip>
+              {activeBrand ? (
+                <Chip variant="soft">{autonomyLabel(activeBrand.autonomyMode)}</Chip>
+              ) : null}
+              {latestRun ? (
+                <Chip color={statusColor(latestRun.status)} variant="soft">
+                  Research {latestRun.status}
+                </Chip>
+              ) : null}
+            </>
+          );
+        }}
+      </Section>
+    ),
+    [overview],
+  );
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Overview"
         description="Your autonomous content pipeline at a glance."
-        actions={
-          <Link href="/topics" className={buttonVariants({ size: "sm" })}>
-            Manage topics
-          </Link>
-        }
-        meta={
-          <Section query={overview} skeleton={<ChipRowSkeleton count={3} />}>
-            {([meData, , researchData]) => {
-              const active = isActiveSubscription(meData.subscription?.status);
-              const planName =
-                active && meData.subscription?.planId
-                  ? (getPlan(meData.subscription.planId)?.name ?? "Active plan")
-                  : null;
-              const activeBrand =
-                meData.brands.find((brand) => brand.id === meData.activeBrandId) ??
-                meData.brands[0] ??
-                null;
-              const latestRun = researchData.latest;
-              return (
-                <>
-                  <Chip color={active ? "success" : "warning"} variant="soft">
-                    {active ? (planName ?? "Active plan") : "Free plan"}
-                  </Chip>
-                  {activeBrand ? (
-                    <Chip variant="soft">{autonomyLabel(activeBrand.autonomyMode)}</Chip>
-                  ) : null}
-                  {latestRun ? (
-                    <Chip color={statusColor(latestRun.status)} variant="soft">
-                      Research {latestRun.status}
-                    </Chip>
-                  ) : null}
-                </>
-              );
-            }}
-          </Section>
-        }
+        actions={manageTopicsAction}
+        meta={overviewMeta}
       />
 
       {/* Free-tier banner — only shown for unsubscribed workspaces. */}
@@ -118,7 +134,7 @@ export default function DashboardPage() {
         }}
       </Section>
 
-      <Section query={kpis} skeleton={<StatGridSkeleton />} errorLabel="Couldn't load your stats.">
+      <Section query={kpis} skeleton={kpiSkeleton} errorLabel="Couldn't load your stats.">
         {([meData, creditsData, articlesData, topicsData]) => {
           const approvedArticles = articlesData.articles.filter(
             (article) => article.status === "approved",
@@ -140,19 +156,19 @@ export default function DashboardPage() {
 
       <Section
         query={automation}
-        skeleton={<StatGridSkeleton />}
+        skeleton={automationSkeleton}
         errorLabel="Couldn't load your content agent."
       >
         {(data) => <AutomationCard automation={data} />}
       </Section>
 
-      <Section query={onboarding} skeleton={<CardSkeleton lines={5} />}>
+      <Section query={onboarding} skeleton={onboardingSkeleton}>
         {(data) => <OnboardingChecklist steps={data.steps} />}
       </Section>
 
       <Section
         query={research}
-        skeleton={<CardSkeleton lines={1} />}
+        skeleton={researchSkeleton}
         errorLabel="Couldn't load research."
       >
         {(data) => {
@@ -187,7 +203,7 @@ export default function DashboardPage() {
         }}
       </Section>
 
-      <Section query={articles} skeleton={<TableSkeleton rows={3} />}>
+      <Section query={articles} skeleton={recentArticlesSkeleton}>
         {(data) => {
           const recentArticles = data.articles.slice(0, 5);
           if (recentArticles.length === 0) return null;

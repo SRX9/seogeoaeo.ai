@@ -36,7 +36,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 text-sm text-muted sm:flex-row">
-          <span>
+          <span suppressHydrationWarning>
             © {new Date().getFullYear()} {SITE_NAME}
           </span>
           <span className="text-xs">Autonomous SEO, GEO &amp; AEO</span>

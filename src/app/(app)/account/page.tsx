@@ -13,16 +13,14 @@ function AccountContent() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <PageHeader title="Billing" description="Your plan, credits, and payment details." />
-      <BillingSection />
+      <Suspense fallback={null}>
+        <BillingSection />
+      </Suspense>
       <NotificationsSection />
     </div>
   );
 }
 
 export default function AccountPage() {
-  return (
-    <Suspense fallback={null}>
-      <AccountContent />
-    </Suspense>
-  );
+  return <AccountContent />;
 }

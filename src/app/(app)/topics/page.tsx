@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs } from "@heroui/react";
+import { useMemo } from "react";
 import { ManualTopicForm, TopicQueue } from "@/components/articles/topics-panel";
 import { ResearchPanel } from "@/components/research/research-panel";
 import { PageHeader } from "@/components/layout/page-header";
@@ -8,6 +9,8 @@ import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { combineQueries, useCredits, useMe } from "@/lib/api/queries";
 import { isActiveSubscription } from "@/lib/billing/plans";
+
+const queueSkeleton = <CardSkeleton lines={4} />;
 
 export default function TopicsPage() {
   const me = useMe();
@@ -17,20 +20,23 @@ export default function TopicsPage() {
   // Read without gating — defaults to "ready" until /api/me resolves so the
   // warning only appears when we actually know the LLM env is unconfigured.
   const llmReady = me.data?.llmReady ?? true;
+  const headerMeta = useMemo(
+    () =>
+      !llmReady ? (
+        <p className="text-sm text-warning">
+          LLM env vars are not configured. Research scoring and article generation need
+          LLM_BASE_URL, LLM_API_KEY, and model IDs.
+        </p>
+      ) : null,
+    [llmReady],
+  );
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title="Topics"
         description="Research-ranked backlog and manual topics for article generation."
-        meta={
-          !llmReady ? (
-            <p className="text-sm text-warning">
-              LLM env vars are not configured. Research scoring and article generation need
-              LLM_BASE_URL, LLM_API_KEY, and model IDs.
-            </p>
-          ) : null
-        }
+        meta={headerMeta}
       />
 
       <Section query={hint} skeleton={null}>
@@ -82,7 +88,7 @@ export default function TopicsPage() {
         <Tabs.Panel id="queue">
           <Section
             query={credits}
-            skeleton={<CardSkeleton lines={4} />}
+            skeleton={queueSkeleton}
             errorLabel="Couldn't load your credits."
           >
             {(creditsData) => (

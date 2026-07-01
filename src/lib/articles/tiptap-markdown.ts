@@ -85,8 +85,10 @@ function serializeBlock(node: JSONContent): string {
 export function tiptapDocToMarkdown(doc: JSONContent | null | undefined): string {
   if (!doc?.content) return "";
   return doc.content
-    .map(serializeBlock)
-    .filter((block) => block.trim().length > 0)
+    .flatMap((node) => {
+      const block = serializeBlock(node);
+      return block.trim().length > 0 ? [block] : [];
+    })
     .join("\n\n")
     .trim();
 }

@@ -10,8 +10,10 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 /** Publish an approved article to the brand's connected destinations (paid). */
 export async function POST(_request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const { id } = await params;
-    const { workspace, subscription, scope } = await requireApiBrand();
+    const [{ id }, { workspace, subscription, scope }] = await Promise.all([
+      params,
+      requireApiBrand(),
+    ]);
 
     if (!isActiveSubscription(subscription?.status)) {
       throw new HttpError(402, "Publishing requires an active plan", { code: "UPGRADE_REQUIRED" });

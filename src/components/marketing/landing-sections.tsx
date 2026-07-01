@@ -27,6 +27,12 @@ const heroEvidence = [
   "One-click publish",
 ];
 
+const heroPreviewPillars = [
+  { label: "SEO", value: 82 },
+  { label: "AEO", value: 74 },
+  { label: "GEO", value: 79 },
+];
+
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
@@ -77,11 +83,6 @@ export function Hero() {
 
 /** A static, CSS-only "audit + content" product snapshot for credibility. */
 function HeroPreview() {
-  const pillars = [
-    { label: "SEO", value: 82 },
-    { label: "AEO", value: 74 },
-    { label: "GEO", value: 79 },
-  ];
   return (
     <div className="mx-auto mt-16 max-w-4xl">
       <Card className="overflow-hidden border-border/70 bg-surface/60 backdrop-blur">
@@ -96,7 +97,7 @@ function HeroPreview() {
               </Chip>
             </div>
             <div className="mt-6 space-y-4">
-              {pillars.map((pillar) => (
+              {heroPreviewPillars.map((pillar) => (
                 <div key={pillar.label}>
                   <div className="mb-1.5 flex items-center justify-between text-sm">
                     <span className="font-medium text-foreground">{pillar.label}</span>

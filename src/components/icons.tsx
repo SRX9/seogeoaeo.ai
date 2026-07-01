@@ -3,6 +3,7 @@
  * sizes to `size-5` by default; pass `className` to override.
  */
 import type { SVGProps } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/cn";
 
 type IconProps = SVGProps<SVGSVGElement>;
@@ -153,24 +154,6 @@ export function CircleCheckIcon(props: IconProps) {
     <Icon {...props}>
       <circle cx="12" cy="12" r="9" />
       <path d="m9 12 2 2 4-4" />
-    </Icon>
-  );
-}
-
-export function CircleAlertIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v4M12 16h.01" />
-    </Icon>
-  );
-}
-
-export function ClockIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
     </Icon>
   );
 }
@@ -327,15 +310,6 @@ export function BoltIcon(props: IconProps) {
   );
 }
 
-export function ShieldIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z" />
-      <path d="m9 12 2 2 4-4" />
-    </Icon>
-  );
-}
-
 export function CalendarIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -363,14 +337,14 @@ export function ChartBarIcon(props: IconProps) {
   );
 }
 
-export function SgaLogoIcon({ className }: { className?: string }) {
+function SgaLogoIcon({ className }: { className?: string }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- static brand mark; avoids the Image optimizer on Cloudflare
-    <img
+    <Image
       src="/web-app-manifest-192x192.png"
       alt=""
       width={36}
       height={36}
+      unoptimized
       // rounded-[22%] mirrors the Apple icon corner radius (~22% of the size) and scales with any size class
       className={cn("rounded-[22%]", className ?? "size-9")}
     />

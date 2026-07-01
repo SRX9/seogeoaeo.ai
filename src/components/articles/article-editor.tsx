@@ -132,6 +132,12 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   });
   const publishMutation = useMutation({
     mutationFn: () => apiPost<PublishSummary>(`/api/articles/${article.id}/publish`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.article(article.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.articles });
+      queryClient.invalidateQueries({ queryKey: queryKeys.automation });
+      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
+    },
   });
 
   const pending = saveMutation.isPending || publishMutation.isPending;
@@ -216,7 +222,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         </Tabs.ListContainer>
 
         <Tabs.Panel id="editor">
-          <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
+          <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
@@ -287,7 +293,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
                 </Link>
               )}
             </div>
-          </form>
+          </div>
         </Tabs.Panel>
 
         <Tabs.Panel id="history">

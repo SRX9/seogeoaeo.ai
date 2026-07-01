@@ -8,8 +8,7 @@ type ExportRouteProps = {
 };
 
 export async function GET(_request: Request, { params }: ExportRouteProps) {
-  const { id } = await params;
-  const { brand } = await requireBrand();
+  const [{ id }, { brand }] = await Promise.all([params, requireBrand()]);
   const article = await getArticle(brand.id, id);
 
   if (!article) {

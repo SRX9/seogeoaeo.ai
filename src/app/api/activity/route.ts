@@ -33,11 +33,11 @@ export async function GET() {
     // "research" agent job runResearch creates alongside it.
     const jobs = allJobs.filter((job) => job.kind !== "research");
 
-    const articleIdByJob = new Map<string, string>();
-    for (const job of jobs) {
+    const articleIdsByJob = jobs.flatMap((job) => {
       const articleId = writingArticleId(job);
-      if (articleId) articleIdByJob.set(job.id, articleId);
-    }
+      return articleId ? ([[job.id, articleId]] as const) : [];
+    });
+    const articleIdByJob = new Map<string, string>(articleIdsByJob);
 
     const credits = await creditsForRefs(brand.id, [
       ...runs.map((run) => run.id),

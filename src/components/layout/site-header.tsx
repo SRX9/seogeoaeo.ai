@@ -2,7 +2,7 @@
 
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/cn";
 import { SgaLogo } from "@/components/icons";
@@ -12,15 +12,25 @@ type SiteHeaderProps = {
   className?: string;
 };
 
-export function SiteHeader({ className }: SiteHeaderProps) {
-  const [scrolled, setScrolled] = useState(false);
+function subscribeToScroll(onStoreChange: () => void) {
+  window.addEventListener("scroll", onStoreChange, { passive: true });
+  return () => window.removeEventListener("scroll", onStoreChange);
+}
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+function getScrolledSnapshot() {
+  return window.scrollY > 8;
+}
+
+function getServerScrolledSnapshot() {
+  return false;
+}
+
+export function SiteHeader({ className }: SiteHeaderProps) {
+  const scrolled = useSyncExternalStore(
+    subscribeToScroll,
+    getScrolledSnapshot,
+    getServerScrolledSnapshot,
+  );
 
   return (
     <header

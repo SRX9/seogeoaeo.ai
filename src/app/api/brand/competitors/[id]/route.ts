@@ -6,8 +6,7 @@ type RouteProps = { params: Promise<{ id: string }> };
 /** Remove a competitor from the active brand. */
 export async function DELETE(_request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const { id } = await params;
-    const { brand } = await requireApiBrand();
+    const [{ id }, { brand }] = await Promise.all([params, requireApiBrand()]);
     await deleteCompetitor(brand.id, id);
     return jsonOk({ ok: true });
   });

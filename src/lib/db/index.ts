@@ -1,7 +1,25 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
-import * as schema from "./schema";
+import * as appSchema from "./schema/app";
+import * as authSchema from "./schema/auth";
+import * as brandSchema from "./schema/brand";
+import * as contentSchema from "./schema/content";
+import * as creditsSchema from "./schema/credits";
+import * as jobsSchema from "./schema/jobs";
+import * as publicationsSchema from "./schema/publications";
+import * as rateLimitSchema from "./schema/rate-limits";
+
+const schema = {
+  ...authSchema,
+  ...appSchema,
+  ...brandSchema,
+  ...contentSchema,
+  ...creditsSchema,
+  ...jobsSchema,
+  ...publicationsSchema,
+  ...rateLimitSchema,
+};
 
 type Db = ReturnType<typeof createDb>;
 

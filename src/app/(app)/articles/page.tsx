@@ -6,6 +6,8 @@ import { Section } from "@/components/feedback/section";
 import { TableSkeleton } from "@/components/feedback/skeletons";
 import { useArticles } from "@/lib/api/queries";
 
+const articlesSkeleton = <TableSkeleton rows={6} />;
+
 export default function ArticlesPage() {
   const articles = useArticles();
 
@@ -17,7 +19,7 @@ export default function ArticlesPage() {
       />
       <Section
         query={articles}
-        skeleton={<TableSkeleton rows={6} />}
+        skeleton={articlesSkeleton}
         errorLabel="Couldn't load your articles."
       >
         {(data) => <ArticlesList articles={data.articles} />}

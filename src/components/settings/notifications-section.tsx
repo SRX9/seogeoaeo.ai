@@ -8,8 +8,10 @@ import { queryKeys, useMe } from "@/lib/api/queries";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 
+const notificationsSkeleton = <CardSkeleton lines={2} />;
+
 function NotificationsPanel({ enabled }: { enabled: boolean }) {
-  const [on, setOn] = useState(enabled);
+  const [on, setOn] = useState(() => enabled);
   const queryClient = useQueryClient();
 
   const update = useMutation({
@@ -72,12 +74,15 @@ export function NotificationsSection() {
   return (
     <Section
       query={me}
-      skeleton={<CardSkeleton lines={2} />}
+      skeleton={notificationsSkeleton}
       errorLabel="Couldn't load notification settings."
     >
       {(data) =>
         data.subscription ? (
-          <NotificationsPanel enabled={data.subscription.creditEmailsEnabled} />
+          <NotificationsPanel
+            key={String(data.subscription.creditEmailsEnabled)}
+            enabled={data.subscription.creditEmailsEnabled}
+          />
         ) : (
           <p className="text-sm text-muted">No subscription on this workspace yet.</p>
         )

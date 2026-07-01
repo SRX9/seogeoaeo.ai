@@ -10,6 +10,13 @@ import { CardSkeleton } from "@/components/feedback/skeletons";
 import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
 import { combineQueries, useCredits, useMe } from "@/lib/api/queries";
 
+const billingSkeleton = (
+  <div className="space-y-10">
+    <CardSkeleton lines={3} />
+    <CardSkeleton lines={3} />
+  </div>
+);
+
 const REASON_LABELS: Record<string, string> = {
   signup_grant: "Signup bonus",
   monthly_grant: "Monthly refill",
@@ -48,12 +55,7 @@ export function BillingSection() {
     <Section
       query={query}
       errorLabel="Couldn't load billing."
-      skeleton={
-        <div className="space-y-10">
-          <CardSkeleton lines={3} />
-          <CardSkeleton lines={3} />
-        </div>
-      }
+      skeleton={billingSkeleton}
     >
       {([meData, creditsData]) => {
         const subscription = meData.subscription;

@@ -170,15 +170,16 @@ export async function settleDailyForBrand(
     status = "active";
   }
 
-  await upsertDailyRun(scope, runDate, {
-    articlesWritten: finalWritten,
-    topicsResearched: input.priorResearched + input.researchTopics,
-    status,
-  });
-
   // A single completed job per brand-day powers the overview stats; the research
   // and writing sub-jobs already record their own activity-feed entries.
-  const job = await createAgentJob(scope, "daily_pipeline", "Daily content run");
+  const [, job] = await Promise.all([
+    upsertDailyRun(scope, runDate, {
+      articlesWritten: finalWritten,
+      topicsResearched: input.priorResearched + input.researchTopics,
+      status,
+    }),
+    createAgentJob(scope, "daily_pipeline", "Daily content run"),
+  ]);
   await finishAgentJob(
     job.id,
     "completed",

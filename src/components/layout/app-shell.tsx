@@ -39,8 +39,10 @@ function initials(name: string) {
   return (
     name
       .split(" ")
-      .map((part) => part[0])
-      .filter(Boolean)
+      .flatMap((part) => {
+        const initial = part[0];
+        return initial ? [initial] : [];
+      })
       .slice(0, 2)
       .join("")
       .toUpperCase() || "U"

@@ -8,8 +8,6 @@ export const SITE_URL = "https://seogeoaeo.ai";
 
 export const SITE_NAME = "seogeoaeo.ai";
 
-export const SITE_TAGLINE = "Autonomous SEO, GEO & AEO";
-
 export const SITE_DESCRIPTION =
   "The all-in-one SEO·AEO·GEO suite that measures how findable your site is, " +
   "fixes the gaps, and ships search-optimized articles to every platform you " +

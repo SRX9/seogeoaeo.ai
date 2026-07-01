@@ -16,9 +16,8 @@ type RouteProps = { params: Promise<{ id: string }> };
 /** Rename a brand. */
 export async function PATCH(request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const { id } = await params;
-    const ctx = await getApiContext();
-    const { name } = parseBody(z.object({ name: brandNameSchema }), await readJson(request));
+    const [{ id }, ctx, body] = await Promise.all([params, getApiContext(), readJson(request)]);
+    const { name } = parseBody(z.object({ name: brandNameSchema }), body);
     const brand = await renameBrand(ctx.workspace.id, id, name);
     if (!brand) {
       throw new HttpError(404, "Brand not found");
@@ -30,8 +29,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
 /** Delete a brand (never the last one) and activate a remaining brand. */
 export async function DELETE(_request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const { id } = await params;
-    const ctx = await getApiContext();
+    const [{ id }, ctx] = await Promise.all([params, getApiContext()]);
     const remaining = await listBrands(ctx.workspace.id);
     if (remaining.length <= 1) {
       throw new HttpError(400, "You must keep at least one brand");
