@@ -15,10 +15,21 @@ import {
   upsertBrandProfile,
 } from "@/lib/brand/repository";
 import { brandOnboardingSchema } from "@/lib/brand/schemas";
-import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
+import {
+  emptySecretStates,
+  getIntegrationProvider,
+  integrationRequirementsMet,
+  IntegrationValidationError,
+  validateIntegrationConfigInput,
+  validateIntegrationSecretsInput,
+  type IntegrationConfig,
+  type IntegrationProviderId,
+  type IntegrationSecretKey,
+} from "@/lib/integrations/providers";
 import {
   saveIntegrationSecret,
   setIntegrationEnabled,
+  updateIntegrationConfig,
 } from "@/lib/integrations/repository";
 
 /** List all brands in the workspace. */
@@ -33,6 +44,53 @@ export async function GET() {
   });
 }
 
+type OnboardingIntegrationSetup = {
+  provider: IntegrationProviderId;
+  config: IntegrationConfig;
+  secrets: Partial<Record<IntegrationSecretKey, string>>;
+  enable: boolean;
+};
+
+function hasValues(values: Record<string, string>) {
+  return Object.values(values).some((value) => value.trim().length > 0);
+}
+
+function prepareOnboardingIntegration(
+  providerId: string | undefined,
+  configInput: Record<string, string>,
+  secretsInput: Record<string, string>,
+): OnboardingIntegrationSetup | null {
+  if (!providerId) {
+    return null;
+  }
+
+  const provider = getIntegrationProvider(providerId);
+  if (!provider || provider.status !== "available") {
+    return null;
+  }
+
+  try {
+    const config = validateIntegrationConfigInput(provider.id, configInput);
+    const secrets = validateIntegrationSecretsInput(provider.id, secretsInput);
+    const secretStates = {
+      ...emptySecretStates(provider),
+      ...Object.fromEntries(Object.keys(secrets).map((key) => [key, true])),
+    };
+
+    return {
+      provider: provider.id,
+      config,
+      secrets,
+      enable: integrationRequirementsMet(provider, config, secretStates),
+    };
+  } catch (error) {
+    if (error instanceof IntegrationValidationError) {
+      throw new HttpError(400, error.message, error.details);
+    }
+    throw error;
+  }
+}
+
 /**
  * Multi-step "register a brand" submission. Creates the brand, its profile, an
  * optional first competitor, and an optional publishing integration, then makes
@@ -42,6 +100,11 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getApiContext();
     const data = parseBody(brandOnboardingSchema, await readJson(request));
+    const integrationSetup = prepareOnboardingIntegration(
+      data.integrationProvider,
+      data.integrationConfig,
+      data.integrationSecrets,
+    );
 
     let brand: Awaited<ReturnType<typeof createBrand>>;
     try {
@@ -71,11 +134,21 @@ export async function POST(request: Request) {
       });
     }
 
-    const provider = INTEGRATION_PROVIDERS.find((item) => item.id === data.integrationProvider);
-    if (provider) {
-      await setIntegrationEnabled(scope, provider.id, true);
-      if (data.integrationApiKey) {
-        await saveIntegrationSecret(scope, provider.id, "api_key", data.integrationApiKey);
+    if (integrationSetup) {
+      if (
+        integrationSetup.enable ||
+        Object.keys(integrationSetup.config).length > 0 ||
+        hasValues(data.integrationConfig)
+      ) {
+        await updateIntegrationConfig(scope, integrationSetup.provider, integrationSetup.config);
+      }
+      for (const [secretKey, secretValue] of Object.entries(integrationSetup.secrets)) {
+        if (secretValue) {
+          await saveIntegrationSecret(scope, integrationSetup.provider, secretKey, secretValue);
+        }
+      }
+      if (integrationSetup.enable) {
+        await setIntegrationEnabled(scope, integrationSetup.provider, true);
       }
     }
 

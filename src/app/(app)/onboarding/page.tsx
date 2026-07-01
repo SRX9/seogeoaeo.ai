@@ -6,18 +6,6 @@ import { PageLoader } from "@/components/feedback/states";
 import { useMe } from "@/lib/api/queries";
 import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
-const providerOptions = INTEGRATION_PROVIDERS.flatMap((provider) =>
-  provider.available && provider.configurable
-    ? [
-        {
-          id: provider.id,
-          name: provider.name,
-          description: provider.description,
-        },
-      ]
-    : [],
-);
-
 export default function OnboardingPage() {
   const { data, isLoading } = useMe();
 
@@ -41,7 +29,7 @@ export default function OnboardingPage() {
 
       <Card>
         <Card.Content className="py-6">
-          <BrandOnboardingForm providers={providerOptions} />
+          <BrandOnboardingForm providers={INTEGRATION_PROVIDERS} />
         </Card.Content>
       </Card>
     </div>

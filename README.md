@@ -37,6 +37,7 @@ preview authenticated dashboard routes without real auth.
 - [Phased v1 implementation plan](docs/v1-implementation-phases.md)
 - [SEO·AEO·GEO tools & features catalog](docs/tools-catalog.md)
 - [Visibility suite build plan (phased tickets)](docs/visibility-suite/README.md)
+- [Publishing integrations guide](docs/integrations.md)
 - [Production setup checklist](docs/production-setup.md)
 
 ## Current status

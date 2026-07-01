@@ -13,11 +13,11 @@ const PUBLISH_POST_MUTATION = `
 export const hashnodeAdapter: PublishingAdapter = {
   id: "hashnode",
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
-    const apiKey = context.secrets.api_key;
+    const apiKey = context.secrets.hashnode_token ?? context.secrets.api_key;
     const publicationId = context.config.publicationId?.trim();
 
     if (!apiKey) {
-      return { ok: false, error: "Hashnode API key is not configured" };
+      return { ok: false, error: "Hashnode personal access token is not configured" };
     }
     if (!publicationId) {
       return { ok: false, error: "Hashnode publication ID is not configured" };

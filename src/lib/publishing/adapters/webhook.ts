@@ -12,6 +12,18 @@ function buildPayload(article: PublishArticle) {
   };
 }
 
+async function hmacSignature(secret: string, payload: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export const webhookAdapter: PublishingAdapter = {
   id: "webhook",
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
@@ -23,15 +35,21 @@ export const webhookAdapter: PublishingAdapter = {
     const headers: Record<string, string> = {
       "content-type": "application/json",
     };
-    const apiKey = context.secrets.api_key;
-    if (apiKey) {
-      headers.authorization = `Bearer ${apiKey}`;
+    const bearerToken = context.secrets.webhook_bearer_token ?? context.secrets.api_key;
+    if (bearerToken) {
+      headers.authorization = `Bearer ${bearerToken}`;
+    }
+
+    const body = JSON.stringify(buildPayload(article));
+    const signingSecret = context.secrets.webhook_signing_secret;
+    if (signingSecret) {
+      headers["x-seo-ai-signature"] = `sha256=${await hmacSignature(signingSecret, body)}`;
     }
 
     const response = await fetch(webhookUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify(buildPayload(article)),
+      body,
     });
 
     if (!response.ok) {

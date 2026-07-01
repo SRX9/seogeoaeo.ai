@@ -12,7 +12,7 @@ export type PublishArticle = {
 export type PublishContext = {
   workspaceId: string;
   config: IntegrationConfig;
-  secrets: Record<string, string>;
+  secrets: Partial<Record<string, string>>;
   origin: string;
 };
 

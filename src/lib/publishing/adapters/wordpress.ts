@@ -10,7 +10,7 @@ export const wordpressAdapter: PublishingAdapter = {
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
     const siteUrl = context.config.siteUrl?.trim();
     const username = context.config.username?.trim();
-    const appPassword = context.secrets.api_key;
+    const appPassword = context.secrets.wordpress_application_password ?? context.secrets.api_key;
 
     if (!siteUrl) {
       return { ok: false, error: "WordPress site URL is not configured" };

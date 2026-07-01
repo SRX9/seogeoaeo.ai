@@ -12,7 +12,11 @@
  * holders keep seeing the same live object across tests.
  */
 import type { ModelTier } from "@/lib/llm/client";
-import type {
+import {
+  emptySecretStates,
+  getIntegrationProvider,
+  integrationRequirementsMet,
+  type IntegrationSecretKey,
   IntegrationConfig,
   IntegrationProviderId,
   IntegrationView,
@@ -293,23 +297,37 @@ export function seedIntegration(
     available?: boolean;
     config?: IntegrationConfig;
     apiKey?: string;
+    secrets?: Partial<Record<IntegrationSecretKey, string>>;
   },
 ) {
   const list = store.integrations.get(workspaceId) ?? [];
+  const provider = getIntegrationProvider(seed.provider);
+  if (!provider) {
+    throw new Error(`Unknown provider ${seed.provider}`);
+  }
+  const secrets =
+    seed.secrets ??
+    (seed.apiKey && provider.secrets[0] ? { [provider.secrets[0].key]: seed.apiKey } : {});
+  const secretStates = {
+    ...emptySecretStates(provider),
+    ...Object.fromEntries(Object.keys(secrets).map((key) => [key, true])),
+  };
   const view: IntegrationView = {
+    ...provider,
     provider: seed.provider,
-    name: seed.provider,
-    description: "",
     enabled: seed.enabled,
-    available: seed.available ?? true,
-    configurable: true,
     config: seed.config ?? {},
-    hasSecret: Boolean(seed.apiKey),
+    secretStates,
+    requirementsMet: integrationRequirementsMet(provider, seed.config ?? {}, secretStates),
+    available: seed.available ?? (provider.status === "available"),
+    configurable: provider.status === "available",
   };
   list.push(view);
   store.integrations.set(workspaceId, list);
-  if (seed.apiKey) {
-    store.secrets.set(`${workspaceId}:${seed.provider}:api_key`, seed.apiKey);
+  for (const [secretKey, secretValue] of Object.entries(secrets)) {
+    if (secretValue) {
+      store.secrets.set(`${workspaceId}:${seed.provider}:${secretKey}`, secretValue);
+    }
   }
   return view;
 }
@@ -665,6 +683,23 @@ export const integrationsRepo = {
     secretKey: string,
   ) {
     return store.secrets.get(`${workspaceId}:${provider}:${secretKey}`) ?? null;
+  },
+  async readIntegrationSecrets(workspaceId: string, provider: IntegrationProviderId) {
+    const providerDefinition = getIntegrationProvider(provider);
+    if (!providerDefinition) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      providerDefinition.secrets.flatMap((secret) => {
+        const value =
+          store.secrets.get(`${workspaceId}:${provider}:${secret.key}`) ??
+          secret.legacyKeys
+            ?.map((legacyKey) => store.secrets.get(`${workspaceId}:${provider}:${legacyKey}`))
+            .find((legacyValue): legacyValue is string => Boolean(legacyValue));
+        return value ? [[secret.key, value]] : [];
+      }),
+    );
   },
 };
 

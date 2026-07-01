@@ -5,8 +5,13 @@ import { getDb } from "@/lib/db";
 import { integrationSecrets, integrations } from "@/lib/db/schema";
 import {
   INTEGRATION_PROVIDERS,
+  emptySecretStates,
+  getIntegrationProvider,
+  integrationRequirementsMet,
   type IntegrationConfig,
   type IntegrationProviderId,
+  type IntegrationSecretKey,
+  type IntegrationSecretStates,
   type IntegrationView,
 } from "@/lib/integrations/providers";
 
@@ -30,18 +35,29 @@ async function getIntegrationRow(brandId: string, provider: IntegrationProviderI
   return row ?? null;
 }
 
-async function hasSecret(integrationId: string, secretKey: string) {
-  const [row] = await getDb()
-    .select({ id: integrationSecrets.id })
+async function listSecretKeys(integrationId: string) {
+  const rows = await getDb()
+    .select({ secretKey: integrationSecrets.secretKey })
     .from(integrationSecrets)
-    .where(
-      and(
-        eq(integrationSecrets.integrationId, integrationId),
-        eq(integrationSecrets.secretKey, secretKey),
-      ),
-    )
-    .limit(1);
-  return Boolean(row);
+    .where(eq(integrationSecrets.integrationId, integrationId));
+  return new Set(rows.map((row) => row.secretKey));
+}
+
+function secretStatesForProvider(
+  providerId: IntegrationProviderId,
+  storedKeys: Set<string>,
+): IntegrationSecretStates {
+  const provider = getIntegrationProvider(providerId);
+  if (!provider) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    provider.secrets.map((secret) => [
+      secret.key,
+      storedKeys.has(secret.key) || (secret.legacyKeys?.some((key) => storedKeys.has(key)) ?? false),
+    ]),
+  );
 }
 
 export async function listIntegrations(brandId: string): Promise<IntegrationView[]> {
@@ -55,15 +71,17 @@ export async function listIntegrations(brandId: string): Promise<IntegrationView
   return Promise.all(
     INTEGRATION_PROVIDERS.map(async (provider) => {
       const row = byProvider.get(provider.id);
+      const config = parseConfig(row?.configJson ?? null);
+      const secretStates = row ? secretStatesForProvider(provider.id, await listSecretKeys(row.id)) : emptySecretStates(provider);
       return {
+        ...provider,
         provider: provider.id,
-        name: provider.name,
-        description: provider.description,
         enabled: row?.enabled ?? false,
-        available: provider.available,
-        configurable: provider.configurable,
-        config: parseConfig(row?.configJson ?? null),
-        hasSecret: row ? await hasSecret(row.id, "api_key") : false,
+        config,
+        secretStates,
+        requirementsMet: integrationRequirementsMet(provider, config, secretStates),
+        available: provider.status === "available",
+        configurable: provider.status === "available",
       };
     }),
   );
@@ -111,6 +129,28 @@ export async function updateIntegrationConfig(
     .update(integrations)
     .set({
       configJson: JSON.stringify(config),
+      updatedAt: new Date(),
+    })
+    .where(eq(integrations.id, integration.id))
+    .returning();
+  return updated;
+}
+
+export async function clearIntegration(scope: BrandScope, provider: IntegrationProviderId) {
+  const integration = await getIntegrationRow(scope.brandId, provider);
+  if (!integration) {
+    return null;
+  }
+
+  await getDb()
+    .delete(integrationSecrets)
+    .where(eq(integrationSecrets.integrationId, integration.id));
+
+  const [updated] = await getDb()
+    .update(integrations)
+    .set({
+      enabled: false,
+      configJson: null,
       updatedAt: new Date(),
     })
     .where(eq(integrations.id, integration.id))
@@ -178,4 +218,33 @@ export async function readIntegrationSecret(
   }
 
   return decryptSecret(row.encryptedValue);
+}
+
+export async function readIntegrationSecrets(
+  brandId: string,
+  provider: IntegrationProviderId,
+): Promise<Partial<Record<IntegrationSecretKey, string>>> {
+  const integration = await getIntegrationRow(brandId, provider);
+  const providerDefinition = getIntegrationProvider(provider);
+  if (!integration || !providerDefinition) {
+    return {};
+  }
+
+  const rows = await getDb()
+    .select()
+    .from(integrationSecrets)
+    .where(eq(integrationSecrets.integrationId, integration.id));
+  const byKey = new Map(rows.map((row) => [row.secretKey, row.encryptedValue]));
+  const secrets: Partial<Record<IntegrationSecretKey, string>> = {};
+
+  for (const secret of providerDefinition.secrets) {
+    const encrypted =
+      byKey.get(secret.key) ??
+      secret.legacyKeys?.map((key) => byKey.get(key)).find((value): value is string => Boolean(value));
+    if (encrypted) {
+      secrets[secret.key] = decryptSecret(encrypted);
+    }
+  }
+
+  return secrets;
 }

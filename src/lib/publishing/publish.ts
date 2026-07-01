@@ -6,7 +6,7 @@ import { incrementArticlesPublished } from "@/lib/jobs/repository";
 import { logWarn } from "@/lib/logging/logger";
 import {
   listIntegrations,
-  readIntegrationSecret,
+  readIntegrationSecrets,
 } from "@/lib/integrations/repository";
 import type { IntegrationProviderId } from "@/lib/integrations/providers";
 import { getPublishingAdapter } from "@/lib/publishing/adapters";
@@ -77,6 +77,12 @@ async function publishToDestination(
       result: { ok: false, error: "Integration is not enabled" } satisfies PublishResult,
     };
   }
+  if (!integration.requirementsMet) {
+    return {
+      provider,
+      result: { ok: false, error: "Integration setup is incomplete" } satisfies PublishResult,
+    };
+  }
 
   const existing = await getPublication(scope.brandId, article.id, provider);
 
@@ -95,12 +101,12 @@ async function publishToDestination(
   }
 
   const attemptCount = (existing?.attemptCount ?? 0) + 1;
-  const apiKey = await readIntegrationSecret(scope.brandId, provider, "api_key");
+  const secrets = await readIntegrationSecrets(scope.brandId, provider);
 
   const result = await adapter.publish(article, {
     workspaceId: scope.workspaceId,
     config: integration.config,
-    secrets: apiKey ? { api_key: apiKey } : {},
+    secrets,
     origin,
   });
 
@@ -134,7 +140,7 @@ export async function publishArticleToDestinations(
 
   const integrations = await listIntegrations(scope.brandId);
   const enabledProviders = integrations.flatMap((integration) => {
-    if (!integration.enabled || !integration.available) {
+    if (!integration.enabled || !integration.available || !integration.requirementsMet) {
       return [];
     }
     return getPublishingAdapter(integration.provider) ? [integration.provider] : [];
