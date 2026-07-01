@@ -29,11 +29,22 @@ const saveSchema = z.object({
   secrets: z.record(z.unknown()).optional(),
 });
 
+const providerBodySchema = z.object({ provider: providerSchema });
+
 function invalidIntegrationInput(error: unknown): never {
   if (error instanceof IntegrationValidationError) {
     throw new HttpError(400, error.message, error.details);
   }
   throw error;
+}
+
+async function integrationProviderFromDeleteRequest(request: Request) {
+  const provider = new URL(request.url).searchParams.get("provider");
+  if (provider !== null) {
+    return parseBody(providerBodySchema, { provider }).provider;
+  }
+
+  return parseBody(providerBodySchema, await readJson(request)).provider;
 }
 
 /** List all integration providers and their state for the active brand. */
@@ -109,10 +120,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   return handleApi(async () => {
     const { scope } = await requireApiBrand();
-    const { provider } = parseBody(
-      z.object({ provider: providerSchema }),
-      await readJson(request),
-    );
+    const provider = await integrationProviderFromDeleteRequest(request);
     await clearIntegration(scope, provider);
     return jsonOk({ ok: true });
   });

@@ -73,6 +73,25 @@ describe("/api/integrations", () => {
     );
   });
 
+  it("accepts legacy api_key secret writes under the provider-specific key", async () => {
+    const response = await PUT(
+      jsonRequest({
+        provider: "devto",
+        secrets: {
+          api_key: "legacy-devto-key",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(saveIntegrationSecret).toHaveBeenCalledWith(
+      scope,
+      "devto",
+      "devto_api_key",
+      "legacy-devto-key",
+    );
+  });
+
   it("blocks enabling when provider requirements are not met", async () => {
     vi.mocked(listIntegrations).mockResolvedValue([
       { provider: "reddit", requirementsMet: false },
@@ -102,5 +121,16 @@ describe("/api/integrations", () => {
 
     expect(response.status).toBe(200);
     expect(clearIntegration).toHaveBeenCalledWith(scope, "ghost");
+  });
+
+  it("clears an integration from the query string when the DELETE body is absent", async () => {
+    const response = await DELETE(
+      new Request("https://app.test/api/integrations?provider=wordpress", {
+        method: "DELETE",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(clearIntegration).toHaveBeenCalledWith(scope, "wordpress");
   });
 });

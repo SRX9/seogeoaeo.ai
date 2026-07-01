@@ -401,7 +401,31 @@ function allowedFieldKeys(provider: IntegrationProviderDefinition) {
 }
 
 function allowedSecretKeys(provider: IntegrationProviderDefinition) {
-  return new Set(provider.secrets.map((secret) => secret.key));
+  const keys = new Set<string>();
+  for (const secret of provider.secrets) {
+    keys.add(secret.key);
+    for (const legacyKey of secret.legacyKeys ?? []) {
+      keys.add(legacyKey);
+    }
+  }
+  return keys;
+}
+
+function secretInputValue(
+  input: Record<string, unknown>,
+  secret: IntegrationSecretDefinition,
+) {
+  if (Object.prototype.hasOwnProperty.call(input, secret.key)) {
+    return input[secret.key];
+  }
+
+  for (const legacyKey of secret.legacyKeys ?? []) {
+    if (Object.prototype.hasOwnProperty.call(input, legacyKey)) {
+      return input[legacyKey];
+    }
+  }
+
+  return undefined;
 }
 
 export function validateIntegrationConfigInput(
@@ -467,13 +491,13 @@ export function validateIntegrationSecretsInput(
   const secrets: Partial<Record<IntegrationSecretKey, string>> = {};
 
   for (const key of Object.keys(input)) {
-    if (!allowed.has(key as IntegrationSecretKey)) {
+    if (!allowed.has(key)) {
       throw new IntegrationValidationError(`Unsupported secret field: ${key}`);
     }
   }
 
   for (const [key, secret] of secretsByKey) {
-    const raw = input[key];
+    const raw = secretInputValue(input, secret);
     if (raw === undefined || raw === null) {
       continue;
     }

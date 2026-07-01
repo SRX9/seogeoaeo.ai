@@ -215,7 +215,8 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
   });
 
   const clear = useOptimisticMutation<unknown, void, IntegrationsCache>({
-    mutationFn: () => apiDelete("/api/integrations", { provider: integration.provider }),
+    mutationFn: () =>
+      apiDelete(`/api/integrations?provider=${encodeURIComponent(integration.provider)}`),
     queryKey: queryKeys.integrations,
     optimisticUpdate: (current) =>
       patchIntegration(current, integration.provider, (item) => ({

@@ -53,7 +53,12 @@ describe("integration provider definitions", () => {
         wordpress_application_password: "app-password",
       }),
     ).toEqual({ wordpress_application_password: "app-password" });
-    expect(() => validateIntegrationSecretsInput("wordpress", { api_key: "legacy" }))
+    expect(
+      validateIntegrationSecretsInput("wordpress", {
+        api_key: "legacy-app-password",
+      }),
+    ).toEqual({ wordpress_application_password: "legacy-app-password" });
+    expect(() => validateIntegrationSecretsInput("wordpress", { ghost_admin_api_key: "wrong" }))
       .toThrow("Unsupported secret field");
   });
 });
