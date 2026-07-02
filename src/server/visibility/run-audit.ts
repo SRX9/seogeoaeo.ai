@@ -122,23 +122,29 @@ async function persistOffSiteSignals(
   platforms: ReturnType<typeof analyzePlatforms>,
 ): Promise<void> {
   const db = getDb();
-  await db.insert(brandSignals).values(
-    brand.platforms.map((p) => ({
-      auditId,
-      platform: p.platform,
-      status: p.detected ? "present" : "absent",
-      score: p.earned,
-      evidence: { weight: p.weight, searchUrl: p.searchUrl },
-    })),
-  );
-  await db.insert(platformScores).values(
-    platforms.platforms.map((p) => ({
-      auditId,
-      platform: p.platform,
-      score: p.score,
-      breakdown: p.breakdown,
-    })),
-  );
+  // Drizzle throws "No values to insert" on `.values([])`, so guard each insert —
+  // brands with no detected social presence yield empty arrays.
+  if (brand.platforms.length) {
+    await db.insert(brandSignals).values(
+      brand.platforms.map((p) => ({
+        auditId,
+        platform: p.platform,
+        status: p.detected ? "present" : "absent",
+        score: p.earned,
+        evidence: { weight: p.weight, searchUrl: p.searchUrl },
+      })),
+    );
+  }
+  if (platforms.platforms.length) {
+    await db.insert(platformScores).values(
+      platforms.platforms.map((p) => ({
+        auditId,
+        platform: p.platform,
+        score: p.score,
+        breakdown: p.breakdown,
+      })),
+    );
+  }
 }
 
 /** Create the audit row; the caller decides whether to await execution. */
@@ -155,6 +161,12 @@ export async function createAudit(workspaceId: string, siteUrl: string): Promise
     .values({ workspaceId, siteUrl, runVersion: (previous?.runVersion ?? 0) + 1 })
     .returning({ id: audits.id });
   return row.id;
+}
+
+/** Remove an audit row that never started (e.g. the credit charge failed). */
+export async function deleteAudit(auditId: string): Promise<void> {
+  const db = getDb();
+  await db.delete(audits).where(eq(audits.id, auditId));
 }
 
 /** Run the 3 stages for an existing audit row. Never throws — failures land in the row. */

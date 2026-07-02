@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>seogeoaeo.ai — App Architecture Overview</title>
+<style>
+  :root{
+    --bg:#0b0e14; --bg2:#11151f; --panel:#151a26; --panel2:#1b2130;
+    --line:#26304a; --line2:#334063;
+    --ink:#e8edf7; --muted:#93a0bd; --dim:#63708f;
+    --seo:#4f9dff; --aeo:#a785ff; --geo:#39d0a3; --amber:#f7b955; --pink:#ff6ba6; --red:#ff6b6b;
+    --grad:linear-gradient(120deg,var(--seo),var(--aeo) 50%,var(--geo));
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono","Cascadia Code",Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:radial-gradient(1200px 700px at 80% -10%,#182036 0,transparent 60%),var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 22px}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:50;background:rgba(11,14,20,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:18px;height:56px;overflow-x:auto}
+  nav .brand{font-weight:700;letter-spacing:.2px;white-space:nowrap}
+  nav .brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  nav .links{display:flex;gap:4px;margin-left:auto}
+  nav .links a{font-size:13px;color:var(--muted);padding:6px 10px;border-radius:8px;white-space:nowrap}
+  nav .links a:hover{color:var(--ink);background:var(--panel2)}
+
+  /* HERO */
+  header.hero{padding:66px 0 40px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0d1220,transparent)}
+  .hero h1{font-size:42px;margin:0 0 10px;line-height:1.1;font-weight:800}
+  .hero h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.sub{font-size:18px;color:var(--muted);max-width:760px;margin:0 0 22px}
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .pill{font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--line2);color:var(--muted);background:var(--panel)}
+  .pill.seo{border-color:#2a4a78;color:#a9cbff}
+  .pill.aeo{border-color:#4a3a78;color:#cbb9ff}
+  .pill.geo{border-color:#245a49;color:#8fe9cf}
+
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:2.5px;color:var(--dim);margin:0 0 6px;font-weight:700}
+  h3.title{font-size:27px;margin:0 0 8px;font-weight:750}
+  p.lede{color:var(--muted);max-width:820px;margin:0 0 26px;font-size:15.5px}
+
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:14px;padding:16px 17px}
+  .card h4{margin:0 0 10px;font-size:14px;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
+  .card h4 .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .kv{display:flex;flex-direction:column;gap:7px}
+  .kv .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;border-bottom:1px dashed var(--line);padding-bottom:7px}
+  .kv .row:last-child{border-bottom:0;padding-bottom:0}
+  .kv .row b{color:var(--ink);font-weight:600}
+  .kv .row span{color:var(--dim);font-family:var(--mono);font-size:12px;text-align:right}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:3px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);margin:3px 4px 0 0}
+
+  /* DIAGRAM: architecture */
+  .diagram{background:
+    linear-gradient(180deg,#0e1320,#0b0f18);
+    border:1px solid var(--line);border-radius:16px;padding:26px;overflow:hidden}
+  .layer{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .layer:last-child{margin-bottom:0}
+  .layer .lbl{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--dim)}
+  .nodes{display:flex;flex-wrap:wrap;gap:10px}
+  .node{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px 13px;position:relative}
+  .node .n-t{font-weight:650;font-size:13.5px;margin-bottom:3px}
+  .node .n-s{font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+  .node.accent{border-color:#39507e;background:linear-gradient(180deg,#16203a,#111726);box-shadow:0 0 0 1px #2a3a5e inset}
+  .node.geo{border-color:#245a49}
+  .node.aeo{border-color:#4a3a78}
+  .node.seo{border-color:#2a4a78}
+  .arrow-down{text-align:center;color:var(--line2);font-size:20px;line-height:1;margin:2px 0}
+
+  /* FLOW steps */
+  .flow{display:flex;flex-direction:column;gap:0}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:16px;position:relative;padding-bottom:22px}
+  .step:not(:last-child)::before{content:"";position:absolute;left:21px;top:38px;bottom:-4px;width:2px;background:linear-gradient(180deg,var(--line2),var(--line))}
+  .step .num{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:750;font-size:15px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);z-index:1}
+  .step .body{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+  .step .body h5{margin:0 0 5px;font-size:15px}
+  .step .body p{margin:0;color:var(--muted);font-size:13.5px}
+  .step .body .meta{margin-top:9px;display:flex;flex-wrap:wrap;gap:5px}
+  .step.geo .num{border-color:#245a49;color:#8fe9cf}
+  .step.aeo .num{border-color:#4a3a78;color:#cbb9ff}
+  .step.seo .num{border-color:#2a4a78;color:#a9cbff}
+  .step.amber .num{border-color:#6a5320;color:var(--amber)}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+  .tab{cursor:pointer;font-size:14px;padding:9px 15px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-weight:600}
+  .tab[aria-selected="true"]{color:var(--ink);border-color:var(--line2);background:linear-gradient(180deg,#1a2233,#141a28)}
+  .tabpanel{display:none}
+  .tabpanel.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* formula */
+  .formula{font-family:var(--mono);font-size:13.5px;background:#0d1220;border:1px solid var(--line);border-radius:12px;padding:16px 18px;color:var(--muted);overflow-x:auto}
+  .formula b{color:var(--seo)}
+  .formula .op{color:var(--dim)}
+  .weights{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .wchip{font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;gap:7px}
+  .wchip .bar{height:6px;border-radius:3px;background:var(--grad)}
+
+  /* analyzer grid */
+  .amini{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 13px}
+  .amini .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+  .amini .top b{font-size:13.5px}
+  .amini .w{font-family:var(--mono);font-size:12px;color:var(--geo)}
+  .amini p{margin:0;font-size:12px;color:var(--dim)}
+
+  /* phase timeline */
+  .phases{display:grid;grid-template-columns:repeat(9,1fr);gap:8px}
+  @media(max-width:900px){.phases{grid-template-columns:repeat(3,1fr)}}
+  .phase{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 10px;text-align:center}
+  .phase .p{font-family:var(--mono);font-weight:700;font-size:15px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .phase .n{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3}
+  .phase .c{font-size:10px;color:var(--geo);margin-top:5px;font-family:var(--mono)}
+
+  /* db columns */
+  .dbcol h4{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin:0 0 9px}
+  .tbl{font-family:var(--mono);font-size:12px;color:var(--muted);padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:var(--panel);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
+  .tbl small{color:var(--dim);font-family:var(--sans);font-size:11px}
+
+  /* api list */
+  .api{font-family:var(--mono);font-size:12px;padding:5px 8px;border-radius:6px;background:var(--panel);border:1px solid var(--line);margin:0 0 5px;display:flex;gap:8px;align-items:center}
+  .api .m{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px}
+  .m.get{background:#123a2a;color:#6fe0b6}
+  .m.post{background:#123048;color:#7cc0ff}
+  .m.pub{background:#3a2a12;color:#f7b955}
+
+  footer{padding:34px 0;color:var(--dim);font-size:13px;text-align:center}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 0;font-size:12px;color:var(--muted)}
+  .legend .li{display:flex;align-items:center;gap:6px}
+  .legend .sw{width:11px;height:11px;border-radius:3px}
+  .note{font-size:12.5px;color:var(--dim);margin-top:12px;font-style:italic}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><b>seogeoaeo</b>.ai — architecture</div>
+    <div class="links">
+      <a href="#stack">Stack</a>
+      <a href="#arch">Architecture</a>
+      <a href="#lifecycle">Lifecycles</a>
+      <a href="#engine">Visibility Engine</a>
+      <a href="#scoring">Scoring</a>
+      <a href="#phases">Phases</a>
+      <a href="#data">Data Model</a>
+      <a href="#api">API</a>
+      <a href="#tree">Code Map</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>A self-serve engine that makes a site <span>discoverable across SEO, AEO &amp; GEO</span></h1>
+    <p class="sub">Two products in one Next.js app on Cloudflare: <b>Claudia</b>, a daily "content employee" that researches &amp; publishes articles, and the <b>Visibility Suite</b>, a deterministic audit engine that scores a site for classic search, answer boxes, and AI assistants — then queues one-click fixes.</p>
+    <div class="pill-row">
+      <span class="pill">Next.js 15 · React 19</span>
+      <span class="pill">Cloudflare Workers (OpenNext)</span>
+      <span class="pill">Postgres · Drizzle</span>
+      <span class="pill">Better Auth · Stripe</span>
+      <span class="pill seo">SEO — Google &amp; search</span>
+      <span class="pill aeo">AEO — answer boxes</span>
+      <span class="pill geo">GEO — AI assistants</span>
+    </div>
+    <div class="legend">
+      <div class="li"><span class="sw" style="background:var(--seo)"></span>SEO surface</div>
+      <div class="li"><span class="sw" style="background:var(--aeo)"></span>AEO / answer engines</div>
+      <div class="li"><span class="sw" style="background:var(--geo)"></span>GEO / AI assistants</div>
+      <div class="li"><span class="sw" style="background:var(--amber)"></span>Agent / automation</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ STACK ============ -->
+<section id="stack">
+  <div class="wrap">
+    <h2 class="sec">01 — Technology</h2>
+    <h3 class="title">The stack, by layer</h3>
+    <p class="lede">Everything runs edge-first on a single Cloudflare Worker. The Next.js app is compiled by <code>@opennextjs/cloudflare</code>; a build script patches a cron handler into the worker so the same deployment serves pages, APIs, and the daily agent trigger.</p>
+
+    <div class="grid g3">
+      <div class="card">
+        <h4><span class="dot" style="background:var(--seo)"></span>Framework &amp; UI</h4>
+        <div class="kv">
+          <div class="row"><b>Next.js</b><span>15 · App Router</span></div>
+          <div class="row"><b>React</b><span>19</span></div>
+          <div class="row"><b>TypeScript</b><span>5.8 · strict</span></div>
+          <div class="row"><b>HeroUI v3 + Pro</b><span>Tailwind v4</span></div>
+          <div class="row"><b>TanStack Query</b><span>server state</span></div>
+          <div class="row"><b>Tiptap 3</b><span>article editor</span></div>
+          <div class="row"><b>Recharts · Motion</b><span>charts · anim</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4><span class="dot" style="background:var(--geo)"></span>Runtime &amp; infra</h4>
+        <div class="kv">
+          <div class="row"><b>Cloudflare Workers</b><span>OpenNext 1.3</span></div>
+          <div class="row"><b>Wrangler</b><span>deploy · types</span></div>
+          <div class="row"><b>Hyperdrive</b><span>PG accel</span></div>
+          <div class="row"><b>KV (CACHE)</b><span>ephemeral cache</span></div>
+          <div class="row"><b>Cron trigger</b><span>0 8 * * *</span></div>
+          <div class="row"><b>Cloudflare Workflow</b><span>daily agent</span></div>
+          <div class="row"><b>send_email</b><span>Claudia mail</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4><span class="dot" style="background:var(--aeo)"></span>Data &amp; auth</h4>
+        <div class="kv">
+          <div class="row"><b>Postgres</b><span>postgres-js</span></div>
+          <div class="row"><b>Drizzle ORM</b><span>0.44 + kit</span></div>
+          <div class="row"><b>Better Auth</b><span>sessions</span></div>
+          <div class="row"><b>Stripe</b><span>22 · billing</span></div>
+          <div class="row"><b>Zod</b><span>validation</span></div>
+          <div class="row"><b>linkedom</b><span>server DOM</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4><span class="dot" style="background:var(--amber)"></span>AI &amp; research</h4>
+        <div class="kv">
+          <div class="row"><b>LLM client</b><span>OpenAI-compat</span></div>
+          <div class="row"><b>Tiers</b><span>light·heavy·image</span></div>
+          <div class="row"><b>Serper</b><span>web search</span></div>
+          <div class="row"><b>RSS / sitemap</b><span>research feeds</span></div>
+          <div class="row"><b>Wikipedia / Wikidata</b><span>brand entity</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4><span class="dot" style="background:var(--pink)"></span>Publishing</h4>
+        <div class="kv">
+          <div class="row"><b>WordPress</b><span>adapter</span></div>
+          <div class="row"><b>Ghost · Hashnode</b><span>adapters</span></div>
+          <div class="row"><b>Dev.to · Webhook</b><span>adapters</span></div>
+          <div class="row"><b>marked · shiki</b><span>md → html</span></div>
+          <div class="row"><b>GSC · GA4</b><span>traffic pulls</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4><span class="dot" style="background:var(--seo)"></span>Tooling &amp; quality</h4>
+        <div class="kv">
+          <div class="row"><b>Vitest</b><span>270 tests</span></div>
+          <div class="row"><b>ESLint 9</b><span>lint</span></div>
+          <div class="row"><b>pnpm</b><span>10.22</span></div>
+          <div class="row"><b>drizzle-kit</b><span>migrations</span></div>
+          <div class="row"><b>tsc --noEmit</b><span>0 errors</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ARCHITECTURE ============ -->
+<section id="arch">
+  <div class="wrap">
+    <h2 class="sec">02 — System architecture</h2>
+    <h3 class="title">One worker, many bindings</h3>
+    <p class="lede">A request never leaves the edge for app logic. The Worker hosts the whole Next.js app; data goes through Hyperdrive to Postgres, ephemeral caches live in KV, and outbound work (email, LLM calls, search, publishing) fans out to bound services and external APIs. A separate <code>agent-workflow</code> Worker runs the long-lived daily automation as a durable Cloudflare Workflow.</p>
+
+    <div class="diagram">
+      <div class="layer">
+        <div class="lbl">Client</div>
+        <div class="nodes">
+          <div class="node"><div class="n-t">Browser (SPA-ish)</div><div class="n-s">React 19 · HeroUI · TanStack Query</div></div>
+        </div>
+      </div>
+      <div class="arrow-down">▼ HTTPS · seogeoaeo.ai</div>
+
+      <div class="layer">
+        <div class="lbl">Edge — Cloudflare Worker  (.open-next/worker.js)</div>
+        <div class="nodes">
+          <div class="node accent"><div class="n-t">Next.js App Router</div><div class="n-s">SSR pages · (app) route group</div></div>
+          <div class="node accent"><div class="n-t">API routes</div><div class="n-s">src/app/api/** · ~50 handlers</div></div>
+          <div class="node accent"><div class="n-t">Cron handler</div><div class="n-s">patched in by build-cloudflare.mjs</div></div>
+        </div>
+      </div>
+      <div class="arrow-down">▼ bindings</div>
+
+      <div class="layer">
+        <div class="lbl">Bound services</div>
+        <div class="nodes">
+          <div class="node"><div class="n-t">HYPERDRIVE →</div><div class="n-s">Postgres (Drizzle ORM)</div></div>
+          <div class="node"><div class="n-t">CACHE (KV)</div><div class="n-s">domain 1h · token 30d</div></div>
+          <div class="node"><div class="n-t">EMAIL</div><div class="n-s">send_email · "Claudia"</div></div>
+          <div class="node"><div class="n-t">AGENT_WORKFLOW</div><div class="n-s">→ DailyBrandWorkflow</div></div>
+          <div class="node"><div class="n-t">ASSETS</div><div class="n-s">static</div></div>
+        </div>
+      </div>
+      <div class="arrow-down">▼ external APIs (fetch)</div>
+
+      <div class="layer">
+        <div class="lbl">Third-party</div>
+        <div class="nodes">
+          <div class="node amber" style="border-color:#6a5320"><div class="n-t">LLM endpoint</div><div class="n-s">/chat/completions · Bearer</div></div>
+          <div class="node"><div class="n-t">Stripe</div><div class="n-s">checkout · portal · webhooks</div></div>
+          <div class="node seo"><div class="n-t">Serper</div><div class="n-s">web search</div></div>
+          <div class="node geo"><div class="n-t">Wikipedia / Wikidata</div><div class="n-s">brand entity</div></div>
+          <div class="node"><div class="n-t">GSC · GA4</div><div class="n-s">traffic proof</div></div>
+          <div class="node aeo"><div class="n-t">Publish targets</div><div class="n-s">WP · Ghost · Hashnode · Dev.to</div></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">The daily Workflow (separate Worker script) is invoked cross-script via <code>env.AGENT_WORKFLOW.create()</code>, then calls back into the app over HTTPS at <code>APP_ORIGIN</code> using a <code>CRON_SECRET</code>.</p>
+  </div>
+</section>
+
+<!-- ============ LIFECYCLES ============ -->
+<section id="lifecycle">
+  <div class="wrap">
+    <h2 class="sec">03 — How it works, end to end</h2>
+    <h3 class="title">The three core lifecycles</h3>
+    <p class="lede">Pick a flow. Each one is the actual path through the codebase — request rendering, the daily content agent, and a full visibility audit.</p>
+
+    <div class="tabs" role="tablist">
+      <div class="tab" role="tab" aria-selected="true" data-tab="req">① Page &amp; request rendering</div>
+      <div class="tab" role="tab" aria-selected="false" data-tab="agent">② Daily content agent (Claudia)</div>
+      <div class="tab" role="tab" aria-selected="false" data-tab="audit">③ Visibility audit</div>
+    </div>
+
+    <!-- REQUEST -->
+    <div class="tabpanel active" data-panel="req">
+      <div class="flow">
+        <div class="step seo">
+          <div class="num">1</div>
+          <div class="body"><h5>Shell renders instantly</h5><p>The App Router page returns its layout &amp; header immediately — no blocking data. This is the <b>section-loading convention</b>: no monolithic dashboard aggregate.</p>
+          <div class="meta"><span class="tag">app/(app)/**/page.tsx</span><span class="tag">&lt;Section&gt; + skeleton</span></div></div>
+        </div>
+        <div class="step seo">
+          <div class="num">2</div>
+          <div class="body"><h5>Each section fetches independently</h5><p>Client components call granular API routes through TanStack Query; every panel loads &amp; errors on its own, so one slow query never blocks the page.</p>
+          <div class="meta"><span class="tag">useQuery</span><span class="tag">src/lib/api/queries.ts</span></div></div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div class="body"><h5>API route authenticates</h5><p>Handler resolves the Better Auth session, loads the caller's workspace, and validates the body with Zod before touching data.</p>
+          <div class="meta"><span class="tag">Better Auth</span><span class="tag">workspaceId scoping</span><span class="tag">Zod</span></div></div>
+        </div>
+        <div class="step geo">
+          <div class="num">4</div>
+          <div class="body"><h5>Data via Drizzle over Hyperdrive</h5><p>Reads/writes go to Postgres through the Hyperdrive binding. Ephemeral results (public audit snapshots, badges) are cached in KV, never in Postgres.</p>
+          <div class="meta"><span class="tag">Drizzle ORM</span><span class="tag">CACHE (KV)</span></div></div>
+        </div>
+        <div class="step">
+          <div class="num">5</div>
+          <div class="body"><h5>JSON back → optimistic UI</h5><p>The section swaps skeleton for data; mutations use optimistic updates (<code>src/lib/api/optimistic.ts</code>) and revalidate on settle.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AGENT -->
+    <div class="tabpanel" data-panel="agent">
+      <div class="flow">
+        <div class="step amber">
+          <div class="num">1</div>
+          <div class="body"><h5>Cron fires at 08:00 UTC</h5><p>The worker's cron handler (<code>0 8 * * *</code>) enumerates brands due for a run and spawns one durable Workflow per brand.</p>
+          <div class="meta"><span class="tag">triggers.crons</span><span class="tag">env.AGENT_WORKFLOW.create()</span></div></div>
+        </div>
+        <div class="step amber">
+          <div class="num">2</div>
+          <div class="body"><h5>DailyBrandWorkflow — credit check</h5><p>Per-plan daily caps are enforced up front. If the workspace is out of credits, Claudia sends an out-of-credits email and stops.</p>
+          <div class="meta"><span class="tag">plans · VisibilityCaps</span><span class="tag">EMAIL binding</span></div></div>
+        </div>
+        <div class="step geo">
+          <div class="num">3</div>
+          <div class="body"><h5>Research</h5><p>Topic mining pulls striking-distance queries (GSC), competitor gaps, use-cases &amp; trends via Serper + RSS/sitemap, then scores candidates into a ranked topic with a traffic thesis.</p>
+          <div class="meta"><span class="tag">research/run.ts</span><span class="tag">providers/*</span><span class="tag">score.ts</span></div></div>
+        </div>
+        <div class="step aeo">
+          <div class="num">4</div>
+          <div class="body"><h5>Write — anti-slop style engine</h5><p>The heavy LLM tier drafts against the brand voice; a deterministic style-lint gate rejects AI-tells before the article is accepted.</p>
+          <div class="meta"><span class="tag">articles/generate.ts</span><span class="tag">style-lint.ts</span><span class="tag">llm tier: heavy</span></div></div>
+        </div>
+        <div class="step seo">
+          <div class="num">5</div>
+          <div class="body"><h5>Publish</h5><p>The finished markdown is rendered and pushed to every connected integration through its adapter (WordPress, Ghost, Hashnode, Dev.to, webhook).</p>
+          <div class="meta"><span class="tag">publishing/publish.ts</span><span class="tag">adapters/*</span></div></div>
+        </div>
+        <div class="step">
+          <div class="num">6</div>
+          <div class="body"><h5>Meter &amp; record</h5><p>Credits are spent idempotently, the run is logged to <code>agent_daily_runs</code>, and the activity feed updates. The GSC performance loop later grades what landed.</p>
+          <div class="meta"><span class="tag">credit_ledger</span><span class="tag">usage_counters</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT -->
+    <div class="tabpanel" data-panel="audit">
+      <div class="flow">
+        <div class="step">
+          <div class="num">1</div>
+          <div class="body"><h5>createAudit → row + runVersion</h5><p>A new <code>audits</code> row is created (version bumped per site) and metered as a <code>visibility_audit</code> job. Then the 3-stage orchestrator runs.</p>
+          <div class="meta"><span class="tag">server/visibility/run-audit.ts</span></div></div>
+        </div>
+        <div class="step geo">
+          <div class="num">2</div>
+          <div class="body"><h5>Discovery</h5><p>Fetch homepage, then in parallel: robots.txt, sitemap crawl, llms.txt, and business-type classification. Discovered URLs are filtered by robots rules.</p>
+          <div class="meta"><span class="tag">fetch-page</span><span class="tag">robots · sitemap · llms</span><span class="tag">business-type</span></div></div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div class="body"><h5>Gated fan-out crawl</h5><p>Pages are fetched under quality gates — ≤50 pages, ≤5 concurrent, ~1s spacing, 30s timeout — and valid snapshots are persisted.</p>
+          <div class="meta"><span class="tag">QUALITY_GATES</span><span class="tag">audit_pages</span></div></div>
+        </div>
+        <div class="step geo">
+          <div class="num">4</div>
+          <div class="body"><h5>Off-site signals (once, shared)</h5><p>Brand entity is scanned against Wikipedia/Wikidata + sameAs; platform presence is scored across 5 engines. Persisted to <code>brand_signals</code> &amp; <code>platform_scores</code>.</p>
+          <div class="meta"><span class="tag">brand.ts</span><span class="tag">platforms.ts</span></div></div>
+        </div>
+        <div class="step aeo">
+          <div class="num">5</div>
+          <div class="body"><h5>Analysis — 6 analyzers in parallel</h5><p>The registry runs citability, brand, E-E-A-T, technical, schema &amp; platform analyzers. Each returns a sub-score + findings, and <b>every mechanical finding carries a fix payload</b> ("no dead findings").</p>
+          <div class="meta"><span class="tag">server/visibility/analyzers.ts</span><span class="tag">Promise.all</span></div></div>
+        </div>
+        <div class="step seo">
+          <div class="num">6</div>
+          <div class="body"><h5>Synthesis</h5><p>Sub-scores fold into a weighted composite <i>and</i> a separate AI-visibility sub-composite. Missing analyzers count as 0 so partial audits still yield a score.</p>
+          <div class="meta"><span class="tag">computeComposite</span><span class="tag">computeAiVisibility</span></div></div>
+        </div>
+        <div class="step">
+          <div class="num">7</div>
+          <div class="body"><h5>Findings → fix queue</h5><p>Findings are written to <code>audit_findings</code> (workspace-scoped). The user applies one-click fixes or lets Claudia auto-apply within their autonomy setting; the proof stack tracks score → answer share → real traffic.</p>
+          <div class="meta"><span class="tag">apply-fix.ts</span><span class="tag">agent_autonomy</span><span class="tag">traffic_snapshots</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ENGINE ============ -->
+<section id="engine">
+  <div class="wrap">
+    <h2 class="sec">04 — The visibility engine</h2>
+    <h3 class="title">Deterministic scorers, dual-mode</h3>
+    <p class="lede">Every analyzer is a pure function ported 1:1 from a reference implementation and locked by golden tests. Each exposes one <code>run(input) → { score, findings, data }</code> contract, so the exact same code powers a full audit, a single Toolbox tool, and the in-editor draft score.</p>
+
+    <div class="grid g3" style="margin-bottom:26px">
+      <div class="amini"><div class="top"><b>Citability</b><span class="w">×0.25</span></div><p>Passage-level quotability for AI answers; page = avg of top-5 blocks.</p></div>
+      <div class="amini"><div class="top"><b>Brand</b><span class="w">×0.20</span></div><p>Off-site entity strength — Wikipedia/Wikidata, Reddit, YouTube, LinkedIn.</p></div>
+      <div class="amini"><div class="top"><b>E-E-A-T</b><span class="w">×0.20</span></div><p>Experience/expertise signals + deterministic AI-content red-flag scan.</p></div>
+      <div class="amini"><div class="top"><b>Technical</b><span class="w">×0.15</span></div><p>9-category health: SSR-heaviest, meta, crawl, security, CWV, mobile, URL.</p></div>
+      <div class="amini"><div class="top"><b>Schema</b><span class="w">×0.10</span></div><p>JSON-LD/Microdata/RDFa detect + validate + point-table score + generator.</p></div>
+      <div class="amini"><div class="top"><b>Platform</b><span class="w">×0.10</span></div><p>Presence &amp; synergy across 5 answer/assistant engines.</p></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h4><span class="dot" style="background:var(--geo)"></span>Feeds the AI-visibility sub-score</h4>
+        <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Two more analyzers don't sit in the main composite but drive how findable you are to assistants:</p>
+        <div class="kv">
+          <div class="row"><b>Crawler access</b><span>can ChatGPT/Perplexity read you?</span></div>
+          <div class="row"><b>llms.txt</b><span>AI site-guide validate + generate</span></div>
+          <div class="row"><b>Answer share</b><span>mention / citation across engines</span></div>
+          <div class="row"><b>PAA · prompt suggestions</b><span>question surface</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h4><span class="dot" style="background:var(--amber)"></span>The 8-tool Toolbox</h4>
+        <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">Same engine, unbundled &amp; per-run priced — findings still land in the shared fix queue:</p>
+        <div>
+          <span class="tag">crawler-access</span><span class="tag">content-signals</span><span class="tag">llms-txt</span>
+          <span class="tag">meta-audit</span><span class="tag">citability</span><span class="tag">technical-seo</span>
+          <span class="tag">schema-audit</span><span class="tag">schema-generator</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCORING ============ -->
+<section id="scoring">
+  <div class="wrap">
+    <h2 class="sec">05 — The math</h2>
+    <h3 class="title">How a number gets made</h3>
+    <p class="lede">Two independent composites. The overall score reflects classic + answer + AI health; the AI-visibility score isolates findability inside assistants. Both are pure functions of the sub-scores.</p>
+
+    <div class="grid g2">
+      <div class="card">
+        <h4><span class="dot" style="background:var(--seo)"></span>Overall composite</h4>
+        <div class="formula">
+          overall <span class="op">=</span> <b>citability</b>·0.25 <span class="op">+</span> <b>brand</b>·0.20 <span class="op">+</span> <b>eeat</b>·0.20<br>
+          <span style="padding-left:62px"></span><span class="op">+</span> <b>technical</b>·0.15 <span class="op">+</span> <b>schema</b>·0.10 <span class="op">+</span> <b>platform</b>·0.10
+        </div>
+        <div class="weights">
+          <div class="wchip"><span class="bar" style="width:50px"></span>citability .25</div>
+          <div class="wchip"><span class="bar" style="width:40px"></span>brand .20</div>
+          <div class="wchip"><span class="bar" style="width:40px"></span>eeat .20</div>
+          <div class="wchip"><span class="bar" style="width:30px"></span>technical .15</div>
+          <div class="wchip"><span class="bar" style="width:20px"></span>schema .10</div>
+          <div class="wchip"><span class="bar" style="width:20px"></span>platform .10</div>
+        </div>
+        <p class="note">Bands: 90 / 75 / 60 / 40. Missing analyzer ⇒ 0 (partial audits still score).</p>
+      </div>
+
+      <div class="card">
+        <h4><span class="dot" style="background:var(--geo)"></span>AI-visibility sub-composite</h4>
+        <div class="formula">
+          aiVisibility <span class="op">=</span> <b>citability</b>·0.35 <span class="op">+</span> <b>brand</b>·0.30<br>
+          <span style="padding-left:96px"></span><span class="op">+</span> <b>crawler</b>·0.25 <span class="op">+</span> <b>llmstxt</b>·0.10
+        </div>
+        <div class="weights">
+          <div class="wchip"><span class="bar" style="width:56px"></span>citability .35</div>
+          <div class="wchip"><span class="bar" style="width:48px"></span>brand .30</div>
+          <div class="wchip"><span class="bar" style="width:40px"></span>crawler .25</div>
+          <div class="wchip"><span class="bar" style="width:16px"></span>llmstxt .10</div>
+        </div>
+        <p class="note">The proof stack the product retains on: score delta → answer share → real GSC/GA4 traffic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PHASES ============ -->
+<section id="phases">
+  <div class="wrap">
+    <h2 class="sec">06 — Build phases</h2>
+    <h3 class="title">V0 → V8 · 41 tickets shipped</h3>
+    <p class="lede">The suite was built in nine deterministic-first phases. Foundation &amp; quick-wins came first; scoring, schema, content, GEO depth, reporting, auto-fix and the product surface followed.</p>
+    <div class="phases">
+      <div class="phase"><div class="p">V0</div><div class="n">Foundation — fetch, robots, sitemap, data model</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V1</div><div class="n">Quick wins — crawler, signals, llms.txt, meta</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V2</div><div class="n">Scoring spine — citability, technical, composite</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V3</div><div class="n">Schema — detect · validate · score · generate</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V4</div><div class="n">Content &amp; E-E-A-T, AI-content scan</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V5</div><div class="n">GEO depth — brand, platforms, answers</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V6</div><div class="n">Reporting &amp; proof — PDF, compare, competitors</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V7</div><div class="n">Auto-fix &amp; agency — apply/revert, white-label</div><div class="c">✓</div></div>
+      <div class="phase"><div class="p">V8</div><div class="n">Surface &amp; monetization — credits, toolbox</div><div class="c">✓</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DATA ============ -->
+<section id="data">
+  <div class="wrap">
+    <h2 class="sec">07 — Data model</h2>
+    <h3 class="title">Postgres schema, by domain</h3>
+    <p class="lede">Drizzle schema in <code>src/lib/db/schema/*</code>, one file per domain. Everything is workspace-scoped. Ephemeral caches deliberately live in KV, never here.</p>
+
+    <div class="grid g4">
+      <div class="dbcol">
+        <h4>Auth &amp; workspace</h4>
+        <div class="tbl">user <small>Better Auth</small></div>
+        <div class="tbl">session</div>
+        <div class="tbl">account</div>
+        <div class="tbl">verification</div>
+        <div class="tbl">workspaces</div>
+        <div class="tbl">subscriptions</div>
+        <div class="tbl">rate_limit_buckets</div>
+      </div>
+      <div class="dbcol">
+        <h4>Brand &amp; integrations</h4>
+        <div class="tbl">brands</div>
+        <div class="tbl">brand_profiles</div>
+        <div class="tbl">competitors</div>
+        <div class="tbl">brand_use_cases</div>
+        <div class="tbl">integrations</div>
+        <div class="tbl">integration_secrets <small>enc</small></div>
+      </div>
+      <div class="dbcol">
+        <h4>Content &amp; agent</h4>
+        <div class="tbl">research_runs</div>
+        <div class="tbl">topics</div>
+        <div class="tbl">competitor_content</div>
+        <div class="tbl">articles</div>
+        <div class="tbl">article_publications</div>
+        <div class="tbl">agent_jobs</div>
+        <div class="tbl">agent_daily_runs</div>
+        <div class="tbl">usage_counters</div>
+        <div class="tbl">credit_ledger</div>
+      </div>
+      <div class="dbcol">
+        <h4>Visibility suite</h4>
+        <div class="tbl">audits</div>
+        <div class="tbl">audit_pages</div>
+        <div class="tbl">audit_findings</div>
+        <div class="tbl">citability_blocks</div>
+        <div class="tbl">schema_blocks</div>
+        <div class="tbl">brand_signals</div>
+        <div class="tbl">platform_scores</div>
+        <div class="tbl">tracked_prompts</div>
+        <div class="tbl">answer_runs</div>
+        <div class="tbl">tool_runs</div>
+        <div class="tbl">agent_autonomy</div>
+        <div class="tbl">prospects</div>
+        <div class="tbl">traffic_snapshots</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ API ============ -->
+<section id="api">
+  <div class="wrap">
+    <h2 class="sec">08 — API surface</h2>
+    <h3 class="title">~50 route handlers</h3>
+    <p class="lede">All under <code>src/app/api/**</code>. Grouped by concern below (representative, not exhaustive).</p>
+
+    <div class="grid g4">
+      <div>
+        <h4 class="dbcol" style="font-size:12px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin:0 0 9px">Visibility</h4>
+        <div class="api"><span class="m post">POST</span>/visibility/audit</div>
+        <div class="api"><span class="m post">POST</span>/visibility/quick</div>
+        <div class="api"><span class="m get">GET</span>/visibility/summary</div>
+        <div class="api"><span class="m get">GET</span>/visibility/findings</div>
+        <div class="api"><span class="m post">POST</span>/visibility/fix</div>
+        <div class="api"><span class="m post">POST</span>/visibility/score-draft</div>
+        <div class="api"><span class="m post">POST</span>/visibility/answers</div>
+        <div class="api"><span class="m get">GET</span>/visibility/traffic</div>
+        <div class="api"><span class="m get">GET</span>/visibility/[id]/report</div>
+        <div class="api"><span class="m get">GET</span>/visibility/[id]/pdf</div>
+        <div class="api"><span class="m post">POST</span>/tools/[slug]</div>
+        <div class="api"><span class="m pub">PUB</span>/public/badge/[domain]</div>
+      </div>
+      <div>
+        <h4 class="dbcol" style="font-size:12px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin:0 0 9px">Content &amp; agent</h4>
+        <div class="api"><span class="m get">GET</span>/articles</div>
+        <div class="api"><span class="m post">POST</span>/articles/generate</div>
+        <div class="api"><span class="m post">POST</span>/articles/[id]/publish</div>
+        <div class="api"><span class="m post">POST</span>/articles/[id]/export</div>
+        <div class="api"><span class="m post">POST</span>/agent/plan</div>
+        <div class="api"><span class="m post">POST</span>/agent/research</div>
+        <div class="api"><span class="m post">POST</span>/agent/write-article</div>
+        <div class="api"><span class="m post">POST</span>/agent/settle</div>
+        <div class="api"><span class="m get">GET</span>/topics</div>
+        <div class="api"><span class="m post">POST</span>/research</div>
+        <div class="api"><span class="m get">GET</span>/activity</div>
+      </div>
+      <div>
+        <h4 class="dbcol" style="font-size:12px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin:0 0 9px">Brand &amp; account</h4>
+        <div class="api"><span class="m get">GET</span>/me</div>
+        <div class="api"><span class="m post">POST</span>/onboarding</div>
+        <div class="api"><span class="m get">GET</span>/brand/profile</div>
+        <div class="api"><span class="m post">POST</span>/brand/prefill</div>
+        <div class="api"><span class="m get">GET</span>/brand/use-cases</div>
+        <div class="api"><span class="m post">POST</span>/brand/competitors/discover</div>
+        <div class="api"><span class="m get">GET</span>/brands/active</div>
+        <div class="api"><span class="m get">GET</span>/integrations</div>
+        <div class="api"><span class="m get">GET</span>/account/notifications</div>
+      </div>
+      <div>
+        <h4 class="dbcol" style="font-size:12px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin:0 0 9px">Billing &amp; system</h4>
+        <div class="api"><span class="m post">POST</span>/billing/checkout</div>
+        <div class="api"><span class="m post">POST</span>/billing/portal</div>
+        <div class="api"><span class="m pub">PUB</span>/webhooks/stripe</div>
+        <div class="api"><span class="m get">GET</span>/credits</div>
+        <div class="api"><span class="m post">POST</span>/cron/daily</div>
+        <div class="api"><span class="m get">GET</span>/dashboard/automation</div>
+        <div class="api"><span class="m pub">PUB</span>/auth/[...all]</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CODE MAP ============ -->
+<section id="tree">
+  <div class="wrap">
+    <h2 class="sec">09 — Where things live</h2>
+    <h3 class="title">Code map</h3>
+    <div class="grid g2">
+      <div class="card">
+        <h4><span class="dot" style="background:var(--seo)"></span>App &amp; server</h4>
+        <div class="formula" style="font-size:12.5px;line-height:1.9">
+src/app/<br>
+&nbsp;&nbsp;<b>(app)/</b> <span class="op">— dashboard · articles · topics · visibility · tools</span><br>
+&nbsp;&nbsp;<b>api/</b> <span class="op">— ~50 route handlers</span><br>
+&nbsp;&nbsp;login · pricing · privacy · terms<br>
+src/server/<br>
+&nbsp;&nbsp;<b>visibility/</b> <span class="op">— run-audit · analyzers</span><br>
+src/components/<br>
+&nbsp;&nbsp;layout · articles · settings · visibility
+        </div>
+      </div>
+      <div class="card">
+        <h4><span class="dot" style="background:var(--geo)"></span>Domain libraries</h4>
+        <div class="formula" style="font-size:12.5px;line-height:1.9">
+src/lib/<br>
+&nbsp;&nbsp;<b>visibility/</b> <span class="op">— engine: 40+ scorers + tests</span><br>
+&nbsp;&nbsp;<b>articles/</b> · <b>research/</b> <span class="op">— Claudia</span><br>
+&nbsp;&nbsp;<b>publishing/</b> <span class="op">— adapters/*</span><br>
+&nbsp;&nbsp;<b>db/</b> <span class="op">— drizzle schema/* + migrations</span><br>
+&nbsp;&nbsp;<b>llm/</b> · <b>billing/</b> · <b>usage/</b> · <b>brand/</b><br>
+&nbsp;&nbsp;<b>cloudflare/</b> · <b>email/</b> · <b>auth/</b><br>
+workers/agent/ <span class="op">— DailyBrandWorkflow</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">Build: <code>scripts/build-cloudflare.mjs</code> compiles with OpenNext and patches the cron handler into <code>.open-next/worker.js</code>. Deploy: <code>scripts/deploy-cloudflare.mjs</code>. The agent Workflow deploys separately via <code>workers/agent/wrangler.jsonc</code>.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Generated architecture overview · seogeoaeo.ai · static single-file doc — open in any browser, safe to delete.
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      var id = tab.getAttribute('data-tab');
+      document.querySelectorAll('.tab').forEach(function(t){ t.setAttribute('aria-selected', t===tab ? 'true':'false'); });
+      document.querySelectorAll('.tabpanel').forEach(function(p){
+        p.classList.toggle('active', p.getAttribute('data-panel')===id);
+      });
+    });
+  });
+</script>
+</body>
+</html>

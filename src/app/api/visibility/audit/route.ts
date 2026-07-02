@@ -5,7 +5,7 @@ import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
 import { InsufficientCreditsError, spendForVisibilityJob } from "@/lib/usage/credits";
-import { createAudit, executeAudit } from "@/server/visibility/run-audit";
+import { createAudit, deleteAudit, executeAudit } from "@/server/visibility/run-audit";
 
 const startAuditSchema = z.object({
   url: z
@@ -26,6 +26,8 @@ export async function POST(request: Request) {
     try {
       await spendForVisibilityJob(workspace.id, "visibility_audit", auditId);
     } catch (error) {
+      // The run never starts, so drop the orphaned "running" row before bailing.
+      await deleteAudit(auditId);
       if (error instanceof InsufficientCreditsError) {
         throw new HttpError(402, error.message);
       }
