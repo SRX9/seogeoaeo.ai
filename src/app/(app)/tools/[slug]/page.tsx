@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, Card } from "@heroui/react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { use, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -70,13 +71,13 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           {result.score != null && <p className="text-2xl font-semibold">{Math.round(result.score)}/100</p>}
           <p className="text-sm text-default-500">
             {result.findings.length} finding(s) — see them all in your{" "}
-            <a className="text-primary underline" href="/visibility/fixes">
+            <Link className="text-primary underline" href="/visibility/fixes">
               fix queue
-            </a>
+            </Link>
             , or let Claudia handle it in{" "}
-            <a className="text-primary underline" href="/visibility">
+            <Link className="text-primary underline" href="/visibility">
               Visibility
-            </a>
+            </Link>
             .
           </p>
           <pre className="overflow-x-auto rounded bg-default-100 p-3 text-xs">{JSON.stringify(result.data, null, 2)}</pre>

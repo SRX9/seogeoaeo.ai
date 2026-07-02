@@ -71,7 +71,7 @@ describe("generateSchema", () => {
   it("Article template has a Person author, dateModified, and speakable", () => {
     const fixes = generateSchema({ present: NONE, sameAsAudit: noSameAs, types: [], businessType: "publisher", snapshot: snap() });
     const article = find(fixes, "Article")!;
-    const j = article.jsonLd as Record<string, any>;
+    const j = article.jsonLd as Record<string, Record<string, unknown>>;
     expect(j.author["@type"]).toBe("Person");
     expect(j.dateModified).toBeTruthy();
     expect(j.speakable["@type"]).toBe("SpeakableSpecification");
@@ -87,7 +87,7 @@ describe("generateSchema", () => {
       "discovery, brand awareness, and qualified traffic back to your website over the long term.</p></body></html>";
     const fixes = generateSchema({ present: NONE, sameAsAudit: noSameAs, types: [], businessType: "publisher", snapshot: snap({ html }) });
     const faq = find(fixes, "FAQPage")!;
-    const j = faq.jsonLd as Record<string, any>;
+    const j = faq.jsonLd as { mainEntity: Array<Record<string, Record<string, unknown>>> };
     expect(j.mainEntity).toHaveLength(2);
     expect(j.mainEntity[0].name).toBe("What is GEO?");
     expect(j.mainEntity[0].acceptedAnswer["@type"]).toBe("Answer");
