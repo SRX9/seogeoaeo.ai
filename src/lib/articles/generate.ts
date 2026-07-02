@@ -6,6 +6,9 @@ import {
   updateTopicStatus,
 } from "@/lib/articles/repository";
 import { slugify } from "@/lib/articles/format";
+import { pickShape } from "@/lib/articles/shapes";
+import { lintArticle } from "@/lib/articles/style-lint";
+import { parseVoiceDoc, renderVoiceBlock } from "@/lib/brand/voice";
 import { generateJson, generateText } from "@/lib/llm/client";
 import { addTokenUsage, emptyTokenUsage } from "@/lib/llm/usage";
 import { logInfo, logWarn, logError } from "@/lib/logging/logger";
@@ -15,6 +18,7 @@ import {
   metadataPrompt,
   outlinePrompt,
   seoEditPrompt,
+  styleRewritePrompt,
   summaryPrompt,
   type ArticleMetadata,
   type BrandContext,
@@ -30,7 +34,16 @@ export type GenerationTrace = {
   draftModel: string;
   seoEditModel: string;
   metadataModel: string;
+  shape: string;
+  rewritePasses: number;
 };
+
+/** Stored on the article as gate_results_json; shown in the editor. */
+export type GateResult = { gate: string; passed: boolean; detail: string };
+
+// Lint failures trigger targeted rewrites, capped — then the draft goes to
+// human review instead of publishing. Autonomy never ships slop for its quota.
+const MAX_REWRITE_PASSES = 2;
 
 type GenerateOptions = {
   /** Credits to charge on success. Defaults to the article-generation cost. */
@@ -45,6 +58,17 @@ type GenerateOptions = {
    */
   forceDraft?: boolean;
 };
+
+/** The originating search query, when the topic came from research. */
+function readTopicQuery(evidenceJson: string | null | undefined): string | null {
+  if (!evidenceJson) return null;
+  try {
+    const evidence = JSON.parse(evidenceJson) as { query?: unknown };
+    return typeof evidence.query === "string" ? evidence.query : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function generateArticleFromTopic(
   scope: BrandScope,
@@ -80,12 +104,14 @@ export async function generateArticleFromTopic(
 
   try {
     const profile = await getBrandProfile(brandId);
+    const voice = parseVoiceDoc(profile?.voiceJson);
     const brandContext: BrandContext = {
       productDescription: profile?.productDescription,
       audience: profile?.audience,
       tone: profile?.tone,
       website: profile?.website,
       seedKeywords: profile?.seedKeywords,
+      voice: voice ? renderVoiceBlock(voice) : null,
     };
 
     const topicInput = {
@@ -93,6 +119,14 @@ export async function generateArticleFromTopic(
       angle: topic.angle,
       keywords: topic.keywords,
     };
+
+    // C3: shape follows topic — picked once, deterministic, stored on the
+    // article. The essay template is not in the library.
+    const shape = pickShape({
+      title: topic.title,
+      keywords: topic.keywords,
+      query: readTopicQuery(topic.evidenceJson),
+    });
 
     let tokenUsage = emptyTokenUsage();
 
@@ -103,14 +137,14 @@ export async function generateArticleFromTopic(
     ]);
     tokenUsage = addTokenUsage(tokenUsage, summary);
 
-    const outlineMessages = outlinePrompt(topicInput, brandContext, summary.text);
+    const outlineMessages = outlinePrompt(topicInput, brandContext, summary.text, shape);
     const outline = await generateText("heavy", [
       { role: "system", content: outlineMessages.system },
       { role: "user", content: outlineMessages.user },
     ]);
     tokenUsage = addTokenUsage(tokenUsage, outline);
 
-    const draftMessages = draftPrompt(topicInput, brandContext, outline.text);
+    const draftMessages = draftPrompt(topicInput, brandContext, outline.text, shape);
     const draft = await generateText("heavy", [
       { role: "system", content: draftMessages.system },
       { role: "user", content: draftMessages.user },
@@ -124,7 +158,46 @@ export async function generateArticleFromTopic(
     ]);
     tokenUsage = addTokenUsage(tokenUsage, seoEdited);
 
-    const metadataMessages = metadataPrompt(topicInput, seoEdited.text);
+    // C3 gate loop: the slop lint must pass before the draft can publish.
+    // Failures get a targeted rewrite (fix the flagged spans, keep the rest);
+    // after MAX_REWRITE_PASSES the draft is flagged for human review.
+    let body = seoEdited.text;
+    let lint = lintArticle(body, shape);
+    let rewritePasses = 0;
+    while (!lint.passed && rewritePasses < MAX_REWRITE_PASSES) {
+      const rewriteMessages = styleRewritePrompt(body, lint.hits);
+      const rewritten = await generateText("heavy", [
+        { role: "system", content: rewriteMessages.system },
+        { role: "user", content: rewriteMessages.user },
+      ]);
+      tokenUsage = addTokenUsage(tokenUsage, rewritten);
+      body = rewritten.text;
+      lint = lintArticle(body, shape);
+      rewritePasses += 1;
+    }
+
+    const gateResults: GateResult[] = [
+      {
+        gate: "style-lint",
+        passed: lint.passed,
+        detail: lint.passed
+          ? rewritePasses === 0
+            ? "Clean on first pass"
+            : `Clean after ${rewritePasses} rewrite pass${rewritePasses > 1 ? "es" : ""}`
+          : lint.hits.map((hit) => hit.message).join("; "),
+      },
+      {
+        // E-E-A-T basics. Advisory until the publishing layer stamps
+        // author/date (V7.1) — recorded so the editor can surface it, but a
+        // missing link never blocks; only slop does.
+        gate: "eeat-source",
+        passed: /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(body),
+        detail: "At least one linked source in the article",
+      },
+    ];
+    const flaggedForReview = !lint.passed;
+
+    const metadataMessages = metadataPrompt(topicInput, body);
     const metadata = await generateJson<ArticleMetadata>("light", [
       { role: "system", content: metadataMessages.system },
       { role: "user", content: metadataMessages.user },
@@ -137,8 +210,15 @@ export async function generateArticleFromTopic(
       slug: metadata.data.slug || slugify(metadata.data.title || topic.title),
       metaDescription: metadata.data.metaDescription,
       tags: metadata.data.tags ?? [],
-      bodyMarkdown: seoEdited.text,
-      status: options.forceDraft ? "draft" : articleStatusForAutonomy(brand.autonomyMode),
+      bodyMarkdown: body,
+      // A draft that failed the gates never auto-publishes, whatever the
+      // autonomy mode — it waits for a human.
+      status:
+        options.forceDraft || flaggedForReview
+          ? "draft"
+          : articleStatusForAutonomy(brand.autonomyMode),
+      shape,
+      gateResultsJson: JSON.stringify(gateResults),
     });
 
     // Charge only after the article exists, so a failed generation never burns
@@ -183,20 +263,35 @@ export async function generateArticleFromTopic(
       draftModel: draft.model,
       seoEditModel: seoEdited.model,
       metadataModel: metadata.model,
+      shape,
+      rewritePasses,
     };
 
-    await finishAgentJob(job.id, "completed", `Article generated: ${article.title}`, {
-      articleId: article.id,
-      topicId: topic.id,
-      autonomyMode: brand.autonomyMode,
-      status: article.status,
-      tokenUsage,
-    });
+    await finishAgentJob(
+      job.id,
+      "completed",
+      flaggedForReview
+        ? `Article generated and held for review: ${article.title}`
+        : `Article generated: ${article.title}`,
+      {
+        articleId: article.id,
+        topicId: topic.id,
+        autonomyMode: brand.autonomyMode,
+        status: article.status,
+        shape,
+        rewritePasses,
+        flaggedForReview,
+        tokenUsage,
+      },
+    );
 
     logInfo("article.generated", {
       workspaceId,
       articleId: article.id,
       topicId,
+      shape,
+      rewritePasses,
+      flaggedForReview,
       totalTokens: tokenUsage.totalTokens,
     });
 

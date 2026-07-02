@@ -3,13 +3,21 @@
 import { Card } from "@heroui/react";
 import { BrandProfileForm } from "@/components/brand/brand-profile-form";
 import { CompetitorsPanel } from "@/components/brand/competitors-panel";
+import { UseCasesPanel } from "@/components/brand/use-cases-panel";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
-import { combineQueries, useBrandProfile, useCompetitors, useMe } from "@/lib/api/queries";
+import {
+  combineQueries,
+  useBrandProfile,
+  useCompetitors,
+  useMe,
+  useUseCases,
+} from "@/lib/api/queries";
 
 const brandSkeleton = (
   <div className="space-y-8">
     <CardSkeleton lines={5} />
+    <CardSkeleton lines={3} />
     <CardSkeleton lines={3} />
   </div>
 );
@@ -18,7 +26,8 @@ export function BrandSection() {
   const me = useMe();
   const profile = useBrandProfile();
   const competitors = useCompetitors();
-  const query = combineQueries(me, profile, competitors);
+  const useCases = useUseCases();
+  const query = combineQueries(me, profile, competitors, useCases);
 
   return (
     <Section
@@ -26,7 +35,7 @@ export function BrandSection() {
       errorLabel="Couldn't load brand settings."
       skeleton={brandSkeleton}
     >
-      {([meData, profileData, competitorsData]) => {
+      {([meData, profileData, competitorsData, useCasesData]) => {
         const brandName =
           meData.brands.find((brand) => brand.id === meData.activeBrandId)?.name ?? "your brand";
 
@@ -51,6 +60,8 @@ export function BrandSection() {
                 />
               </Card.Content>
             </Card>
+
+            <UseCasesPanel useCases={useCasesData.useCases} />
 
             <CompetitorsPanel competitors={competitorsData.competitors} />
           </div>

@@ -3,7 +3,7 @@ import { extractXmlValues, fetchText } from "@/lib/research/utils";
 
 // Parse per-item so each title pairs with its own link, and channel-level
 // title/link are ignored. Supports RSS <item> and Atom <entry>/<link href>.
-function extractFeedItems(xml: string) {
+export function extractFeedItems(xml: string) {
   const blocks = xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) ?? [];
   return blocks.flatMap((block) => {
     const title = extractXmlValues(block, "title")[0] ?? "";

@@ -49,3 +49,17 @@ export async function assertWorkspaceRateLimit(
 ) {
   return assertRateLimit(`workspace:${workspaceId}:${action}`, limit, windowMs);
 }
+
+/** Per-client limit for unauthenticated routes, keyed by the caller's IP. */
+export async function assertIpRateLimit(
+  request: Request,
+  action: string,
+  limit: number,
+  windowMs: number,
+) {
+  const ip =
+    request.headers.get("cf-connecting-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
+  return assertRateLimit(`ip:${ip}:${action}`, limit, windowMs);
+}

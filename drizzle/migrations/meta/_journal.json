@@ -134,6 +134,27 @@
       "when": 1782837607400,
       "tag": "0018_overjoyed_black_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782977245208,
+      "tag": "0019_married_stick",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782978413667,
+      "tag": "0020_whole_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782982455985,
+      "tag": "0021_odd_photon",
+      "breakpoints": true
     }
   ]
 }

@@ -7,10 +7,10 @@ user-facing scoring yet — this is the engine block. All deterministic.
 
 ## Tickets
 
-- [ ] ⚙️ [V0.1 — Page fetcher & HTML model](v0.1-page-fetcher.md)
-- [ ] ⚙️ [V0.2 — robots.txt / sitemap / llms.txt fetchers + block splitter](v0.2-robots-sitemap-llms.md)
-- [ ] ⚙️ [V0.3 — Audit data model & orchestration Workflow](v0.3-data-model-orchestration.md)
-- [ ] ⚙️ [V0.4 — Business-type detector](v0.4-business-type-detector.md)
+- [x] ⚙️ [V0.1 — Page fetcher & HTML model](v0.1-page-fetcher.md)
+- [x] ⚙️ [V0.2 — robots.txt / sitemap / llms.txt fetchers + block splitter](v0.2-robots-sitemap-llms.md)
+- [x] ⚙️ [V0.3 — Audit data model & orchestration Workflow](v0.3-data-model-orchestration.md)
+- [x] ⚙️ [V0.4 — Business-type detector](v0.4-business-type-detector.md)
 
 ## Phase exit criteria
 

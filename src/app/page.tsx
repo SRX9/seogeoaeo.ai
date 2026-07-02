@@ -10,6 +10,7 @@ import {
   Publish,
   TrustBar,
 } from "@/components/marketing/landing-sections";
+import { QuickCheck } from "@/components/marketing/quick-check";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
@@ -26,6 +27,7 @@ export default function HomePage() {
       <SiteHeader />
       <main>
         <Hero />
+        <QuickCheck />
         <TrustBar />
         <Features />
         <HowItWorks />

@@ -29,6 +29,36 @@ const filters = [
   { id: "manual", label: "Manual" },
 ] as const;
 
+// Owner language for where a topic idea came from — never the raw enum.
+const SOURCE_BADGES: Record<string, string> = {
+  use_case: "Your use cases",
+  competitor_gap: "Competitor gap",
+  gsc: "Search Console",
+  web_search: "Web search",
+  trend_query: "Trending",
+  keyword_api: "Keyword ideas",
+  rss: "Competitor blog",
+  sitemap: "Competitor blog",
+};
+
+// Buyer intent, in owner language: why this topic ranks where it does.
+const INTENT_BADGES: Record<string, string> = {
+  bofu: "Buying now",
+  mofu: "Comparing options",
+  tofu: "Learning",
+};
+
+/** The research source badge, read from the topic's stored evidence. */
+function sourceBadge(topic: Topic): string | null {
+  if (!topic.evidenceJson) return null;
+  try {
+    const evidence = JSON.parse(topic.evidenceJson) as { sourceType?: string };
+    return evidence.sourceType ? (SOURCE_BADGES[evidence.sourceType] ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 const EMPTY_TOPIC = { title: "", angle: "", keywords: "" };
 
 export function ManualTopicForm() {
@@ -62,6 +92,8 @@ export function ManualTopicForm() {
           rationale: null,
           answerFit: null,
           evidenceJson: null,
+          intentTier: null,
+          thesis: null,
         },
         ...(current?.topics ?? []),
       ],
@@ -224,16 +256,23 @@ function TopicList({
             <div className="min-w-0 flex-1 space-y-2">
               <div className="space-y-1">
                 <p className="font-medium leading-snug text-foreground">{topic.title}</p>
-                {topic.rationale ? (
+                {/* The thesis is the one line that says why this will drive
+                    traffic — always preferred over the generic rationale. */}
+                {topic.thesis || topic.rationale ? (
                   <p className="line-clamp-2 text-xs leading-relaxed text-muted">
-                    {topic.rationale}
+                    {topic.thesis ?? topic.rationale}
                   </p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Chip variant="soft" size="sm" className="capitalize">
-                  {topic.source}
+                  {sourceBadge(topic) ?? topic.source}
                 </Chip>
+                {topic.intentTier && INTENT_BADGES[topic.intentTier] ? (
+                  <Chip color={topic.intentTier === "bofu" ? "success" : "default"} variant="soft" size="sm">
+                    {INTENT_BADGES[topic.intentTier]}
+                  </Chip>
+                ) : null}
                 <Chip color={statusColor(topic.status)} variant="soft" size="sm">
                   {topic.status}
                 </Chip>
