@@ -22,6 +22,7 @@ export const queryKeys = {
   brands: ["brands"] as const,
   brandProfile: ["brand", "profile"] as const,
   competitors: ["brand", "competitors"] as const,
+  useCases: ["brand", "use-cases"] as const,
   topics: ["topics"] as const,
   articles: ["articles"] as const,
   article: (id: string) => ["articles", id] as const,
@@ -133,6 +134,17 @@ export type Competitor = {
   sitemapUrl: string | null;
 };
 
+export type UseCase = {
+  id: string;
+  job: string;
+  persona: string;
+  industry: string | null;
+  evidence: string | null;
+  origin: string;
+  enabled: boolean;
+  edited: boolean;
+};
+
 export type Topic = {
   id: string;
   title: string;
@@ -144,6 +156,8 @@ export type Topic = {
   rationale: string | null;
   answerFit: string | null;
   evidenceJson: string | null;
+  intentTier: string | null;
+  thesis: string | null;
 };
 
 export type Article = {
@@ -156,6 +170,8 @@ export type Article = {
   bodyMarkdown: string;
   status: string;
   version: number;
+  shape: string | null;
+  gateResultsJson: string | null;
   updatedAt: string;
   createdAt: string;
 };
@@ -309,6 +325,13 @@ export function useCompetitors() {
   return useQuery({
     queryKey: queryKeys.competitors,
     queryFn: () => apiGet<{ competitors: Competitor[] }>("/api/brand/competitors"),
+  });
+}
+
+export function useUseCases() {
+  return useQuery({
+    queryKey: queryKeys.useCases,
+    queryFn: () => apiGet<{ useCases: UseCase[] }>("/api/brand/use-cases"),
   });
 }
 

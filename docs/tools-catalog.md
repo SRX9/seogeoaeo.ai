@@ -19,6 +19,11 @@
 >
 > The core loop we're building toward: **measure visibility → fix it (ideally auto, inside
 > the app) → re-measure → show the traffic gain.**
+>
+> **Packaging (settled):** these tools are the *engine*, not the sidebar. The user-facing
+> product is the score + fix queue + Claudia the agent, with a secondary **Toolbox** of
+> standalone credit-priced tool pages for technical users. See
+> [`visibility-suite/01-product-surface.md`](visibility-suite/01-product-surface.md).
 
 ---
 
@@ -41,6 +46,10 @@ pillar plus **Also** tags where it carries over.
 - Gartner expects classic search traffic to **drop ~50% by 2028**.
 - Brand mentions correlate **~3× stronger** with AI citations than backlinks do.
 - Only **~23%** of marketers invest in GEO today, and **<5%** of sites have an `llms.txt` → cheap early wins.
+
+> ⚠️ These numbers are **internal motivation only**. Several circulate with weak provenance —
+> verify sourcing before quoting any of them on a marketing surface
+> (see `visibility-suite/01-product-surface.md` → "Marketing claims").
 
 ---
 
@@ -82,6 +91,7 @@ Legend — **Pillar:** 🔵 SEO · 🟣 AEO · 🟢 GEO · ⚪ Cross-cutting/Bus
 | 25 | Agent-Readiness Signals (Markdown + Link headers) | 🟢 | — | ⭐ |
 | 26 | Entity & `sameAs` Consistency Auditor | 🟢 | 🔵 | ⭐ |
 | 27 | Competitor AI-Visibility Benchmarking | 🟢 | 🔵🟣 | ⭐/➕ |
+| 34 | AI Answer Tracking (share-of-answer) | 🟢 | 🟣 | ➕ |
 | **Reporting · monitoring · business** | | | | |
 | 28 | Client Report Generator (Markdown) | ⚪ | — | ⭐ |
 | 29 | PDF Report Generator (charts & gauges) | ⚪ | — | ⭐ |
@@ -89,6 +99,7 @@ Legend — **Pillar:** 🔵 SEO · 🟣 AEO · 🟢 GEO · ⚪ Cross-cutting/Bus
 | 31 | Monthly Delta / Progress Tracker | ⚪ | — | ⭐ |
 | 32 | Prospect CRM + Web Dashboard | ⚪ | — | ⭐ |
 | 33 | Proposal Generator | ⚪ | — | ⭐ |
+| 35 | Traffic Proof (Search Console + AI referrals) | ⚪ | — | ➕ |
 
 ---
 
@@ -297,6 +308,15 @@ side-by-side gap table (who owns which platform, who has the Wikipedia entity, w
 **Why it's good:** Turns an abstract score into "you're behind competitor X on Perplexity and
 Wikipedia — here's how to catch up." The most persuasive thing in any sales or strategy conversation.
 
+### 34. AI Answer Tracking (share-of-answer) — `🟢 GEO · also 🟣 AEO` ➕
+**What it does:** Maintains a set of tracked prompts ("best X for Y") and, on the plan's cadence,
+asks the real engines — ChatGPT (web search), Perplexity, Gemini — recording whether the brand
+and its competitors are mentioned or cited in each answer. Output is **answer share per engine
+over time**, plus a prompt × engine grid and fix-queue findings for the misses.
+**Why it's good:** Everything else in this catalog is self-graded; this measures the actual
+outcome. "You appear in 4 of 10 answers, your competitor in 8" is the demo moment that sells the
+whole suite, and its week-over-week movement is proof layer 2 (see `01-product-surface.md`).
+
 ---
 
 ## 7. Reporting, monitoring & business tools
@@ -344,6 +364,14 @@ pricing, ROI projection, engagement timeline — and recommends a tier from the 
 **Why it's good:** Closes the loop from "found problems" to "here's the paid plan to fix them."
 Pure revenue enablement for agency customers; a strong reason to upgrade.
 
+### 35. Traffic Proof (Search Console + AI referrals) — `⚪` ➕
+**What it does:** Connects Google Search Console (clicks/impressions/position) and optionally
+GA4 (sessions referred by chatgpt.com, perplexity.ai, gemini.google.com, …) and renders them
+on the score trend with audit-date markers. Feeds the digest and reports. Never metered.
+**Why it's good:** The score is a number *we* invented; clicks are a number the customer already
+trusts. "Score 61→74 and clicks +23%" is proof layer 3 — the line that renews subscriptions.
+Cheap to build (two read-only OAuth integrations), disproportionate retention value.
+
 ---
 
 ## 8. How this maps onto our product
@@ -359,7 +387,7 @@ This catalog adds the **measure & optimize** layer that wraps around it:
 | Phase 4 — Research & backlog | #18 PAA/Question targeting + #12 Topical-authority/content-gap feed the backlog |
 | Phase 5 — Scheduling/autonomy | #1 Audit + #31 Delta tracker run on cron → automatic monthly progress; #13 Freshness → auto-refresh suggestions |
 | Phase 6 — Publishing | Post-publish, re-run #14/#17 to confirm the live page is answer/AI-ready |
-| New surface — "Visibility" | #1 Audit, #2 Snapshot, #20–#25 GEO suite, #28–#29 Reports as a dashboard section |
+| New surface — "Visibility" | #1 Audit, #2 Snapshot, #20–#25 GEO suite, #34 Answer tracking, #35 Traffic proof, #28–#29 Reports as a dashboard section |
 | New surface — Agency/premium | #30 White-label, #32 CRM, #33 Proposals as plan-gated features |
 
 ---
@@ -369,14 +397,19 @@ This catalog adds the **measure & optimize** layer that wraps around it:
 A pragmatic order — high value, low effort first, reusing our existing fetch/LLM plumbing:
 
 1. **Quick wins / lead-gen (do first):** #2 Quick Snapshot, #20 Crawler Access, #21 llms.txt
-   generator, #9 Schema generator, #8 Meta audit. *(Cheap, instantly useful, great marketing hooks.)*
+   generator, #9 Schema generator, #8 Meta audit — shipped as **free public tools** feeding the
+   growth funnel (V8.6). *(Cheap, instantly useful, they ARE the marketing.)*
 2. **The scoring spine:** #1 Unified Audit + #14 Citability scorer (deterministic, the core IP)
    + #4/#5 Technical + SSR.
-3. **Editor integration (our differentiator):** wire #14, #11, #16, #19 into the article editor so
+3. **Proof early (pull-forward):** #31 Delta tracker, **#34 Answer tracking** (the demo moment —
+   independent of the audit engine), **#35 Traffic proof** (connect early so history accrues),
+   #27 Competitor benchmark in lite mode.
+4. **Editor integration (our differentiator):** wire #14, #11, #16, #19 into the article editor so
    we **write content that's already optimized**, not just audit after the fact.
-4. **GEO depth:** #23 Brand scanner, #24 Platform optimizer, #26 Entity/`sameAs`, #22 Content
-   Signals, #25 Agent-readiness.
-5. **Prove & monetize:** #28/#29 Reports, #31 Delta tracker, then #30/#32/#33 for the agency tier.
+5. **GEO depth:** #23 Brand scanner, #24 Platform optimizer, #26 Entity/`sameAs`, #22 Content
+   Signals, #25 Agent-readiness — completes the full #27 grid.
+6. **Prove & monetize:** #28/#29 Reports, then #30/#32/#33 for the agency tier.
 
-> **Our edge:** competitors *audit*; we *audit, then auto-fix in the same product*. Tools #14, #16,
-> #19, #12, #13 don't just grade a page — they feed directly into the AI that writes and refreshes it.
+> **Our edge:** competitors *audit*; we *audit, auto-fix in the same product, and prove the result*.
+> Tools #14, #16, #19, #12, #13 don't just grade a page — they feed directly into the AI that
+> writes and refreshes it; #34/#35 then show the citation and the click that resulted.

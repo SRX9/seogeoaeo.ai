@@ -22,9 +22,17 @@ interface AgentWorkflowBinding {
   get(id: string): Promise<{ id: string }>;
 }
 
+/** Minimal KV namespace surface used by `src/lib/cloudflare/kv.ts`. */
+interface KvCacheBinding {
+  get<T = unknown>(key: string, type: "json"): Promise<T | null>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+}
+
 interface CloudflareEnv {
   ASSETS: Fetcher;
   HYPERDRIVE: Hyperdrive;
+  /** KV cache (public quick-snapshot results, other short-TTL caches). */
+  CACHE?: KvCacheBinding;
   EMAIL?: SendEmailBinding;
   AGENT_WORKFLOW?: AgentWorkflowBinding;
   CRON_SECRET: string;

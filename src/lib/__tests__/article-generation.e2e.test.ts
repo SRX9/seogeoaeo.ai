@@ -54,7 +54,8 @@ describe("article generation workflow", () => {
     const { article, trace } = await generateArticleFromTopic(scope,topic.id);
 
     expect(article.status).toBe("draft");
-    expect(article.bodyMarkdown).toBe("# Final Article\n\nSEO-polished body content.");
+    expect(article.bodyMarkdown).toContain("# Final Article");
+    expect(article.bodyMarkdown).toContain("SEO-polished body content.");
     expect(store.topics.get(topic.id)?.status).toBe("completed");
 
     const jobs = jobsFor("ws-1", "writing");
@@ -71,6 +72,8 @@ describe("article generation workflow", () => {
       draftModel: "model-heavy",
       seoEditModel: "model-heavy",
       metadataModel: "model-light",
+      shape: "direct-answer", // "Automating SEO" has no tutorial/comparison cue
+      rewritePasses: 0, // the fixture body is lint-clean
     });
   });
 
@@ -107,6 +110,52 @@ describe("article generation workflow", () => {
     expect(article.status).toBe("approved");
     expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
     expect(jobsFor("ws-1", "writing")[0].status).toBe("completed");
+  });
+
+  it("rewrites a sloppy draft once and still auto-publishes when the fix lands", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    const topic = seedTopic({ workspaceId: "ws-1", title: "Automating SEO" });
+    const clean = llm.textResponses[3];
+    // Call 4 (SEO edit) returns slop; call 5 (the targeted rewrite) fixes it.
+    llm.textResponses[3] =
+      "# Final Article\n\nIn today's fast-paced digital landscape, let's dive in and delve into SEO.";
+    llm.textResponses[4] = clean;
+
+    const { article, trace } = await generateArticleFromTopic(scope, topic.id, {
+      origin: "https://app.test",
+    });
+
+    expect(trace?.rewritePasses).toBe(1);
+    expect(article.status).toBe("approved");
+    expect(article.bodyMarkdown).toContain("SEO-polished body content.");
+    const gates = JSON.parse(article.gateResultsJson ?? "[]");
+    expect(gates).toContainEqual(
+      expect.objectContaining({ gate: "style-lint", passed: true }),
+    );
+  });
+
+  it("holds a persistently sloppy draft for review instead of publishing, even in FULL_AUTO", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
+    const topic = seedTopic({ workspaceId: "ws-1", title: "Automating SEO" });
+    const slop =
+      "# Final Article\n\nIn today's fast-paced digital landscape, let's dive in and delve into SEO.";
+    // The SEO edit and both rewrite passes all return the same slop.
+    llm.textResponses[3] = slop;
+    llm.textResponses[4] = slop;
+    llm.textResponses[5] = slop;
+
+    const { article, trace } = await generateArticleFromTopic(scope, topic.id, {
+      origin: "https://app.test",
+    });
+
+    expect(trace?.rewritePasses).toBe(2);
+    expect(article.status).toBe("draft"); // gate failure overrides FULL_AUTO
+    expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
+    const gates = JSON.parse(article.gateResultsJson ?? "[]");
+    expect(gates).toContainEqual(
+      expect.objectContaining({ gate: "style-lint", passed: false }),
+    );
   });
 
   it("throws when the topic does not exist", async () => {

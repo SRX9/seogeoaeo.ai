@@ -22,8 +22,10 @@ type BrandOption = { id: string; name: string };
 
 const primaryNav = [
   { href: "/dashboard", label: "Overview", icon: OverviewIcon },
+  { href: "/visibility", label: "Visibility", icon: OverviewIcon },
   { href: "/topics", label: "Topics", icon: TopicsIcon },
   { href: "/articles", label: "Articles", icon: ArticlesIcon },
+  { href: "/tools", label: "Toolbox", icon: TopicsIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
   { href: "/settings", label: "Brand settings", icon: SettingsIcon },
 ] as const;

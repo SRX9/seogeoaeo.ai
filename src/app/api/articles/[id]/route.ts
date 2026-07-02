@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/server";
 import { slugify } from "@/lib/articles/format";
 import { getArticle, updateArticle } from "@/lib/articles/repository";
+import { learnVoiceFromEdit } from "@/lib/brand/voice";
 import { listPublicationsForArticle } from "@/lib/publishing/repository";
 
 type RouteProps = { params: Promise<{ id: string }> };
@@ -69,6 +70,11 @@ export async function PATCH(request: Request, { params }: RouteProps) {
             return trimmed ? [trimmed] : [];
           });
 
+    // C3 voice learning: when the user approves an edited draft, the diff
+    // between what Claudia wrote and what the owner shipped teaches the voice
+    // doc. Read the stored body before it's overwritten; never block the save.
+    const previous = data.status === "approved" ? await getArticle(brand.id, id) : null;
+
     const article = await updateArticle(brand.id, id, {
       title: data.title,
       slug: data.slug || slugify(data.title),
@@ -80,6 +86,11 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     if (!article) {
       throw new HttpError(404, "Article not found");
     }
+
+    if (previous && previous.status !== "approved") {
+      await learnVoiceFromEdit(brand.id, previous.bodyMarkdown, data.bodyMarkdown);
+    }
+
     return jsonOk({ article });
   });
 }

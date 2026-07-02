@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { CREDIT_COSTS, type VisibilityAction } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { creditLedger, subscriptions } from "@/lib/db/schema";
 
@@ -40,6 +41,32 @@ export async function getCreditBalance(workspaceId: string): Promise<CreditBalan
   const monthly = row?.monthly ?? 0;
   const purchased = row?.purchased ?? 0;
   return { monthly, purchased, total: monthly + purchased };
+}
+
+/**
+ * V8.4 — spend credits for a visibility job. Cost comes from `CREDIT_COSTS`
+ * (single source of truth); idempotent by `refId` (the run/audit id) so retries
+ * and double-clicks never double-charge. Mirrors the article-generation pattern.
+ * Never call this for fixes (plan-included) or proof surfaces (free).
+ */
+export async function spendForVisibilityJob(
+  workspaceId: string,
+  action: VisibilityAction,
+  refId: string,
+  brandId?: string | null,
+) {
+  const cost = CREDIT_COSTS[action];
+  await assertHasCredits(workspaceId, cost);
+  return spendCredits(workspaceId, cost, { reason: action, refType: "visibility", refId, brandId });
+}
+
+/**
+ * Pre-flight check for a visibility job: throws `InsufficientCreditsError` (→ 402)
+ * before any work runs, without charging. Charge with {@link spendForVisibilityJob}
+ * only after the work succeeds, so failed/empty work never burns credits.
+ */
+export async function assertVisibilityCredits(workspaceId: string, action: VisibilityAction) {
+  return assertHasCredits(workspaceId, CREDIT_COSTS[action]);
 }
 
 /** Fast pre-check before doing expensive work. Throws if the balance is short. */

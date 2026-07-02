@@ -46,6 +46,7 @@
     "drizzle-orm": "^0.44.2",
     "embla-carousel": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
+    "linkedom": "^0.18.12",
     "marked": "^18.0.5",
     "motion": "^12.40.0",
     "next": "^15.3.4",

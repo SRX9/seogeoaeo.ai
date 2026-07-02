@@ -39,6 +39,10 @@ export const brandProfiles = pgTable(
     tone: text("tone"),
     website: text("website"),
     seedKeywords: text("seed_keywords"),
+    // C3 structured voice doc (JSON: words we use/avoid, stance, examples,
+    // rules learned from the user's edits). Grows via voice.ts, never via the
+    // profile form — upsertBrandProfile must not touch it.
+    voiceJson: text("voice_json"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -63,6 +67,38 @@ export const competitors = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("competitors_brand_id_idx").on(table.brandId)],
+);
+
+/**
+ * C1 use-case inventory: every real use case of the product, extracted at
+ * onboarding and owned by the user in Brand settings. Shared context for
+ * research, writing, and comparison pages. Regeneration adds rows but never
+ * overwrites rows the user touched (`edited`) or created (`origin: "user"`).
+ */
+export const brandUseCases = pgTable(
+  "brand_use_cases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** The job the buyer hires the product for ("send invoice reminders"). */
+    job: text("job").notNull(),
+    /** Who does that job ("freelance designers"). */
+    persona: text("persona").notNull(),
+    industry: text("industry"),
+    /** Where the row came from ("stated on the pricing page"). */
+    evidence: text("evidence"),
+    origin: text("origin").notNull().default("generated"),
+    enabled: boolean("enabled").notNull().default(true),
+    edited: boolean("edited").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("brand_use_cases_brand_id_idx").on(table.brandId)],
 );
 
 export const integrations = pgTable(

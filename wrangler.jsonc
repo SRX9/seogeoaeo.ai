@@ -23,6 +23,10 @@
     "binding": "HYPERDRIVE",
     "id": "29f7a53988fc495d90086fdd4b1ee859"
   }],
+  "kv_namespaces": [{
+    "binding": "CACHE",
+    "id": "cb3ab99ce97849bea75ae5c4e3355de5"
+  }],
   "workflows": [{
     "name": "daily-content-agent",
     "binding": "AGENT_WORKFLOW",

@@ -7,11 +7,11 @@ High-value, low-cost, **mostly deterministic** checks. Ship first — they power
 
 ## Tickets
 
-- [ ] ⚙️ [V1.1 — AI crawler access analyzer](v1.1-crawler-access.md)
-- [ ] ⚙️ [V1.2 — Content Signals checker](v1.2-content-signals.md)
-- [ ] ⚙️ [V1.3 — llms.txt analyzer & generator](v1.3-llms-txt.md)
-- [ ] ⚙️ [V1.4 — Meta tags & Open Graph auditor](v1.4-meta-audit.md)
-- [ ] ⚙️ [V1.5 — 60-second quick snapshot](v1.5-quick-snapshot.md)
+- [x] ⚙️ [V1.1 — AI crawler access analyzer](v1.1-crawler-access.md)
+- [x] ⚙️ [V1.2 — Content Signals checker](v1.2-content-signals.md)
+- [x] ⚙️ [V1.3 — llms.txt analyzer & generator](v1.3-llms-txt.md)
+- [x] ⚙️ [V1.4 — Meta tags & Open Graph auditor](v1.4-meta-audit.md)
+- [x] ⚙️ [V1.5 — 60-second quick snapshot](v1.5-quick-snapshot.md) — citability hero-read slot pending V2.1
 
 ## Phase exit criteria
 

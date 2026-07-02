@@ -25,10 +25,30 @@ type ArticleEditorProps = {
     bodyMarkdown: string;
     status: string;
     version: number;
+    shape?: string | null;
+    gateResultsJson?: string | null;
   };
   publications: Publication[];
   canPublish: boolean;
 };
+
+type GateResult = { gate: string; passed: boolean; detail: string };
+
+// Owner-facing names for the machine gates — never show the raw ids.
+const GATE_LABELS: Record<string, string> = {
+  "style-lint": "Reads human",
+  "eeat-source": "Cites a source",
+};
+
+function parseGateResults(json: string | null | undefined): GateResult[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json) as GateResult[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 type Intent = "draft" | "publish" | "republish";
 
@@ -197,6 +217,9 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
     }
   }
 
+  const gates = parseGateResults(article.gateResultsJson);
+  const heldForReview = gates.some((gate) => gate.gate === "style-lint" && !gate.passed);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -204,7 +227,24 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         <Chip color={isApproved ? "success" : "default"} variant="soft">
           {article.status}
         </Chip>
+        {article.shape ? <Chip variant="soft">{article.shape}</Chip> : null}
+        {gates.map((gate) => (
+          <Chip
+            key={gate.gate}
+            color={gate.passed ? "success" : "warning"}
+            variant="soft"
+            title={gate.detail}
+          >
+            {gate.passed ? "✓" : "!"} {GATE_LABELS[gate.gate] ?? gate.gate}
+          </Chip>
+        ))}
       </div>
+      {heldForReview ? (
+        <p className="text-sm text-muted">
+          Claudia held this draft for your review — it didn&apos;t pass her quality checks:{" "}
+          {gates.find((gate) => gate.gate === "style-lint" && !gate.passed)?.detail}
+        </p>
+      ) : null}
 
       <Tabs defaultSelectedKey="editor">
         <Tabs.ListContainer>

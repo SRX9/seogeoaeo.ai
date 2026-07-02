@@ -160,10 +160,14 @@ export const keywordProvider: ResearchProvider = {
 export function buildResearchContext(
   brand: ResearchContext["brand"],
   competitors: ResearchContext["competitors"],
+  extras: Partial<Pick<ResearchContext, "useCases" | "ourTitles" | "scope">> = {},
 ): ResearchContext {
   return {
     brand,
     competitors,
     seedQueries: buildSeedQueries(brand),
+    useCases: extras.useCases ?? [],
+    ourTitles: extras.ourTitles ?? [],
+    scope: extras.scope,
   };
 }

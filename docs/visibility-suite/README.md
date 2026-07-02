@@ -6,10 +6,20 @@ content engine plan in [`../v1-implementation-phases.md`](../v1-implementation-p
 
 **North star:** help a **site owner make their own site more discoverable and get more
 traffic** across SEO, AEO, and GEO. We don't just audit — we audit, then **auto-fix inside the
-same app** that writes and republishes the content.
+same app** that writes and republishes the content, then **prove it** with three layers of
+proof: score delta (V6.3) → share of real AI answers (V5.5) → real traffic from GSC/GA4
+(V6.6). See "The proof stack" in [`01-product-surface.md`](01-product-surface.md).
+
+**Packaging (settled — see [`01-product-surface.md`](01-product-surface.md)):** the 35 tools
+are the **engine**, Claudia the agent is the **face**, the fix queue is the **interface**, and
+the proof stack is the **proof**. We never ship "35 tools in a sidebar" as the primary UX. The
+**Toolbox** (every analyzer as a standalone credit-priced page) exists for technical users as a
+secondary surface — same engine, different door.
 
 > **Read first:** [`00-principles.md`](00-principles.md) — the porting rules, tech-stack mapping,
-> data model, and orchestration that **every ticket assumes**. Don't start a ticket without it.
+> data model, and orchestration that **every ticket assumes** — then
+> [`01-product-surface.md`](01-product-surface.md) — packaging, navigation, fix queue, Toolbox,
+> and pricing. Don't start a ticket without them.
 
 ---
 
@@ -33,16 +43,17 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 
 ## Progress at a glance
 
-- [ ] **Phase V0 — Foundation** (0/4)
-- [ ] **Phase V1 — Quick wins** (0/5)
-- [ ] **Phase V2 — Scoring spine** (0/3)
-- [ ] **Phase V3 — Schema engine** (0/3)
-- [ ] **Phase V4 — Content & E-E-A-T** (0/5)
-- [ ] **Phase V5 — GEO depth** (0/4)
-- [ ] **Phase V6 — Reporting & proof** (0/5)
-- [ ] **Phase V7 — Auto-fix & agency** (0/4)
+- [x] **Phase V0 — Foundation** (4/4)
+- [x] **Phase V1 — Quick wins** (5/5)
+- [x] **Phase V2 — Scoring spine** (3/3)
+- [x] **Phase V3 — Schema engine** (3/3)
+- [x] **Phase V4 — Content & E-E-A-T** (5/5)
+- [x] **Phase V5 — GEO depth** (5/5)
+- [x] **Phase V6 — Reporting & proof** (6/6)
+- [x] **Phase V7 — Auto-fix & agency** (4/4)
+- [x] **Phase V8 — Product surface & monetization** (6/6)
 
-**Total: 0/33 tickets**
+**Total: 41/41 tickets**
 
 ---
 
@@ -66,33 +77,34 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 ## Phase V2 — [Scoring spine](phase-v2-scoring-spine/README.md)
 *The reproducible core IP plus the hero composite score.*
 
-- [ ] ⚙️ [V2.1 — AI citability / passage scorer (flagship)](phase-v2-scoring-spine/v2.1-citability-scorer.md)
-- [ ] ⚙️🧠 [V2.2 — Technical SEO auditor + SSR + CWV](phase-v2-scoring-spine/v2.2-technical-auditor.md)
-- [ ] ⚙️ [V2.3 — Unified audit + composite score](phase-v2-scoring-spine/v2.3-unified-audit.md)
+- [x] ⚙️ [V2.1 — AI citability / passage scorer (flagship)](phase-v2-scoring-spine/v2.1-citability-scorer.md)
+- [x] ⚙️🧠 [V2.2 — Technical SEO auditor + SSR + CWV](phase-v2-scoring-spine/v2.2-technical-auditor.md)
+- [x] ⚙️ [V2.3 — Unified audit + composite score](phase-v2-scoring-spine/v2.3-unified-audit.md)
 
 ## Phase V3 — [Schema engine](phase-v3-schema-engine/README.md)
 *Detect → validate → generate copy-paste JSON-LD.*
 
-- [ ] ⚙️🧠 [V3.1 — Schema detector & validator](phase-v3-schema-engine/v3.1-schema-detector.md)
-- [ ] ⚙️ [V3.2 — Schema score & sameAs auditor](phase-v3-schema-engine/v3.2-schema-score-sameas.md)
-- [ ] 🧠 [V3.3 — JSON-LD generator (FAQ/Speakable)](phase-v3-schema-engine/v3.3-jsonld-generator.md)
+- [x] ⚙️🧠 [V3.1 — Schema detector & validator](phase-v3-schema-engine/v3.1-schema-detector.md)
+- [x] ⚙️ [V3.2 — Schema score & sameAs auditor](phase-v3-schema-engine/v3.2-schema-score-sameas.md)
+- [x] 🧠 [V3.3 — JSON-LD generator (FAQ/Speakable)](phase-v3-schema-engine/v3.3-jsonld-generator.md)
 
 ## Phase V4 — [Content & E-E-A-T](phase-v4-content-eeat/README.md)
 *The bridge to our writer; becomes live editor signals in V7.*
 
-- [ ] 🧠 [V4.1 — Content quality & E-E-A-T analyzer](phase-v4-content-eeat/v4.1-eeat-analyzer.md)
-- [ ] ⚙️ [V4.2 — Readability & content-depth analyzer](phase-v4-content-eeat/v4.2-readability.md)
-- [ ] 🧠 [V4.3 — AI-generated-content quality detector](phase-v4-content-eeat/v4.3-ai-content-detector.md)
-- [ ] ⚙️🧠 [V4.4 — Internal linking & topical-authority mapper](phase-v4-content-eeat/v4.4-internal-linking.md)
-- [ ] ⚙️ [V4.5 — Content freshness tracker](phase-v4-content-eeat/v4.5-freshness.md)
+- [x] 🧠 [V4.1 — Content quality & E-E-A-T analyzer](phase-v4-content-eeat/v4.1-eeat-analyzer.md)
+- [x] ⚙️ [V4.2 — Readability & content-depth analyzer](phase-v4-content-eeat/v4.2-readability.md)
+- [x] 🧠 [V4.3 — AI-generated-content quality detector](phase-v4-content-eeat/v4.3-ai-content-detector.md)
+- [x] ⚙️🧠 [V4.4 — Internal linking & topical-authority mapper](phase-v4-content-eeat/v4.4-internal-linking.md)
+- [x] ⚙️ [V4.5 — Content freshness tracker](phase-v4-content-eeat/v4.5-freshness.md)
 
 ## Phase V5 — [GEO depth](phase-v5-geo-depth/README.md)
 *The off-site & platform differentiators competitors don't quantify.*
 
-- [ ] ⚙️🧠 [V5.1 — Brand mention / entity authority scanner](phase-v5-geo-depth/v5.1-brand-scanner.md)
-- [ ] 🧠 [V5.2 — Platform-specific optimizer (5 engines)](phase-v5-geo-depth/v5.2-platform-optimizer.md)
-- [ ] ⚙️ [V5.3 — Agent-readiness signals](phase-v5-geo-depth/v5.3-agent-readiness.md)
-- [ ] 🧠 [V5.4 — Question / "People Also Ask" targeting](phase-v5-geo-depth/v5.4-paa-targeting.md)
+- [x] ⚙️🧠 [V5.1 — Brand mention / entity authority scanner](phase-v5-geo-depth/v5.1-brand-scanner.md)
+- [x] 🧠 [V5.2 — Platform-specific optimizer (5 engines)](phase-v5-geo-depth/v5.2-platform-optimizer.md)
+- [x] ⚙️ [V5.3 — Agent-readiness signals](phase-v5-geo-depth/v5.3-agent-readiness.md)
+- [x] 🧠 [V5.4 — Question / "People Also Ask" targeting](phase-v5-geo-depth/v5.4-paa-targeting.md)
+- [x] 🧠 [V5.5 — AI answer tracking (share-of-answer)](phase-v5-geo-depth/v5.5-ai-answer-tracking.md) — *independent of V5.1–V5.4; pull forward (see build order)*
 
 ## Phase V6 — [Reporting & proof](phase-v6-reporting/README.md)
 *Turn scores into deliverables and prove the gain.*
@@ -100,8 +112,9 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 - [ ] ⚙️ [V6.1 — Client report generator (in-app + Markdown)](phase-v6-reporting/v6.1-client-report.md)
 - [ ] ⚙️ [V6.2 — PDF report generator](phase-v6-reporting/v6.2-pdf-report.md)
 - [ ] ⚙️ [V6.3 — Monthly delta / progress tracker](phase-v6-reporting/v6.3-delta-tracker.md)
-- [ ] ⚙️ [V6.4 — Competitor AI-visibility benchmarking](phase-v6-reporting/v6.4-competitor-benchmark.md)
+- [ ] ⚙️ [V6.4 — Competitor AI-visibility benchmarking](phase-v6-reporting/v6.4-competitor-benchmark.md) — *lite mode after V2.3, full grid after V5*
 - [ ] 🧠 [V6.5 — Answer-block & featured-snippet optimizer](phase-v6-reporting/v6.5-answer-block-optimizer.md)
+- [ ] ⚙️ [V6.6 — Traffic proof (Search Console + AI referrals)](phase-v6-reporting/v6.6-traffic-proof.md) — *independent; connect early so history accrues*
 
 ## Phase V7 — [Auto-fix & agency](phase-v7-autofix/README.md)
 *Our moat (close the loop) and the optional premium upsell.*
@@ -111,15 +124,48 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 - [ ] ⚙️ [V7.3 — Scheduled re-audits & alerts](phase-v7-autofix/v7.3-scheduled-reaudits.md)
 - [ ] ⚙️ [V7.4 — Optional agency tier](phase-v7-autofix/v7.4-agency-tier.md)
 
+## Phase V8 — [Product surface & monetization](phase-v8-surface/README.md)
+*The packaging layer: score page, fix queue, Toolbox, metering, agent. Interleaves with the
+engine phases — see the build order below and the phase README's "When to build what".*
+
+- [x] ⚙️ [V8.1 — Visibility dashboard page](phase-v8-surface/v8.1-visibility-dashboard.md)
+- [x] ⚙️ [V8.2 — Fix queue](phase-v8-surface/v8.2-fix-queue.md)
+- [x] ⚙️ [V8.3 — Toolbox (standalone tool pages)](phase-v8-surface/v8.3-toolbox.md)
+- [x] ⚙️ [V8.4 — Credit metering for visibility jobs](phase-v8-surface/v8.4-credit-metering.md)
+- [x] 🧠 [V8.5 — Claudia visibility agent](phase-v8-surface/v8.5-claudia-visibility-agent.md)
+- [x] ⚙️ [V8.6 — Growth funnel (public tools → signup → first audit)](phase-v8-surface/v8.6-growth-funnel.md)
+
 ---
 
 ## Recommended build order
 
-1. **V0** → **V1** (ship the public checker early — marketing + lead-gen).
-2. **V2** scoring spine (core IP + hero score).
-3. **V3** schema → **V4** content/E-E-A-T (these feed the writer and unlock V7.1).
-4. **V5** GEO depth (the differentiators).
-5. **V6** reporting + delta (prove the gain, justify the subscription).
-6. **V7** auto-fix loop (moat); agency tier only if pursuing resellers.
+The ordering principle: **the demo moment (V5.5) and the proof moments (V6.3, V6.4-lite,
+V6.6) come right after the score exists** — they're what sells and retains, and none of them
+depend on the V3–V5 engine depth. Depth work follows.
 
-Within a phase, do ⚙️ deterministic tickets before 🧠 LLM tickets.
+1. **V0** foundation, then **V8.4** metering (nothing user-triggerable ships unmetered).
+2. **V1** quick wins → ship the **public checker + free tool pages** early (V8.6 funnel work
+   starts here — the free tools are the marketing).
+3. **V2** scoring spine, then immediately **V8.1** score page + **V8.2** fix queue — the score
+   and the queue go live the moment the composite exists.
+4. **Proof sprint (pull-forward):**
+   - **V6.3** delta tracker — nearly free once audits are versioned; the score is never
+     shown without its delta.
+   - **V5.5** AI answer tracking — independent of the audit engine; the demo moment and
+     proof layer 2.
+   - **V6.6** traffic proof — connect GSC/GA4 as early as possible so history accrues.
+   - **V6.4 (lite)** competitor benchmark — technical + citability subset vs one competitor;
+     the full grid lands after V5.
+   - **V8.6** growth funnel — snapshot→signup carry-over, first audit free, badge.
+5. **V3** schema engine, then **V8.3** Toolbox (~9 tools ready — enough to look like a product).
+   From here on, every new analyzer also registers in the Toolbox as part of its ticket.
+6. **V4** content/E-E-A-T (feeds the writer, unlocks V7.1).
+7. **V5** GEO depth (the differentiators; completes the V6.4 grid).
+8. **V6** remaining reporting (V6.1/V6.2 reports, V6.5 answer blocks).
+9. **V7** auto-fix loop (moat — including applying fixes through publishing connectors),
+   then **V8.5** the agent ramp (monitor → propose → auto-apply); agency tier (V7.4) only if
+   pursuing resellers.
+
+Within a phase, do ⚙️ deterministic tickets before 🧠 LLM tickets. All engine tickets must
+honor the two surface contracts (rules 5–6 in `00-principles.md`): dual-mode `run()`
+entry-points and no findings without a `fix_capability`/`fix_payload` when mechanically fixable.
