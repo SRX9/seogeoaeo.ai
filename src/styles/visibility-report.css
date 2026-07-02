@@ -1,0 +1,63 @@
+/* V6.2 — visibility report print stylesheet. Navy/coral palette + score-band
+   color rules (green 80+ / blue 60–79 / amber 40–59 / red <40), mirroring
+   templates/geo-report-style.css. Shared by the PDF renderer and print view. */
+
+:root {
+  --report-navy: #0f172a;
+  --report-coral: #ff6b57;
+  --score-excellent: #16a34a;
+  --score-good: #2563eb;
+  --score-fair: #d97706;
+  --score-poor: #dc2626;
+  --report-border: #e2e8f0;
+}
+
+.vr-cover {
+  background: linear-gradient(135deg, var(--report-navy), #1e293b);
+  color: #fff;
+  padding: 64px 48px;
+  page-break-after: always;
+}
+
+.vr-gauge {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.vr-band {
+  color: var(--report-coral);
+  font-weight: 600;
+}
+
+.vr-score-excellent { color: var(--score-excellent); }
+.vr-score-good { color: var(--score-good); }
+.vr-score-fair { color: var(--score-fair); }
+.vr-score-poor { color: var(--score-poor); }
+
+.vr-report h2 {
+  color: var(--report-navy);
+  border-bottom: 2px solid var(--report-border);
+  padding-bottom: 4px;
+}
+
+.vr-report table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.vr-report td,
+.vr-report th {
+  border: 1px solid var(--report-border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+@media print {
+  .vr-section { page-break-inside: avoid; }
+}

@@ -43,17 +43,17 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 
 ## Progress at a glance
 
-- [ ] **Phase V0 — Foundation** (0/4)
-- [ ] **Phase V1 — Quick wins** (0/5)
-- [ ] **Phase V2 — Scoring spine** (0/3)
-- [ ] **Phase V3 — Schema engine** (0/3)
-- [ ] **Phase V4 — Content & E-E-A-T** (0/5)
-- [ ] **Phase V5 — GEO depth** (0/5)
-- [ ] **Phase V6 — Reporting & proof** (0/6)
-- [ ] **Phase V7 — Auto-fix & agency** (0/4)
-- [ ] **Phase V8 — Product surface & monetization** (0/6)
+- [x] **Phase V0 — Foundation** (4/4)
+- [x] **Phase V1 — Quick wins** (5/5)
+- [x] **Phase V2 — Scoring spine** (3/3)
+- [x] **Phase V3 — Schema engine** (3/3)
+- [x] **Phase V4 — Content & E-E-A-T** (5/5)
+- [x] **Phase V5 — GEO depth** (5/5)
+- [x] **Phase V6 — Reporting & proof** (6/6)
+- [x] **Phase V7 — Auto-fix & agency** (4/4)
+- [x] **Phase V8 — Product surface & monetization** (6/6)
 
-**Total: 0/41 tickets**
+**Total: 41/41 tickets**
 
 ---
 
@@ -77,34 +77,34 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 ## Phase V2 — [Scoring spine](phase-v2-scoring-spine/README.md)
 *The reproducible core IP plus the hero composite score.*
 
-- [ ] ⚙️ [V2.1 — AI citability / passage scorer (flagship)](phase-v2-scoring-spine/v2.1-citability-scorer.md)
-- [ ] ⚙️🧠 [V2.2 — Technical SEO auditor + SSR + CWV](phase-v2-scoring-spine/v2.2-technical-auditor.md)
-- [ ] ⚙️ [V2.3 — Unified audit + composite score](phase-v2-scoring-spine/v2.3-unified-audit.md)
+- [x] ⚙️ [V2.1 — AI citability / passage scorer (flagship)](phase-v2-scoring-spine/v2.1-citability-scorer.md)
+- [x] ⚙️🧠 [V2.2 — Technical SEO auditor + SSR + CWV](phase-v2-scoring-spine/v2.2-technical-auditor.md)
+- [x] ⚙️ [V2.3 — Unified audit + composite score](phase-v2-scoring-spine/v2.3-unified-audit.md)
 
 ## Phase V3 — [Schema engine](phase-v3-schema-engine/README.md)
 *Detect → validate → generate copy-paste JSON-LD.*
 
-- [ ] ⚙️🧠 [V3.1 — Schema detector & validator](phase-v3-schema-engine/v3.1-schema-detector.md)
-- [ ] ⚙️ [V3.2 — Schema score & sameAs auditor](phase-v3-schema-engine/v3.2-schema-score-sameas.md)
-- [ ] 🧠 [V3.3 — JSON-LD generator (FAQ/Speakable)](phase-v3-schema-engine/v3.3-jsonld-generator.md)
+- [x] ⚙️🧠 [V3.1 — Schema detector & validator](phase-v3-schema-engine/v3.1-schema-detector.md)
+- [x] ⚙️ [V3.2 — Schema score & sameAs auditor](phase-v3-schema-engine/v3.2-schema-score-sameas.md)
+- [x] 🧠 [V3.3 — JSON-LD generator (FAQ/Speakable)](phase-v3-schema-engine/v3.3-jsonld-generator.md)
 
 ## Phase V4 — [Content & E-E-A-T](phase-v4-content-eeat/README.md)
 *The bridge to our writer; becomes live editor signals in V7.*
 
-- [ ] 🧠 [V4.1 — Content quality & E-E-A-T analyzer](phase-v4-content-eeat/v4.1-eeat-analyzer.md)
-- [ ] ⚙️ [V4.2 — Readability & content-depth analyzer](phase-v4-content-eeat/v4.2-readability.md)
-- [ ] 🧠 [V4.3 — AI-generated-content quality detector](phase-v4-content-eeat/v4.3-ai-content-detector.md)
-- [ ] ⚙️🧠 [V4.4 — Internal linking & topical-authority mapper](phase-v4-content-eeat/v4.4-internal-linking.md)
-- [ ] ⚙️ [V4.5 — Content freshness tracker](phase-v4-content-eeat/v4.5-freshness.md)
+- [x] 🧠 [V4.1 — Content quality & E-E-A-T analyzer](phase-v4-content-eeat/v4.1-eeat-analyzer.md)
+- [x] ⚙️ [V4.2 — Readability & content-depth analyzer](phase-v4-content-eeat/v4.2-readability.md)
+- [x] 🧠 [V4.3 — AI-generated-content quality detector](phase-v4-content-eeat/v4.3-ai-content-detector.md)
+- [x] ⚙️🧠 [V4.4 — Internal linking & topical-authority mapper](phase-v4-content-eeat/v4.4-internal-linking.md)
+- [x] ⚙️ [V4.5 — Content freshness tracker](phase-v4-content-eeat/v4.5-freshness.md)
 
 ## Phase V5 — [GEO depth](phase-v5-geo-depth/README.md)
 *The off-site & platform differentiators competitors don't quantify.*
 
-- [ ] ⚙️🧠 [V5.1 — Brand mention / entity authority scanner](phase-v5-geo-depth/v5.1-brand-scanner.md)
-- [ ] 🧠 [V5.2 — Platform-specific optimizer (5 engines)](phase-v5-geo-depth/v5.2-platform-optimizer.md)
-- [ ] ⚙️ [V5.3 — Agent-readiness signals](phase-v5-geo-depth/v5.3-agent-readiness.md)
-- [ ] 🧠 [V5.4 — Question / "People Also Ask" targeting](phase-v5-geo-depth/v5.4-paa-targeting.md)
-- [ ] 🧠 [V5.5 — AI answer tracking (share-of-answer)](phase-v5-geo-depth/v5.5-ai-answer-tracking.md) — *independent of V5.1–V5.4; pull forward (see build order)*
+- [x] ⚙️🧠 [V5.1 — Brand mention / entity authority scanner](phase-v5-geo-depth/v5.1-brand-scanner.md)
+- [x] 🧠 [V5.2 — Platform-specific optimizer (5 engines)](phase-v5-geo-depth/v5.2-platform-optimizer.md)
+- [x] ⚙️ [V5.3 — Agent-readiness signals](phase-v5-geo-depth/v5.3-agent-readiness.md)
+- [x] 🧠 [V5.4 — Question / "People Also Ask" targeting](phase-v5-geo-depth/v5.4-paa-targeting.md)
+- [x] 🧠 [V5.5 — AI answer tracking (share-of-answer)](phase-v5-geo-depth/v5.5-ai-answer-tracking.md) — *independent of V5.1–V5.4; pull forward (see build order)*
 
 ## Phase V6 — [Reporting & proof](phase-v6-reporting/README.md)
 *Turn scores into deliverables and prove the gain.*
@@ -128,12 +128,12 @@ in the Worker, and don't need the LLM. LLM-judged tickets are marked 🧠.
 *The packaging layer: score page, fix queue, Toolbox, metering, agent. Interleaves with the
 engine phases — see the build order below and the phase README's "When to build what".*
 
-- [ ] ⚙️ [V8.1 — Visibility dashboard page](phase-v8-surface/v8.1-visibility-dashboard.md)
-- [ ] ⚙️ [V8.2 — Fix queue](phase-v8-surface/v8.2-fix-queue.md)
-- [ ] ⚙️ [V8.3 — Toolbox (standalone tool pages)](phase-v8-surface/v8.3-toolbox.md)
-- [ ] ⚙️ [V8.4 — Credit metering for visibility jobs](phase-v8-surface/v8.4-credit-metering.md)
-- [ ] 🧠 [V8.5 — Claudia visibility agent](phase-v8-surface/v8.5-claudia-visibility-agent.md)
-- [ ] ⚙️ [V8.6 — Growth funnel (public tools → signup → first audit)](phase-v8-surface/v8.6-growth-funnel.md)
+- [x] ⚙️ [V8.1 — Visibility dashboard page](phase-v8-surface/v8.1-visibility-dashboard.md)
+- [x] ⚙️ [V8.2 — Fix queue](phase-v8-surface/v8.2-fix-queue.md)
+- [x] ⚙️ [V8.3 — Toolbox (standalone tool pages)](phase-v8-surface/v8.3-toolbox.md)
+- [x] ⚙️ [V8.4 — Credit metering for visibility jobs](phase-v8-surface/v8.4-credit-metering.md)
+- [x] 🧠 [V8.5 — Claudia visibility agent](phase-v8-surface/v8.5-claudia-visibility-agent.md)
+- [x] ⚙️ [V8.6 — Growth funnel (public tools → signup → first audit)](phase-v8-surface/v8.6-growth-funnel.md)
 
 ---
 

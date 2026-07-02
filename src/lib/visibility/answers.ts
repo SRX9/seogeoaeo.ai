@@ -1,0 +1,253 @@
+import { and, eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { brandProfiles, brands, competitors } from "@/lib/db/schema/brand";
+import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
+import type { Finding } from "./types";
+
+/**
+ * V5.5 — AI answer tracking (share-of-answer). Ask the real answer engines a set
+ * of tracked prompts and record whether the brand — and its competitors — appear
+ * in the answer text (mention) or the returned sources (citation). Share-of-answer
+ * is computed from stored runs. Mention/citation detection is deterministic and
+ * unit-tested; engine adapters degrade gracefully (one engine down ≠ run failed).
+ */
+
+export type EngineName = "chatgpt" | "perplexity" | "gemini";
+export const ENGINES: EngineName[] = ["chatgpt", "perplexity", "gemini"];
+
+export interface EngineAnswer {
+  text: string;
+  citations: string[];
+}
+export type AskEngine = (prompt: string) => Promise<EngineAnswer | null>;
+
+// ── deterministic detection ──────────────────────────────────────────────────
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function apexDomain(input: string): string {
+  try {
+    const host = new URL(input.includes("://") ? input : `https://${input}`).hostname.toLowerCase();
+    const parts = host.replace(/^www\./, "").split(".");
+    return parts.length > 2 ? parts.slice(-2).join(".") : parts.join(".");
+  } catch {
+    return input.toLowerCase();
+  }
+}
+
+/** Name variants for mention matching: lowercased, no-space, hyphenated. */
+export function nameVariants(name: string): string[] {
+  const n = name.trim().toLowerCase();
+  return [...new Set([n, n.replace(/\s+/g, ""), n.replace(/\s+/g, "-")])].filter((v) => v.length >= 2);
+}
+
+export function detectMention(text: string, variants: string[]): boolean {
+  const lower = text.toLowerCase();
+  return variants.some((v) => new RegExp(`(^|[^a-z0-9])${escapeRe(v)}([^a-z0-9]|$)`, "i").test(lower));
+}
+
+export function detectCitation(citations: string[], domain: string): boolean {
+  const apex = apexDomain(domain);
+  return citations.some((c) => apexDomain(c) === apex);
+}
+
+// ── share computation ────────────────────────────────────────────────────────
+export interface EngineShare {
+  engine: EngineName;
+  prompts: number;
+  appeared: number;
+  cited: number;
+  share: number;
+}
+
+export function computeShare(
+  runs: { engine: EngineName; brandMentioned: boolean; brandCited: boolean }[],
+): EngineShare[] {
+  return ENGINES.map((engine) => {
+    const rows = runs.filter((r) => r.engine === engine);
+    const appeared = rows.filter((r) => r.brandMentioned || r.brandCited).length;
+    const cited = rows.filter((r) => r.brandCited).length;
+    return {
+      engine,
+      prompts: rows.length,
+      appeared,
+      cited,
+      share: rows.length ? Math.round((appeared / rows.length) * 100) : 0,
+    };
+  }).filter((s) => s.prompts > 0);
+}
+
+// ── engine adapters (best-effort; null on missing key / failure) ─────────────
+const askChatGPT: AskEngine = async (prompt) => {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gpt-4.1", tools: [{ type: "web_search" }], input: prompt }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { output_text?: string; output?: unknown[] };
+    const citations: string[] = [];
+    let text = data.output_text ?? "";
+    for (const item of data.output ?? []) {
+      for (const c of (item as { content?: unknown[] }).content ?? []) {
+        const part = c as { text?: string; annotations?: { type?: string; url?: string }[] };
+        if (part.text) text += part.text;
+        for (const a of part.annotations ?? []) if (a.type === "url_citation" && a.url) citations.push(a.url);
+      }
+    }
+    return { text, citations };
+  } catch {
+    return null;
+  }
+};
+
+const askPerplexity: AskEngine = async (prompt) => {
+  const key = process.env.PERPLEXITY_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "sonar", messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+      citations?: string[];
+    };
+    return { text: data.choices?.[0]?.message?.content ?? "", citations: data.citations ?? [] };
+  } catch {
+    return null;
+  }
+};
+
+const askGemini: AskEngine = async (prompt) => {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }),
+      },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] }; groundingMetadata?: { groundingChunks?: { web?: { uri?: string } }[] } }[];
+    };
+    const cand = data.candidates?.[0];
+    const text = (cand?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+    const citations = (cand?.groundingMetadata?.groundingChunks ?? [])
+      .map((c) => c.web?.uri)
+      .filter((u): u is string => !!u);
+    return { text, citations };
+  } catch {
+    return null;
+  }
+};
+
+const DEFAULT_ASK: Record<EngineName, AskEngine> = {
+  chatgpt: askChatGPT,
+  perplexity: askPerplexity,
+  gemini: askGemini,
+};
+
+// ── orchestration ────────────────────────────────────────────────────────────
+export interface AnswerCell {
+  promptId: string;
+  prompt: string;
+  engine: EngineName;
+  brandMentioned: boolean;
+  brandCited: boolean;
+  competitors: { name: string; mentioned: boolean; cited: boolean }[];
+  excerpt: string;
+}
+
+export interface AnswerRunResult {
+  cells: AnswerCell[];
+  share: EngineShare[];
+  findings: Finding[];
+}
+
+function buildFindings(cells: AnswerCell[]): Finding[] {
+  const findings: Finding[] = [];
+  for (const cell of cells) {
+    if (cell.brandMentioned || cell.brandCited) continue;
+    const rival = cell.competitors.find((c) => c.cited || c.mentioned);
+    if (!rival) continue;
+    findings.push({
+      pillar: "geo",
+      category: "answer_share",
+      severity: "high",
+      title: `${cell.engine} names ${rival.name}, not you`,
+      recommendation: `For "${cell.prompt}", ${cell.engine} surfaces ${rival.name}. Publish a stronger, more citable answer page for this query.`,
+      fix_capability: "guided",
+      fix_payload: { kind: "answer_gap", prompt: cell.prompt, engine: cell.engine, competitor: rival.name },
+    });
+  }
+  return findings;
+}
+
+/**
+ * Run every active tracked prompt through each engine, persist the runs, and
+ * return the per-engine share plus fix-queue findings for misses.
+ */
+export async function runAnswerCheck(
+  brandId: string,
+  opts: { askImpl?: Partial<Record<EngineName, AskEngine>>; engines?: EngineName[] } = {},
+): Promise<AnswerRunResult> {
+  const db = getDb();
+  const brand = await db.query.brands.findFirst({ where: eq(brands.id, brandId) });
+  if (!brand) throw new Error("Brand not found");
+  const profile = await db.query.brandProfiles.findFirst({ where: eq(brandProfiles.brandId, brandId) });
+  const domain = profile?.website ? apexDomain(profile.website) : "";
+  const comps = await db.select().from(competitors).where(eq(competitors.brandId, brandId));
+  const prompts = await db
+    .select()
+    .from(trackedPrompts)
+    .where(and(eq(trackedPrompts.brandId, brandId), eq(trackedPrompts.active, true)));
+
+  const engines = opts.engines ?? ENGINES;
+  const ask = { ...DEFAULT_ASK, ...opts.askImpl };
+  const brandVars = nameVariants(brand.name);
+  const compMeta = comps.map((c) => ({ name: c.name, variants: nameVariants(c.name), domain: apexDomain(c.url) }));
+
+  const cells: AnswerCell[] = [];
+  const rows: (typeof answerRuns.$inferInsert)[] = [];
+
+  for (const p of prompts) {
+    for (const engine of engines) {
+      const ans = await ask[engine](p.prompt);
+      if (!ans) continue; // engine down — skip this cell, run still succeeds
+      const brandMentioned = detectMention(ans.text, brandVars);
+      const brandCited = !!domain && detectCitation(ans.citations, domain);
+      const competitorsFlags = compMeta.map((c) => ({
+        name: c.name,
+        mentioned: detectMention(ans.text, c.variants),
+        cited: detectCitation(ans.citations, c.domain),
+      }));
+      rows.push({
+        brandId,
+        promptId: p.id,
+        engine,
+        answerExcerpt: ans.text.slice(0, 500),
+        brandMentioned,
+        brandCited,
+        mentions: competitorsFlags,
+      });
+      cells.push({ promptId: p.id, prompt: p.prompt, engine, brandMentioned, brandCited, competitors: competitorsFlags, excerpt: ans.text.slice(0, 300) });
+    }
+  }
+
+  if (rows.length) await db.insert(answerRuns).values(rows);
+
+  return {
+    cells,
+    share: computeShare(rows.map((r) => ({ engine: r.engine as EngineName, brandMentioned: !!r.brandMentioned, brandCited: !!r.brandCited }))),
+    findings: buildFindings(cells),
+  };
+}

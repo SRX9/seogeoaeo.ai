@@ -7,9 +7,11 @@ import {
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { workspaces } from "./app";
+import { brands } from "./brand";
 
 /**
  * Visibility-suite audit tables (Phase V0.3). Every run is persisted so later
@@ -29,6 +31,8 @@ export const audits = pgTable(
     /** running | complete | failed */
     status: text("status").notNull().default("running"),
     overallScore: real("overall_score"),
+    /** GEO-dashboard rollup (V2.3): citability·35 + brand·30 + crawler·25 + llmstxt·10. */
+    aiVisibilityScore: real("ai_visibility_score"),
     citabilityScore: real("citability_score"),
     brandScore: real("brand_score"),
     eeatScore: real("eeat_score"),
@@ -70,9 +74,12 @@ export const auditFindings = pgTable(
   "audit_findings",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    auditId: uuid("audit_id")
-      .notNull()
-      .references(() => audits.id, { onDelete: "cascade" }),
+    /** Denormalized so the fix queue (V8.2) queries findings from audits AND tool runs uniformly. */
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Null for standalone Toolbox-run findings (V8.3). */
+    auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
+    /** Set when the finding came from a standalone Toolbox run (V8.3). */
+    toolRunId: uuid("tool_run_id"),
     /** seo | aeo | geo */
     pillar: text("pillar").notNull(),
     category: text("category").notNull(),
@@ -150,4 +157,126 @@ export const platformScores = pgTable(
     breakdown: jsonb("breakdown"),
   },
   (table) => [index("platform_scores_audit_id_idx").on(table.auditId)],
+);
+
+/** V5.5 — prompts we track share-of-answer for, per brand. */
+export const trackedPrompts = pgTable(
+  "tracked_prompts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    /** suggested | user */
+    source: text("source").notNull().default("suggested"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("tracked_prompts_brand_id_idx").on(table.brandId)],
+);
+
+/** V5.5 — one row per prompt × engine per run; share-of-answer derives from these. */
+export const answerRuns = pgTable(
+  "answer_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    promptId: uuid("prompt_id")
+      .notNull()
+      .references(() => trackedPrompts.id, { onDelete: "cascade" }),
+    /** chatgpt | perplexity | gemini */
+    engine: text("engine").notNull(),
+    ranAt: timestamp("ran_at", { withTimezone: true }).defaultNow().notNull(),
+    answerExcerpt: text("answer_excerpt"),
+    brandMentioned: boolean("brand_mentioned").notNull().default(false),
+    brandCited: boolean("brand_cited").notNull().default(false),
+    /** Per-competitor { mentioned, cited } flags. */
+    mentions: jsonb("mentions"),
+  },
+  (table) => [
+    index("answer_runs_brand_id_idx").on(table.brandId),
+    index("answer_runs_prompt_id_idx").on(table.promptId),
+  ],
+);
+
+/** V8.3 — standalone Toolbox runs (per-run priced). Findings still go to audit_findings. */
+export const toolRuns = pgTable(
+  "tool_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
+    slug: text("slug").notNull(),
+    input: jsonb("input"),
+    result: jsonb("result"),
+    score: real("score"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("tool_runs_workspace_id_idx").on(table.workspaceId)],
+);
+
+/** V8.5 — Claudia's per-category visibility autonomy (0 monitor · 1 propose · 2 auto-apply). */
+export const agentAutonomy = pgTable(
+  "agent_autonomy",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    level: integer("level").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("agent_autonomy_brand_category_unique").on(table.brandId, table.category)],
+);
+
+/** V7.4 — agency CRM prospects (optional tier). */
+export const prospects = pgTable(
+  "prospects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    url: text("url"),
+    score: real("score"),
+    /** lead | qualified | proposal | won | lost */
+    stage: text("stage").notNull().default("lead"),
+    mrr: real("mrr"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("prospects_workspace_id_idx").on(table.workspaceId)],
+);
+
+/** V6.6 — daily traffic proof from GSC / GA4. Idempotent per (brand, source, date). */
+export const trafficSnapshots = pgTable(
+  "traffic_snapshots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** gsc | ga4 */
+    source: text("source").notNull(),
+    /** ISO date (YYYY-MM-DD) of the snapshot. */
+    date: text("date").notNull(),
+    clicks: integer("clicks"),
+    impressions: integer("impressions"),
+    avgPosition: real("avg_position"),
+    /** Per-engine AI-referral sessions (GA4). */
+    aiReferrals: jsonb("ai_referrals"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("traffic_snapshots_brand_id_idx").on(table.brandId),
+    uniqueIndex("traffic_snapshots_brand_source_date_unique").on(table.brandId, table.source, table.date),
+  ],
 );

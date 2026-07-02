@@ -16,6 +16,20 @@ export function isActiveSubscription(status: string | null | undefined) {
 
 export type PlanId = "indie" | "startup" | "scale" | "enterprise";
 
+/** Visibility-suite plan caps (V8.4) — gate cadence + counts like article caps. */
+export type VisibilityCaps = {
+  /** Auto re-audit cadence for Claudia's monitoring (V7.3/V8.5). */
+  monitoringCadence: "none" | "monthly" | "weekly";
+  /** Tracked-prompt count for answer-share (V5.5). */
+  trackedPrompts: number;
+  /** Auto-fixes Claudia may apply per month (plan-included, not credits). */
+  autoFixCap: number;
+  /** Competitors benchmarked (V6.4). */
+  competitors: number;
+  /** Whether PDF reports are plan-included (V6.2). */
+  pdfReports: boolean;
+};
+
 export type Plan = {
   id: PlanId;
   name: string;
@@ -29,22 +43,58 @@ export type Plan = {
    * whichever runs out first (this cap or the credit balance) stops writing.
    */
   dailyArticleCap: number;
+  visibility: VisibilityCaps;
 };
 
 const planIds: PlanId[] = ["indie", "startup", "scale", "enterprise"];
 
 export const plans: Record<PlanId, Plan> = {
-  indie: { id: "indie", name: "Indie", price: 29, monthlyCredits: 2000, dailyArticleCap: 1 },
-  startup: { id: "startup", name: "Startup", price: 69, monthlyCredits: 5000, dailyArticleCap: 3 },
-  scale: { id: "scale", name: "Scale", price: 199, monthlyCredits: 22000, dailyArticleCap: 10 },
+  indie: {
+    id: "indie",
+    name: "Indie",
+    price: 29,
+    monthlyCredits: 2000,
+    dailyArticleCap: 1,
+    visibility: { monitoringCadence: "monthly", trackedPrompts: 5, autoFixCap: 10, competitors: 1, pdfReports: false },
+  },
+  startup: {
+    id: "startup",
+    name: "Startup",
+    price: 69,
+    monthlyCredits: 5000,
+    dailyArticleCap: 3,
+    visibility: { monitoringCadence: "monthly", trackedPrompts: 10, autoFixCap: 30, competitors: 3, pdfReports: true },
+  },
+  scale: {
+    id: "scale",
+    name: "Scale",
+    price: 199,
+    monthlyCredits: 22000,
+    dailyArticleCap: 10,
+    visibility: { monitoringCadence: "weekly", trackedPrompts: 25, autoFixCap: 100, competitors: 5, pdfReports: true },
+  },
   enterprise: {
     id: "enterprise",
     name: "Enterprise",
     price: 499,
     monthlyCredits: 130000,
     dailyArticleCap: 40,
+    visibility: { monitoringCadence: "weekly", trackedPrompts: 100, autoFixCap: 1000, competitors: 20, pdfReports: true },
   },
 };
+
+const FREE_VISIBILITY_CAPS: VisibilityCaps = {
+  monitoringCadence: "none",
+  trackedPrompts: 0,
+  autoFixCap: 0,
+  competitors: 0,
+  pdfReports: false,
+};
+
+/** Visibility caps for a plan id — unknown / "free" (unsubscribed) gets nothing. */
+export function visibilityCapsForPlan(planId: string | null | undefined): VisibilityCaps {
+  return getPlan(planId ?? "")?.visibility ?? FREE_VISIBILITY_CAPS;
+}
 
 export function getPlan(planId: string): Plan | undefined {
   return plans[planId as PlanId];

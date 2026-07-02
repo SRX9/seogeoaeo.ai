@@ -21,6 +21,26 @@ export const SUBSCORE_LABELS: Record<SubScore["key"], string> = {
   platform: "AI engine readiness",
 };
 
+/** One-line "what's this" explainers for the sub-score tiles (owner language). */
+export const SUBSCORE_EXPLAINERS: Record<SubScore["key"], string> = {
+  citability: "How easily AI assistants can lift a clean, self-contained answer from your pages.",
+  brand: "How well-known your brand is on the places AI learns about companies (Wikipedia, YouTube, Reddit).",
+  eeat: "Whether your content shows real experience, expertise, and trustworthiness.",
+  technical: "Whether search engines and AI crawlers can actually read and index your site.",
+  schema: "The structured data that tells engines exactly what your pages are about.",
+  platform: "How ready your site is for each AI engine (ChatGPT, Perplexity, Gemini, and more).",
+};
+
+/** The three surface pillars each sub-score rolls up under, for grouping tiles. */
+export const SUBSCORE_PILLAR: Record<SubScore["key"], Pillar> = {
+  technical: "seo",
+  eeat: "seo",
+  citability: "aeo",
+  schema: "aeo",
+  brand: "geo",
+  platform: "geo",
+};
+
 /** Quick-snapshot signal labels (V1.5 public result). */
 export const QUICK_SIGNAL_LABELS = {
   crawlerAccess: "AI assistants can reach your site",

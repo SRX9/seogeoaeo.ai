@@ -4,6 +4,7 @@ import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
+import { InsufficientCreditsError, spendForVisibilityJob } from "@/lib/usage/credits";
 import { createAudit, executeAudit } from "@/server/visibility/run-audit";
 
 const startAuditSchema = z.object({
@@ -21,6 +22,15 @@ export async function POST(request: Request) {
     const { url } = parseBody(startAuditSchema, await readJson(request));
 
     const auditId = await createAudit(workspace.id, url);
+    // Meter before work starts; refId = auditId keeps retries idempotent.
+    try {
+      await spendForVisibilityJob(workspace.id, "visibility_audit", auditId);
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        throw new HttpError(402, error.message);
+      }
+      throw error;
+    }
     const run = executeAudit(auditId, url).catch((error) => {
       console.error("[visibility] audit execution failed", error);
     });

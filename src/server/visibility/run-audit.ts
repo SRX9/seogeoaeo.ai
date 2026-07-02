@@ -1,16 +1,28 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { auditFindings, auditPages, audits } from "@/lib/db/schema/visibility";
+import {
+  auditFindings,
+  auditPages,
+  audits,
+  brandSignals,
+  platformScores,
+} from "@/lib/db/schema/visibility";
+import { collectSameAs, scanBrand } from "@/lib/visibility/brand";
 import { classifyBusinessType } from "@/lib/visibility/business-type";
+import { analyzePageCitability } from "@/lib/visibility/citability";
+import { analyzeFreshness } from "@/lib/visibility/content";
+import { analyzeCrawlerAccess } from "@/lib/visibility/crawler-access";
 import { fetchPage } from "@/lib/visibility/fetch-page";
-import { fetchLlmsTxt } from "@/lib/visibility/llms";
+import { analyzeLlmsTxt, fetchLlmsTxt } from "@/lib/visibility/llms";
+import { analyzePlatforms } from "@/lib/visibility/platforms";
 import { fetchRobots } from "@/lib/visibility/robots";
+import { siteHints } from "@/lib/visibility/schema/generate";
+import { computeAiVisibility, computeComposite } from "@/lib/visibility/scoring";
 import { crawlSitemap } from "@/lib/visibility/sitemap";
 import type {
   AnalyzerResult,
   PageSnapshot,
   RobotsResult,
-  SubScore,
 } from "@/lib/visibility/types";
 import { analyzers } from "./analyzers";
 
@@ -27,16 +39,6 @@ export const QUALITY_GATES = {
   requestSpacingMs: 1_000,
   pageTimeoutMs: 30_000,
 } as const;
-
-/** Composite weights (V2.3 wires the real formula; stubs yield null). */
-const WEIGHTS: Record<SubScore["key"], number> = {
-  citability: 0.25,
-  brand: 0.2,
-  eeat: 0.2,
-  technical: 0.15,
-  schema: 0.1,
-  platform: 0.1,
-};
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -113,6 +115,32 @@ async function persistPage(auditId: string, snapshot: PageSnapshot) {
   return row.id;
 }
 
+/** Persist V5.1 brand_signals + V5.2 platform_scores detail rows. */
+async function persistOffSiteSignals(
+  auditId: string,
+  brand: Awaited<ReturnType<typeof scanBrand>>,
+  platforms: ReturnType<typeof analyzePlatforms>,
+): Promise<void> {
+  const db = getDb();
+  await db.insert(brandSignals).values(
+    brand.platforms.map((p) => ({
+      auditId,
+      platform: p.platform,
+      status: p.detected ? "present" : "absent",
+      score: p.earned,
+      evidence: { weight: p.weight, searchUrl: p.searchUrl },
+    })),
+  );
+  await db.insert(platformScores).values(
+    platforms.platforms.map((p) => ({
+      auditId,
+      platform: p.platform,
+      score: p.score,
+      breakdown: p.breakdown,
+    })),
+  );
+}
+
 /** Create the audit row; the caller decides whether to await execution. */
 export async function createAudit(workspaceId: string, siteUrl: string): Promise<string> {
   const db = getDb();
@@ -132,6 +160,11 @@ export async function createAudit(workspaceId: string, siteUrl: string): Promise
 /** Run the 3 stages for an existing audit row. Never throws — failures land in the row. */
 export async function executeAudit(auditId: string, siteUrl: string): Promise<void> {
   const db = getDb();
+  const auditRow = await db.query.audits.findFirst({
+    where: eq(audits.id, auditId),
+    columns: { workspaceId: true },
+  });
+  const workspaceId = auditRow?.workspaceId ?? null;
   try {
     // ── Discovery ────────────────────────────────────────────────────────
     const homepage = await fetchPage(siteUrl, { timeoutMs: QUALITY_GATES.pageTimeoutMs });
@@ -170,8 +203,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
       })
       .where(eq(audits.id, auditId));
 
-    // Fan-out over discovered pages (gated). Analyzers are stubs in V0, so
-    // only persist the pages — later phases feed them into the registry.
+    // Fan-out over discovered pages (gated), persisting the valid ones.
     const pages = await fetchPagesWithGates(discoveredUrls);
     for (const page of pages) {
       if (page.status_code !== null && page.status_code < 400) {
@@ -179,24 +211,42 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
       }
     }
 
-    // ── Analysis (parallel, mirrors the 5 subagents) ─────────────────────
+    // Off-site signals (V5.1/V5.2) — computed once and shared by both analyzers.
+    const brand = await scanBrand(siteHints(homepage).name, new URL(siteUrl).host, {
+      sameAsUrls: collectSameAs(homepage.structured_data),
+    });
+    const platforms = analyzePlatforms({
+      snapshot: homepage,
+      brand,
+      citabilityScore: analyzePageCitability(homepage.html).page_score,
+      crawlerScore: analyzeCrawlerAccess(robots).score,
+      freshnessScore: analyzeFreshness(homepage).score,
+    });
+    await persistOffSiteSignals(auditId, brand, platforms);
+
+    // ── Analysis (parallel, mirrors the 6 subagents) ─────────────────────
     const analyzerResults: AnalyzerResult[] = await Promise.all(
       analyzers.map((run) =>
-        run({ homepage, pages, robots, llms, businessType: businessType.type }),
+        run({ homepage, pages, robots, llms, businessType: businessType.type, brand, platforms }),
       ),
     );
 
     // ── Synthesis ────────────────────────────────────────────────────────
+    // Missing analyzers count as 0 so partial audits still yield a composite.
+    const composite = computeComposite(analyzerResults.map((r) => r.subScore));
     const subScores = new Map(analyzerResults.map((r) => [r.subScore.key, r.subScore.score]));
-    const allScored = [...subScores.values()].every((score) => score !== null);
-    const overall = allScored
-      ? [...subScores.entries()].reduce((sum, [key, score]) => sum + WEIGHTS[key] * (score ?? 0), 0)
-      : null;
+    const aiVisibility = computeAiVisibility({
+      citability: subScores.get("citability") ?? 0,
+      brand: subScores.get("brand") ?? 0,
+      crawler: analyzeCrawlerAccess(robots).score,
+      llmstxt: analyzeLlmsTxt(llms).score,
+    });
 
     const findings = analyzerResults.flatMap((r) => r.findings);
     if (findings.length > 0) {
       await db.insert(auditFindings).values(
         findings.map((f) => ({
+          workspaceId,
           auditId,
           pillar: f.pillar,
           category: f.category,
@@ -213,7 +263,8 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
       .update(audits)
       .set({
         status: "complete",
-        overallScore: overall,
+        overallScore: composite.overall,
+        aiVisibilityScore: aiVisibility,
         citabilityScore: subScores.get("citability") ?? null,
         brandScore: subScores.get("brand") ?? null,
         eeatScore: subScores.get("eeat") ?? null,
