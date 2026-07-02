@@ -31,7 +31,7 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
       return {
         kind: "schema",
         mode: "snippet",
-        content: `<script type="application/ld+json">\n${JSON.stringify(p.jsonLd ?? p, null, 2)}\n</script>`,
+        content: `<script type="application/ld+json">\n${JSON.stringify(p.jsonLd ?? p, null, 2).replace(/</g, "\\u003c")}\n</script>`,
         instructions: "Paste this into your page <head>. On connected sites we insert it for you.",
       };
     case "llms_txt":
@@ -75,17 +75,26 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
   }
 }
 
+const esc = (s: unknown) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Open Graph uses `property=`; Twitter and standard meta tags use `name=`. */
+function metaTag(key: string, value: unknown): string {
+  const attr = key.startsWith("og:") ? "property" : "name";
+  return `<meta ${attr}="${esc(key)}" content="${esc(value)}" />`;
+}
+
 function metaSnippet(p: Record<string, unknown>): string {
   if (p.tag && p.suggested != null) {
     const tag = String(p.tag);
-    if (tag === "title") return `<title>${p.suggested}</title>`;
-    if (tag === "canonical") return `<link rel="canonical" href="${p.suggested}" />`;
-    return `<meta name="${tag}" content="${p.suggested}" />`;
+    if (tag === "title") return `<title>${esc(p.suggested)}</title>`;
+    if (tag === "canonical") return `<link rel="canonical" href="${esc(p.suggested)}" />`;
+    return metaTag(tag, p.suggested);
   }
   const suggested = (p.suggested ?? {}) as Record<string, unknown>;
   return Object.entries(suggested)
     .filter(([, v]) => v != null)
-    .map(([k, v]) => `<meta property="${k}" content="${v}" />`)
+    .map(([k, v]) => metaTag(k, v))
     .join("\n");
 }
 

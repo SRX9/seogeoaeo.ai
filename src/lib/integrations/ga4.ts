@@ -44,12 +44,14 @@ export async function fetchGa4Sessions(
   const data = (await res.json()) as {
     rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[];
   };
-  return (data.rows ?? []).map((r) => ({
-    // GA4 date dimension is YYYYMMDD → normalize to ISO.
-    date: r.dimensionValues[0].value.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3"),
-    referrer: r.dimensionValues[1].value,
-    sessions: Number(r.metricValues[0].value) || 0,
-  }));
+  return (data.rows ?? [])
+    .map((r) => ({
+      // GA4 date dimension is YYYYMMDD → normalize to ISO.
+      date: (r.dimensionValues?.[0]?.value ?? "").replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3"),
+      referrer: r.dimensionValues?.[1]?.value ?? "",
+      sessions: Number(r.metricValues?.[0]?.value) || 0,
+    }))
+    .filter((row) => row.date && row.referrer);
 }
 
 /** Pull + upsert per-date AI-referral counts. Returns the number of dates stored. */

@@ -4,7 +4,11 @@ import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from
 import { getDb } from "@/lib/db";
 import { brandProfiles, brands } from "@/lib/db/schema/brand";
 import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
-import { InsufficientCreditsError, spendForVisibilityJob } from "@/lib/usage/credits";
+import {
+  assertVisibilityCredits,
+  InsufficientCreditsError,
+  spendForVisibilityJob,
+} from "@/lib/usage/credits";
 import { computeShare, type EngineName, runAnswerCheck } from "@/lib/visibility/answers";
 import { suggestPrompts } from "@/lib/visibility/prompt-suggestions";
 
@@ -67,15 +71,19 @@ export async function POST(request: Request) {
       return jsonOk({ prompts: rows }, { status: 201 });
     }
 
-    // action === "run" — meter the on-demand answer check (V8.4).
-    const runId = crypto.randomUUID();
+    // action === "run" — pre-check (402) without charging, then charge only if the
+    // run produced results (at least one engine answered), so empty runs (no engine
+    // keys, or no active prompts) are never billed.
     try {
-      await spendForVisibilityJob(workspace.id, "answer_run", runId, brandId);
+      await assertVisibilityCredits(workspace.id, "answer_run");
     } catch (error) {
       if (error instanceof InsufficientCreditsError) throw new HttpError(402, error.message);
       throw error;
     }
     const result = await runAnswerCheck(brandId);
+    if (result.cells.length > 0) {
+      await spendForVisibilityJob(workspace.id, "answer_run", crypto.randomUUID(), brandId);
+    }
     return jsonOk(result);
   });
 }

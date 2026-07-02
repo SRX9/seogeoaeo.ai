@@ -169,8 +169,12 @@ export async function deleteAudit(auditId: string): Promise<void> {
   await db.delete(audits).where(eq(audits.id, auditId));
 }
 
-/** Run the 3 stages for an existing audit row. Never throws — failures land in the row. */
-export async function executeAudit(auditId: string, siteUrl: string): Promise<void> {
+/**
+ * Run the 3 stages for an existing audit row. Never throws — failures land in the
+ * row. Returns `true` only when the audit completed, so callers can charge credits
+ * for successful work and skip charging for failures.
+ */
+export async function executeAudit(auditId: string, siteUrl: string): Promise<boolean> {
   const db = getDb();
   const auditRow = await db.query.audits.findFirst({
     where: eq(audits.id, auditId),
@@ -185,9 +189,10 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
         homepage.errors[0] ?? `Homepage returned status ${homepage.status_code}`,
       );
     }
-    const [robots, sitemapPages, llms, businessType] = await Promise.all([
-      fetchRobots(siteUrl),
-      crawlSitemap(siteUrl, QUALITY_GATES.maxPages),
+    // Fetch robots first so sitemap discovery can honor its `Sitemap:` directives.
+    const robots = await fetchRobots(siteUrl);
+    const [sitemapPages, llms, businessType] = await Promise.all([
+      crawlSitemap(siteUrl, QUALITY_GATES.maxPages, { sitemaps: robots.sitemaps }),
       fetchLlmsTxt(siteUrl),
       classifyBusinessType(homepage),
     ]);
@@ -227,11 +232,13 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
     const brand = await scanBrand(siteHints(homepage).name, new URL(siteUrl).host, {
       sameAsUrls: collectSameAs(homepage.structured_data),
     });
+    // Computed once and reused below for the AI-visibility rollup.
+    const crawlerScore = analyzeCrawlerAccess(robots).score;
     const platforms = analyzePlatforms({
       snapshot: homepage,
       brand,
       citabilityScore: analyzePageCitability(homepage.html).page_score,
-      crawlerScore: analyzeCrawlerAccess(robots).score,
+      crawlerScore,
       freshnessScore: analyzeFreshness(homepage).score,
     });
     await persistOffSiteSignals(auditId, brand, platforms);
@@ -250,7 +257,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
     const aiVisibility = computeAiVisibility({
       citability: subScores.get("citability") ?? 0,
       brand: subScores.get("brand") ?? 0,
-      crawler: analyzeCrawlerAccess(robots).score,
+      crawler: crawlerScore,
       llmstxt: analyzeLlmsTxt(llms).score,
     });
 
@@ -286,6 +293,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
         completedAt: new Date(),
       })
       .where(eq(audits.id, auditId));
+    return true;
   } catch (error) {
     await db
       .update(audits)
@@ -295,6 +303,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<vo
         completedAt: new Date(),
       })
       .where(eq(audits.id, auditId));
+    return false;
   }
 }
 

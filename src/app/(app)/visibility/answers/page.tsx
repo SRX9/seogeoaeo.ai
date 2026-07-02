@@ -49,7 +49,7 @@ export default function AnswersPage() {
     try {
       const res = await fetch("/api/visibility/answers");
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to load");
-      setData((await res.json()).data);
+      setData(await res.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     }

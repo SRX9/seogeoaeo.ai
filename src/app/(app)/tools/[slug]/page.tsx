@@ -38,7 +38,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       });
       if (res.status === 402) throw new Error("Out of credits — top up to run this tool.");
       if (!res.ok) throw new Error((await res.json()).error ?? "Run failed");
-      setResult((await res.json()).data);
+      setResult(await res.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Run failed");
     } finally {

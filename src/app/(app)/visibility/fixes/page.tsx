@@ -27,7 +27,7 @@ export default function FixQueuePage() {
 
   const load = useCallback(async () => {
     const res = await fetch("/api/visibility/findings");
-    if (res.ok) setFindings((await res.json()).data.findings);
+    if (res.ok) setFindings((await res.json()).findings);
   }, []);
   useEffect(() => {
     void load();

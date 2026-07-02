@@ -30,7 +30,7 @@ export default function ReportPage({ params }: { params: Promise<{ auditId: stri
     try {
       const res = await fetch(`/api/visibility/${auditId}/report`);
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to load report");
-      const { data } = await res.json();
+      const data = await res.json();
       setModel(data.model);
       setMarkdown(data.markdown);
     } catch (e) {

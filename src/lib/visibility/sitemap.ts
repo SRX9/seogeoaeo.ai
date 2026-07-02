@@ -9,6 +9,8 @@ import { DEFAULT_HEADERS } from "./fetch-page";
 interface SitemapOptions {
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  /** Sitemap URLs declared in robots.txt — tried before the common locations. */
+  sitemaps?: string[];
 }
 
 function extractBlocks(xml: string, tag: "sitemap" | "url"): string[] {
@@ -29,11 +31,13 @@ export async function crawlSitemap(
   const { origin } = new URL(url);
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 15_000;
+  // robots.txt Sitemap: directives first, then the common fallback locations.
   const candidates = [
+    ...(opts.sitemaps ?? []),
     `${origin}/sitemap.xml`,
     `${origin}/sitemap_index.xml`,
     `${origin}/sitemap/`,
-  ];
+  ].filter((v, i, a) => a.indexOf(v) === i);
 
   const discovered = new Set<string>();
 
@@ -43,7 +47,13 @@ export async function crawlSitemap(
         headers: DEFAULT_HEADERS,
         signal: AbortSignal.timeout(timeoutMs),
       });
-      return response.status === 200 ? await response.text() : null;
+      if (response.status !== 200) return null;
+      // Gzipped sitemaps (.xml.gz) aren't auto-decoded when served as a file.
+      if (/\.gz(\?|$)/i.test(target) && response.body) {
+        const stream = response.body.pipeThrough(new DecompressionStream("gzip"));
+        return await new Response(stream).text();
+      }
+      return await response.text();
     } catch {
       return null;
     }

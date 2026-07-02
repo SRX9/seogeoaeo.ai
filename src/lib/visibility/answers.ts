@@ -24,11 +24,20 @@ export type AskEngine = (prompt: string) => Promise<EngineAnswer | null>;
 // ── deterministic detection ──────────────────────────────────────────────────
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Common multi-part public suffixes, so mybrand.co.uk resolves to mybrand.co.uk
+// (not the bare "co.uk", which would match every site on that suffix).
+const MULTI_PART_TLDS = new Set([
+  "co.uk", "org.uk", "gov.uk", "ac.uk", "co.jp", "com.au", "net.au", "org.au",
+  "co.nz", "com.br", "co.in", "co.za", "com.mx", "com.sg", "co.kr", "com.tr",
+]);
+
 export function apexDomain(input: string): string {
   try {
     const host = new URL(input.includes("://") ? input : `https://${input}`).hostname.toLowerCase();
     const parts = host.replace(/^www\./, "").split(".");
-    return parts.length > 2 ? parts.slice(-2).join(".") : parts.join(".");
+    if (parts.length <= 2) return parts.join(".");
+    const lastTwo = parts.slice(-2).join(".");
+    return MULTI_PART_TLDS.has(lastTwo) ? parts.slice(-3).join(".") : lastTwo;
   } catch {
     return input.toLowerCase();
   }
@@ -219,28 +228,37 @@ export async function runAnswerCheck(
   const cells: AnswerCell[] = [];
   const rows: (typeof answerRuns.$inferInsert)[] = [];
 
-  for (const p of prompts) {
-    for (const engine of engines) {
-      const ans = await ask[engine](p.prompt);
-      if (!ans) continue; // engine down — skip this cell, run still succeeds
-      const brandMentioned = detectMention(ans.text, brandVars);
-      const brandCited = !!domain && detectCitation(ans.citations, domain);
-      const competitorsFlags = compMeta.map((c) => ({
-        name: c.name,
-        mentioned: detectMention(ans.text, c.variants),
-        cited: detectCitation(ans.citations, c.domain),
-      }));
-      rows.push({
-        brandId,
-        promptId: p.id,
-        engine,
-        answerExcerpt: ans.text.slice(0, 500),
-        brandMentioned,
-        brandCited,
-        mentions: competitorsFlags,
-      });
-      cells.push({ promptId: p.id, prompt: p.prompt, engine, brandMentioned, brandCited, competitors: competitorsFlags, excerpt: ans.text.slice(0, 300) });
-    }
+  // Fire every prompt × engine call concurrently — they're independent external
+  // requests. A thrown adapter is isolated to its own cell (null = engine down).
+  const tasks = prompts.flatMap((p) => engines.map((engine) => ({ p, engine })));
+  const answers = await Promise.all(
+    tasks.map(({ p, engine }) =>
+      ask[engine](p.prompt).then(
+        (ans) => ({ p, engine, ans }),
+        () => ({ p, engine, ans: null as EngineAnswer | null }),
+      ),
+    ),
+  );
+
+  for (const { p, engine, ans } of answers) {
+    if (!ans) continue; // engine down — skip this cell, run still succeeds
+    const brandMentioned = detectMention(ans.text, brandVars);
+    const brandCited = !!domain && detectCitation(ans.citations, domain);
+    const competitorsFlags = compMeta.map((c) => ({
+      name: c.name,
+      mentioned: detectMention(ans.text, c.variants),
+      cited: detectCitation(ans.citations, c.domain),
+    }));
+    rows.push({
+      brandId,
+      promptId: p.id,
+      engine,
+      answerExcerpt: ans.text.slice(0, 500),
+      brandMentioned,
+      brandCited,
+      mentions: competitorsFlags,
+    });
+    cells.push({ promptId: p.id, prompt: p.prompt, engine, brandMentioned, brandCited, competitors: competitorsFlags, excerpt: ans.text.slice(0, 300) });
   }
 
   if (rows.length) await db.insert(answerRuns).values(rows);

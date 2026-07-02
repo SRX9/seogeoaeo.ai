@@ -31,7 +31,7 @@ export default function VisibilityPage() {
 
   const load = useCallback(async () => {
     const res = await fetch("/api/visibility/summary");
-    if (res.ok) setSummary((await res.json()).data);
+    if (res.ok) setSummary(await res.json());
   }, []);
   useEffect(() => {
     void load();

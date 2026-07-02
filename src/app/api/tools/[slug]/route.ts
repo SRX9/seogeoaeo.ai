@@ -2,7 +2,11 @@ import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { getDb } from "@/lib/db";
 import { auditFindings, toolRuns } from "@/lib/db/schema/visibility";
-import { InsufficientCreditsError, spendForVisibilityJob } from "@/lib/usage/credits";
+import {
+  assertVisibilityCredits,
+  InsufficientCreditsError,
+  spendForVisibilityJob,
+} from "@/lib/usage/credits";
 import { getTool } from "@/lib/visibility/toolbox-registry";
 
 /**
@@ -17,14 +21,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     if (!tool) throw new HttpError(404, "Unknown tool");
 
     const { input } = parseBody(z.object({ input: z.string().min(1).max(200_000) }), await readJson(request));
-    const runId = crypto.randomUUID();
+    // Pre-check (402) without charging; charge only after tool.run() succeeds so a
+    // failed run (e.g. an unreachable/invalid URL) never burns credits.
     try {
-      await spendForVisibilityJob(workspace.id, tool.costKey, runId);
+      await assertVisibilityCredits(workspace.id, tool.costKey);
     } catch (error) {
       if (error instanceof InsufficientCreditsError) throw new HttpError(402, error.message);
       throw error;
     }
 
+    const runId = crypto.randomUUID();
     const result = await tool.run(input);
     const db = getDb();
     await db.insert(toolRuns).values({
@@ -51,6 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       );
     }
 
+    await spendForVisibilityJob(workspace.id, tool.costKey, runId);
     return jsonOk({ runId, score: result.score, findings: result.findings, data: result.data });
   });
 }

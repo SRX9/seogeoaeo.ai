@@ -37,6 +37,22 @@ export interface ReauditAlert {
   reasons: string[];
 }
 
+/**
+ * Count criticals in the new audit that weren't already critical in the baseline
+ * (matched by category + title), so a persistent critical doesn't re-alert every
+ * cycle — only genuinely new ones do.
+ */
+async function countNewCriticals(baselineId: string, currentId: string): Promise<number> {
+  const db = getDb();
+  const key = (f: { category: string; title: string }) => `${f.category}::${f.title}`;
+  const [baseline, current] = await Promise.all([
+    db.select().from(auditFindings).where(eq(auditFindings.auditId, baselineId)),
+    db.select().from(auditFindings).where(eq(auditFindings.auditId, currentId)),
+  ]);
+  const had = new Set(baseline.filter((f) => f.severity === "critical").map(key));
+  return current.filter((f) => f.severity === "critical" && !had.has(key(f))).length;
+}
+
 /** Latest audit per (workspace, site) — the baseline for each re-audit. */
 async function latestAuditPerSite() {
   const db = getDb();
@@ -66,8 +82,7 @@ export async function reauditActiveSites(): Promise<ReauditAlert[]> {
       const newAuditId = await createAudit(site.workspaceId, site.siteUrl);
       await executeAudit(newAuditId, site.siteUrl);
       const delta = await compareAudits(site.id, newAuditId);
-      const newCritical = (await db.select().from(auditFindings).where(eq(auditFindings.auditId, newAuditId)))
-        .filter((f) => f.severity === "critical").length;
+      const newCritical = await countNewCriticals(site.id, newAuditId);
       const decision = shouldAlert(delta, newCritical);
       if (decision.alert) {
         alerts.push({ workspaceId: site.workspaceId, siteUrl: site.siteUrl, auditId: newAuditId, reasons: decision.reasons });

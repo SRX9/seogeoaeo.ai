@@ -93,10 +93,19 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
       researchProviders.flatMap((provider) =>
         provider.isAvailable()
           ? [
-              provider.discover(context).then((findings) => ({
-                provider: provider.id,
-                findings,
-              })),
+              provider
+                .discover(context)
+                .then((findings) => ({ provider: provider.id, findings }))
+                .catch((error) => {
+                  // One provider failing (transient LLM/DB/network error) must not
+                  // sink the whole run — drop its findings and keep the rest.
+                  logError("research.provider_failed", {
+                    workspaceId,
+                    provider: provider.id,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                  return { provider: provider.id, findings: [] as ResearchFinding[] };
+                }),
             ]
           : [],
       ),

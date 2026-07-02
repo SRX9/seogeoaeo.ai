@@ -60,6 +60,15 @@ export async function spendForVisibilityJob(
   return spendCredits(workspaceId, cost, { reason: action, refType: "visibility", refId, brandId });
 }
 
+/**
+ * Pre-flight check for a visibility job: throws `InsufficientCreditsError` (→ 402)
+ * before any work runs, without charging. Charge with {@link spendForVisibilityJob}
+ * only after the work succeeds, so failed/empty work never burns credits.
+ */
+export async function assertVisibilityCredits(workspaceId: string, action: VisibilityAction) {
+  return assertHasCredits(workspaceId, CREDIT_COSTS[action]);
+}
+
 /** Fast pre-check before doing expensive work. Throws if the balance is short. */
 export async function assertHasCredits(workspaceId: string, cost: number) {
   const balance = await getCreditBalance(workspaceId);

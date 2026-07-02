@@ -33,9 +33,12 @@ interface StoredSnapshot {
 export async function POST(request: Request) {
   return handleApi(async () => {
     const { url } = parseBody(quickSchema, await readJson(request));
-    const domain = new URL(url).hostname;
+    // Cache by the exact page (origin + path), not just the host, so different
+    // paths don't collide and one path can't poison another's cached result.
+    const target = new URL(url);
+    const pageKey = domainKey(`${target.origin}${target.pathname}`);
 
-    const cached = await kvGetJson<StoredSnapshot>(domainKey(domain));
+    const cached = await kvGetJson<StoredSnapshot>(pageKey);
     if (cached) {
       return jsonOk({ ...cached, cached: true });
     }
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
 
     const stored: StoredSnapshot = { token: crypto.randomUUID(), result };
     await Promise.all([
-      kvPutJson(domainKey(domain), stored, DOMAIN_TTL_SECONDS),
+      kvPutJson(pageKey, stored, DOMAIN_TTL_SECONDS),
       kvPutJson(tokenKey(stored.token), stored, TOKEN_TTL_SECONDS),
     ]);
 

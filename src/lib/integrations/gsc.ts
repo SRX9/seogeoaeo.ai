@@ -37,12 +37,14 @@ export async function fetchGscDaily(
   const data = (await res.json()) as {
     rows?: { keys: string[]; clicks: number; impressions: number; position: number }[];
   };
-  return (data.rows ?? []).map((r) => ({
-    date: r.keys[0],
-    clicks: Math.round(r.clicks),
-    impressions: Math.round(r.impressions),
-    position: r.position,
-  }));
+  return (data.rows ?? [])
+    .map((r) => ({
+      date: r.keys?.[0] ?? "",
+      clicks: Math.round(r.clicks ?? 0),
+      impressions: Math.round(r.impressions ?? 0),
+      position: r.position ?? 0,
+    }))
+    .filter((row) => row.date);
 }
 
 /** Pull + upsert GSC daily rows. Returns the number of days stored. */

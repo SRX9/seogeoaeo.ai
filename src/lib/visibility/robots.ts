@@ -25,7 +25,7 @@ export const AI_CRAWLERS = [
 ] as const;
 
 /** Parse robots.txt content into per-agent rules + sitemap URLs. */
-export function parseRobots(content: string): {
+export function parseRobots(content: string, baseUrl?: string): {
   agentRules: Record<string, RobotsRule[]>;
   sitemaps: string[];
 } {
@@ -50,11 +50,16 @@ export function parseRobots(content: string): {
         path: line.slice(line.indexOf(":") + 1).trim(),
       });
     } else if (lower.startsWith("sitemap:")) {
-      // slice after the first ":" would cut "https" URLs at the scheme colon in
-      // the Python original; splitting on the directive colon only avoids that.
-      let sitemapUrl = line.slice("sitemap:".length).trim();
-      if (!sitemapUrl.startsWith("http")) sitemapUrl = "http" + sitemapUrl;
-      sitemaps.push(sitemapUrl);
+      const value = line.slice("sitemap:".length).trim();
+      if (value) {
+        // Resolve against the robots.txt URL so relative / protocol-relative
+        // Sitemap directives become well-formed absolute URLs; skip unparseable ones.
+        try {
+          sitemaps.push(new URL(value, baseUrl).toString());
+        } catch {
+          /* ignore malformed Sitemap line */
+        }
+      }
     }
   }
   return { agentRules, sitemaps };
@@ -64,9 +69,13 @@ export function parseRobots(content: string): {
 export function classifyCrawlers(
   agentRules: Record<string, RobotsRule[]>,
 ): Record<string, AiCrawlerStatus> {
+  // robots.txt user-agent matching is case-insensitive per spec, so look rules up
+  // by a lowercased key (a `User-agent: gptbot` block must still match GPTBot).
+  const byAgent = new Map(Object.entries(agentRules).map(([k, v]) => [k.toLowerCase(), v]));
   const status: Record<string, AiCrawlerStatus> = {};
   for (const crawler of AI_CRAWLERS) {
-    const rules = agentRules[crawler];
+    const rules = byAgent.get(crawler.toLowerCase());
+    const wildcard = byAgent.get("*");
     if (rules) {
       if (rules.some((r) => r.directive === "Disallow" && r.path === "/")) {
         status[crawler] = "BLOCKED";
@@ -75,8 +84,7 @@ export function classifyCrawlers(
       } else {
         status[crawler] = "ALLOWED";
       }
-    } else if (agentRules["*"]) {
-      const wildcard = agentRules["*"];
+    } else if (wildcard) {
       if (wildcard.some((r) => r.directive === "Disallow" && r.path === "/")) {
         status[crawler] = "BLOCKED_BY_WILDCARD";
       } else {
@@ -115,7 +123,7 @@ export async function fetchRobots(
     if (response.status === 200) {
       result.exists = true;
       result.content = await response.text();
-      const { agentRules, sitemaps } = parseRobots(result.content);
+      const { agentRules, sitemaps } = parseRobots(result.content, robotsUrl);
       result.agent_rules = agentRules;
       result.sitemaps = sitemaps;
       result.ai_crawler_status = classifyCrawlers(agentRules);
