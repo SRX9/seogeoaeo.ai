@@ -10,7 +10,7 @@ import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useCompetitors, useCredits, type Competitor } from "@/lib/api/queries";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 
-type Suggestion = { name: string; url: string };
+type Suggestion = { name: string; url: string; reason?: string };
 type CompetitorsCache = { competitors: Competitor[] };
 
 /**
@@ -157,6 +157,9 @@ export function CompetitorDiscovery() {
                               {suggestion.name}
                             </span>
                             <span className="block text-sm text-muted">{suggestion.url}</span>
+                            {suggestion.reason ? (
+                              <span className="block text-sm text-muted">{suggestion.reason}</span>
+                            ) : null}
                           </span>
                         </label>
                       </li>

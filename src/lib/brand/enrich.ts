@@ -18,6 +18,8 @@ export type BrandDetails = {
 export type CompetitorSuggestion = {
   name: string;
   url: string;
+  /** One-line evidence for why this is a competitor (shown to the user). */
+  reason?: string;
 };
 
 // Field maxima mirror brandProfileSchema so suggestions always pass validation.
@@ -150,13 +152,121 @@ function normalizeCompetitorUrl(value: string | undefined | null): string | null
   return `https://${host}`;
 }
 
+export type CompetitorDiscoveryInput = {
+  name: string;
+  website?: string | null;
+  productDescription?: string | null;
+  seedKeywords?: string | null;
+  /**
+   * Recent AI answer excerpts (ChatGPT/Perplexity/Gemini) for the brand's
+   * tracked prompts. Brands these engines already name in category answers are
+   * the strongest competitor signal for an AI-visibility product.
+   */
+  answerExcerpts?: string[];
+};
+
+type Candidate = {
+  host: string;
+  title: string;
+  snippet: string;
+  /** How many distinct search queries surfaced this host. */
+  sources: number;
+  /** Appeared in a "{brand} vs …" result — the highest-precision signal. */
+  vs: boolean;
+};
+
 /**
- * Discover up to `limit` competitor suggestions for a brand. Suggestions are
- * deduped by domain and exclude the brand's own site. Not persisted by the caller
- * until the user picks them.
+ * Gather evidence for competitor discovery from a query fan-out. Excluded hosts
+ * (G2, Capterra, Reddit, …) are never candidates themselves, but their result
+ * titles/snippets are kept as "listicle" evidence — "Top 10 X alternatives"
+ * pages name real competitors in text.
+ */
+async function gatherEvidence(brand: CompetitorDiscoveryInput, ownHost: string | null) {
+  const queries = [
+    `"${brand.name}" alternatives`,
+    `"${brand.name}" competitors`,
+    `"${brand.name}" vs`,
+  ];
+  const firstKeyword = brand.seedKeywords?.split(/[,\n]/)[0]?.trim();
+  if (firstKeyword) {
+    queries.push(`best ${firstKeyword}`);
+  }
+  if (brand.productDescription) {
+    queries.push(`best ${brand.productDescription.split(/\s+/).slice(0, 5).join(" ")} tools`);
+  }
+
+  const results = await Promise.all(queries.slice(0, 5).map((q) => serperSearch(q, { num: 8 })));
+
+  const candidates = new Map<string, Candidate>();
+  const listicles: string[] = [];
+  results.forEach((result, queryIndex) => {
+    const isVsQuery = queries[queryIndex].includes(" vs");
+    const seenThisQuery = new Set<string>();
+    for (const item of result.organic) {
+      const host = hostOf(item.link);
+      if (!host || host === ownHost) {
+        continue;
+      }
+      if (isExcludedHost(host)) {
+        if (item.title && listicles.length < 12) {
+          listicles.push(`- ${item.title}: ${(item.snippet ?? "").slice(0, 240)}`);
+        }
+        continue;
+      }
+      const existing = candidates.get(host);
+      if (existing) {
+        if (!seenThisQuery.has(host)) {
+          existing.sources += 1;
+        }
+        existing.vs ||= isVsQuery;
+      } else {
+        candidates.set(host, {
+          host,
+          title: item.title ?? host,
+          snippet: (item.snippet ?? "").slice(0, 160),
+          sources: 1,
+          vs: isVsQuery,
+        });
+      }
+      seenThisQuery.add(host);
+    }
+  });
+
+  const ranked = [...candidates.values()].sort(
+    (a, b) => b.sources + (b.vs ? 1 : 0) - (a.sources + (a.vs ? 1 : 0)),
+  );
+  return { candidates: ranked, listicles: [...new Set(listicles)] };
+}
+
+/**
+ * Resolve a competitor known only by name to its homepage via one search.
+ * Returns null when nothing trustworthy comes back.
+ */
+async function resolveHomepage(name: string, ownHost: string | null): Promise<string | null> {
+  const result = await serperSearch(`"${name}" official website`, { num: 4 });
+  const kgHost = hostOf(result.knowledgeGraph?.website);
+  if (kgHost && kgHost !== ownHost && !isExcludedHost(kgHost)) {
+    return `https://${kgHost}`;
+  }
+  for (const item of result.organic) {
+    const host = hostOf(item.link);
+    if (host && host !== ownHost && !isExcludedHost(host)) {
+      return `https://${host}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Discover up to `limit` competitor suggestions for a brand. Evidence-based:
+ * a query fan-out (alternatives / competitors / "vs" / category) plus listicle
+ * snippets and any AI answer excerpts feed one LLM ranking pass; competitors the
+ * LLM names without a URL are resolved via a bounded homepage lookup. Suggestions
+ * are deduped by domain, exclude the brand's own site, and are not persisted by
+ * the caller until the user picks them.
  */
 export async function discoverCompetitors(
-  brand: { name: string; website?: string | null; productDescription?: string | null },
+  brand: CompetitorDiscoveryInput,
   limit: number,
 ): Promise<CompetitorSuggestion[]> {
   const cap = Math.max(0, Math.min(limit, 10));
@@ -165,63 +275,57 @@ export async function discoverCompetitors(
   }
 
   const ownHost = hostOf(brand.website);
-  const queries = [`${brand.name} alternatives`, `${brand.name} competitors`];
-  if (brand.productDescription) {
-    queries.push(`best ${brand.productDescription.split(/\s+/).slice(0, 5).join(" ")} tools`);
-  }
+  const { candidates, listicles } = await gatherEvidence(brand, ownHost);
+  const answerExcerpts = (brand.answerExcerpts ?? [])
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((a) => `- ${a.slice(0, 300)}`);
 
-  const results = await Promise.all(queries.map((q) => serperSearch(q, { num: 8 })));
-
-  // Collect candidate hosts (deduped, excluding the brand + junk sites), keeping
-  // a representative title for each so the LLM has labels to work with.
-  const candidates = new Map<string, { host: string; title: string }>();
-  for (const result of results) {
-    for (const item of result.organic) {
-      const host = hostOf(item.link);
-      if (!host || host === ownHost || isExcludedHost(host) || candidates.has(host)) {
-        continue;
-      }
-      candidates.set(host, { host, title: item.title ?? host });
-    }
-  }
-
-  if (candidates.size === 0) {
+  if (candidates.length === 0 && listicles.length === 0 && answerExcerpts.length === 0) {
     return [];
   }
 
-  const candidateList = [...candidates.values()];
-
-  // Fallback when the LLM isn't configured: surface the top deduped domains.
+  // Fallback when the LLM isn't configured: surface the best-corroborated domains.
   if (!getLlmConfig()) {
-    return candidateList
-      .slice(0, cap)
-      .map((c) => ({ name: c.host, url: `https://${c.host}` }));
+    return candidates.slice(0, cap).map((c) => ({ name: c.host, url: `https://${c.host}` }));
   }
 
+  const evidenceLabel = (c: Candidate) =>
+    `- ${c.title} (${c.host}) — seen in ${c.sources} search${c.sources === 1 ? "" : "es"}${c.vs ? ", comparison page" : ""}`;
   const prompt = competitorDiscoveryPrompt(
     brand,
-    candidateList.map((c) => `- ${c.title} (${c.host})`).join("\n"),
+    {
+      candidates: candidates.map(evidenceLabel).join("\n"),
+      listicles: listicles.join("\n"),
+      answers: answerExcerpts.join("\n"),
+    },
     cap,
   );
 
-  let raw: Array<{ name?: string; url?: string }> = [];
+  let raw: Array<{ name?: string; url?: string; reason?: string }> = [];
   try {
-    const { data } = await generateJson<{ competitors?: Array<{ name?: string; url?: string }> }>(
-      "light",
-      [
-        { role: "system", content: prompt.system },
-        { role: "user", content: prompt.user },
-      ],
-    );
+    const { data } = await generateJson<{
+      competitors?: Array<{ name?: string; url?: string; reason?: string }>;
+    }>("light", [
+      { role: "system", content: prompt.system },
+      { role: "user", content: prompt.user },
+    ]);
     raw = Array.isArray(data?.competitors) ? data.competitors : [];
   } catch {
-    raw = candidateList.map((c) => ({ name: c.title, url: c.host }));
+    raw = candidates.map((c) => ({ name: c.title, url: c.host }));
   }
 
   const seen = new Set<string>();
   const suggestions: CompetitorSuggestion[] = [];
+  let resolutions = 0;
   for (const item of raw) {
-    const url = normalizeCompetitorUrl(item.url);
+    let url = normalizeCompetitorUrl(item.url);
+    // The LLM may name a competitor it found only in listicle/answer text —
+    // resolve its homepage with a bounded number of extra searches.
+    if (!url && item.name && resolutions < 3) {
+      resolutions += 1;
+      url = await resolveHomepage(item.name, ownHost);
+    }
     if (!url) {
       continue;
     }
@@ -230,7 +334,11 @@ export async function discoverCompetitors(
       continue;
     }
     seen.add(host);
-    suggestions.push({ name: (item.name || host).trim().slice(0, 200), url });
+    suggestions.push({
+      name: (item.name || host).trim().slice(0, 200),
+      url,
+      reason: typeof item.reason === "string" ? item.reason.trim().slice(0, 200) : undefined,
+    });
     if (suggestions.length >= cap) {
       break;
     }

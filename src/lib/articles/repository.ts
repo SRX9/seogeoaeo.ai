@@ -55,6 +55,8 @@ export async function createResearchTopics(
         }),
         status: "pending",
         source: "research",
+        intentTier: item.intentTier ?? null,
+        thesis: item.thesis ?? null,
       })),
     )
     .returning();
@@ -157,6 +159,8 @@ export async function createArticle(
     tags: string[];
     bodyMarkdown: string;
     status?: string;
+    shape?: string;
+    gateResultsJson?: string;
   },
 ) {
   const [article] = await getDb()
@@ -172,6 +176,8 @@ export async function createArticle(
       bodyMarkdown: input.bodyMarkdown,
       status: input.status ?? "draft",
       version: 1,
+      shape: input.shape ?? null,
+      gateResultsJson: input.gateResultsJson ?? null,
     })
     .returning();
   return article;

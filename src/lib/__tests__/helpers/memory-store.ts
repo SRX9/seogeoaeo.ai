@@ -49,6 +49,8 @@ export type ArticleRow = {
   bodyMarkdown: string;
   status: string;
   version: number;
+  shape: string | null;
+  gateResultsJson: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -194,11 +196,17 @@ export function resetStore() {
   store.creditRefs.clear();
   store.seq = 0;
 
+  // The final-article fixture must pass the C3 style lint (no banned phrases,
+  // and a ≥25-word opening paragraph so direct-answer shapes keep their
+  // answer-first block) — otherwise every e2e run triggers rewrite passes.
   llm.textResponses = [
     "Concise summary of the topic.",
-    "## Outline\n- Intro\n- Body\n- Conclusion",
+    "## Outline\n- Answer\n- Steps\n- Pitfalls",
     "Full draft body content.",
-    "# Final Article\n\nSEO-polished body content.",
+    "# Final Article\n\n" +
+      "Automated SEO content pays off when each article answers one real query, " +
+      "and our own pipeline proves it: we publish twice a week and organic clicks " +
+      "doubled in about ninety days.\n\nSEO-polished body content.",
   ];
   llm.metadata = {
     title: "Generated Title",
@@ -269,6 +277,8 @@ export function seedArticle(input: Partial<ArticleRow> & { workspaceId: string }
     bodyMarkdown: input.bodyMarkdown ?? "# Body\n\nContent.",
     status: input.status ?? "draft",
     version: input.version ?? 1,
+    shape: input.shape ?? null,
+    gateResultsJson: input.gateResultsJson ?? null,
     createdAt: input.createdAt ?? now,
     updatedAt: now,
   };
@@ -395,6 +405,8 @@ export const articlesRepo = {
       tags: string[];
       bodyMarkdown: string;
       status?: string;
+      shape?: string;
+      gateResultsJson?: string;
     },
   ) {
     return seedArticle({
@@ -407,6 +419,8 @@ export const articlesRepo = {
       bodyMarkdown: input.bodyMarkdown,
       status: input.status ?? "draft",
       version: 1,
+      shape: input.shape ?? null,
+      gateResultsJson: input.gateResultsJson ?? null,
     });
   },
   async updateArticle(

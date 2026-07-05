@@ -9,6 +9,7 @@ import * as creditsSchema from "./schema/credits";
 import * as jobsSchema from "./schema/jobs";
 import * as publicationsSchema from "./schema/publications";
 import * as rateLimitSchema from "./schema/rate-limits";
+import * as visibilitySchema from "./schema/visibility";
 
 const schema = {
   ...authSchema,
@@ -19,6 +20,7 @@ const schema = {
   ...jobsSchema,
   ...publicationsSchema,
   ...rateLimitSchema,
+  ...visibilitySchema,
 };
 
 type Db = ReturnType<typeof createDb>;

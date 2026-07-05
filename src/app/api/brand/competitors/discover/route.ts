@@ -5,6 +5,7 @@ import { discoverCompetitors } from "@/lib/brand/enrich";
 import { getBrandProfile, listCompetitors } from "@/lib/brand/repository";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { recentAnswerExcerpts } from "@/lib/visibility/answers";
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -41,9 +42,10 @@ export async function POST() {
       throw error;
     }
 
-    const [profile, existing] = await Promise.all([
+    const [profile, existing, answerExcerpts] = await Promise.all([
       getBrandProfile(brand!.id),
       listCompetitors(brand!.id),
+      recentAnswerExcerpts(brand!.id),
     ]);
 
     const remaining = MAX_COMPETITORS - existing.length;
@@ -60,6 +62,8 @@ export async function POST() {
         name: brand!.name,
         website: profile?.website,
         productDescription: profile?.productDescription,
+        seedKeywords: profile?.seedKeywords,
+        answerExcerpts,
       },
       remaining,
     );

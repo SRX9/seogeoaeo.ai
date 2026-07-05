@@ -24,6 +24,9 @@ vi.mock("@/lib/publishing/repository", async () => (await import("./helpers/memo
 vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-store")).billingAccess);
 vi.mock("@/lib/research/run", async () => (await import("./helpers/memory-store")).researchRun);
 vi.mock("@/lib/email/notify", async () => (await import("./helpers/memory-store")).emailNotify);
+// Traffic proof is a best-effort, unmetered side effect of settle; stub it so the
+// content-run assertions aren't coupled to the GSC/GA4 sync (which hits its own seam).
+vi.mock("@/lib/integrations/google-traffic", () => ({ syncTrafficForBrand: vi.fn(async () => []) }));
 
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { planDailyForBrand, researchForDaily, settleDailyForBrand } from "@/lib/jobs/daily";

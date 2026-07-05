@@ -1,11 +1,16 @@
 "use client";
 
-import { Card } from "@heroui/react";
+import Link from "next/link";
 import { BrandOnboardingForm } from "@/components/brand/brand-onboarding-form";
 import { PageLoader } from "@/components/feedback/states";
 import { useMe } from "@/lib/api/queries";
 import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
+/*
+ * Fullscreen onboarding — no app shell, no card, no visible step machinery.
+ * The form itself owns the whole viewport; returning users adding a second
+ * brand get a quiet escape hatch back to the dashboard.
+ */
 export default function OnboardingPage() {
   const { data, isLoading } = useMe();
 
@@ -16,22 +21,16 @@ export default function OnboardingPage() {
   const isFirst = (data?.brands.length ?? 0) === 0;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          {isFirst ? "Set up your first brand" : "Add a new brand"}
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          Register a brand so the agent can research topics and write in its voice. You can switch
-          between brands anytime from the sidebar.
-        </p>
-      </div>
-
-      <Card>
-        <Card.Content className="py-6">
-          <BrandOnboardingForm providers={INTEGRATION_PROVIDERS} />
-        </Card.Content>
-      </Card>
+    <div className="relative min-h-dvh">
+      {!isFirst ? (
+        <Link
+          href="/dashboard"
+          className="fixed left-6 top-5 z-20 text-sm text-muted transition hover:text-foreground"
+        >
+          ← Back to dashboard
+        </Link>
+      ) : null}
+      <BrandOnboardingForm providers={INTEGRATION_PROVIDERS} />
     </div>
   );
 }

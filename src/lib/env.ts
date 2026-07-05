@@ -28,6 +28,10 @@ const serverSchema = z.object({
   TAVILY_API_KEY: z.string().optional(),
   SERPER_API_KEY: z.string().optional(),
   KEYWORD_API_URL: z.string().url().optional(),
+  // Managed scrapers for resilient content fetch + true-SSR check (src/lib/visibility/scrape.ts).
+  CONTEXT_DEV_API_KEY: z.string().optional(),
+  CONTEXT_API_KEY: z.string().optional(),
+  FIRECRAWL_API_KEY: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

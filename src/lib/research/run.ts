@@ -1,4 +1,5 @@
-import { getBrandProfile, listCompetitors, type BrandScope } from "@/lib/brand/repository";
+import { getBrand, getBrandProfile, listCompetitors, type BrandScope } from "@/lib/brand/repository";
+import { listUseCases } from "@/lib/brand/use-cases";
 import {
   createResearchTopics,
   deleteResearchTopicsForRun,
@@ -54,19 +55,22 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
   const job = await createAgentJob(scope, "research", "Research run started");
 
   try {
-    const [brand, competitors, existingTitles] = await Promise.all([
+    const [brand, profile, competitors, existingTitles, useCases] = await Promise.all([
+      getBrand(workspaceId, brandId),
       getBrandProfile(brandId),
       listCompetitors(brandId),
       listTopicTitles(brandId),
+      listUseCases(brandId, { enabledOnly: true }),
     ]);
 
     const context = buildResearchContext(
       {
-        productDescription: brand?.productDescription,
-        audience: brand?.audience,
-        tone: brand?.tone,
-        website: brand?.website,
-        seedKeywords: brand?.seedKeywords,
+        name: brand?.name,
+        productDescription: profile?.productDescription,
+        audience: profile?.audience,
+        tone: profile?.tone,
+        website: profile?.website,
+        seedKeywords: profile?.seedKeywords,
       },
       competitors.map((item) => ({
         name: item.name,
@@ -74,16 +78,34 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
         rssUrl: item.rssUrl,
         sitemapUrl: item.sitemapUrl,
       })),
+      {
+        useCases: useCases.map((row) => ({
+          job: row.job,
+          persona: row.persona,
+          industry: row.industry,
+        })),
+        ourTitles: existingTitles,
+        scope,
+      },
     );
 
     const providerResults = await Promise.all(
       researchProviders.flatMap((provider) =>
         provider.isAvailable()
           ? [
-              provider.discover(context).then((findings) => ({
-                provider: provider.id,
-                findings,
-              })),
+              provider
+                .discover(context)
+                .then((findings) => ({ provider: provider.id, findings }))
+                .catch((error) => {
+                  // One provider failing (transient LLM/DB/network error) must not
+                  // sink the whole run — drop its findings and keep the rest.
+                  logError("research.provider_failed", {
+                    workspaceId,
+                    provider: provider.id,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                  return { provider: provider.id, findings: [] as ResearchFinding[] };
+                }),
             ]
           : [],
       ),

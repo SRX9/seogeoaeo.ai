@@ -22,6 +22,34 @@ export const agentJobs = pgTable(
   (table) => [index("agent_jobs_brand_id_idx").on(table.brandId)],
 );
 
+/**
+ * Claudia's one-time Setup Run (AP2): the ignition pipeline that onboards a new
+ * brand without user steps. One row per brand; `stepsJson` holds the ordered
+ * per-step statuses the progress UI renders, and the row is the idempotency
+ * anchor — a re-fired run resumes from the first non-done step.
+ */
+export const setupRuns = pgTable(
+  "setup_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** running | completed | failed */
+    status: text("status").notNull().default("running"),
+    /** Ordered array of { key, status: "pending"|"running"|"done"|"failed"|"skipped", note? }. */
+    stepsJson: text("steps_json").notNull(),
+    /** Day-0 brief in Claudia's voice, written by the final step. */
+    briefText: text("brief_text"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("setup_runs_brand_id_idx").on(table.brandId)],
+);
+
 export const usageCounters = pgTable(
   "usage_counters",
   {

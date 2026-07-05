@@ -34,6 +34,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  // Onboarding is a fullscreen, distraction-free flow — no sidebar/shell.
+  if (pathname === "/onboarding") {
+    return <>{children}</>;
+  }
+
   if (error || !data) {
     return (
       <div className="min-h-screen">

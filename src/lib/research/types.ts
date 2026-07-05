@@ -3,7 +3,12 @@ export type ResearchSourceType =
   | "rss"
   | "sitemap"
   | "trend_query"
-  | "keyword_api";
+  | "keyword_api"
+  | "use_case"
+  | "competitor_gap";
+
+/** C1 buyer-intent tiers — the first ranking key for the backlog. */
+export type IntentTier = "bofu" | "mofu" | "tofu";
 
 export type ResearchFinding = {
   title: string;
@@ -12,10 +17,15 @@ export type ResearchFinding = {
   sourceType: ResearchSourceType;
   evidenceUrls: string[];
   snippet?: string;
+  /** Buyer intent, when the provider knows it (use-case/competitor findings do). */
+  intentTier?: IntentTier;
+  /** One owner-readable line: why this topic will drive traffic. */
+  thesis?: string;
 };
 
 export type ResearchContext = {
   brand: {
+    name?: string | null;
     productDescription?: string | null;
     audience?: string | null;
     tone?: string | null;
@@ -29,6 +39,12 @@ export type ResearchContext = {
     sitemapUrl?: string | null;
   }>;
   seedQueries: string[];
+  /** Enabled rows from the C1 use-case inventory. */
+  useCases: Array<{ job: string; persona: string; industry?: string | null }>;
+  /** Titles of every topic/article we already have — for gap diffs. */
+  ourTitles: string[];
+  /** Set by runResearch for providers that persist (competitor index). */
+  scope?: { workspaceId: string; brandId: string };
 };
 
 export type ScoredTopic = {
@@ -42,6 +58,8 @@ export type ScoredTopic = {
   sourceType: ResearchSourceType;
   evidenceUrls: string[];
   query?: string;
+  intentTier?: IntentTier;
+  thesis?: string;
 };
 
 export interface ResearchProvider {

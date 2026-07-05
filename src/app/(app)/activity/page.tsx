@@ -16,6 +16,8 @@ function jobLabel(kind: string) {
       return "Writing job";
     case "research":
       return "Research job";
+    case "competitor_rediscovery":
+      return "Competitor scan";
     default:
       return kind;
   }

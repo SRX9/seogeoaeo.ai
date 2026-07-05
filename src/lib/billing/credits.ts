@@ -7,9 +7,26 @@ export const CREDIT_COSTS = {
   article_generation: 100,
   research_run: 20,
   competitor_discovery: 15,
+  // Visibility suite (V8.4). Users buy outcomes, not tool access. No per-fix key —
+  // auto-fixes are plan-included with a monthly cap ("salaried, not a taxi meter").
+  visibility_audit: 50,
+  answer_run: 10,
+  competitor_benchmark: 40,
+  pdf_report: 25,
+  tool_run_basic: 5,
+  tool_run_ai: 20,
 } as const;
 
 export type BillableAction = keyof typeof CREDIT_COSTS;
+
+/** Visibility actions that spend credits (never fixes; never proof surfaces). */
+export type VisibilityAction =
+  | "visibility_audit"
+  | "answer_run"
+  | "competitor_benchmark"
+  | "pdf_report"
+  | "tool_run_basic"
+  | "tool_run_ai";
 
 /**
  * One-time credits granted to a brand-new workspace so users can produce one

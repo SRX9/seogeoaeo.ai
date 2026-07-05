@@ -18,5 +18,12 @@ export async function listActiveWorkspaceIds() {
     .from(workspaces)
     .innerJoin(subscriptions, eq(subscriptions.workspaceId, workspaces.id));
 
-  return rows.filter((row) => isActiveSubscription(row.status));
+  // Dedupe defensively: a workspace with multiple subscription rows must not
+  // enumerate its brands twice (harmless via instance-id idempotency, but noisy).
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (!isActiveSubscription(row.status) || seen.has(row.workspaceId)) return false;
+    seen.add(row.workspaceId);
+    return true;
+  });
 }

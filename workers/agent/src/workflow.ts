@@ -152,6 +152,7 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<Env, Params> {
         hadTargets,
         outOfCredits,
         brandName: p.brandName,
+        planId: p.planId,
       }),
     );
 

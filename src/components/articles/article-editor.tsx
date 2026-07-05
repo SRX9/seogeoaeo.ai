@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Chip, Input, Label, Tabs, TextArea, toast } from "@heroui/react";
+import { Input, Label, Tabs, TextArea, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -10,6 +10,8 @@ import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type Article, type Publication } from "@/lib/api/queries";
+import { cn } from "@/lib/cn";
+import { statusTextClass } from "@/lib/ui/status";
 
 type ArticleCache = { article: Article; publications: Publication[] };
 import { parseTags } from "@/lib/articles/format";
@@ -25,10 +27,30 @@ type ArticleEditorProps = {
     bodyMarkdown: string;
     status: string;
     version: number;
+    shape?: string | null;
+    gateResultsJson?: string | null;
   };
   publications: Publication[];
   canPublish: boolean;
 };
+
+type GateResult = { gate: string; passed: boolean; detail: string };
+
+// Owner-facing names for the machine gates — never show the raw ids.
+const GATE_LABELS: Record<string, string> = {
+  "style-lint": "Reads human",
+  "eeat-source": "Cites a source",
+};
+
+function parseGateResults(json: string | null | undefined): GateResult[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json) as GateResult[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 type Intent = "draft" | "publish" | "republish";
 
@@ -197,14 +219,31 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
     }
   }
 
+  const gates = parseGateResults(article.gateResultsJson);
+  const heldForReview = gates.some((gate) => gate.gate === "style-lint" && !gate.passed);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Chip variant="soft">v{article.version}</Chip>
-        <Chip color={isApproved ? "success" : "default"} variant="soft">
-          {article.status}
-        </Chip>
+      <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide">
+        <span className="text-muted">v{article.version}</span>
+        <span className={isApproved ? "text-success" : "text-muted"}>{article.status}</span>
+        {article.shape ? <span className="text-muted">{article.shape}</span> : null}
+        {gates.map((gate) => (
+          <span
+            key={gate.gate}
+            className={gate.passed ? "text-success" : "text-warning"}
+            title={gate.detail}
+          >
+            {gate.passed ? "✓" : "!"} {GATE_LABELS[gate.gate] ?? gate.gate}
+          </span>
+        ))}
       </div>
+      {heldForReview ? (
+        <p className="text-sm text-muted">
+          Claudia held this draft for your review — it didn&apos;t pass her quality checks:{" "}
+          {gates.find((gate) => gate.gate === "style-lint" && !gate.passed)?.detail}
+        </p>
+      ) : null}
 
       <Tabs defaultSelectedKey="editor">
         <Tabs.ListContainer>
@@ -346,18 +385,9 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
                       <p className="font-medium text-foreground">
                         {providerNames.get(publication.provider) ?? publication.provider}
                       </p>
-                      <Chip
-                        color={
-                          publication.status === "published"
-                            ? "success"
-                            : publication.status === "failed"
-                              ? "danger"
-                              : "default"
-                        }
-                        variant="soft"
-                      >
+                      <span className={cn("text-xs uppercase tracking-wide", statusTextClass(publication.status))}>
                         {publication.status}
-                      </Chip>
+                      </span>
                     </div>
                     {publication.externalUrl ? (
                       <a

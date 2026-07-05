@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Button, Card, Chip, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
+import { Button, Card, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
 import { Segment } from "@heroui-pro/react";
 import type { Key } from "react-aria-components";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,8 @@ import { PenIcon, PlusIcon, SparklesIcon } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useTopics, type Topic } from "@/lib/api/queries";
-import { statusColor } from "@/lib/ui/status";
+import { cn } from "@/lib/cn";
+import { statusTextClass } from "@/lib/ui/status";
 
 type TopicsCache = { topics: Topic[] };
 
@@ -28,6 +29,36 @@ const filters = [
   { id: "research", label: "Research" },
   { id: "manual", label: "Manual" },
 ] as const;
+
+// Owner language for where a topic idea came from — never the raw enum.
+const SOURCE_BADGES: Record<string, string> = {
+  use_case: "Your use cases",
+  competitor_gap: "Competitor gap",
+  gsc: "Search Console",
+  web_search: "Web search",
+  trend_query: "Trending",
+  keyword_api: "Keyword ideas",
+  rss: "Competitor blog",
+  sitemap: "Competitor blog",
+};
+
+// Buyer intent, in owner language: why this topic ranks where it does.
+const INTENT_BADGES: Record<string, string> = {
+  bofu: "Buying now",
+  mofu: "Comparing options",
+  tofu: "Learning",
+};
+
+/** The research source badge, read from the topic's stored evidence. */
+function sourceBadge(topic: Topic): string | null {
+  if (!topic.evidenceJson) return null;
+  try {
+    const evidence = JSON.parse(topic.evidenceJson) as { sourceType?: string };
+    return evidence.sourceType ? (SOURCE_BADGES[evidence.sourceType] ?? null) : null;
+  } catch {
+    return null;
+  }
+}
 
 const EMPTY_TOPIC = { title: "", angle: "", keywords: "" };
 
@@ -62,6 +93,8 @@ export function ManualTopicForm() {
           rationale: null,
           answerFit: null,
           evidenceJson: null,
+          intentTier: null,
+          thesis: null,
         },
         ...(current?.topics ?? []),
       ],
@@ -224,19 +257,24 @@ function TopicList({
             <div className="min-w-0 flex-1 space-y-2">
               <div className="space-y-1">
                 <p className="font-medium leading-snug text-foreground">{topic.title}</p>
-                {topic.rationale ? (
+                {/* The thesis is the one line that says why this will drive
+                    traffic — always preferred over the generic rationale. */}
+                {topic.thesis || topic.rationale ? (
                   <p className="line-clamp-2 text-xs leading-relaxed text-muted">
-                    {topic.rationale}
+                    {topic.thesis ?? topic.rationale}
                   </p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Chip variant="soft" size="sm" className="capitalize">
-                  {topic.source}
-                </Chip>
-                <Chip color={statusColor(topic.status)} variant="soft" size="sm">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="capitalize text-muted">{sourceBadge(topic) ?? topic.source}</span>
+                {topic.intentTier && INTENT_BADGES[topic.intentTier] ? (
+                  <span className={topic.intentTier === "bofu" ? "text-success" : "text-muted"}>
+                    {INTENT_BADGES[topic.intentTier]}
+                  </span>
+                ) : null}
+                <span className={cn("uppercase tracking-wide", statusTextClass(topic.status))}>
                   {topic.status}
-                </Chip>
+                </span>
                 {topic.score != null ? (
                   <span className="text-xs text-muted tabular-nums">Score {topic.score}</span>
                 ) : null}
