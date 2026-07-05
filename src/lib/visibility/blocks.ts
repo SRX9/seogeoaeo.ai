@@ -6,7 +6,9 @@ import type { ContentBlock } from "./types";
  * Port of `extract_content_blocks()` from
  * `inspiration-code/scripts/fetch_page.py`: strip non-content elements, walk
  * headings + content tags in document order, start a new block at each
- * heading, and drop blocks under 20 words.
+ * heading, and drop blocks under 20 words. Elements within a block are joined
+ * with "\n" (not " ") so the citability scorer's structural-readability bonus
+ * for genuinely multi-element blocks fires (scorer v3 — see citability.ts).
  */
 
 const MIN_BLOCK_WORDS = 20;
@@ -28,8 +30,8 @@ export function extractContentBlocks(html: string): ContentBlock[] {
 
   const flush = () => {
     if (currentContent.length === 0) return;
-    const content = currentContent.join(" ");
-    const wordCount = content.split(/\s+/).length;
+    const content = currentContent.join("\n");
+    const wordCount = content.trim().split(/\s+/).length;
     if (wordCount >= MIN_BLOCK_WORDS) {
       blocks.push({ heading: currentHeading, content, word_count: wordCount });
     }

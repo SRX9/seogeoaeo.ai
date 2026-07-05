@@ -28,6 +28,8 @@ export interface AuditSummary {
   platforms: Record<string, number | null>;
   resolvedFindings: number;
   totalFindings: number;
+  /** Scoring methodology version (visibility/version.ts) this audit was scored with. */
+  scorerVersion: number;
 }
 
 export interface DeltaReport {
@@ -73,12 +75,19 @@ export function computeDelta(baseline: AuditSummary, current: AuditSummary): Del
     projected: Math.max(0, Math.min(100, Math.round(start + monthly * (i + 1)))),
   }));
 
-  const impact =
+  let impact =
     overall.delta > 0
       ? `Overall visibility rose ${overall.delta} points — more of your pages now clear the bar where AI engines cite sources. Keep resolving findings to compound the gain.`
       : overall.delta < 0
         ? `Overall visibility fell ${Math.abs(overall.delta)} points — review recent site changes and the new findings below.`
         : "Overall visibility held steady. Work the quick wins to move it up.";
+
+  // When the scoring methodology changed between the two runs, part of the delta
+  // reflects the upgraded scorer rather than the site — say so, don't hide it.
+  if (!baselineOnly && baseline.scorerVersion !== current.scorerVersion) {
+    impact +=
+      " Note: the scoring methodology was upgraded between these runs, so part of this change reflects the new scorer, not your site.";
+  }
 
   return {
     overall,
@@ -111,6 +120,7 @@ export async function loadAuditSummary(auditId: string): Promise<AuditSummary> {
     platforms: Object.fromEntries(platformRows.map((p) => [p.platform, p.score])),
     resolvedFindings: findingRows.filter((f) => f.isResolved).length,
     totalFindings: findingRows.length,
+    scorerVersion: row.scorerVersion,
   };
 }
 

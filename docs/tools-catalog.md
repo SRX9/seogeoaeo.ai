@@ -138,8 +138,11 @@ URL structure, mobile, Core Web Vitals risk, page speed, and SSR — each scored
 can't be crawled, indexed, or loaded. Produces a clean developer-facing remediation checklist.
 
 ### 5. Server-Side Rendering / JS-Dependency Detector — `🔵 SEO · also 🟢 GEO`
-**What it does:** Compares raw HTML to the rendered DOM and flags content that only appears
-after JavaScript runs. Detects the framework (Next.js/Nuxt/React SPA/etc.) and rates severity.
+**What it does:** Compares the raw HTML to a real JS-rendered scrape (context.dev → Firecrawl, the
+same managed scrapers used for the resilient content fetch) and flags content that only appears
+after JavaScript runs — measuring the rendered-vs-raw word gap, not just a static heuristic.
+Detects the framework (Next.js/Nuxt/React SPA/etc.) and rates severity. Degrades to a static
+heuristic when no scraper is configured, never failing an audit.
 **Why it's good:** This is the single highest-leverage GEO check. **AI crawlers don't execute
 JavaScript** — a client-rendered SPA is invisible to GPTBot/ClaudeBot/PerplexityBot no matter
 how good the content is. Catching this is often worth more than everything else combined.
@@ -269,10 +272,14 @@ English, validates keys/values, and recommends one if absent. (Reuses the existi
 access). It's brand-new and almost nobody has it — easy thought-leadership win, non-penalizing.
 
 ### 23. Brand Mention / Entity Authority Scanner — `🟢 GEO`
-**What it does:** Checks brand presence where LLMs learn entities — Wikipedia/Wikidata (via the
-Wikipedia API directly, to avoid false negatives), Reddit (volume + sentiment), YouTube, LinkedIn,
-plus G2/Trustpilot/Capterra, Quora, Stack Overflow, GitHub, HN, press — and returns a weighted
-Brand Authority Score with prioritized actions.
+**What it does:** Measures *real* off-site brand presence where LLMs learn entities — Wikipedia/
+Wikidata (via their APIs, with exact-title matching to avoid the generic-name false positives),
+Reddit mention volume + recency (free Reddit JSON API, Serper site-search fallback), an official
+YouTube channel + video mentions, third-party web mentions, a knowledge-graph hit, and a LinkedIn
+company page (all via Serper) — returning a weighted Brand Authority Score with prioritized
+actions. The site's own declared `sameAs` profiles are a secondary fallback signal, not the score;
+when no off-site source is reachable the scan flags `limitedData` and falls back to declared
+profiles rather than penalizing.
 **Why it's good:** Brand mentions correlate ~3× stronger with AI citations than backlinks
 (YouTube ~0.737 vs domain rating ~0.266 in a 75k-brand study). This is the off-site GEO lever
 nobody else quantifies — and it explains *why* a technically-perfect site still isn't recommended.

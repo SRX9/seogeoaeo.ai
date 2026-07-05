@@ -11,6 +11,13 @@ function socialProviders() {
       ? {
           clientId: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          // Ask for a refresh token so the daily job can pull GSC/GA4 traffic proof
+          // long after the user connected. The Search Console / Analytics readonly
+          // scopes are NOT requested at login — they're added on demand when the
+          // user clicks "Connect Search Console" (authClient.linkSocial). `consent`
+          // guarantees Google returns a refresh token on re-consent.
+          accessType: "offline" as const,
+          prompt: "select_account consent" as const,
         }
       : undefined;
 
@@ -38,6 +45,14 @@ function createAuth() {
       schema,
     }),
     socialProviders: socialProviders(),
+    // Let a user attach Google to an existing account (e.g. GitHub signup) and
+    // re-consent an existing Google account with the added traffic-proof scopes.
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+      },
+    },
     databaseHooks: {
       user: {
         create: {

@@ -28,6 +28,7 @@ export default function VisibilityPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsWebsite, setNeedsWebsite] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/visibility/summary");
@@ -41,15 +42,21 @@ export default function VisibilityPage() {
     setRunning(true);
     setError(null);
     try {
-      const site = window.prompt("Site URL to audit:");
-      if (!site) return;
+      // Zero-input: the server audits the active brand's website.
       const res = await fetch("/api/visibility/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: site }),
+        body: JSON.stringify({}),
       });
       if (res.status === 402) throw new Error("Out of credits — top up to run an audit.");
-      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to start audit");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.details?.code === "NO_WEBSITE") {
+          setNeedsWebsite(true);
+          return;
+        }
+        throw new Error(body.error ?? "Failed to start audit");
+      }
       setTimeout(load, 4000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
@@ -73,6 +80,15 @@ export default function VisibilityPage() {
         }
       />
       {error && <p className="text-sm text-danger">{error}</p>}
+      {needsWebsite && (
+        <p className="text-sm text-warning">
+          Your brand has no website yet —{" "}
+          <Link className="underline" href="/settings">
+            add it in brand settings
+          </Link>{" "}
+          and Claudia will take it from there.
+        </p>
+      )}
 
       {!summary?.hasAudit ? (
         <Card className="p-8 text-center">

@@ -24,6 +24,17 @@ body {
   background-attachment: fixed;
 }
 
+/*
+ * App-wide rule: every multiline input uses HeroUI's TextArea, and none of
+ * them are user-resizable. Disabling resize once on the shared `.textarea`
+ * class keeps this consistent everywhere and applies to future textareas too.
+ */
+@layer components {
+  .textarea {
+    resize: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -50,6 +61,91 @@ html[data-theme="glass-light"] {
     oklch(98% 0.003 264) 0%,
     oklch(93.5% 0.004 264) 100%
   );
+}
+
+/*
+ * Onboarding: each screen slides up + fades in as the user advances. The
+ * element is re-keyed per step so the animation replays; reduced-motion users
+ * get the global instant-transition override above.
+ */
+.onboarding-step {
+  animation: onboarding-step-in 0.35s ease-out both;
+}
+
+@keyframes onboarding-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Claudia — the working avatar on the Overview page. While she's on the job the
+ * core orb breathes, a conic sheen rotates across it, rings emanate outward, and
+ * a single dot orbits to read as live activity. Reduced-motion users get the
+ * global instant-transition/animation override above, so it settles static.
+ */
+.claudia__core {
+  animation: claudia-breathe 3.4s ease-in-out infinite;
+}
+.claudia__sheen {
+  animation: claudia-sheen 7s linear infinite;
+}
+.claudia__orbit {
+  animation: claudia-orbit 3.6s linear infinite;
+}
+.claudia__ring {
+  animation: claudia-ping 2.6s ease-out infinite;
+}
+.claudia__ring--2 {
+  animation-delay: 0.9s;
+}
+.claudia__ring--3 {
+  animation-delay: 1.8s;
+}
+
+@keyframes claudia-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes claudia-sheen {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes claudia-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes claudia-ping {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+  80%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
 /*

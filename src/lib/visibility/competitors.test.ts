@@ -8,6 +8,7 @@ const you: CompetitorSummary = {
   platforms: { ChatGPT: 60, Perplexity: 50 },
   resolvedFindings: 0,
   totalFindings: 0,
+  scorerVersion: 3,
   wikipedia: false,
 };
 
@@ -18,6 +19,7 @@ const rival: CompetitorSummary = {
   platforms: { ChatGPT: 78, Perplexity: 60 },
   resolvedFindings: 0,
   totalFindings: 0,
+  scorerVersion: 3,
   wikipedia: true,
 };
 

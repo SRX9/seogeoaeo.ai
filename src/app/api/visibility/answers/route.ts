@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { getDb } from "@/lib/db";
 import { brandProfiles, brands } from "@/lib/db/schema/brand";
-import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
+import { answerRuns, auditFindings, trackedPrompts } from "@/lib/db/schema/visibility";
 import {
   assertVisibilityCredits,
   InsufficientCreditsError,
@@ -83,6 +83,33 @@ export async function POST(request: Request) {
     const result = await runAnswerCheck(brandId);
     if (result.cells.length > 0) {
       await spendForVisibilityJob(workspace.id, "answer_run", crypto.randomUUID(), brandId);
+    }
+    // Persist answer-gap findings into the shared fix queue. Skip any already
+    // present (open or dismissed) so repeat runs never pile up duplicates or
+    // resurrect a finding the owner already dismissed.
+    if (result.findings.length > 0) {
+      const existing = await db
+        .select({ category: auditFindings.category, title: auditFindings.title })
+        .from(auditFindings)
+        .where(eq(auditFindings.workspaceId, workspace.id));
+      const seen = new Set(existing.map((f) => `${f.category}::${f.title.toLowerCase()}`));
+      const fresh = result.findings.filter(
+        (f) => !seen.has(`${f.category}::${f.title.toLowerCase()}`),
+      );
+      if (fresh.length > 0) {
+        await db.insert(auditFindings).values(
+          fresh.map((f) => ({
+            workspaceId: workspace.id,
+            pillar: f.pillar,
+            category: f.category,
+            severity: f.severity,
+            title: f.title,
+            recommendation: f.recommendation,
+            fixCapability: f.fix_capability ?? null,
+            fixPayload: f.fix_payload ?? null,
+          })),
+        );
+      }
     }
     return jsonOk(result);
   });

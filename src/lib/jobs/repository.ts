@@ -4,7 +4,13 @@ import { getDb } from "@/lib/db";
 import { agentJobs, usageCounters } from "@/lib/db/schema";
 import { getWeekStart } from "@/lib/workspace/settings";
 
-export type JobKind = "research" | "writing" | "weekly_pipeline" | "daily_pipeline";
+export type JobKind =
+  | "research"
+  | "writing"
+  | "weekly_pipeline"
+  | "daily_pipeline"
+  | "setup_run"
+  | "competitor_rediscovery";
 export type JobStatus = "running" | "completed" | "failed";
 
 export async function createAgentJob(scope: BrandScope, kind: JobKind, message?: string) {

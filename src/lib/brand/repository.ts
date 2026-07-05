@@ -48,7 +48,7 @@ export async function getBrand(workspaceId: string, brandId: string) {
   return brand ?? null;
 }
 
-export async function createBrand(workspaceId: string, name: string) {
+export async function createBrand(workspaceId: string, name: string, autonomyMode?: AutonomyMode) {
   const trimmed = name.trim();
   const [existing] = await getDb()
     .select({ id: brands.id })
@@ -75,7 +75,8 @@ export async function createBrand(workspaceId: string, name: string) {
     .values({
       workspaceId,
       name: trimmed,
-      ...(sibling ? { autonomyMode: sibling.autonomyMode } : {}),
+      // An explicit onboarding choice (Autopilot/Copilot) wins over inheritance.
+      ...(autonomyMode ? { autonomyMode } : sibling ? { autonomyMode: sibling.autonomyMode } : {}),
     })
     .returning();
   return brand;

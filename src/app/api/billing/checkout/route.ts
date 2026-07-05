@@ -9,7 +9,12 @@ import {
 import { getBillingContext, getRequestOrigin } from "@/lib/billing/access";
 import { getStripe } from "@/lib/billing/stripe";
 
-type CheckoutBody = { planId?: PlanId; packId?: CreditPackId };
+type CheckoutBody = {
+  planId?: PlanId;
+  packId?: CreditPackId;
+  /** Where to send the browser back after Checkout — onboarding resumes brand creation. */
+  returnTo?: "onboarding" | "billing";
+};
 
 /**
  * Start a Stripe Checkout session. `planId` opens a recurring subscription;
@@ -17,7 +22,7 @@ type CheckoutBody = { planId?: PlanId; packId?: CreditPackId };
  */
 export async function POST(request: Request) {
   try {
-    const { planId, packId }: CheckoutBody = await request.json();
+    const { planId, packId, returnTo }: CheckoutBody = await request.json();
     if (!planId && !packId) {
       return NextResponse.json({ error: "planId or packId is required" }, { status: 400 });
     }
@@ -37,8 +42,16 @@ export async function POST(request: Request) {
       "customer" | "customer_email"
     > = customerId ? { customer: customerId } : { customer_email: session.user.email };
 
-    const successUrl = `${origin}/account?tab=billing&checkout=success`;
-    const cancelUrl = `${origin}/account?tab=billing&checkout=canceled`;
+    // Onboarding pays before the brand exists, so it resumes there (restoring the
+    // in-progress draft and finishing brand creation); everything else returns to
+    // the billing tab.
+    const [successUrl, cancelUrl] =
+      returnTo === "onboarding"
+        ? [`${origin}/onboarding?checkout=success`, `${origin}/onboarding?checkout=canceled`]
+        : [
+            `${origin}/account?tab=billing&checkout=success`,
+            `${origin}/account?tab=billing&checkout=canceled`,
+          ];
 
     let params: Stripe.Checkout.SessionCreateParams;
 
@@ -55,6 +68,9 @@ export async function POST(request: Request) {
         // — not a guest — so the topup webhook can persist it for reuse.
         ...(customerId ? {} : { customer_creation: "always" as const }),
         line_items: [{ price: packPriceId, quantity: 1 }],
+        // Surface Stripe's "Add promotion code" field so handed-out coupon codes
+        // can be redeemed at checkout. (Mutually exclusive with `discounts`.)
+        allow_promotion_codes: true,
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {
@@ -75,6 +91,9 @@ export async function POST(request: Request) {
         mode: "subscription",
         ...customerTarget,
         line_items: [{ price: stripePriceId, quantity: 1 }],
+        // Surface Stripe's "Add promotion code" field so handed-out coupon codes
+        // can be redeemed at checkout. No trials — discounts are the only lever.
+        allow_promotion_codes: true,
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata: {

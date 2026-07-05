@@ -29,7 +29,10 @@ export const queryKeys = {
   activity: ["activity"] as const,
   research: ["research"] as const,
   integrations: ["integrations"] as const,
+  googleTraffic: ["integrations", "google"] as const,
   credits: ["credits"] as const,
+  visibilitySummary: ["visibility", "summary"] as const,
+  setupRun: ["setup-run"] as const,
 };
 
 export type SessionUser = { id: string; email: string; name: string; image?: string | null };
@@ -268,6 +271,10 @@ const activityQueryOptions = () => ({
   queryKey: queryKeys.activity,
   queryFn: () => apiGet<ActivityResponse>("/api/activity"),
 });
+const visibilitySummaryQueryOptions = () => ({
+  queryKey: queryKeys.visibilitySummary,
+  queryFn: () => apiGet<VisibilitySummary>("/api/visibility/summary"),
+});
 
 /** The minimal shape `<Section>` consumes; `combineQueries` produces it too. */
 export type QueryLike<T> = {
@@ -371,6 +378,7 @@ export function usePrefetchAppData(enabled: boolean) {
     queryClient.prefetchQuery(automationQueryOptions());
     queryClient.prefetchQuery(onboardingQueryOptions());
     queryClient.prefetchQuery(researchQueryOptions());
+    queryClient.prefetchQuery(visibilitySummaryQueryOptions());
     // Shared across pages.
     queryClient.prefetchQuery(topicsQueryOptions());
     queryClient.prefetchQuery(articlesQueryOptions());
@@ -389,6 +397,79 @@ export function useIntegrations() {
   });
 }
 
+export type GoogleTrafficSourceState = {
+  connected: boolean;
+  siteUrl: string | null;
+  propertyId: string | null;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+};
+
+/** Status of the brand's Google traffic-proof connection (Search Console + GA4). */
+export type GoogleTrafficStatus = {
+  /** Whether the Connect button should be shown (no grant / missing scope). */
+  needsConnect: boolean;
+  /** The Google account is linked with the traffic-proof scopes. */
+  granted: boolean;
+  /** GSC sites the user can pick from (only populated before GSC is connected). */
+  sites: { siteUrl: string; permissionLevel: string }[];
+  gsc: GoogleTrafficSourceState;
+  ga4: GoogleTrafficSourceState;
+};
+
+export function useGoogleTraffic() {
+  return useQuery({
+    queryKey: queryKeys.googleTraffic,
+    queryFn: () => apiGet<GoogleTrafficStatus>("/api/integrations/google"),
+  });
+}
+
 export function useCredits() {
   return useQuery(creditsQueryOptions());
+}
+
+export type VisibilitySubScoreKey =
+  | "citability"
+  | "brand"
+  | "eeat"
+  | "technical"
+  | "schema"
+  | "platform";
+
+/** Latest audit + its six sub-scores, the previous score (for the delta), and
+ * the industry baseline — the payload behind the Overview visibility snapshot. */
+export type VisibilitySummary = {
+  hasAudit: boolean;
+  latest: {
+    id: string;
+    overall: number | null;
+    band: string | null;
+    aiVisibility: number | null;
+    businessType: string | null;
+    completedAt: string | null;
+    subScores: Record<VisibilitySubScoreKey, number | null>;
+  } | null;
+  previousOverall: number | null;
+  baseline: { baseline: number | null; sample: number; scope: string };
+};
+
+export function useVisibilitySummary() {
+  return useQuery(visibilitySummaryQueryOptions());
+}
+
+export type SetupStepStatus = "pending" | "running" | "done" | "skipped" | "failed";
+export type SetupStep = { key: string; status: SetupStepStatus; note?: string };
+export type SetupRunResponse = {
+  run: { id: string; status: string; steps: SetupStep[]; briefText?: string | null } | null;
+  labels: Record<string, string>;
+};
+
+/** Claudia's one-time Setup Run — polled while running so the Overview hero can
+ * show her steps checking off live. */
+export function useSetupRun() {
+  return useQuery({
+    queryKey: queryKeys.setupRun,
+    queryFn: () => apiGet<SetupRunResponse>("/api/setup-run"),
+    refetchInterval: (q) => (q.state.data?.run?.status === "running" ? 4000 : false),
+  });
 }

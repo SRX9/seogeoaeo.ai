@@ -14,6 +14,7 @@ type SettleBody = {
   hadTargets: boolean;
   outOfCredits: boolean;
   brandName?: string;
+  planId?: string | null;
 };
 
 /** Workflow step: record the day's final state and (if paused) email the owner. */
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
       hadTargets: body.hadTargets,
       outOfCredits: body.outOfCredits,
       brandName: body.brandName,
+      planId: body.planId,
     },
   );
   return NextResponse.json({ ok: true, status });

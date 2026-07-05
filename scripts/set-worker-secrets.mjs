@@ -9,7 +9,12 @@ const envFile = resolve(process.argv[2] ?? ".env.production");
 const useEnvFallback = !existsSync(envFile);
 
 const required = ["DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "ENCRYPTION_KEY", "CRON_SECRET"];
-const secretNames = [
+
+// Base set of secret names. Used as-is in CI, where there is no dotenv file to
+// enumerate and values arrive via process.env (GitHub Actions secrets). When a
+// dotenv file IS present, every key in it is pushed too (minus EXCLUDE below),
+// so newly-added vars flow to the Worker without having to edit this list.
+const knownSecretNames = [
   ...required,
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
@@ -25,6 +30,12 @@ const secretNames = [
   "LLM_LIGHT_MODEL",
   "LLM_HEAVY_MODEL",
   "LLM_IMAGE_MODEL",
+  "OPENAI_API_KEY",
+  "PERPLEXITY_API_KEY",
+  "GEMINI_API_KEY",
+  "ANSWER_OPENAI_MODEL",
+  "ANSWER_PERPLEXITY_MODEL",
+  "ANSWER_GEMINI_MODEL",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "GITHUB_CLIENT_ID",
@@ -32,7 +43,21 @@ const secretNames = [
   "TAVILY_API_KEY",
   "SERPER_API_KEY",
   "KEYWORD_API_URL",
+  "CONTEXT_DEV_API_KEY",
+  "CONTEXT_API_KEY",
+  "FIRECRAWL_API_KEY",
 ];
+
+// Never pushed as Worker runtime secrets: wrangler-auth credentials and
+// build-time-only tokens. AUTH_DEV_BYPASS is a plain (non-secret) flag that must
+// stay false in production, so it is not managed here.
+const EXCLUDE = new Set([
+  "CLOUDFLARE_API_TOKEN",
+  "CLOUDFLARE_ACCOUNT_ID",
+  "HEROUI_AUTH_TOKEN",
+  "HEROUI_CICD_TOKEN",
+  "AUTH_DEV_BYPASS",
+]);
 
 function parseDotenv(source) {
   const values = {};
@@ -88,6 +113,11 @@ if (useEnvFallback) {
 } else {
   fileValues = parseDotenv(readFileSync(envFile, "utf8"));
 }
+// Push the known base set plus every key actually present in the dotenv file
+// (so new vars land on the Worker automatically), minus the excluded set.
+const secretNames = [...new Set([...knownSecretNames, ...Object.keys(fileValues)])].filter(
+  (key) => !EXCLUDE.has(key),
+);
 // Prefer the dotenv file value, fall back to the matching environment variable.
 const values = Object.fromEntries(
   secretNames.map((key) => [key, fileValues[key] ?? process.env[key] ?? ""]),

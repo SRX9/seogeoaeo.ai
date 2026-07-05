@@ -15,6 +15,7 @@ import { analyzeCrawlerAccess } from "@/lib/visibility/crawler-access";
 import { fetchPage } from "@/lib/visibility/fetch-page";
 import { analyzeLlmsTxt, fetchLlmsTxt } from "@/lib/visibility/llms";
 import { analyzePlatforms } from "@/lib/visibility/platforms";
+import { fetchPageResilient } from "@/lib/visibility/resilient-fetch";
 import { fetchRobots } from "@/lib/visibility/robots";
 import { siteHints } from "@/lib/visibility/schema/generate";
 import { computeAiVisibility, computeComposite } from "@/lib/visibility/scoring";
@@ -24,6 +25,7 @@ import type {
   PageSnapshot,
   RobotsResult,
 } from "@/lib/visibility/types";
+import { SCORER_VERSION } from "@/lib/visibility/version";
 import { analyzers } from "./analyzers";
 
 /**
@@ -131,7 +133,7 @@ async function persistOffSiteSignals(
         platform: p.platform,
         status: p.detected ? "present" : "absent",
         score: p.earned,
-        evidence: { weight: p.weight, searchUrl: p.searchUrl },
+        evidence: { weight: p.weight, searchUrl: p.searchUrl, ...p.evidence },
       })),
     );
   }
@@ -183,8 +185,15 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
   const workspaceId = auditRow?.workspaceId ?? null;
   try {
     // ── Discovery ────────────────────────────────────────────────────────
-    const homepage = await fetchPage(siteUrl, { timeoutMs: QUALITY_GATES.pageTimeoutMs });
-    if (homepage.status_code === null || homepage.status_code >= 400) {
+    // Resilient fetch: plain fetch first, escalating to the scraper chain
+    // (context.dev → Firecrawl) when the homepage is bot-blocked or client-
+    // rendered, so we score the real page and never a challenge interstitial.
+    // It also returns the true SSR verdict (raw-vs-rendered) and sets
+    // has_ssr_content; all degrade gracefully when no scraper is configured.
+    const { snapshot: homepage, render, blocked, recovered } = await fetchPageResilient(siteUrl, {
+      timeoutMs: QUALITY_GATES.pageTimeoutMs,
+    });
+    if (!recovered && (homepage.status_code === null || homepage.status_code >= 400)) {
       throw new Error(
         homepage.errors[0] ?? `Homepage returned status ${homepage.status_code}`,
       );
@@ -246,7 +255,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     // ── Analysis (parallel, mirrors the 6 subagents) ─────────────────────
     const analyzerResults: AnalyzerResult[] = await Promise.all(
       analyzers.map((run) =>
-        run({ homepage, pages, robots, llms, businessType: businessType.type, brand, platforms }),
+        run({ homepage, pages, robots, llms, businessType: businessType.type, brand, platforms, render }),
       ),
     );
 
@@ -262,6 +271,20 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     });
 
     const findings = analyzerResults.flatMap((r) => r.findings);
+    if (blocked) {
+      // The plain fetch hit bot protection; AI crawlers fetch like plain requests.
+      findings.push({
+        pillar: "geo",
+        category: "crawler_access",
+        severity: "high",
+        title: "Live page blocked non-browser requests",
+        recommendation:
+          "A plain request to your page was met with a bot-protection challenge. AI crawlers " +
+          "(GPTBot, ClaudeBot, PerplexityBot) fetch like plain requests too — allowlist them in your " +
+          "WAF / Bot Fight Mode, or they'll see a challenge page instead of your content.",
+        fix_capability: "guided",
+      });
+    }
     if (findings.length > 0) {
       await db.insert(auditFindings).values(
         findings.map((f) => ({
@@ -290,6 +313,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
         technicalScore: subScores.get("technical") ?? null,
         schemaScore: subScores.get("schema") ?? null,
         platformScore: subScores.get("platform") ?? null,
+        scorerVersion: SCORER_VERSION,
         completedAt: new Date(),
       })
       .where(eq(audits.id, auditId));

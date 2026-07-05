@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { brandProfiles, brands, competitors } from "@/lib/db/schema/brand";
 import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
@@ -85,6 +85,22 @@ export function computeShare(
   }).filter((s) => s.prompts > 0);
 }
 
+/**
+ * Most recent stored answer excerpts for a brand, across engines. Used as
+ * competitor-discovery evidence: brands the engines already name in category
+ * answers are the truest competitors for AI visibility.
+ */
+export async function recentAnswerExcerpts(brandId: string, limit = 9): Promise<string[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ excerpt: answerRuns.answerExcerpt })
+    .from(answerRuns)
+    .where(eq(answerRuns.brandId, brandId))
+    .orderBy(desc(answerRuns.ranAt))
+    .limit(limit);
+  return rows.map((r) => r.excerpt).filter((e): e is string => Boolean(e));
+}
+
 // ── engine adapters (best-effort; null on missing key / failure) ─────────────
 const askChatGPT: AskEngine = async (prompt) => {
   const key = process.env.OPENAI_API_KEY;
@@ -93,7 +109,7 @@ const askChatGPT: AskEngine = async (prompt) => {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4.1", tools: [{ type: "web_search" }], input: prompt }),
+      body: JSON.stringify({ model: process.env.ANSWER_OPENAI_MODEL || "gpt-5.4-nano-2026-03-17", tools: [{ type: "web_search" }], input: prompt }),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { output_text?: string; output?: unknown[] };
@@ -119,7 +135,7 @@ const askPerplexity: AskEngine = async (prompt) => {
     const res = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "sonar", messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ model: process.env.ANSWER_PERPLEXITY_MODEL || "sonar", messages: [{ role: "user", content: prompt }] }),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -137,7 +153,7 @@ const askGemini: AskEngine = async (prompt) => {
   if (!key) return null;
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${process.env.ANSWER_GEMINI_MODEL || "gemini-3.1-flash-lite"}:generateContent?key=${key}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

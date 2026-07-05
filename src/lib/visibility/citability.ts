@@ -2,11 +2,16 @@ import { extractContentBlocks } from "./blocks";
 
 /**
  * V2.1 — AI citability / passage scorer (flagship, deterministic core IP).
- * Ported 1:1 from `inspiration-code/scripts/citability_scorer.py`
- * (`score_passage` 26–244, `analyze_page_citability` 247–332). Every regex,
- * cap, and grade band is preserved so the same HTML always yields the same
- * score. Page aggregation follows the methodology doc + V2.1 ticket: page score
- * is the average of the top-5 blocks (or all when fewer than five).
+ * Originally ported from `inspiration-code/scripts/citability_scorer.py`, now at
+ * scorer v3 (see `version.ts`) with two deliberate divergences from the Python
+ * reference: (1) proper-noun counting excludes single sentence-initial words
+ * ("The", "When") which are capitalized by grammar, not because they name an
+ * entity — see `countProperNouns`; (2) content blocks are newline-joined
+ * (`blocks.ts`) so the structural-readability bonus for multi-element blocks
+ * actually fires. Every other regex, cap, and grade band is preserved, so the
+ * same HTML always yields the same score. Page aggregation follows the
+ * methodology doc + V2.1 ticket: page score is the average of the top-5 blocks
+ * (or all when fewer than five).
  */
 
 export type Grade = "A" | "B" | "C" | "D" | "F";
@@ -89,6 +94,27 @@ function count(text: string, re: RegExp): number {
   return text.match(re)?.length ?? 0;
 }
 
+/**
+ * Count named-entity-like capitalized runs. Excludes single sentence-initial
+ * words (e.g. "The", "Content", "When") that are capitalized only by grammar —
+ * counting those gave nearly every block false named-entity credit. A multi-word
+ * run at a sentence start ("Acme Corporation …") still counts. Deterministic,
+ * no dictionary (v3 divergence from the Python reference).
+ */
+function countProperNouns(text: string): number {
+  let total = 0;
+  for (const sentence of text.split(/[.!?]+/)) {
+    const trimmed = sentence.replace(/^\s+/, "");
+    if (!trimmed) continue;
+    for (const m of trimmed.matchAll(PROPER_NOUNS)) {
+      const atSentenceStart = m.index === 0;
+      const isMultiWord = /\s/.test(m[0]);
+      if (!atSentenceStart || isMultiWord) total++;
+    }
+  }
+  return total;
+}
+
 /** Score a single passage for AI citability (0–100). Deterministic. */
 export function scorePassage(text: string, heading: string | null = null): PassageScore {
   const wordList = words(text);
@@ -121,7 +147,7 @@ export function scorePassage(text: string, heading: string | null = null): Passa
     else if (ratio < 0.04) sc += 5;
     else if (ratio < 0.06) sc += 3;
   }
-  const properNouns = count(text, PROPER_NOUNS);
+  const properNouns = countProperNouns(text);
   if (properNouns >= 3) sc += 7;
   else if (properNouns >= 1) sc += 4;
 

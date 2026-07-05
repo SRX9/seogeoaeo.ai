@@ -22,7 +22,94 @@ export type UseCaseInput = {
   evidence?: string | null;
 };
 
+/** The minimal profile the generator needs — works with or without a saved brand. */
+export type UseCaseProfile = {
+  name?: string | null;
+  productDescription?: string | null;
+  audience?: string | null;
+  website?: string | null;
+  seedKeywords?: string | null;
+};
+
 const MAX_USE_CASES = 24;
+
+/** How many rows the onboarding preview surfaces before any brand row exists. */
+const PREVIEW_USE_CASES = 8;
+
+function isUseCaseRow(row: UseCaseInput): boolean {
+  return (
+    typeof row.job === "string" &&
+    typeof row.persona === "string" &&
+    Boolean(row.job.trim()) &&
+    Boolean(row.persona.trim())
+  );
+}
+
+/**
+ * The generation core, decoupled from any brand row: search the web for the
+ * product, ask the LLM to map the jobs buyers hire it for, and return valid
+ * rows. Shared by {@link syncUseCases} (persists, deduped) and
+ * {@link previewUseCases} (onboarding, before a brand exists). Returns `[]`
+ * whenever the LLM is unconfigured or the profile has no description to ground on.
+ */
+async function generateUseCaseInputs(
+  profile: UseCaseProfile,
+  articleTitles: string[],
+): Promise<UseCaseInput[]> {
+  if (!getLlmConfig() || !profile.productDescription) {
+    return [];
+  }
+
+  // Same grounding pattern as brand enrichment: search results, not direct
+  // fetches of user-supplied URLs (no SSRF surface). serperSearch degrades to
+  // empty results on its own, so the profile alone is always enough.
+  const query = profile.name
+    ? `${profile.name} use cases features`
+    : profile.productDescription.slice(0, 60);
+  const { organic } = await serperSearch(query, { num: 6 });
+  const searchContext = organic
+    .slice(0, 6)
+    .flatMap((item) =>
+      item.title ? [`- ${item.title}: ${(item.snippet ?? "").slice(0, 200)}`] : [],
+    )
+    .join("\n");
+
+  const prompt = extractUseCasesPrompt(
+    {
+      name: profile.name ?? undefined,
+      productDescription: profile.productDescription,
+      audience: profile.audience ?? undefined,
+      website: profile.website ?? undefined,
+      seedKeywords: profile.seedKeywords ?? undefined,
+    },
+    articleTitles,
+    searchContext,
+  );
+
+  try {
+    const { data } = await generateJson<{ useCases?: UseCaseInput[] }>("light", [
+      { role: "system", content: prompt.system },
+      { role: "user", content: prompt.user },
+    ]);
+    return (Array.isArray(data?.useCases) ? data.useCases : []).filter(isUseCaseRow);
+  } catch (error) {
+    logWarn("use_cases.generation_failed", {
+      brandId: profile.name ?? "preview",
+      reason: error instanceof Error ? error.message : "Unknown error",
+    });
+    return [];
+  }
+}
+
+/**
+ * Onboarding preview: map use cases straight from the entered/AI-prefilled
+ * profile, before any brand row exists. No DB writes, no dedup — the client
+ * confirms the rows and they're persisted when the brand is created.
+ */
+export async function previewUseCases(profile: UseCaseProfile): Promise<UseCaseInput[]> {
+  const rows = await generateUseCaseInputs(profile, []);
+  return rows.slice(0, PREVIEW_USE_CASES);
+}
 
 export async function listUseCases(brandId: string, options: { enabledOnly?: boolean } = {}) {
   const conditions = [eq(brandUseCases.brandId, brandId)];
@@ -104,21 +191,7 @@ export async function syncUseCases(scope: BrandScope) {
     return { added: 0, total: existing.length };
   }
 
-  // Same grounding pattern as brand enrichment: search results, not direct
-  // fetches of user-supplied URLs (no SSRF surface). serperSearch degrades to
-  // empty results on its own, so the profile alone is always enough.
-  const query = brand?.name
-    ? `${brand.name} use cases features`
-    : profile.productDescription.slice(0, 60);
-  const { organic } = await serperSearch(query, { num: 6 });
-  const searchContext = organic
-    .slice(0, 6)
-    .flatMap((item) =>
-      item.title ? [`- ${item.title}: ${(item.snippet ?? "").slice(0, 200)}`] : [],
-    )
-    .join("\n");
-
-  const prompt = extractUseCasesPrompt(
+  const rows = await generateUseCaseInputs(
     {
       name: brand?.name,
       productDescription: profile.productDescription,
@@ -127,35 +200,12 @@ export async function syncUseCases(scope: BrandScope) {
       seedKeywords: profile.seedKeywords,
     },
     articles.map((article) => article.title),
-    searchContext,
   );
-
-  let rows: UseCaseInput[] = [];
-  try {
-    const { data } = await generateJson<{ useCases?: UseCaseInput[] }>("light", [
-      { role: "system", content: prompt.system },
-      { role: "user", content: prompt.user },
-    ]);
-    rows = Array.isArray(data?.useCases) ? data.useCases : [];
-  } catch (error) {
-    logWarn("use_cases.generation_failed", {
-      brandId: scope.brandId,
-      reason: error instanceof Error ? error.message : "Unknown error",
-    });
-    return { added: 0, total: existing.length };
-  }
 
   const known = new Set(existing.map((row) => rowKey(row.job, row.persona)));
   const room = Math.max(0, MAX_USE_CASES - existing.length);
   const fresh = rows
-    .filter(
-      (row) =>
-        typeof row.job === "string" &&
-        typeof row.persona === "string" &&
-        row.job.trim() &&
-        row.persona.trim() &&
-        !known.has(rowKey(row.job, row.persona)),
-    )
+    .filter((row) => !known.has(rowKey(row.job, row.persona)))
     .slice(0, room);
 
   for (const row of fresh) {

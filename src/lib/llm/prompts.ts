@@ -181,22 +181,72 @@ ${searchContext || "No results found."}`,
 
 export function competitorDiscoveryPrompt(
   brand: { name: string; website?: string | null; productDescription?: string | null },
-  candidates: string,
+  evidence: { candidates: string; listicles: string; answers: string },
   limit: number,
 ) {
   return {
     system:
-      "You identify direct business competitors. Given a brand and a list of candidate sites from web search, " +
-      `return JSON with key competitors: an array of at most ${limit} objects { name, url }. ` +
-      "Include only genuine competing products/companies. Exclude the brand itself, review aggregators " +
-      "(g2, capterra, trustpilot), marketplaces, social networks, news, and wikis. Use the candidate's real " +
-      "homepage URL (https://domain). Return fewer than the limit rather than padding with weak matches.",
+      "You identify a brand's direct business competitors from web-search evidence. " +
+      `Return JSON with key competitors: an array of at most ${limit} objects { name, url, reason }, ` +
+      "ordered strongest competitor first. Weigh the evidence: brands named in AI assistant answers are the " +
+      "strongest signal, then comparison ('vs') pages, then 'alternatives' listicle text, then candidates " +
+      "corroborated by multiple searches. You may include a competitor named only in listicle or AI-answer " +
+      'text — set its url to "" if you do not know its real homepage. Include only genuine competing ' +
+      "products/companies. Exclude the brand itself, review aggregators (g2, capterra, trustpilot), " +
+      "marketplaces, social networks, news, and wikis. Use real homepage URLs (https://domain). " +
+      "reason is one short sentence citing the evidence. Return fewer than the limit rather than padding " +
+      "with weak matches.",
     user: `Brand name: ${brand.name}
 Brand website: ${brand.website || "Unknown"}
 What the brand does: ${brand.productDescription || "Unknown"}
 
 Candidate sites from web search:
-${candidates || "No candidates found."}`,
+${evidence.candidates || "None."}
+
+"Alternatives"/comparison article snippets (may name competitors in text):
+${evidence.listicles || "None."}
+
+Recent AI assistant answers about this category (brands named here are strong competitors):
+${evidence.answers || "None."}`,
+  };
+}
+
+export function seedTrackedPromptsPrompt(
+  brand: {
+    name: string;
+    website?: string | null;
+    productDescription?: string | null;
+    audience?: string | null;
+    seedKeywords?: string | null;
+  },
+  limit: number,
+) {
+  return {
+    system:
+      "You write the questions real buyers ask AI assistants (ChatGPT, Perplexity, Gemini) when shopping in a " +
+      `product category. Return JSON with key prompts: an array of at most ${limit} strings. ` +
+      'Mix category questions ("best X for Y"), use-case questions, and comparison questions a buyer of this ' +
+      "product would plausibly ask. Never mention the brand by name — these prompts measure whether AI answers " +
+      "surface the brand unprompted. Keep each under 15 words, plain language, no numbering.",
+    user: `Brand name: ${brand.name}
+Website: ${brand.website || "Unknown"}
+What it sells: ${brand.productDescription || "Unknown"}
+Audience: ${brand.audience || "Unknown"}
+Seed keywords: ${brand.seedKeywords || "None"}`,
+  };
+}
+
+export function day0BriefPrompt(brandName: string, factsBlock: string) {
+  return {
+    system:
+      "You are Claudia, the user's SEO/AEO/GEO employee, writing your Day-0 brief after setting yourself up. " +
+      "Write 3-5 sentences, first person, plain owner language (no jargon, no bare scores without context). " +
+      "Cover: where the site stands today, what you already did during setup, and what you'll do this week. " +
+      "Be concrete and warm, never salesy. Return JSON with key brief: the string.",
+    user: `Brand: ${brandName}
+
+Structured setup results:
+${factsBlock}`,
   };
 }
 

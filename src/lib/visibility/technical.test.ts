@@ -129,6 +129,70 @@ describe("auditTechnical", () => {
     expect(r.ssr).toMatchObject({ severity: "LOW", framework: "WordPress" });
   });
 
+  it("uses a real render verdict over the static heuristic (missing content → HIGH)", () => {
+    // Heuristic alone would say LOW (has_ssr_content true), but the render shows
+    // most content is client-injected → HIGH, scoring 40, with a measured finding.
+    const r = auditTechnical(snapshot({ has_ssr_content: true }), robots(), [], {
+      render: {
+        available: true,
+        raw_word_count: 120,
+        rendered_word_count: 900,
+        ratio: 0.13,
+        missing_content: true,
+        severe: false,
+        note: "",
+      },
+    });
+    expect(r.ssr.severity).toBe("HIGH");
+    expect(r.categories.find((c) => c.key === "ssr")!.score).toBe(40);
+    expect(r.ssr.renderCheck).toEqual({ renderedWordCount: 900, ratio: 0.13 });
+    const finding = r.findings.find((f) => f.category === "ssr")!;
+    expect(finding.severity).toBe("high");
+    expect(finding.recommendation).toContain("900 words");
+  });
+
+  it("a render that confirms content clears a framework the heuristic would call CSR", () => {
+    // Angular SPA markup would map to MEDIUM by framework heuristic; a good render overrides to LOW.
+    const r = auditTechnical(
+      snapshot({ html: "<html><body><app-root>rendered</app-root></body></html>" }),
+      robots(),
+      [],
+      {
+        render: {
+          available: true,
+          raw_word_count: 480,
+          rendered_word_count: 500,
+          ratio: 0.96,
+          missing_content: false,
+          severe: false,
+          note: "",
+        },
+      },
+    );
+    expect(r.ssr.severity).toBe("LOW");
+    expect(r.findings.some((f) => f.category === "ssr")).toBe(false);
+  });
+
+  it("severe client-side rendering from a render → CRITICAL", () => {
+    const r = auditTechnical(snapshot({ has_ssr_content: true }), robots(), [], {
+      render: { available: true, raw_word_count: 40, rendered_word_count: 900, ratio: 0.04, missing_content: true, severe: true, note: "" },
+    });
+    expect(r.ssr.severity).toBe("CRITICAL");
+  });
+
+  it("falls back to the static heuristic when no render is available (golden parity)", () => {
+    const withNoRender = auditTechnical(snapshot({ has_ssr_content: false, html: '<html><body><div id="root"></div></body></html>' }), robots());
+    const withUnavailable = auditTechnical(
+      snapshot({ has_ssr_content: false, html: '<html><body><div id="root"></div></body></html>' }),
+      robots(),
+      [],
+      { render: { available: false, raw_word_count: 0, rendered_word_count: null, ratio: null, missing_content: false, severe: false, note: "" } },
+    );
+    expect(withNoRender.ssr.severity).toBe("CRITICAL");
+    expect(withUnavailable.ssr.severity).toBe("CRITICAL");
+    expect(withNoRender.ssr.renderCheck).toBeUndefined();
+  });
+
   it("penalizes a messy URL (uppercase, underscores, depth, session id)", () => {
     const r = auditTechnical(
       snapshot({ url: "https://acme.example/Path_1/a/b/c/d/e?sid=abc123def456ghij" }),

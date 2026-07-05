@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
+import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
@@ -9,21 +9,31 @@ import {
   InsufficientCreditsError,
   spendForVisibilityJob,
 } from "@/lib/usage/credits";
+import { getBrandProfile } from "@/lib/brand/repository";
 import { createAudit, executeAudit } from "@/server/visibility/run-audit";
 
-const startAuditSchema = z.object({
-  url: z
-    .string()
-    .min(1)
-    .transform((value) => (/^https?:\/\//i.test(value) ? value : `https://${value}`))
-    .pipe(z.string().url()),
-});
+const urlSchema = z
+  .string()
+  .min(1)
+  .transform((value) => (/^https?:\/\//i.test(value) ? value : `https://${value}`))
+  .pipe(z.string().url());
 
-/** Kick off an audit; the run continues in the background. Returns `auditId`. */
+// Zero-input rule: the brand's website is the default target. `url` stays as an
+// explicit override for Toolbox / multi-property cases only.
+const startAuditSchema = z.object({ url: urlSchema.optional() });
+
+/** Kick off an audit of the active brand's site; the run continues in the background. Returns `auditId`. */
 export async function POST(request: Request) {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
-    const { url } = parseBody(startAuditSchema, await readJson(request));
+    const { workspace, brand } = await requireApiBrand();
+    const { url: override } = parseBody(startAuditSchema, await readJson(request));
+    const website = override ?? (await getBrandProfile(brand.id))?.website;
+    const url = website ? parseBody(urlSchema, website) : null;
+    if (!url) {
+      throw new HttpError(400, "This brand has no website yet — add one in brand settings.", {
+        code: "NO_WEBSITE",
+      });
+    }
 
     // Pre-check balance (402) without charging; a failed audit must never burn
     // credits, so the actual spend happens after the run succeeds.

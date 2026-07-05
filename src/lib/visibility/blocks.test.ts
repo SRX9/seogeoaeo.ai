@@ -35,6 +35,23 @@ describe("extractContentBlocks", () => {
     expect(blocks[0].heading).toBe("Real section");
   });
 
+  it("joins multiple elements in a block with newlines (single-element blocks stay flat)", () => {
+    const html = `<html><body>
+      <h2>Multi</h2>
+      <p>The first paragraph carries more than twenty words so the block survives the minimum
+      length filter that the citability block splitter applies before scoring anything.</p>
+      <p>A second paragraph in the same section adds the newline the structural readability bonus rewards.</p>
+      <h2>Single</h2>
+      <p>Only one paragraph lives under this heading and it also clears the twenty word minimum
+      threshold required for the splitter to keep the content block around for scoring.</p>
+    </body></html>`;
+    const blocks = extractContentBlocks(html);
+    const multi = blocks.find((b) => b.heading === "Multi")!;
+    const single = blocks.find((b) => b.heading === "Single")!;
+    expect(multi.content).toContain("\n");
+    expect(single.content).not.toContain("\n");
+  });
+
   it("captures leading content before any heading with a null heading", () => {
     const html = `<html><body>
       <p>An introduction paragraph that appears before any heading and contains more than

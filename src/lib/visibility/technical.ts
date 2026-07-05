@@ -1,6 +1,7 @@
 import { analyzeCrawlerAccess } from "./crawler-access";
 import { DEFAULT_HEADERS } from "./fetch-page";
 import { auditMeta } from "./meta-audit";
+import type { RenderComparison } from "./render";
 import type { Finding, PageSnapshot, RobotsResult } from "./types";
 
 /**
@@ -25,7 +26,13 @@ export interface TechnicalCategory {
 export interface TechnicalResult {
   score: number;
   categories: TechnicalCategory[];
-  ssr: { severity: SsrSeverity; renderingType: string; framework: string };
+  ssr: {
+    severity: SsrSeverity;
+    renderingType: string;
+    framework: string;
+    /** Present when a real headless render was compared to the raw HTML (v3). */
+    renderCheck?: { renderedWordCount: number; ratio: number };
+  };
   /** Static-HTML estimate — validate with field data (CrUX/PageSpeed). */
   cwv: { lcp: RiskLevel; inp: RiskLevel; cls: RiskLevel; note: string };
   findings: Finding[];
@@ -68,15 +75,43 @@ function detectFramework(html: string): { renderingType: string; framework: stri
   return { renderingType: "SSR", framework: "Unknown" };
 }
 
-function assessSsr(snapshot: PageSnapshot): { severity: SsrSeverity; renderingType: string; framework: string; score: number } {
+function assessSsr(
+  snapshot: PageSnapshot,
+  render?: RenderComparison,
+): {
+  severity: SsrSeverity;
+  renderingType: string;
+  framework: string;
+  score: number;
+  renderCheck?: { renderedWordCount: number; ratio: number };
+} {
   const detected = detectFramework(snapshot.html);
   let severity: SsrSeverity;
-  if (!snapshot.has_ssr_content) severity = "CRITICAL";
-  else if (detected.renderingType.startsWith("SSR")) severity = "LOW";
-  else if (detected.renderingType === "CSR") severity = "MEDIUM";
-  else severity = "LOW";
+  let renderingType = detected.renderingType;
+
+  if (render?.available) {
+    // Ground truth from a real headless render beats every static heuristic.
+    if (render.severe) severity = "CRITICAL";
+    else if (render.missing_content) severity = "HIGH";
+    else severity = "LOW";
+    renderingType = render.missing_content
+      ? `CSR (${render.raw_word_count}/${render.rendered_word_count} words in raw HTML)`
+      : `${detected.renderingType} (render-verified)`;
+  } else if (!snapshot.has_ssr_content) {
+    severity = "CRITICAL";
+  } else if (detected.renderingType.startsWith("SSR")) {
+    severity = "LOW";
+  } else if (detected.renderingType === "CSR") {
+    severity = "MEDIUM";
+  } else {
+    severity = "LOW";
+  }
+
   const score = { LOW: 100, MEDIUM: 70, HIGH: 40, CRITICAL: 0 }[severity];
-  return { severity, ...detected, score };
+  const renderCheck = render?.available
+    ? { renderedWordCount: render.rendered_word_count ?? 0, ratio: render.ratio ?? 0 }
+    : undefined;
+  return { severity, renderingType, framework: detected.framework, score, renderCheck };
 }
 
 // ── Security (Step 4, exact deductions) ────────────────────────────────────
@@ -209,10 +244,11 @@ export function auditTechnical(
   snapshot: PageSnapshot,
   robots: RobotsResult,
   _sitemapPages: string[] = [],
+  opts: { render?: RenderComparison } = {},
 ): TechnicalResult {
   const meta = auditMeta(snapshot);
   const crawler = analyzeCrawlerAccess(robots);
-  const ssr = assessSsr(snapshot);
+  const ssr = assessSsr(snapshot, opts.render);
   const security = scoreSecurity(snapshot);
   const cwv = assessCwv(snapshot);
   const mobile = scoreMobile(snapshot);
@@ -243,6 +279,11 @@ export function auditTechnical(
   const findings: Finding[] = [...meta.findings, ...crawler.findings];
 
   if (ssr.severity !== "LOW") {
+    const rendered = opts.render;
+    const measured =
+      rendered?.available && rendered.rendered_word_count
+        ? `A headless render produced ${rendered.rendered_word_count} words but only ${rendered.raw_word_count} are in the raw HTML AI crawlers (GPTBot, ClaudeBot, PerplexityBot) receive — they don't execute JavaScript. `
+        : "AI crawlers (GPTBot, ClaudeBot, PerplexityBot) don't execute JavaScript. ";
     findings.push({
       pillar: "geo",
       category: "ssr",
@@ -251,9 +292,7 @@ export function auditTechnical(
         ssr.severity === "CRITICAL"
           ? "Page content requires JavaScript to render"
           : "Some content is only visible after JavaScript runs",
-      recommendation:
-        "AI crawlers (GPTBot, ClaudeBot, PerplexityBot) don't execute JavaScript. " +
-        "Server-render or pre-render the main content so it's in the initial HTML.",
+      recommendation: `${measured}Server-render or pre-render the main content so it's in the initial HTML.`,
       fix_capability: "guided",
     });
   }
@@ -318,7 +357,12 @@ export function auditTechnical(
   return {
     score,
     categories,
-    ssr: { severity: ssr.severity, renderingType: ssr.renderingType, framework: ssr.framework },
+    ssr: {
+      severity: ssr.severity,
+      renderingType: ssr.renderingType,
+      framework: ssr.framework,
+      ...(ssr.renderCheck ? { renderCheck: ssr.renderCheck } : {}),
+    },
     cwv: {
       lcp: cwv.lcp,
       inp: cwv.inp,

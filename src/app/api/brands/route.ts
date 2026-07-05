@@ -6,14 +6,16 @@ import {
   parseBody,
   readJson,
 } from "@/lib/api/server";
+import { isActiveSubscription } from "@/lib/billing/plans";
 import { setActiveBrandCookie } from "@/lib/brand/context";
 import {
   BrandExistsError,
   createBrand,
-  createCompetitor,
+  createCompetitors,
   listBrands,
   upsertBrandProfile,
 } from "@/lib/brand/repository";
+import { createUseCase } from "@/lib/brand/use-cases";
 import { brandOnboardingSchema } from "@/lib/brand/schemas";
 import {
   emptySecretStates,
@@ -53,6 +55,15 @@ type OnboardingIntegrationSetup = {
 
 function hasValues(values: Record<string, string>) {
   return Object.values(values).some((value) => value.trim().length > 0);
+}
+
+/** Hostname without a leading "www.", for deduping competitor URLs. */
+function safeHost(value: string): string | null {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 function prepareOnboardingIntegration(
@@ -108,7 +119,7 @@ export async function POST(request: Request) {
 
     let brand: Awaited<ReturnType<typeof createBrand>>;
     try {
-      brand = await createBrand(ctx.workspace.id, data.name);
+      brand = await createBrand(ctx.workspace.id, data.name, data.autonomyMode);
     } catch (error) {
       if (error instanceof BrandExistsError) {
         throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
@@ -125,13 +136,52 @@ export async function POST(request: Request) {
       seedKeywords: data.seedKeywords ?? "",
     });
 
-    if (data.competitorName && data.competitorUrl) {
-      await createCompetitor(scope, {
-        name: data.competitorName,
-        url: data.competitorUrl,
-        rssUrl: "",
-        sitemapUrl: "",
-      });
+    // Competitors picked from onboarding's AI discovery (plus any legacy single
+    // entry), deduped by host and bulk-inserted. Best-effort enrichment — a
+    // failure here must never fail brand creation.
+    const competitorInputs = [
+      ...(data.competitors ?? []),
+      ...(data.competitorName && data.competitorUrl
+        ? [{ name: data.competitorName, url: data.competitorUrl }]
+        : []),
+    ];
+    const seenHosts = new Set<string>();
+    const dedupedCompetitors = competitorInputs.filter((competitor) => {
+      const key = safeHost(competitor.url) ?? competitor.url.toLowerCase();
+      if (seenHosts.has(key)) {
+        return false;
+      }
+      seenHosts.add(key);
+      return true;
+    });
+    if (dedupedCompetitors.length > 0) {
+      try {
+        await createCompetitors(
+          scope,
+          dedupedCompetitors.map((competitor) => ({
+            name: competitor.name,
+            url: competitor.url,
+            rssUrl: "",
+            sitemapUrl: "",
+          })),
+        );
+      } catch (error) {
+        console.error("[brands] competitor seeding failed", error);
+      }
+    }
+
+    // Use cases confirmed on onboarding's autofill step — seed the C1 inventory
+    // so BOFU topic mining has buyer jobs to work from on day one.
+    for (const useCase of data.useCases ?? []) {
+      try {
+        await createUseCase(
+          scope,
+          { job: useCase.job, persona: useCase.persona, industry: useCase.industry || null },
+          "generated",
+        );
+      } catch (error) {
+        console.error("[brands] use-case seeding failed", error);
+      }
     }
 
     if (integrationSetup) {
@@ -153,6 +203,14 @@ export async function POST(request: Request) {
     }
 
     await setActiveBrandCookie(brand.id);
-    return jsonOk({ brand: { id: brand.id, name: brand.name } }, { status: 201 });
+    // Ignition readiness (AP2): with an active subscription the client kicks off
+    // Claudia's Setup Run immediately; otherwise it routes to plan selection.
+    return jsonOk(
+      {
+        brand: { id: brand.id, name: brand.name },
+        canIgnite: isActiveSubscription(ctx.subscription?.status),
+      },
+      { status: 201 },
+    );
   });
 }

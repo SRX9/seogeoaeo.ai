@@ -30,9 +30,14 @@ export function ProofPanel() {
   if (!data) return <Card className="p-5 text-sm text-default-400">Loading proof…</Card>;
 
   const totalClicks = data.gsc.reduce((s, r) => s + r.clicks, 0);
-  const firstClicks = data.gsc[0]?.clicks ?? 0;
-  const lastClicks = data.gsc[data.gsc.length - 1]?.clicks ?? 0;
-  const clickDelta = firstClicks > 0 ? Math.round(((lastClicks - firstClicks) / firstClicks) * 100) : null;
+  // Compare the first half of the window to the most recent half so a single
+  // spiky day doesn't dominate the headline delta.
+  const avgClicks = (rows: TrafficData["gsc"]) =>
+    rows.length ? rows.reduce((s, r) => s + r.clicks, 0) / rows.length : 0;
+  const half = Math.max(1, Math.floor(data.gsc.length / 2));
+  const firstAvg = avgClicks(data.gsc.slice(0, half));
+  const lastAvg = avgClicks(data.gsc.slice(-half));
+  const clickDelta = firstAvg > 0 ? Math.round(((lastAvg - firstAvg) / firstAvg) * 100) : null;
 
   const referralTotals: Record<string, number> = {};
   for (const row of data.aiReferrals) {
@@ -45,12 +50,12 @@ export function ProofPanel() {
         <h2 className="font-semibold">Proof — real traffic</h2>
         <div className="flex gap-2">
           {!data.connected.gsc && (
-            <a className="rounded-medium border border-default-200 px-3 py-1.5 text-sm" href="/settings/integrations">
+            <a className="rounded-medium border border-default-200 px-3 py-1.5 text-sm" href="/settings?tab=integrations">
               Connect Search Console
             </a>
           )}
           {!data.connected.ga4 && (
-            <a className="rounded-medium border border-default-200 px-3 py-1.5 text-sm" href="/settings/integrations">
+            <a className="rounded-medium border border-default-200 px-3 py-1.5 text-sm" href="/settings?tab=integrations">
               Connect GA4
             </a>
           )}

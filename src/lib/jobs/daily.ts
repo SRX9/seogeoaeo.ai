@@ -3,6 +3,8 @@ import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { sendOutOfCreditsEmail } from "@/lib/email/notify";
+import { syncTrafficForBrand } from "@/lib/integrations/google-traffic";
+import { maybeRediscoverCompetitors } from "@/lib/jobs/competitor-rediscovery";
 import { getDailyRun, upsertDailyRun, type DailyRunStatus } from "@/lib/jobs/daily-repository";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { runResearch } from "@/lib/research/run";
@@ -148,6 +150,8 @@ export type SettleInput = {
   /** Whether the day stopped because the workspace ran out of credits. */
   outOfCredits: boolean;
   brandName?: string;
+  /** Plan id — gates the periodic competitor rediscovery. */
+  planId?: string | null;
 };
 
 /**
@@ -187,6 +191,23 @@ export async function settleDailyForBrand(
       (input.researchTopics ? `; researched ${input.researchTopics} new topics.` : "."),
     { generatedCount: input.generated, researchTopics: input.researchTopics, status, dailyCap: input.cap },
   );
+
+  // Pull traffic proof for any connected source (GSC/GA4) once per brand-day.
+  // Best-effort and unmetered — a missing grant or API hiccup never affects the
+  // content run's status.
+  try {
+    await syncTrafficForBrand(scope);
+  } catch (error) {
+    console.error("[daily] traffic sync failed", error);
+  }
+
+  // Every 15 days: re-run evidence-based competitor discovery and auto-fill any
+  // open plan slots. Best-effort — a failed scan never affects the day's status.
+  try {
+    await maybeRediscoverCompetitors(scope, input.planId);
+  } catch (error) {
+    console.error("[daily] competitor rediscovery failed", error);
+  }
 
   // Out of credits with work still queued — nudge the owner (throttled).
   if (status === "paused_no_credits") {

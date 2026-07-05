@@ -7,6 +7,7 @@ const summary = (over: Partial<AuditSummary> = {}): AuditSummary => ({
   platforms: { ChatGPT: 60, Perplexity: 50 },
   resolvedFindings: 0,
   totalFindings: 10,
+  scorerVersion: 3,
   ...over,
 });
 
@@ -41,5 +42,18 @@ describe("computeDelta", () => {
     expect(report.baselineOnly).toBe(true);
     expect(report.overall.delta).toBe(0);
     expect(report.overall.trend).toBe("──");
+  });
+
+  it("caveats the impact line when the scorer version changed between runs", () => {
+    const report = computeDelta(
+      summary({ overall: 61, scorerVersion: 2 }),
+      summary({ overall: 74, scorerVersion: 3 }),
+    );
+    expect(report.impact).toContain("scoring methodology was upgraded");
+  });
+
+  it("does not caveat when both runs share a scorer version", () => {
+    const report = computeDelta(summary({ overall: 61 }), summary({ overall: 74 }));
+    expect(report.impact).not.toContain("scoring methodology was upgraded");
   });
 });

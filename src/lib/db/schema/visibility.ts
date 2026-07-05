@@ -11,6 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { workspaces } from "./app";
+import { user } from "./auth";
 import { brands } from "./brand";
 
 /**
@@ -43,6 +44,8 @@ export const audits = pgTable(
     discovery: jsonb("discovery"),
     error: text("error"),
     runVersion: integer("run_version").notNull().default(1),
+    /** Deterministic scoring methodology version (see visibility/version.ts). */
+    scorerVersion: integer("scorer_version").notNull().default(2),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
@@ -278,5 +281,39 @@ export const trafficSnapshots = pgTable(
   (table) => [
     index("traffic_snapshots_brand_id_idx").on(table.brandId),
     uniqueIndex("traffic_snapshots_brand_source_date_unique").on(table.brandId, table.source, table.date),
+  ],
+);
+
+/**
+ * V6.6 connect — maps a brand to the Google property it pulls traffic proof from.
+ * The OAuth grant (access/refresh tokens) lives in better-auth's `account` table;
+ * we only store which user's grant to refresh and which site/property this brand
+ * uses. One row per (brand, source). No secrets here.
+ */
+export const trafficConnections = pgTable(
+  "traffic_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    /** gsc | ga4 */
+    source: text("source").notNull(),
+    /** The user whose Google grant this connection refreshes (better-auth `account.userId`). */
+    connectedByUserId: text("connected_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** GSC verified site URL (e.g. "https://example.com/" or "sc-domain:example.com"). */
+    siteUrl: text("site_url"),
+    /** GA4 numeric property id (e.g. "123456789"). */
+    propertyId: text("property_id"),
+    /** Last successful sync + last error, for the card's status line. */
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("traffic_connections_brand_id_idx").on(table.brandId),
+    uniqueIndex("traffic_connections_brand_source_unique").on(table.brandId, table.source),
   ],
 );

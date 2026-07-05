@@ -127,4 +127,60 @@ describe("discoverCompetitors", () => {
       { name: "Other", url: "https://other.com" },
     ]);
   });
+
+  it("mines aggregator listicles and resolves name-only competitors via a homepage lookup", async () => {
+    mockGetLlmConfig.mockReturnValue(llmConfig);
+    mockSerper.mockImplementation(async (query) => {
+      if (query.includes("official website")) {
+        return serperResult({
+          knowledgeGraph: { title: "Rival", website: "https://rival.com" },
+        });
+      }
+      return serperResult({
+        organic: [
+          {
+            title: "Top 10 Acme Alternatives",
+            link: "https://www.g2.com/acme-alternatives",
+            snippet: "Rival, Foo and Bar top the list",
+          },
+        ],
+      });
+    });
+    mockGenerateJson.mockResolvedValue(
+      jsonResult({
+        competitors: [{ name: "Rival", url: "", reason: "Named in alternatives listicles" }],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 3);
+
+    expect(result).toEqual([
+      { name: "Rival", url: "https://rival.com", reason: "Named in alternatives listicles" },
+    ]);
+    // The aggregator snippet was kept as evidence, not discarded.
+    const userMsg = mockGenerateJson.mock.calls[0][1][1].content as string;
+    expect(userMsg).toContain("Top 10 Acme Alternatives");
+  });
+
+  it("feeds AI answer excerpts into the discovery prompt as evidence", async () => {
+    mockGetLlmConfig.mockReturnValue(llmConfig);
+    mockSerper.mockResolvedValue(
+      serperResult({ organic: [{ title: "Rival", link: "https://rival.com" }] }),
+    );
+    mockGenerateJson.mockResolvedValue(
+      jsonResult({ competitors: [{ name: "Rival", url: "https://rival.com" }] }),
+    );
+
+    await discoverCompetitors(
+      {
+        name: "Acme",
+        website: "https://acme.com",
+        answerExcerpts: ["For CRM tools, most people use Rival or Foo."],
+      },
+      3,
+    );
+
+    const userMsg = mockGenerateJson.mock.calls[0][1][1].content as string;
+    expect(userMsg).toContain("most people use Rival or Foo");
+  });
 });

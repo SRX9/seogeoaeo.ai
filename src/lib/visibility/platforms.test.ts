@@ -35,6 +35,7 @@ function brand(over: Partial<{ wiki: boolean; wikidata: boolean; youtube: boolea
     brandName: "Acme",
     domain: null,
     score: over.score ?? 60,
+    limitedData: false,
     wikipedia: { hasPage: over.wiki ?? false, searchResults: 0 },
     wikidata: { hasEntry: over.wikidata ?? false, id: null, description: null },
     platforms: [

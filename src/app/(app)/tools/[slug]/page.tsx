@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
+import { Button, Card, TextArea } from "@heroui/react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { use, useState } from "react";
@@ -51,11 +51,14 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       <PageHeader title={tool.name} description={tool.description} />
 
       <Card className="space-y-3 p-5">
-        <textarea
-          className="min-h-[80px] w-full resize-y rounded-medium border border-default-200 bg-transparent p-3 text-sm"
+        <TextArea
+          aria-label={tool.name}
+          className="min-h-20"
           placeholder={PLACEHOLDER[tool.inputKind]}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          variant="secondary"
+          fullWidth
         />
         <div className="flex items-center justify-between">
           <span className="text-xs text-default-400">Costs {CREDIT_COSTS[tool.costKey]} credits</span>
