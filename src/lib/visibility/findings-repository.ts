@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
-import type { FixCapability, Pillar, Severity } from "./types";
+import type { Finding, FixCapability, Pillar, Severity } from "./types";
 
 /**
  * V8.2 — the fix queue's data layer. ONE severity-ranked queue merging every
@@ -38,6 +38,49 @@ export function dedupeFindings(rows: OpenFinding[]): OpenFinding[] {
     out.push(f);
   }
   return out;
+}
+
+/**
+ * Persist analyzer findings into the shared fix queue, skipping any whose
+ * (category, title) already exists for the workspace — open or dismissed — so
+ * repeat audits/tool runs/answer runs never pile up duplicates or resurrect a
+ * finding the owner already dismissed. Single owner of the column mapping for
+ * every producer (audits, Toolbox runs, answer runs). Returns the insert count.
+ */
+export async function persistNewFindings(
+  workspaceId: string,
+  findings: Finding[],
+  ref: { auditId?: string; toolRunId?: string } = {},
+): Promise<number> {
+  if (findings.length === 0) return 0;
+  const db = getDb();
+  const existing = await db
+    .select({ category: auditFindings.category, title: auditFindings.title })
+    .from(auditFindings)
+    .where(eq(auditFindings.workspaceId, workspaceId));
+  const seen = new Set(existing.map((f) => `${f.category}::${f.title.toLowerCase()}`));
+  const fresh = findings.filter((f) => {
+    const key = `${f.category}::${f.title.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key); // also dedupe within this batch
+    return true;
+  });
+  if (fresh.length === 0) return 0;
+  await db.insert(auditFindings).values(
+    fresh.map((f) => ({
+      workspaceId,
+      auditId: ref.auditId ?? null,
+      toolRunId: ref.toolRunId ?? null,
+      pillar: f.pillar,
+      category: f.category,
+      severity: f.severity,
+      title: f.title,
+      recommendation: f.recommendation,
+      fixCapability: f.fix_capability ?? null,
+      fixPayload: f.fix_payload ?? null,
+    })),
+  );
+  return fresh.length;
 }
 
 export interface FindingFilters {

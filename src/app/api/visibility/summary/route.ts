@@ -15,10 +15,18 @@ export async function GET() {
     const { workspace } = await getApiContext();
     const db = getDb();
 
+    // kind = "owned" — competitor benchmark audits share the workspace but must
+    // never surface as the owner's hero score (or its delta baseline).
     const recent = await db
       .select()
       .from(audits)
-      .where(and(eq(audits.workspaceId, workspace.id), eq(audits.status, "complete")))
+      .where(
+        and(
+          eq(audits.workspaceId, workspace.id),
+          eq(audits.status, "complete"),
+          eq(audits.kind, "owned"),
+        ),
+      )
       .orderBy(desc(audits.createdAt))
       .limit(2);
 

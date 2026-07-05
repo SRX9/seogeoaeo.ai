@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
+import { escapeHtml as esc } from "@/lib/html";
 
 /**
  * V7.2 — auto-apply fixes. Consumes the `fix_payload`s produced by V1.1 (robots),
@@ -74,9 +75,6 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
       };
   }
 }
-
-const esc = (s: unknown) =>
-  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Open Graph uses `property=`; Twitter and standard meta tags use `name=`. */
 function metaTag(key: string, value: unknown): string {

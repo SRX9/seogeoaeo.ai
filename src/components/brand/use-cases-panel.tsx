@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Chip, Input, Label, toast } from "@heroui/react";
+import { Card, Input, Label, toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -147,7 +147,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   {useCase.origin === "user" || useCase.edited ? (
-                    <Chip variant="soft">yours</Chip>
+                    <span className="text-xs uppercase tracking-wide text-muted">yours</span>
                   ) : null}
                   <LoadingButton
                     variant="ghost"

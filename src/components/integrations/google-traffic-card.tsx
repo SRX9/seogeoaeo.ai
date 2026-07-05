@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Chip, Input, Label, toast } from "@heroui/react";
+import { Card, Input, Label, toast } from "@heroui/react";
 import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -90,13 +90,9 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
           </Card.Description>
         </div>
         {status.gsc.connected ? (
-          <Chip color="success" variant="soft">
-            Connected
-          </Chip>
+          <span className="text-xs uppercase tracking-wide text-success">Connected</span>
         ) : (
-          <Chip color="default" variant="soft">
-            Optional
-          </Chip>
+          <span className="text-xs uppercase tracking-wide text-muted">Optional</span>
         )}
       </div>
 

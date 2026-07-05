@@ -134,34 +134,52 @@ export const competitorContentProvider: ResearchProvider = {
       .from(competitorContent)
       .where(eq(competitorContent.brandId, scope.brandId));
     const knownUrls = new Set(known.map((row) => row.url));
+    // Known rows that were persisted without a topic (crawled during an LLM
+    // outage) get retried — otherwise they'd be poisoned forever: never "fresh"
+    // again, so never re-classified, and null-topic rows never join a cluster.
+    const knownUnclassified = new Set(known.filter((row) => !row.topic).map((row) => row.url));
 
-    // Incremental: only never-seen posts hit the LLM. A fresh post is itself a
-    // signal — "they just started covering X".
+    // Incremental: only never-seen (or still-unclassified) posts hit the LLM.
+    // A fresh post is itself a signal — "they just started covering X".
     const fresh = crawled.filter((post) => !knownUrls.has(post.url));
-    const classified = await classifyPosts(context, fresh);
+    const needsTopic = crawled.filter(
+      (post) => !knownUrls.has(post.url) || knownUnclassified.has(post.url),
+    );
+    const classified = await classifyPosts(context, needsTopic);
 
+    // One batched upsert instead of a round-trip per post. COALESCE keeps an
+    // existing classification when this run has none for the row (LLM down),
+    // and fills it in when a retry finally classifies an old null-topic row.
     const now = new Date();
-    for (const post of crawled) {
-      const classification = classified.get(post.url);
-      await db
-        .insert(competitorContent)
-        .values({
-          workspaceId: scope.workspaceId,
-          brandId: scope.brandId,
-          competitorName: post.competitorName,
-          url: post.url,
-          title: post.title,
-          topic: classification?.topic?.toLowerCase().trim() || null,
-          intent: normalizeIntent(classification?.intent),
-          shape: classification?.shape ?? null,
-          firstSeen: now,
+    await db
+      .insert(competitorContent)
+      .values(
+        crawled.map((post) => {
+          const classification = classified.get(post.url);
+          return {
+            workspaceId: scope.workspaceId,
+            brandId: scope.brandId,
+            competitorName: post.competitorName,
+            url: post.url,
+            title: post.title,
+            topic: classification?.topic?.toLowerCase().trim() || null,
+            intent: normalizeIntent(classification?.intent),
+            shape: classification?.shape ?? null,
+            firstSeen: now,
+            lastSeen: now,
+          };
+        }),
+      )
+      .onConflictDoUpdate({
+        target: [competitorContent.brandId, competitorContent.url],
+        set: {
           lastSeen: now,
-        })
-        .onConflictDoUpdate({
-          target: [competitorContent.brandId, competitorContent.url],
-          set: { lastSeen: now, title: post.title },
-        });
-    }
+          title: sql`excluded.title`,
+          topic: sql`coalesce(excluded.topic, ${competitorContent.topic})`,
+          intent: sql`coalesce(excluded.intent, ${competitorContent.intent})`,
+          shape: sql`coalesce(excluded.shape, ${competitorContent.shape})`,
+        },
+      });
 
     // Gap diff over the whole index (old + new), clustered by topic.
     const allRows = await db

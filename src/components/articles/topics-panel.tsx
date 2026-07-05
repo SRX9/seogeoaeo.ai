@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Button, Card, Chip, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
+import { Button, Card, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
 import { Segment } from "@heroui-pro/react";
 import type { Key } from "react-aria-components";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,8 @@ import { PenIcon, PlusIcon, SparklesIcon } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useTopics, type Topic } from "@/lib/api/queries";
-import { statusColor } from "@/lib/ui/status";
+import { cn } from "@/lib/cn";
+import { statusTextClass } from "@/lib/ui/status";
 
 type TopicsCache = { topics: Topic[] };
 
@@ -264,18 +265,16 @@ function TopicList({
                   </p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Chip variant="soft" size="sm" className="capitalize">
-                  {sourceBadge(topic) ?? topic.source}
-                </Chip>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="capitalize text-muted">{sourceBadge(topic) ?? topic.source}</span>
                 {topic.intentTier && INTENT_BADGES[topic.intentTier] ? (
-                  <Chip color={topic.intentTier === "bofu" ? "success" : "default"} variant="soft" size="sm">
+                  <span className={topic.intentTier === "bofu" ? "text-success" : "text-muted"}>
                     {INTENT_BADGES[topic.intentTier]}
-                  </Chip>
+                  </span>
                 ) : null}
-                <Chip color={statusColor(topic.status)} variant="soft" size="sm">
+                <span className={cn("uppercase tracking-wide", statusTextClass(topic.status))}>
                   {topic.status}
-                </Chip>
+                </span>
                 {topic.score != null ? (
                   <span className="text-xs text-muted tabular-nums">Score {topic.score}</span>
                 ) : null}

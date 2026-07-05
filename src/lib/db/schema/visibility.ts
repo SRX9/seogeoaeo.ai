@@ -28,6 +28,13 @@ export const audits = pgTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     siteUrl: text("site_url").notNull(),
+    /**
+     * owned | benchmark — a benchmark audit scores a competitor's site under the
+     * owner's workspace (Setup Run's competitor baseline). Owner-facing surfaces
+     * (summary, badge, fix queue, re-audit cron, industry baseline) must filter
+     * to "owned" so a rival's score/findings never masquerade as the owner's.
+     */
+    kind: text("kind").notNull().default("owned"),
     businessType: text("business_type"),
     /** running | complete | failed */
     status: text("status").notNull().default("running"),

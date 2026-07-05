@@ -1,7 +1,6 @@
-import { asc, eq } from "drizzle-orm";
-import { getApiContext, handleApi, HttpError, jsonOk } from "@/lib/api/server";
+import { and, asc, eq } from "drizzle-orm";
+import { handleApi, jsonOk, requireApiBrand } from "@/lib/api/server";
 import { getDb } from "@/lib/db";
-import { brands } from "@/lib/db/schema/brand";
 import { audits, trafficSnapshots } from "@/lib/db/schema/visibility";
 import { AI_ENGINES } from "@/lib/visibility/ai-referrers";
 
@@ -12,10 +11,10 @@ import { AI_ENGINES } from "@/lib/visibility/ai-referrers";
  */
 export async function GET() {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
+    // Active brand (cookie-selected), not an arbitrary first brand — multi-brand
+    // workspaces must see the proof panel for the brand they're viewing.
+    const { workspace, brand } = await requireApiBrand();
     const db = getDb();
-    const brand = await db.query.brands.findFirst({ where: eq(brands.workspaceId, workspace.id) });
-    if (!brand) throw new HttpError(404, "No brand configured for this workspace");
 
     const snapshots = await db
       .select()
@@ -31,10 +30,12 @@ export async function GET() {
       .filter((s) => s.source === "ga4")
       .map((s) => ({ date: s.date, byEngine: (s.aiReferrals ?? {}) as Record<string, number> }));
 
+    // Owned audits only — a competitor benchmark's score is not a causal marker
+    // for the owner's traffic.
     const auditRows = await db
       .select({ id: audits.id, date: audits.completedAt, overall: audits.overallScore })
       .from(audits)
-      .where(eq(audits.workspaceId, workspace.id))
+      .where(and(eq(audits.workspaceId, workspace.id), eq(audits.kind, "owned")))
       .orderBy(asc(audits.createdAt));
     const markers = auditRows
       .filter((a) => a.date)

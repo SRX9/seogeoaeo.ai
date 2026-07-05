@@ -110,12 +110,31 @@ export async function scanBrand(
   const fetchImpl = opts.fetchImpl ?? fetch;
   const sameAs = opts.sameAsUrls ?? [];
 
-  // ── Wikipedia (API — top result title must MATCH the brand, not contain it) ─
+  // Wikipedia, Wikidata, and the off-site gather are independent external
+  // lookups — fire them together instead of paying three RTTs in series.
+  const [wikiData, wdData, offsiteResult] = await Promise.all([
+    // ── Wikipedia (API — top result title must MATCH the brand, not contain it) ─
+    getJson(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${q(brandName)}&format=json`,
+      fetchImpl,
+    ),
+    // ── Wikidata (API) ─────────────────────────────────────────────────────
+    getJson(
+      `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${q(brandName)}&language=en&format=json`,
+      fetchImpl,
+    ),
+    // ── Real off-site signals (self-gather unless injected) ────────────────
+    opts.offsite !== undefined
+      ? Promise.resolve(opts.offsite)
+      : gatherOffsiteSignals(brandName, domain, {
+          fetchImpl,
+          serperImpl: opts.serperImpl,
+          now: opts.now,
+        }),
+  ]);
+  const offsite = offsiteResult;
+
   const wiki = { hasPage: false, searchResults: 0 };
-  const wikiData = await getJson(
-    `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${q(brandName)}&format=json`,
-    fetchImpl,
-  );
   const search = (wikiData as { query?: { search?: { title?: string }[] } })?.query?.search ?? [];
   if (search.length) {
     wiki.searchResults = search.length;
@@ -123,28 +142,13 @@ export async function scanBrand(
     if (top && top === normalizeEntity(brandName)) wiki.hasPage = true;
   }
 
-  // ── Wikidata (API) ───────────────────────────────────────────────────────
   const wd = { hasEntry: false, id: null as string | null, description: null as string | null };
-  const wdData = await getJson(
-    `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${q(brandName)}&language=en&format=json`,
-    fetchImpl,
-  );
   const entities = (wdData as { search?: { id?: string; description?: string }[] })?.search ?? [];
   if (entities.length) {
     wd.hasEntry = true;
     wd.id = entities[0].id ?? null;
     wd.description = entities[0].description ?? null;
   }
-
-  // ── Real off-site signals (self-gather unless injected) ──────────────────
-  const offsite =
-    opts.offsite !== undefined
-      ? opts.offsite
-      : await gatherOffsiteSignals(brandName, domain, {
-          fetchImpl,
-          serperImpl: opts.serperImpl,
-          now: opts.now,
-        });
 
   const has = (re: RegExp) => sameAs.some((u) => re.test(u));
   const redditSameAs = has(/reddit\.com/i);

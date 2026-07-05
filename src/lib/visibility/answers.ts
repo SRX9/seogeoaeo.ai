@@ -231,10 +231,14 @@ export async function runAnswerCheck(
   const profile = await db.query.brandProfiles.findFirst({ where: eq(brandProfiles.brandId, brandId) });
   const domain = profile?.website ? apexDomain(profile.website) : "";
   const comps = await db.select().from(competitors).where(eq(competitors.brandId, brandId));
+  // Hard ceiling on the fan-out (prompts × engines concurrent fetches) as a
+  // backstop for any over-seeded prompt set — the largest plan tracks 100.
   const prompts = await db
     .select()
     .from(trackedPrompts)
-    .where(and(eq(trackedPrompts.brandId, brandId), eq(trackedPrompts.active, true)));
+    .where(and(eq(trackedPrompts.brandId, brandId), eq(trackedPrompts.active, true)))
+    .orderBy(trackedPrompts.createdAt)
+    .limit(100);
 
   const engines = opts.engines ?? ENGINES;
   const ask = { ...DEFAULT_ASK, ...opts.askImpl };

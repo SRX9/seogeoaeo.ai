@@ -211,6 +211,13 @@
       "when": 1783181561216,
       "tag": "0029_scorer_version",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783230707750,
+      "tag": "0030_familiar_karnak",
+      "breakpoints": true
     }
   ]
 }

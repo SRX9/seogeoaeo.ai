@@ -174,23 +174,29 @@ export async function settleDailyForBrand(
     status = "active";
   }
 
+  await upsertDailyRun(scope, runDate, {
+    articlesWritten: finalWritten,
+    topicsResearched: input.priorResearched + input.researchTopics,
+    status,
+  });
+
   // A single completed job per brand-day powers the overview stats; the research
   // and writing sub-jobs already record their own activity-feed entries.
-  const [, job] = await Promise.all([
-    upsertDailyRun(scope, runDate, {
-      articlesWritten: finalWritten,
-      topicsResearched: input.priorResearched + input.researchTopics,
-      status,
-    }),
-    createAgentJob(scope, "daily_pipeline", "Daily content run"),
-  ]);
-  await finishAgentJob(
-    job.id,
-    "completed",
-    `Wrote ${input.generated} article${input.generated === 1 ? "" : "s"}` +
-      (input.researchTopics ? `; researched ${input.researchTopics} new topics.` : "."),
-    { generatedCount: input.generated, researchTopics: input.researchTopics, status, dailyCap: input.cap },
-  );
+  // Best-effort, after the upsert: agent jobs are NOT idempotent, so if a failed
+  // job write bubbled up the Workflow would retry settle and insert a duplicate
+  // `daily_pipeline` row, double-counting the day.
+  try {
+    const job = await createAgentJob(scope, "daily_pipeline", "Daily content run");
+    await finishAgentJob(
+      job.id,
+      "completed",
+      `Wrote ${input.generated} article${input.generated === 1 ? "" : "s"}` +
+        (input.researchTopics ? `; researched ${input.researchTopics} new topics.` : "."),
+      { generatedCount: input.generated, researchTopics: input.researchTopics, status, dailyCap: input.cap },
+    );
+  } catch (error) {
+    console.error("[daily] overview job log failed", error);
+  }
 
   // Pull traffic proof for any connected source (GSC/GA4) once per brand-day.
   // Best-effort and unmetered — a missing grant or API hiccup never affects the

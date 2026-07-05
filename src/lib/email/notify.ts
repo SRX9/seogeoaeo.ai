@@ -5,7 +5,26 @@ import { getServerEnv } from "@/lib/env";
 import { logWarn } from "@/lib/logging/logger";
 import { getWorkspaceOwnerEmail } from "@/lib/workspace";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send";
-import { outOfCreditsEmail } from "@/lib/email/templates";
+import { outOfCreditsEmail, type EmailContent } from "@/lib/email/templates";
+
+/**
+ * Send a rendered email to the workspace owner. Best-effort: returns false and
+ * logs instead of throwing, so cron flows never fail on delivery.
+ */
+export async function sendToWorkspaceOwner(workspaceId: string, content: EmailContent): Promise<boolean> {
+  try {
+    if (!isEmailConfigured()) return false;
+    const email = await getWorkspaceOwnerEmail(workspaceId);
+    if (!email) return false;
+    return await sendEmail({ to: email, subject: content.subject, html: content.html, text: content.text });
+  } catch (error) {
+    logWarn("email.owner_send_skipped", {
+      workspaceId,
+      reason: error instanceof Error ? error.message : "Unknown error",
+    });
+    return false;
+  }
+}
 
 /** Don't re-nag about low credits more than once per week. */
 const LOW_CREDIT_EMAIL_THROTTLE_MS = 7 * 24 * 60 * 60 * 1000;

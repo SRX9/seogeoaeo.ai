@@ -1,30 +1,24 @@
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
+import { handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
+import { visibilityCapsForPlan } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
-import { brandProfiles, brands } from "@/lib/db/schema/brand";
-import { answerRuns, auditFindings, trackedPrompts } from "@/lib/db/schema/visibility";
+import { brandProfiles } from "@/lib/db/schema/brand";
+import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
 import {
   assertVisibilityCredits,
   InsufficientCreditsError,
   spendForVisibilityJob,
 } from "@/lib/usage/credits";
 import { computeShare, type EngineName, runAnswerCheck } from "@/lib/visibility/answers";
+import { persistNewFindings } from "@/lib/visibility/findings-repository";
 import { suggestPrompts } from "@/lib/visibility/prompt-suggestions";
-
-/** Resolve the workspace's default brand. */
-async function getBrandId(workspaceId: string): Promise<string> {
-  const db = getDb();
-  const brand = await db.query.brands.findFirst({ where: eq(brands.workspaceId, workspaceId) });
-  if (!brand) throw new HttpError(404, "No brand configured for this workspace");
-  return brand.id;
-}
 
 /** GET share per engine + tracked prompts + recent runs (the prompt × engine grid). */
 export async function GET() {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
-    const brandId = await getBrandId(workspace.id);
+    const { brand } = await requireApiBrand();
+    const brandId = brand.id;
     const db = getDb();
 
     const prompts = await db.select().from(trackedPrompts).where(eq(trackedPrompts.brandId, brandId));
@@ -44,25 +38,38 @@ export async function GET() {
 
 const postSchema = z.object({
   action: z.enum(["run", "seed"]).default("run"),
-  prompts: z.array(z.string().min(3)).optional(),
+  prompts: z.array(z.string().min(3).max(300)).max(100).optional(),
 });
 
 /** POST { action:"run" } to query the engines; { action:"seed" } to add prompts. */
 export async function POST(request: Request) {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
-    const brandId = await getBrandId(workspace.id);
+    const { workspace, subscription, brand } = await requireApiBrand();
+    const brandId = brand.id;
     const db = getDb();
     const { action, prompts } = parseBody(postSchema, await readJson(request));
 
     if (action === "seed") {
+      // Plan cap: tracked prompts bound the answer-run fan-out (prompts × engines
+      // external calls per run), so seeding must never exceed the plan allowance.
+      const cap = visibilityCapsForPlan(subscription?.planId).trackedPrompts;
+      if (cap <= 0) throw new HttpError(402, "Your plan doesn't include tracked prompts.");
+      const [{ activeCount }] = await db
+        .select({ activeCount: count() })
+        .from(trackedPrompts)
+        .where(and(eq(trackedPrompts.brandId, brandId), eq(trackedPrompts.active, true)));
+      const remaining = cap - activeCount;
+      if (remaining <= 0) {
+        throw new HttpError(400, `Tracked-prompt limit reached (${cap} on your plan).`);
+      }
       const profile = await db.query.brandProfiles.findFirst({ where: eq(brandProfiles.brandId, brandId) });
-      const seeds =
+      const seeds = (
         prompts ??
         suggestPrompts({
           category: profile?.productDescription ?? undefined,
           audience: profile?.audience ?? undefined,
-        });
+        })
+      ).slice(0, remaining);
       if (seeds.length === 0) throw new HttpError(400, "No prompts to seed");
       const rows = await db
         .insert(trackedPrompts)
@@ -84,33 +91,9 @@ export async function POST(request: Request) {
     if (result.cells.length > 0) {
       await spendForVisibilityJob(workspace.id, "answer_run", crypto.randomUUID(), brandId);
     }
-    // Persist answer-gap findings into the shared fix queue. Skip any already
-    // present (open or dismissed) so repeat runs never pile up duplicates or
-    // resurrect a finding the owner already dismissed.
-    if (result.findings.length > 0) {
-      const existing = await db
-        .select({ category: auditFindings.category, title: auditFindings.title })
-        .from(auditFindings)
-        .where(eq(auditFindings.workspaceId, workspace.id));
-      const seen = new Set(existing.map((f) => `${f.category}::${f.title.toLowerCase()}`));
-      const fresh = result.findings.filter(
-        (f) => !seen.has(`${f.category}::${f.title.toLowerCase()}`),
-      );
-      if (fresh.length > 0) {
-        await db.insert(auditFindings).values(
-          fresh.map((f) => ({
-            workspaceId: workspace.id,
-            pillar: f.pillar,
-            category: f.category,
-            severity: f.severity,
-            title: f.title,
-            recommendation: f.recommendation,
-            fixCapability: f.fix_capability ?? null,
-            fixPayload: f.fix_payload ?? null,
-          })),
-        );
-      }
-    }
+    // Persist answer-gap findings into the shared fix queue (dedup lives in the
+    // repository, shared with audits and Toolbox runs).
+    await persistNewFindings(workspace.id, result.findings);
     return jsonOk(result);
   });
 }

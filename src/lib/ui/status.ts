@@ -28,3 +28,18 @@ export function statusColor(status: string): ChipColor {
       return "default";
   }
 }
+
+const STATUS_TEXT: Record<string, string> = {
+  success: "text-success",
+  danger: "text-danger",
+  warning: "text-warning",
+  accent: "text-accent",
+};
+
+/**
+ * Design rule: no Chip/pill badges — statuses render as plain colored text.
+ * Maps a domain status to its text color class (grey for neutral states).
+ */
+export function statusTextClass(status: string): string {
+  return STATUS_TEXT[statusColor(status)] ?? "text-muted";
+}

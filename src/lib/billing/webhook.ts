@@ -6,8 +6,28 @@ import {
   syncSubscriptionFromStripe,
 } from "@/lib/billing/subscription";
 import { getCreditPack } from "@/lib/billing/credits";
+import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
+import { igniteWorkspaceSetupRuns } from "@/lib/jobs/setup-run";
 import { grantCredits } from "@/lib/usage/credits";
 import { logInfo, logWarn } from "@/lib/logging/logger";
+
+/**
+ * Kick Setup Runs in the background so the webhook responds within Stripe's
+ * timeout. `waitUntil` keeps the work alive after the response; without it
+ * (tests, node) we fall back to fire-and-forget.
+ */
+function igniteInBackground(workspaceId: string): void {
+  const work = igniteWorkspaceSetupRuns(workspaceId).catch((error) => {
+    logWarn("stripe.setup_run_ignite_failed", {
+      workspaceId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  });
+  const ctx = getCloudflareRequestContext()?.ctx as
+    | { waitUntil?: (promise: Promise<unknown>) => void }
+    | undefined;
+  if (ctx?.waitUntil) ctx.waitUntil(work);
+}
 
 export type WebhookHandlerResult = {
   handled: boolean;
@@ -66,6 +86,9 @@ export async function processStripeWebhookEvent(
       if (workspaceId && subscriptionId) {
         const subscription = await retrieveSubscription(subscriptionId);
         await syncSubscriptionFromStripe(workspaceId, subscription);
+        // AP2 ignition: never depend on the client's fire-and-forget POST —
+        // startSetupRun is idempotent, so a duplicate trigger is a no-op.
+        igniteInBackground(workspaceId);
         logInfo("stripe.checkout.completed", { workspaceId, subscriptionId });
         return { handled: true, action: "checkout.session.completed" };
       }

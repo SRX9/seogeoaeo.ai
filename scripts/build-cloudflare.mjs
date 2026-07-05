@@ -63,8 +63,18 @@ if (!worker.includes("async scheduled(")) {
 
         // event.cron is the exact expression that fired; map it to a route so
         // adding a cron is just a new entry here + in wrangler.jsonc.
-        const cronRoutes = { "0 8 * * *": "/api/cron/daily" };
-        const path = cronRoutes[event.cron] ?? "/api/cron/daily";
+        const cronRoutes = {
+            "0 8 * * *": "/api/cron/daily",
+            "0 9 * * *": "/api/cron/visibility",
+            "0 10 * * 1": "/api/cron/digest",
+        };
+        const path = cronRoutes[event.cron];
+        if (!path) {
+            // No silent fallback: an unmapped expression means wrangler.jsonc and
+            // this table are out of sync — surface it instead of re-running daily.
+            console.error("No cron route mapped for expression", event.cron);
+            return;
+        }
 
         const response = await fetch(new URL(path, origin), {
             method: "POST",
@@ -72,7 +82,12 @@ if (!worker.includes("async scheduled(")) {
         });
 
         if (!response.ok) {
-            console.error("Daily cron failed", response.status, await response.text());
+            const body = await response.text();
+            // Throw so Cloudflare records the invocation as failed (visible in
+            // cron metrics/alerts). Cloudflare does NOT auto-retry a failed cron:
+            // recovery is the next scheduled fire or a manual re-run, both safe
+            // because every cron route is idempotent.
+            throw new Error(\`Cron \${path} failed: \${response.status} \${body.slice(0, 300)}\`);
         }
     },
 };`;

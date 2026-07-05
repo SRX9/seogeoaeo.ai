@@ -27,10 +27,12 @@ export interface Baseline {
 /** Median overall score for a business type, falling back to global. */
 export async function getIndustryBaseline(businessType: string | null): Promise<Baseline> {
   const db = getDb();
+  // Owned audits only — competitor benchmark runs would skew the "typical for
+  // {businessType}" median with sites no tenant owns.
   const all = await db
     .select({ score: audits.overallScore, type: audits.businessType })
     .from(audits)
-    .where(and(eq(audits.status, "complete"), isNotNull(audits.overallScore)));
+    .where(and(eq(audits.status, "complete"), isNotNull(audits.overallScore), eq(audits.kind, "owned")));
 
   const scores = all.map((a) => a.score as number);
   if (businessType) {

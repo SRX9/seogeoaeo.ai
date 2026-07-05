@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
-import { visibilityCapsForPlan, dailyArticleCapForPlan } from "@/lib/billing/plans";
+import { visibilityCapsForPlan, dailyArticleCapForPlan, isActiveSubscription } from "@/lib/billing/plans";
 import { discoverCompetitors } from "@/lib/brand/enrich";
 import {
   createCompetitor,
@@ -30,6 +30,11 @@ import { runAudit } from "@/server/visibility/run-audit";
  * is persisted after it settles, and a re-fired run resumes from the first step
  * that isn't done/skipped — so a retry never double-runs an expensive step.
  * Setup Run cost is plan-included: no step spends credits.
+ *
+ * The pipeline runs inside `waitUntil`, so a hard kill (isolate eviction, wall
+ * clock) can strand a run in `running` without ever reaching the catch that
+ * marks it failed. `isSetupRunStale` lets the next trigger take such a run over
+ * instead of skipping it forever.
  */
 
 export const SETUP_STEPS = [
@@ -61,6 +66,20 @@ function parseSteps(json: string): SetupStep[] {
   } catch {
     return initialSteps();
   }
+}
+
+/**
+ * A `running` run that hasn't persisted progress in this long is presumed dead
+ * (every step saves within minutes; only a hard kill goes silent this long).
+ */
+const STALE_RUNNING_MS = 15 * 60 * 1000;
+
+/** Should a trigger take over a run that claims to still be running? */
+export function isSetupRunStale(
+  run: { status: string; updatedAt: Date },
+  now: number = Date.now(),
+): boolean {
+  return run.status === "running" && now - run.updatedAt.getTime() >= STALE_RUNNING_MS;
 }
 
 export async function getSetupRun(brandId: string) {
@@ -117,6 +136,43 @@ async function latestOwnAuditId(workspaceId: string, siteUrl: string): Promise<s
 }
 
 const MAX_SETUP_FIXES = 10;
+
+/**
+ * Server-side ignition: start (or resume) the Setup Run for every brand in a
+ * workspace. Called from the Stripe webhook on first checkout so ignition never
+ * depends on the client's fire-and-forget POST surviving a closed tab. Brands
+ * whose run already completed are untouched.
+ */
+export async function igniteWorkspaceSetupRuns(workspaceId: string): Promise<void> {
+  const { listBrands } = await import("@/lib/brand/repository");
+  const { subscriptions } = await import("@/lib/db/schema");
+  // A workspace can carry stale subscription rows (e.g. a canceled plan beside
+  // the new one) — caps must come from the active row, not an arbitrary one.
+  const subRows = await getDb()
+    .select({ planId: subscriptions.planId, status: subscriptions.status })
+    .from(subscriptions)
+    .where(eq(subscriptions.workspaceId, workspaceId));
+  const planId =
+    subRows.find((sub) => isActiveSubscription(sub.status))?.planId ??
+    subRows[0]?.planId ??
+    null;
+  const allBrands = await listBrands(workspaceId);
+  for (const brand of allBrands) {
+    const scope: BrandScope = { workspaceId, brandId: brand.id };
+    try {
+      const { run, created } = await startSetupRun(scope);
+      if (created || run.status === "failed" || isSetupRunStale(run)) {
+        await executeSetupRun(scope, planId);
+      }
+    } catch (error) {
+      logError("setup_run.ignite_failed", {
+        workspaceId,
+        brandId: brand.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
 
 /**
  * Execute (or resume) the brand's Setup Run. Steps run in order; a skipped
@@ -232,7 +288,9 @@ export async function executeSetupRun(scope: BrandScope, planId: string | null |
       }
       const rival = comps[0];
       if (!rival) return { skip: "No competitor found yet." };
-      await runAudit(scope.workspaceId, rival.url);
+      // "benchmark": scores a rival under our workspace — must never surface as
+      // the owner's score (summary/badge/baseline) or write fix-queue findings.
+      await runAudit(scope.workspaceId, rival.url, "benchmark");
       return `Benchmarked ${rival.name}.`;
     });
 

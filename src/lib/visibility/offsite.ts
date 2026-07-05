@@ -129,12 +129,17 @@ export async function gatherOffsiteSignals(
 
   const brandLower = normalizeBrand(brand);
 
+  // Reddit / YouTube / web presence are independent lookups — run them together.
   // Reddit: free JSON first (richest — dates + subreddits), Serper as fallback.
-  let reddit = await fetchRedditJson(brand, fetchImpl, now);
-  if (!reddit) reddit = await fetchRedditViaSerper(brand, serperImpl);
+  const webQuery = domain ? `${quoted(brand)} -site:${domain}` : quoted(brand);
+  const [redditJson, yt, web] = await Promise.all([
+    fetchRedditJson(brand, fetchImpl, now),
+    serperImpl(`site:youtube.com ${quoted(brand)}`, { num: 10 }),
+    serperImpl(webQuery, { num: 10 }),
+  ]);
+  const reddit = redditJson ?? (await fetchRedditViaSerper(brand, serperImpl));
 
   // YouTube: presence of an official channel + video mentions.
-  const yt = await serperImpl(`site:youtube.com ${quoted(brand)}`, { num: 10 });
   const youtube: YoutubePresence | null =
     yt.organic.length || yt.knowledgeGraph
       ? {
@@ -148,8 +153,6 @@ export async function gatherOffsiteSignals(
       : null;
 
   // Third-party web presence, knowledge graph, LinkedIn company page.
-  const webQuery = domain ? `${quoted(brand)} -site:${domain}` : quoted(brand);
-  const web = await serperImpl(webQuery, { num: 10 });
   const domainHost = domain ? hostOf(`https://${domain}`) : "";
   const webPresence: WebPresence | null =
     web.organic.length || web.knowledgeGraph

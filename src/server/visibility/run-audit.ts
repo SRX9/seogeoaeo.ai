@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
-  auditFindings,
   auditPages,
   audits,
   brandSignals,
   platformScores,
 } from "@/lib/db/schema/visibility";
+import { persistNewFindings } from "@/lib/visibility/findings-repository";
 import { collectSameAs, scanBrand } from "@/lib/visibility/brand";
 import { classifyBusinessType } from "@/lib/visibility/business-type";
 import { analyzePageCitability } from "@/lib/visibility/citability";
@@ -149,8 +149,15 @@ async function persistOffSiteSignals(
   }
 }
 
+/** owned = the workspace's own site; benchmark = a competitor scored for comparison. */
+export type AuditKind = "owned" | "benchmark";
+
 /** Create the audit row; the caller decides whether to await execution. */
-export async function createAudit(workspaceId: string, siteUrl: string): Promise<string> {
+export async function createAudit(
+  workspaceId: string,
+  siteUrl: string,
+  kind: AuditKind = "owned",
+): Promise<string> {
   const db = getDb();
   const previous = await db.query.audits.findFirst({
     where: (table, { and, eq: eqOp }) =>
@@ -160,7 +167,7 @@ export async function createAudit(workspaceId: string, siteUrl: string): Promise
   });
   const [row] = await db
     .insert(audits)
-    .values({ workspaceId, siteUrl, runVersion: (previous?.runVersion ?? 0) + 1 })
+    .values({ workspaceId, siteUrl, kind, runVersion: (previous?.runVersion ?? 0) + 1 })
     .returning({ id: audits.id });
   return row.id;
 }
@@ -180,9 +187,10 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
   const db = getDb();
   const auditRow = await db.query.audits.findFirst({
     where: eq(audits.id, auditId),
-    columns: { workspaceId: true },
+    columns: { workspaceId: true, kind: true },
   });
   const workspaceId = auditRow?.workspaceId ?? null;
+  const isBenchmark = auditRow?.kind === "benchmark";
   try {
     // ── Discovery ────────────────────────────────────────────────────────
     // Resilient fetch: plain fetch first, escalating to the scraper chain
@@ -285,20 +293,11 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
         fix_capability: "guided",
       });
     }
-    if (findings.length > 0) {
-      await db.insert(auditFindings).values(
-        findings.map((f) => ({
-          workspaceId,
-          auditId,
-          pillar: f.pillar,
-          category: f.category,
-          severity: f.severity,
-          title: f.title,
-          recommendation: f.recommendation,
-          fixCapability: f.fix_capability ?? null,
-          fixPayload: f.fix_payload ?? null,
-        })),
-      );
+    // Benchmark (competitor) audits keep their scores but never write findings:
+    // the fix queue is the owner's to-do list, and a rival's robots/llms/schema
+    // fixes must not surface there (nor be auto-applied).
+    if (findings.length > 0 && workspaceId && !isBenchmark) {
+      await persistNewFindings(workspaceId, findings, { auditId });
     }
 
     await db
@@ -332,8 +331,12 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
 }
 
 /** Create + execute an audit end-to-end. Returns the audit id when done. */
-export async function runAudit(workspaceId: string, siteUrl: string): Promise<string> {
-  const auditId = await createAudit(workspaceId, siteUrl);
+export async function runAudit(
+  workspaceId: string,
+  siteUrl: string,
+  kind: AuditKind = "owned",
+): Promise<string> {
+  const auditId = await createAudit(workspaceId, siteUrl, kind);
   await executeAudit(auditId, siteUrl);
   return auditId;
 }

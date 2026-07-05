@@ -1,12 +1,19 @@
 import { handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
-import { executeSetupRun, getSetupRun, startSetupRun, SETUP_STEPS } from "@/lib/jobs/setup-run";
+import {
+  executeSetupRun,
+  getSetupRun,
+  isSetupRunStale,
+  startSetupRun,
+  SETUP_STEPS,
+} from "@/lib/jobs/setup-run";
 
 /**
  * Ignition (AP2): start Claudia's one-time Setup Run for the active brand.
  * Paid-first — requires an active subscription (Stripe `trialing` counts).
- * Idempotent: an existing run is returned as-is; a failed run is resumed.
+ * Idempotent: an existing run is returned as-is; a failed run — or one stranded
+ * in `running` by a killed isolate — is resumed.
  */
 export async function POST() {
   return handleApi(async () => {
@@ -16,8 +23,8 @@ export async function POST() {
     }
 
     const { run, created } = await startSetupRun(scope);
-    // Execute (or resume a failed run) in the background; the client polls GET.
-    if (created || run.status === "failed") {
+    // Execute (or resume a failed/stale run) in the background; the client polls GET.
+    if (created || run.status === "failed" || isSetupRunStale(run)) {
       const work = executeSetupRun(scope, subscription?.planId).catch((error) => {
         console.error("[setup-run] execution failed", error);
       });
