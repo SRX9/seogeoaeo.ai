@@ -12,6 +12,7 @@ import { classifyBusinessType } from "@/lib/visibility/business-type";
 import { analyzePageCitability } from "@/lib/visibility/citability";
 import { analyzeFreshness } from "@/lib/visibility/content";
 import { analyzeCrawlerAccess } from "@/lib/visibility/crawler-access";
+import { logError } from "@/lib/logging/logger";
 import { fetchPage } from "@/lib/visibility/fetch-page";
 import { analyzeLlmsTxt, fetchLlmsTxt } from "@/lib/visibility/llms";
 import { analyzePlatforms } from "@/lib/visibility/platforms";
@@ -187,10 +188,24 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
   const db = getDb();
   const auditRow = await db.query.audits.findFirst({
     where: eq(audits.id, auditId),
-    columns: { workspaceId: true, kind: true },
+    columns: { workspaceId: true, kind: true, status: true },
   });
   const workspaceId = auditRow?.workspaceId ?? null;
   const isBenchmark = auditRow?.kind === "benchmark";
+
+  // Retry-safe under at-least-once Workflow delivery: a retry after a lost
+  // response must not redo a settled audit (full re-scrape + LLM spend), and a
+  // retry after a mid-run kill must not accumulate duplicate detail rows —
+  // wipe partials and start clean. (Findings are already deduped downstream by
+  // persistNewFindings.)
+  if (auditRow?.status === "complete") return true;
+  if (auditRow?.status === "failed") return false;
+  await Promise.all([
+    db.delete(auditPages).where(eq(auditPages.auditId, auditId)),
+    db.delete(brandSignals).where(eq(brandSignals.auditId, auditId)),
+    db.delete(platformScores).where(eq(platformScores.auditId, auditId)),
+  ]);
+
   try {
     // ── Discovery ────────────────────────────────────────────────────────
     // Resilient fetch: plain fetch first, escalating to the scraper chain
@@ -318,6 +333,12 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
       .where(eq(audits.id, auditId));
     return true;
   } catch (error) {
+    // Server-side signal for ops dashboards — the failed row alone is silent.
+    logError("visibility.audit_failed", {
+      auditId,
+      siteUrl,
+      error: error instanceof Error ? error.message : String(error),
+    });
     await db
       .update(audits)
       .set({

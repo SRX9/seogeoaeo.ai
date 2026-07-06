@@ -1,10 +1,15 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { ACTIVE_SUBSCRIPTION_STATUSES, visibilityCapsForPlan } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
 import { auditFindings, audits } from "@/lib/db/schema/visibility";
 import { brandProfiles, brands } from "@/lib/db/schema/brand";
+import { sendToWorkspaceOwner } from "@/lib/email/notify";
+import { visibilityAlertEmail } from "@/lib/email/templates";
+import { getServerEnv } from "@/lib/env";
 import { dueForReaudit } from "@/lib/jobs/visibility-agent";
+import { logInfo } from "@/lib/logging/logger";
+import { SITE_URL } from "@/lib/site";
 import { apexDomain } from "@/lib/visibility/answers";
 import { applyFix } from "@/lib/visibility/apply-fix";
 import { compareAudits, type DeltaReport } from "@/lib/visibility/compare";
@@ -14,6 +19,12 @@ import { createAudit, executeAudit } from "./run-audit";
  * V7.3 — scheduled re-audits & alerts. A monthly (staggered) cron re-audits each
  * active site, stores a new run_version, computes the V6.3 delta, and alerts on a
  * score drop or a new Critical finding. Orchestration reuses V2.3 + V6.3.
+ *
+ * Execution shape: the cron route enumerates `listDueSites()` and fans each site
+ * out into a durable `AuditRunWorkflow` instance (mode "monitor"), whose steps
+ * call back into `/api/agent/audit-step` → `createAudit`/`executeAudit`/
+ * `finishReaudit`. `reauditSite` is the inline fallback for runtimes without the
+ * binding (plain `next dev`).
  */
 
 /** Drop threshold (points) below which a decline triggers an alert. */
@@ -36,11 +47,12 @@ export function shouldAlert(delta: DeltaReport, newCriticalCount: number): Alert
   return { alert: reasons.length > 0, reasons };
 }
 
-export interface ReauditAlert {
+/** One site due for a scheduled re-audit. `id` is the baseline (latest complete) audit. */
+export interface DueSite {
+  id: string;
   workspaceId: string;
   siteUrl: string;
-  auditId: string;
-  reasons: string[];
+  planId: string | null;
 }
 
 /**
@@ -137,37 +149,106 @@ async function latestAuditPerSite() {
 }
 
 /**
- * Re-audit every site that is *due* on its plan's monitoring cadence (weekly /
- * monthly — `dueForReaudit`), compute the delta vs its previous run, and return
- * the sites that should alert. Safe to fire daily: the cadence gate makes any
- * higher firing frequency a no-op. The caller sends the notifications.
+ * Every site *due* on its plan's monitoring cadence (weekly / monthly —
+ * `dueForReaudit`). Safe to compute daily: the cadence gate makes any higher
+ * firing frequency a no-op.
  */
-export async function reauditActiveSites(): Promise<ReauditAlert[]> {
-  const sites = (await latestAuditPerSite()).filter((site) =>
-    dueForReaudit(site.createdAt, visibilityCapsForPlan(site.planId).monitoringCadence),
-  );
-  const alerts: ReauditAlert[] = [];
+export async function listDueSites(): Promise<DueSite[]> {
+  return (await latestAuditPerSite())
+    .filter((site) =>
+      dueForReaudit(site.createdAt, visibilityCapsForPlan(site.planId).monitoringCadence),
+    )
+    .map(({ id, workspaceId, siteUrl, planId }) => ({ id, workspaceId, siteUrl, planId }));
+}
 
-  for (const site of sites) {
-    try {
-      const newAuditId = await createAudit(site.workspaceId, site.siteUrl);
-      await executeAudit(newAuditId, site.siteUrl);
-      // V8.5 autonomy loop: FULL_AUTO brands get auto-capable fixes applied now.
-      await autoApplyFixes(
-        site.workspaceId,
-        site.siteUrl,
-        newAuditId,
-        visibilityCapsForPlan(site.planId).autoFixCap,
-      );
-      const delta = await compareAudits(site.id, newAuditId);
-      const newCritical = await countNewCriticals(site.id, newAuditId);
-      const decision = shouldAlert(delta, newCritical);
-      if (decision.alert) {
-        alerts.push({ workspaceId: site.workspaceId, siteUrl: site.siteUrl, auditId: newAuditId, reasons: decision.reasons });
-      }
-    } catch (error) {
-      console.error(`[visibility] re-audit failed for ${site.siteUrl}`, error);
-    }
+/**
+ * Post-audit phase of one scheduled re-audit: V8.5 auto-fixes, the V6.3 delta
+ * vs the baseline, and the alert email (delivered immediately — a drop or new
+ * critical shouldn't wait for the weekly digest). Runs as the `finish` step of
+ * `AuditRunWorkflow` (mode "monitor"); only called after the audit completed.
+ * Retry-tolerant: auto-fixes only touch findings still `isResolved = false`,
+ * so a re-run skips what already applied; only the alert email can double-send
+ * in the narrow window where a sent mail's response is lost — accepted rather
+ * than building an idempotency ledger for it. Returns whether it alerted.
+ */
+export async function finishReaudit(args: {
+  workspaceId: string;
+  siteUrl: string;
+  baselineAuditId: string;
+  newAuditId: string;
+  planId: string | null;
+}): Promise<boolean> {
+  await autoApplyFixes(
+    args.workspaceId,
+    args.siteUrl,
+    args.newAuditId,
+    visibilityCapsForPlan(args.planId).autoFixCap,
+  );
+  const delta = await compareAudits(args.baselineAuditId, args.newAuditId);
+  const newCritical = await countNewCriticals(args.baselineAuditId, args.newAuditId);
+  const decision = shouldAlert(delta, newCritical);
+  if (decision.alert) {
+    const origin = getServerEnv().BETTER_AUTH_URL ?? SITE_URL;
+    await sendToWorkspaceOwner(
+      args.workspaceId,
+      visibilityAlertEmail({
+        siteUrl: args.siteUrl,
+        reasons: decision.reasons,
+        dashboardUrl: `${origin}/dashboard`,
+      }),
+    );
+    logInfo("cron.visibility.alert", {
+      workspaceId: args.workspaceId,
+      siteUrl: args.siteUrl,
+      auditId: args.newAuditId,
+      reasons: decision.reasons,
+    });
   }
-  return alerts;
+  return decision.alert;
+}
+
+/**
+ * Audits stranded in `running` past any legitimate execution window (the
+ * Workflow's execute step tops out well under an hour including retries) are
+ * settled `failed` in bulk. The GET-poll self-heal only reaches audits a user
+ * actively watches; this sweep — fired from the daily cron — also settles
+ * monitor, setup, and benchmark rows, so nothing stays `running` forever.
+ */
+const STALE_AUDIT_SWEEP_MS = 2 * 60 * 60 * 1000;
+
+export async function settleStaleAudits(): Promise<number> {
+  const db = getDb();
+  const settled = await db
+    .update(audits)
+    .set({
+      status: "failed",
+      error: "The audit was interrupted and timed out.",
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(audits.status, "running"),
+        lt(audits.createdAt, new Date(Date.now() - STALE_AUDIT_SWEEP_MS)),
+      ),
+    )
+    .returning({ id: audits.id });
+  return settled.length;
+}
+
+/**
+ * One full re-audit end-to-end — the inline fallback when the AUDIT_WORKFLOW
+ * binding is unavailable. On Cloudflare each due site runs as its own durable
+ * Workflow instance instead, so one slow site can't starve the rest.
+ */
+export async function reauditSite(site: DueSite): Promise<boolean> {
+  const newAuditId = await createAudit(site.workspaceId, site.siteUrl);
+  const ok = await executeAudit(newAuditId, site.siteUrl);
+  if (!ok) return false;
+  return finishReaudit({
+    workspaceId: site.workspaceId,
+    siteUrl: site.siteUrl,
+    baselineAuditId: site.id,
+    newAuditId,
+    planId: site.planId,
+  });
 }

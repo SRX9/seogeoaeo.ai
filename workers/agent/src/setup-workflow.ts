@@ -1,12 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-
-/** Bindings/vars this Worker needs — it talks to the app over HTTP, no DB. */
-type Env = {
-  /** Shared bearer token the app's /api/agent/* routes check. */
-  CRON_SECRET: string;
-  /** Origin of the Next.js app, e.g. https://seogeoaeo.ai. */
-  APP_ORIGIN: string;
-};
+import { appCaller, RETRIES, type AppEnv } from "./app-call";
 
 /** Instance params, set by `triggerSetupRun` in the app. */
 type Params = {
@@ -43,10 +36,6 @@ const HEAVY_STEPS = new Set<string>([
   "first_article",
 ]);
 
-// Per-step retry/backoff. Steps are HTTP calls into the app; transient failures
-// (LLM hiccup, brief 5xx) retry, exhaustion marks the step failed and moves on.
-const RETRIES = { limit: 3, delay: "30 seconds", backoff: "exponential" } as const;
-
 type StepResult = { status: string; note?: string | null };
 
 /**
@@ -57,30 +46,17 @@ type StepResult = { status: string; note?: string | null };
  * that exhausts its retries is left `failed` (already persisted app-side) and
  * the pipeline continues, so one broken step can't strand setup in `running`.
  */
-export class SetupRunWorkflow extends WorkflowEntrypoint<Env, Params> {
+export class SetupRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const p = event.payload;
-
-    const call = async (stepKey: string): Promise<StepResult> => {
-      const res = await fetch(new URL("/api/agent/setup-step", this.env.APP_ORIGIN), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.env.CRON_SECRET}`,
-        },
-        body: JSON.stringify({
-          workspaceId: p.workspaceId,
-          brandId: p.brandId,
-          planId: p.planId ?? null,
-          step: stepKey,
-        }),
+    const post = appCaller<StepResult>(this.env, "/api/agent/setup-step");
+    const call = (stepKey: string) =>
+      post({
+        workspaceId: p.workspaceId,
+        brandId: p.brandId,
+        planId: p.planId ?? null,
+        step: stepKey,
       });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`setup-step ${stepKey} → ${res.status} ${text.slice(0, 300)}`);
-      }
-      return (await res.json()) as StepResult;
-    };
 
     const outcomes: Record<string, string> = {};
     for (const key of STEP_KEYS) {

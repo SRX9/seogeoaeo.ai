@@ -14,7 +14,7 @@ import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
 import { auditFindings, audits, setupRuns, trackedPrompts } from "@/lib/db/schema";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
-import { isWorkflowInstanceExistsError } from "@/lib/jobs/workflow";
+import { createWorkflowInstance } from "@/lib/jobs/workflow";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
 import { day0BriefPrompt, seedTrackedPromptsPrompt } from "@/lib/llm/prompts";
 import { logError, logInfo } from "@/lib/logging/logger";
@@ -433,14 +433,10 @@ export async function triggerSetupRun(
     // Fresh runs use a deterministic id so double-triggers collide into a no-op;
     // resumes need a new id because the original instance has already settled.
     const id = opts.resume ? `setup-${run.id}-r${Date.now()}` : `setup-${run.id}`;
-    try {
-      await workflow.create({
-        id,
-        params: { workspaceId: scope.workspaceId, brandId: scope.brandId, planId: planId ?? null },
-      });
-    } catch (error) {
-      if (!isWorkflowInstanceExistsError(error)) throw error;
-    }
+    await createWorkflowInstance(workflow, {
+      id,
+      params: { workspaceId: scope.workspaceId, brandId: scope.brandId, planId: planId ?? null },
+    });
     return "workflow";
   }
 

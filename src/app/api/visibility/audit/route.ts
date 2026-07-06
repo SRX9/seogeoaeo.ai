@@ -1,16 +1,23 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
-import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
-import { auditFindings } from "@/lib/db/schema/visibility";
-import {
-  assertVisibilityCredits,
-  InsufficientCreditsError,
-  spendForVisibilityJob,
-} from "@/lib/usage/credits";
+import { auditFindings, audits } from "@/lib/db/schema/visibility";
+import { assertVisibilityCredits, InsufficientCreditsError } from "@/lib/usage/credits";
 import { getBrandProfile } from "@/lib/brand/repository";
-import { createAudit, executeAudit } from "@/server/visibility/run-audit";
+import { triggerManualAudit } from "@/server/visibility/manual-audit";
+import { createAudit } from "@/server/visibility/run-audit";
+
+/**
+ * Past this age a `running` audit is considered dead: the Workflow's execute
+ * step tops out well under this (15-min timeout × 3 retries with backoff), so
+ * anything older was killed without persisting. GET marks it failed so the UI
+ * shows a retry instead of an eternal spinner. A false positive (instance
+ * still queued past the hour) self-corrects: executeAudit's settling update is
+ * unconditional, so the row flips back to its true outcome when it runs.
+ * Monitor/setup rows nobody polls are settled by `settleStaleAudits` daily.
+ */
+const STALE_AUDIT_MS = 60 * 60 * 1000;
 
 const urlSchema = z
   .string()
@@ -47,19 +54,9 @@ export async function POST(request: Request) {
     }
 
     const auditId = await createAudit(workspace.id, url);
-    // Charge only on success; refId = auditId keeps retries idempotent.
-    const run = executeAudit(auditId, url)
-      .then((ok) => (ok ? spendForVisibilityJob(workspace.id, "visibility_audit", auditId) : undefined))
-      .catch((error) => {
-        console.error("[visibility] audit execution failed", error);
-      });
-
-    const ctx = getCloudflareRequestContext()?.ctx as
-      | { waitUntil?: (promise: Promise<unknown>) => void }
-      | undefined;
-    if (ctx?.waitUntil) {
-      ctx.waitUntil(run);
-    }
+    // Durable execution (AuditRunWorkflow): survives isolate eviction, charges
+    // credits only on success. Falls back to waitUntil outside Cloudflare.
+    await triggerManualAudit(workspace.id, auditId, url);
 
     return jsonOk({ auditId }, { status: 202 });
   });
@@ -76,13 +73,37 @@ export async function GET(request: Request) {
 
     const db = getDb();
     const audit = await db.query.audits.findFirst({
-      where: (table, { and, eq: eqOp }) =>
-        and(eqOp(table.id, id), eqOp(table.workspaceId, workspace.id)),
+      where: and(eq(audits.id, id), eq(audits.workspaceId, workspace.id)),
     });
     if (!audit) {
       throw new HttpError(404, "Audit not found");
     }
-    const findings = await db.select().from(auditFindings).where(eq(auditFindings.auditId, id));
+
+    // Self-heal for the status poller: an audit stranded in `running` (executor
+    // killed without reaching executeAudit's catch) is settled as failed here,
+    // so the poller un-wedges it instead of spinning forever.
+    if (audit.status === "running" && Date.now() - audit.createdAt.getTime() > STALE_AUDIT_MS) {
+      const [healed] = await db
+        .update(audits)
+        .set({
+          status: "failed",
+          error: "The audit was interrupted and timed out — run it again.",
+          completedAt: new Date(),
+        })
+        .where(and(eq(audits.id, id), eq(audits.status, "running")))
+        .returning({ status: audits.status, error: audits.error });
+      if (healed) {
+        audit.status = healed.status;
+        audit.error = healed.error;
+      }
+    }
+
+    // No findings exist until the audit settles — skip the query on the poll
+    // hot path while it's still running.
+    const findings =
+      audit.status === "running"
+        ? []
+        : await db.select().from(auditFindings).where(eq(auditFindings.auditId, id));
 
     return jsonOk({ audit, findings });
   });

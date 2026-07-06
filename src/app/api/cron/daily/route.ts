@@ -3,20 +3,9 @@ import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { listBrands } from "@/lib/brand/repository";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { listActiveWorkspaceIds } from "@/lib/jobs/enumerate";
-import { isWorkflowInstanceExistsError } from "@/lib/jobs/workflow";
+import { enqueueWorkflowInstances, type InstanceOptions } from "@/lib/jobs/workflow";
 import { logError, logInfo } from "@/lib/logging/logger";
 import { getUtcDayKey } from "@/lib/workspace/settings";
-
-const BATCH_SIZE = 100; // Cloudflare Workflows `createBatch` ceiling.
-
-type InstanceOptions = { id: string; params: Record<string, unknown> };
-type CreateCounts = { created: number; skipped: number; failed: number };
-
-const addCounts = (left: CreateCounts, right: CreateCounts): CreateCounts => ({
-  created: left.created + right.created,
-  skipped: left.skipped + right.skipped,
-  failed: left.failed + right.failed,
-});
 
 /**
  * Daily enumerator. Cloudflare's scheduled handler POSTs here once a day; this
@@ -63,47 +52,11 @@ export async function GET(request: Request) {
     })),
   );
 
-  const chunks: InstanceOptions[][] = [];
-  for (let i = 0; i < instances.length; i += BATCH_SIZE) {
-    chunks.push(instances.slice(i, i + BATCH_SIZE));
-  }
-
-  const createOne = async (instance: InstanceOptions): Promise<CreateCounts> => {
-    try {
-      await workflow.create(instance);
-      return { created: 1, skipped: 0, failed: 0 };
-    } catch (error) {
-      if (isWorkflowInstanceExistsError(error)) {
-        return { created: 0, skipped: 1, failed: 0 };
-      }
-      logError("cron.daily.create_failed", {
-        instanceId: instance.id,
-        brandId: instance.params.brandId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return { created: 0, skipped: 0, failed: 1 };
-    }
-  };
-
-  const outcomes = await Promise.all(
-    chunks.map(async (chunk): Promise<CreateCounts> => {
-      try {
-        await workflow.createBatch(chunk);
-        return { created: chunk.length, skipped: 0, failed: 0 };
-      } catch {
-        // A batch fails if any id already exists. Fall back to per-instance
-        // creation so the brands that have not run yet still enqueue.
-        const perInstance = await Promise.all(chunk.map(createOne));
-        return perInstance.reduce(addCounts, { created: 0, skipped: 0, failed: 0 });
-      }
-    }),
+  const { created, skipped, failed } = await enqueueWorkflowInstances(
+    workflow,
+    instances,
+    "cron.daily",
   );
-
-  const { created, skipped, failed } = outcomes.reduce(addCounts, {
-    created: 0,
-    skipped: 0,
-    failed: 0,
-  });
 
   logInfo("cron.daily.enqueued", {
     runDate,

@@ -1,5 +1,6 @@
 export { DailyBrandWorkflow } from "./workflow";
 export { SetupRunWorkflow } from "./setup-workflow";
+export { AuditRunWorkflow } from "./audit-workflow";
 
 // Health stub. Instances are created via the cross-script binding from the app
 // (env.AGENT_WORKFLOW.create), so this Worker needs no real HTTP routes.

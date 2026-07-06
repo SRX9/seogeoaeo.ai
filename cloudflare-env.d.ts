@@ -37,6 +37,8 @@ interface CloudflareEnv {
   AGENT_WORKFLOW?: AgentWorkflowBinding;
   /** Same shape, different Workflow: Claudia's one-time Setup Run (SetupRunWorkflow). */
   SETUP_WORKFLOW?: AgentWorkflowBinding;
+  /** Visibility audits — manual Toolbox runs and scheduled re-audits (AuditRunWorkflow). */
+  AUDIT_WORKFLOW?: AgentWorkflowBinding;
   CRON_SECRET: string;
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
