@@ -48,8 +48,9 @@ export async function refreshSiteHealth(
     sitemapPageCount: sitemapPages.length,
     render,
     psi,
+    source,
   });
-  const snapshot: SiteHealthSnapshot = { ...health.snapshot, source };
+  const snapshot: SiteHealthSnapshot = health.snapshot;
 
   await kvPutJson(siteHealthOverlayKey(workspaceId), snapshot, SITE_HEALTH_OVERLAY_TTL_SECONDS);
   // Failing checks land in the fix queue too; dedup keeps reruns clean.

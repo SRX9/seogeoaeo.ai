@@ -50,9 +50,13 @@ function CopyPromptButton({ text }: { text: string }) {
       size="sm"
       variant="primary"
       onPress={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Clipboard access denied — nothing to do
+        }
       }}
     >
       {copied ? "Copied ✓" : "Copy prompt"}

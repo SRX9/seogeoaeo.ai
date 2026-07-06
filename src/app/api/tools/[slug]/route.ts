@@ -51,7 +51,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
         isResolved: auditFindings.isResolved,
       })
       .from(auditFindings)
-      .where(and(eq(auditFindings.workspaceId, workspace.id), eq(auditFindings.toolRunId, run.id)));
+      .where(and(eq(auditFindings.workspaceId, workspace.id), eq(auditFindings.toolRunId, run.id)))
+      .orderBy(auditFindings.severity, auditFindings.createdAt);
 
     return jsonOk({
       run: {

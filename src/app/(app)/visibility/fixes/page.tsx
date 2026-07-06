@@ -58,9 +58,13 @@ function CopyButton({
       size="sm"
       variant={variant}
       onPress={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Clipboard access denied — nothing to do, button stays unchanged
+        }
       }}
     >
       {copied ? "Copied ✓" : label}

@@ -82,7 +82,7 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
 /** Open Graph uses `property=`; Twitter and standard meta tags use `name=`. */
 function metaTag(key: string, value: unknown): string {
   const attr = key.startsWith("og:") ? "property" : "name";
-  return `<meta ${attr}="${esc(key)}" content="${esc(value)}" />`;
+  return `<meta ${attr}="${esc(key)}" content="${esc(String(value))}" />`;
 }
 
 function metaSnippet(p: Record<string, unknown>): string {

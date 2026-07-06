@@ -66,6 +66,8 @@ export interface SiteHealthInput {
   render?: RenderComparison;
   psi: PsiResult | null;
   fetchImpl?: typeof fetch;
+  /** How this snapshot was produced — stored on the snapshot; no silent default. */
+  source: SiteHealthSnapshot["source"];
 }
 
 // Owner-language labels for the meta-audit checks we surface 1:1.
@@ -103,7 +105,7 @@ const CRUX_FAIL_TITLES = {
 export async function buildSiteHealth(
   input: SiteHealthInput,
 ): Promise<{ snapshot: SiteHealthSnapshot; findings: Finding[] }> {
-  const { homepage, robots, llms, sitemapPageCount, render, psi } = input;
+  const { homepage, robots, llms, sitemapPageCount, render, psi, source } = input;
   const checks: HealthCheck[] = [];
   const newFindings: Finding[] = [];
 
@@ -526,7 +528,7 @@ export async function buildSiteHealth(
     snapshot: {
       version: 1,
       generatedAt: new Date().toISOString(),
-      source: "audit",
+      source,
       siteUrl: homepage.url,
       psiAvailable: psi != null,
       scores: psi?.scores ?? null,

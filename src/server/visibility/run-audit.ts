@@ -23,6 +23,7 @@ import { buildSiteHealth, type SiteHealthSnapshot } from "@/lib/visibility/site-
 import { siteHints } from "@/lib/visibility/schema/generate";
 import { computeAiVisibility, computeComposite } from "@/lib/visibility/scoring";
 import { crawlSitemap } from "@/lib/visibility/sitemap";
+import { seedToolRunsFromAudit } from "@/lib/visibility/toolbox-seed";
 import type {
   AnalyzerResult,
   PageSnapshot,
@@ -312,6 +313,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
         sitemapPageCount: sitemapPages.length,
         render,
         psi,
+        source: "audit",
       });
       siteHealth = health.snapshot;
       // Net-new checks (favicon, logo, og:image, sitemap, PageSpeed) feed the
@@ -343,6 +345,28 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     // fixes must not surface there (nor be auto-applied).
     if (findings.length > 0 && workspaceId && !isBenchmark) {
       await persistNewFindings(workspaceId, findings, { auditId });
+    }
+
+    // Seed each Toolbox tool's latest run from this audit's data so the tool
+    // pages open on Claudia's results (setup run and recurring audits alike).
+    // Owned sites only — a competitor's results must never populate the
+    // owner's tools — and never fatal to the audit.
+    if (workspaceId && !isBenchmark) {
+      try {
+        await seedToolRunsFromAudit({
+          workspaceId,
+          siteUrl,
+          homepage,
+          robots,
+          llms,
+          businessType: businessType.type,
+        });
+      } catch (error) {
+        logError("visibility.tool_seed_failed", {
+          auditId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     await db

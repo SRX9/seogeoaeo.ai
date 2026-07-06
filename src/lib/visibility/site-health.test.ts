@@ -85,6 +85,7 @@ function input(overrides: Partial<SiteHealthInput> = {}): SiteHealthInput {
     sitemapPageCount: 12,
     psi: null,
     fetchImpl: imageFetch,
+    source: "audit",
     ...overrides,
   };
 }
