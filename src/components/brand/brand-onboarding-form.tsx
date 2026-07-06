@@ -277,6 +277,9 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   // session server-side (webhook stays as backup), then create the brand.
   const [phase, setPhase] = useState<"form" | "finalizing">("form");
   const [finalizeTimedOut, setFinalizeTimedOut] = useState(false);
+  // Bumped on "Try again" so the poll effect re-arms its timers; effects keyed
+  // only on phase/isSubscribed never re-run when a retry leaves both unchanged.
+  const [finalizeAttempt, setFinalizeAttempt] = useState(0);
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   // Persistence is gated until bootstrap has read localStorage, so the empty
   // initial state never clobbers a saved draft (e.g. across the Stripe redirect).
@@ -560,18 +563,23 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
 
   // While finalizing, poll the subscription until it flips active — normally the
   // confirm call above settles this immediately; the poll covers webhook-only
-  // races and transient confirm failures.
+  // races and transient confirm failures. After 45s we surface "Still
+  // activating…" with a retry; after 2 minutes we stop waiting and hand off to
+  // the app — the Stripe webhook remains the activation path, and the saved
+  // draft brings the user straight back to the launch step.
   useEffect(() => {
     if (phase !== "finalizing" || isSubscribed) return;
     const poll = setInterval(() => {
       void refetchMe();
     }, 2500);
     const timeout = setTimeout(() => setFinalizeTimedOut(true), 45000);
+    const deadline = setTimeout(() => router.push("/dashboard"), 120000);
     return () => {
       clearInterval(poll);
       clearTimeout(timeout);
+      clearTimeout(deadline);
     };
-  }, [phase, isSubscribed, refetchMe]);
+  }, [phase, isSubscribed, refetchMe, router, finalizeAttempt]);
 
   // Once the subscription is active, create the brand exactly once.
   useEffect(() => {
@@ -702,9 +710,18 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
         onRetry={() => {
           setError(null);
           setFinalizeTimedOut(false);
-          finalizeStartedRef.current = false;
-          checkoutConfirm.reset();
-          void refetchMe();
+          if (isSubscribed) {
+            // The subscription is already active, so the failure was the brand
+            // create — re-run it directly; the phase/isSubscribed effect that
+            // normally triggers it won't fire again (its deps haven't changed).
+            finalizeStartedRef.current = true;
+            submitCreate();
+          } else {
+            finalizeStartedRef.current = false;
+            checkoutConfirm.reset();
+            setFinalizeAttempt((value) => value + 1);
+            void refetchMe();
+          }
         }}
       />
     );

@@ -32,6 +32,10 @@ export const queryKeys = {
   googleTraffic: ["integrations", "google"] as const,
   credits: ["credits"] as const,
   visibilitySummary: ["visibility", "summary"] as const,
+  visibilityFindings: ["visibility", "findings"] as const,
+  visibilityAnswers: ["visibility", "answers"] as const,
+  visibilityTraffic: ["visibility", "traffic"] as const,
+  visibilityReport: (auditId: string) => ["visibility", "report", auditId] as const,
   setupRun: ["setup-run"] as const,
 };
 
@@ -275,6 +279,18 @@ const visibilitySummaryQueryOptions = () => ({
   queryKey: queryKeys.visibilitySummary,
   queryFn: () => apiGet<VisibilitySummary>("/api/visibility/summary"),
 });
+const visibilityFindingsQueryOptions = () => ({
+  queryKey: queryKeys.visibilityFindings,
+  queryFn: () => apiGet<{ findings: VisibilityFinding[] }>("/api/visibility/findings"),
+});
+const visibilityAnswersQueryOptions = () => ({
+  queryKey: queryKeys.visibilityAnswers,
+  queryFn: () => apiGet<VisibilityAnswers>("/api/visibility/answers"),
+});
+const visibilityTrafficQueryOptions = () => ({
+  queryKey: queryKeys.visibilityTraffic,
+  queryFn: () => apiGet<{ data: VisibilityTraffic }>("/api/visibility/traffic"),
+});
 
 /** The minimal shape `<Section>` consumes; `combineQueries` produces it too. */
 export type QueryLike<T> = {
@@ -397,6 +413,10 @@ export function usePrefetchAppData(enabled: boolean) {
     queryClient.prefetchQuery(onboardingQueryOptions());
     queryClient.prefetchQuery(researchQueryOptions());
     queryClient.prefetchQuery(visibilitySummaryQueryOptions());
+    // Visibility pages, so sidebar navigation renders instantly from cache.
+    queryClient.prefetchQuery(visibilityFindingsQueryOptions());
+    queryClient.prefetchQuery(visibilityAnswersQueryOptions());
+    queryClient.prefetchQuery(visibilityTrafficQueryOptions());
     // Shared across pages.
     queryClient.prefetchQuery(topicsQueryOptions());
     queryClient.prefetchQuery(articlesQueryOptions());
@@ -475,6 +495,80 @@ export type VisibilitySummary = {
 
 export function useVisibilitySummary() {
   return useQuery({ ...visibilitySummaryQueryOptions(), enabled: useHasBrand() });
+}
+
+/** One open finding in the fix queue (V8.2). */
+export type VisibilityFinding = {
+  id: string;
+  pillar: "seo" | "aeo" | "geo";
+  category: string;
+  severity: "critical" | "high" | "medium" | "low";
+  title: string;
+  recommendation: string;
+  fixCapability: "auto" | "artifact" | "guided" | null;
+  fixPayload: unknown;
+};
+
+export function useVisibilityFindings() {
+  return useQuery({ ...visibilityFindingsQueryOptions(), enabled: useHasBrand() });
+}
+
+/** Share-of-answer per engine + the prompt × engine grid (V5.5). */
+export type VisibilityAnswers = {
+  prompts: { id: string; prompt: string; active: boolean }[];
+  runs: {
+    promptId: string;
+    engine: string;
+    brandMentioned: boolean;
+    brandCited: boolean;
+    mentions?: { name: string; mentioned: boolean; cited: boolean }[];
+  }[];
+  share: { engine: string; prompts: number; appeared: number; cited: number; share: number }[];
+};
+
+export function useVisibilityAnswers() {
+  return useQuery({ ...visibilityAnswersQueryOptions(), enabled: useHasBrand() });
+}
+
+/** GSC clicks trend + per-engine AI referrals behind the proof panel (V6.6). */
+export type VisibilityTraffic = {
+  connected: { gsc: boolean; ga4: boolean };
+  engines: string[];
+  gsc: { date: string; clicks: number; impressions: number; position: number | null }[];
+  aiReferrals: { date: string; byEngine: Record<string, number> }[];
+  auditMarkers: { date: string; overall: number | null }[];
+};
+
+export function useVisibilityTraffic() {
+  return useQuery({ ...visibilityTrafficQueryOptions(), enabled: useHasBrand() });
+}
+
+/** The rendered in-app report for one audit (V6.1). */
+export type VisibilityReport = {
+  model: {
+    site: string;
+    overall: number | null;
+    band: string;
+    aiVisibility: number | null;
+    subScores: { key: string; label: string; score: number | null }[];
+    platforms: { platform: string; score: number | null }[];
+    quickWins: { title: string; recommendation: string }[];
+    themes: {
+      week: number;
+      title: string;
+      findings: { title: string; recommendation: string }[];
+    }[];
+    impact: string;
+  };
+  markdown: string;
+};
+
+export function useVisibilityReport(auditId: string) {
+  return useQuery({
+    queryKey: queryKeys.visibilityReport(auditId),
+    queryFn: () => apiGet<VisibilityReport>(`/api/visibility/${auditId}/report`),
+    enabled: useHasBrand() && Boolean(auditId),
+  });
 }
 
 export type SetupStepStatus = "pending" | "running" | "done" | "skipped" | "failed";

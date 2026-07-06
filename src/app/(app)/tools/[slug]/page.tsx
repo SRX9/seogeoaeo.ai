@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, Card, TextArea } from "@heroui/react";
+import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { use, useState } from "react";
@@ -72,17 +73,15 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       {result && (
         <Card className="space-y-3 p-5">
           {result.score != null && <p className="text-2xl font-semibold">{Math.round(result.score)}/100</p>}
-          <p className="text-sm text-default-500">
-            {result.findings.length} finding(s) — see them all in your{" "}
-            <Link className="text-primary underline" href="/visibility/fixes">
-              fix queue
+          <p className="text-sm text-default-500">{result.findings.length} finding(s).</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/visibility/fixes" className={buttonVariants({ size: "sm", variant: "secondary" })}>
+              Open fix queue
             </Link>
-            , or let Claudia handle it in{" "}
-            <Link className="text-primary underline" href="/visibility">
-              Visibility
+            <Link href="/visibility" className={buttonVariants({ size: "sm", variant: "secondary" })}>
+              Open Visibility
             </Link>
-            .
-          </p>
+          </div>
           <pre className="overflow-x-auto rounded bg-default-100 p-3 text-xs">{JSON.stringify(result.data, null, 2)}</pre>
         </Card>
       )}

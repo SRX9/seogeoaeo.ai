@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiPost } from "@/lib/api/fetcher";
 
 /**
@@ -20,6 +20,9 @@ export function useCheckoutConfirm({
   onSettled: () => void;
 }) {
   const attemptedRef = useRef(false);
+  // Bumped by reset() so the effect below re-fires on retry — clearing the
+  // guard alone would never re-run an effect whose deps haven't changed.
+  const [attempt, setAttempt] = useState(0);
   const onSettledRef = useRef(onSettled);
   onSettledRef.current = onSettled;
 
@@ -29,11 +32,12 @@ export function useCheckoutConfirm({
     void apiPost("/api/billing/checkout/confirm", { sessionId })
       .catch(() => undefined)
       .then(() => onSettledRef.current());
-  }, [enabled, sessionId]);
+  }, [enabled, sessionId, attempt]);
 
   return {
     reset: () => {
       attemptedRef.current = false;
+      setAttempt((value) => value + 1);
     },
   };
 }
