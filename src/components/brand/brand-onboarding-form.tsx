@@ -17,6 +17,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { CheckIcon } from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { TagInput } from "@/components/ui/tag-input";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
@@ -1242,9 +1243,7 @@ function PlanPaywall({
               <ul className="mt-3 flex-1 space-y-1.5 border-t border-border pt-3">
                 {planFeatureList(plan.id).map((feature) => (
                   <li key={feature} className="flex items-start gap-2 text-xs text-muted">
-                    <span aria-hidden className="mt-px text-accent">
-                      ✓
-                    </span>
+                    <CheckIcon aria-hidden className="mt-px size-3.5 shrink-0 text-accent" />
                     <span>{feature}</span>
                   </li>
                 ))}

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { getErrorMessage } from "@/lib/api/fetcher";
 import { authClient } from "@/lib/auth/client";
-import { CircleCheckIcon, SgaLogo } from "@/components/icons";
+import { ArrowLeftIcon, CircleCheckIcon, SgaLogo } from "@/components/icons";
 
 const valueProps = [
   "Audit your visibility across SEO, AEO & GEO",
@@ -145,8 +145,12 @@ export function LoginForm() {
                 </Link>
                 .
               </p>
-              <Link href="/" className="text-sm text-muted hover:text-foreground">
-                ← Back to home
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+              >
+                <ArrowLeftIcon className="size-3.5" />
+                Back to home
               </Link>
             </Card.Footer>
           </Card>

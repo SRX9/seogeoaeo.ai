@@ -1,8 +1,12 @@
 "use client";
 
 import { Button, Card } from "@heroui/react";
+import { buttonVariants } from "@heroui/react/button";
+import { EmptyState } from "@heroui-pro/react/empty-state";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
+import { CircleCheckIcon } from "@/components/icons";
 import { Section } from "@/components/feedback/section";
 import { TableSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
@@ -38,10 +42,26 @@ function FindingsList({ findings }: { findings: VisibilityFinding[] }) {
 
   if (findings.length === 0) {
     return (
-      <Card className="p-8 text-center text-sm text-default-500">
-        Nothing in the queue. Run an audit from <span className="font-medium">Visibility</span> to
-        populate it.
-      </Card>
+      <EmptyState className="rounded-xl border border-dashed border-border">
+        <EmptyState.Header>
+          <EmptyState.Media variant="icon">
+            <CircleCheckIcon />
+          </EmptyState.Media>
+          <EmptyState.Title>Your fix queue is clear</EmptyState.Title>
+          <EmptyState.Description>
+            No open findings right now. Run an audit and anything worth fixing lands here,
+            ranked by how much it moves your score.
+          </EmptyState.Description>
+        </EmptyState.Header>
+        <EmptyState.Content>
+          <Link
+            href="/visibility"
+            className={buttonVariants({ size: "sm", variant: "secondary" })}
+          >
+            Open visibility
+          </Link>
+        </EmptyState.Content>
+      </EmptyState>
     );
   }
 

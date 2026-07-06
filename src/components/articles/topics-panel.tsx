@@ -8,9 +8,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { EmptyState } from "@heroui-pro/react/empty-state";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { InlineLoader } from "@/components/feedback/states";
-import { PenIcon, PlusIcon, SparklesIcon } from "@/components/icons";
+import { PenIcon, PlusIcon, SparklesIcon, TopicsIcon } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useSetupInProgress, useTopics, type Topic } from "@/lib/api/queries";
@@ -200,11 +201,21 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
       {isLoading ? (
         <InlineLoader label="Loading topics…" />
       ) : visibleTopics.length === 0 ? (
-        <p className="text-sm text-muted">
-          {filter === "manual"
-            ? "No manual topics yet. Add one in the Manual topic tab."
-            : "Run research to populate ranked topic ideas."}
-        </p>
+        <EmptyState size="sm" className="rounded-xl border border-dashed border-border">
+          <EmptyState.Header>
+            <EmptyState.Media variant="icon">
+              <TopicsIcon />
+            </EmptyState.Media>
+            <EmptyState.Title>
+              {filter === "manual" ? "No manual topics yet" : "No topics in the queue"}
+            </EmptyState.Title>
+            <EmptyState.Description>
+              {filter === "manual"
+                ? "Add your own idea in the Manual topic tab and it lands here, ready to write."
+                : "Run topic research and Claudia fills this queue with ranked, traffic-backed ideas."}
+            </EmptyState.Description>
+          </EmptyState.Header>
+        </EmptyState>
       ) : (
         <TopicList topics={visibleTopics} canGenerate={canGenerate} articleCost={articleCost} />
       )}

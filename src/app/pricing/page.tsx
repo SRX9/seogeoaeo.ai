@@ -50,7 +50,7 @@ export default function PricingPage() {
       <SiteHeader />
       <main>
         <section className="mx-auto max-w-6xl px-4 pb-12 pt-24 text-center sm:pt-32">
-          <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
             <span className="size-1.5 rounded-full bg-accent" aria-hidden />
             Pricing
           </span>

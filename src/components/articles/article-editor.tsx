@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { AlertTriangleIcon, CheckIcon } from "@/components/icons";
 import { ApiError, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type Article, type Publication } from "@/lib/api/queries";
 import { cn } from "@/lib/cn";
@@ -231,10 +232,18 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         {gates.map((gate) => (
           <span
             key={gate.gate}
-            className={gate.passed ? "text-success" : "text-warning"}
+            className={cn(
+              "inline-flex items-center gap-1",
+              gate.passed ? "text-success" : "text-warning",
+            )}
             title={gate.detail}
           >
-            {gate.passed ? "✓" : "!"} {GATE_LABELS[gate.gate] ?? gate.gate}
+            {gate.passed ? (
+              <CheckIcon className="size-3" />
+            ) : (
+              <AlertTriangleIcon className="size-3" />
+            )}
+            {GATE_LABELS[gate.gate] ?? gate.gate}
           </span>
         ))}
       </div>

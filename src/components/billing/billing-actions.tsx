@@ -3,6 +3,7 @@
 import { Card } from "@heroui/react";
 import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { CheckIcon } from "@/components/icons";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
 import { cn } from "@/lib/cn";
@@ -122,9 +123,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
                   <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
                     {planFeatureList(plan.id).map((feature) => (
                       <li key={feature} className="flex items-start gap-2 text-xs text-muted">
-                        <span aria-hidden className="mt-px text-accent">
-                          ✓
-                        </span>
+                        <CheckIcon aria-hidden className="mt-px size-3.5 shrink-0 text-accent" />
                         <span>{feature}</span>
                       </li>
                     ))}

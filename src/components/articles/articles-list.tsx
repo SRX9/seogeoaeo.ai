@@ -1,15 +1,14 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 import { EmptyState } from "@heroui-pro/react/empty-state";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Key, SortDescriptor } from "react-aria-components";
-import { ChevronRightIcon } from "@/components/icons";
+import { ArticlesIcon, ChevronRightIcon } from "@/components/icons";
+import { StatusText } from "@/components/ui/status-text";
 import { parseTags } from "@/lib/articles/format";
-import { statusColor } from "@/lib/ui/status";
 
 type ArticleRow = {
   id: string;
@@ -50,9 +49,13 @@ export function ArticlesList({ articles }: ArticlesListProps) {
     return (
       <EmptyState className="rounded-xl border border-dashed border-border">
         <EmptyState.Header>
+          <EmptyState.Media variant="icon">
+            <ArticlesIcon />
+          </EmptyState.Media>
           <EmptyState.Title>No articles yet</EmptyState.Title>
           <EmptyState.Description>
-            Generate your first article from a research-backed topic or a manual idea.
+            Claudia drafts articles from research-backed topics — or generate one yourself
+            from any topic in the queue.
           </EmptyState.Description>
         </EmptyState.Header>
         <EmptyState.Content>
@@ -105,22 +108,23 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                     </div>
                   </Table.Cell>
                   <Table.Cell>
-                    <Chip color={statusColor(article.status)} variant="soft" size="sm">
-                      {article.status}
-                    </Chip>
+                    <StatusText status={article.status} />
                   </Table.Cell>
                   <Table.Cell>
                     {tags.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {tags.slice(0, 2).map((tag) => (
-                          <Chip key={tag} size="sm" variant="soft">
+                          <span
+                            key={tag}
+                            className="rounded-lg bg-surface-secondary px-2 py-0.5 text-xs text-foreground"
+                          >
                             {tag}
-                          </Chip>
+                          </span>
                         ))}
                         {tags.length > 2 ? (
-                          <Chip size="sm" variant="soft" className="text-muted">
+                          <span className="rounded-lg bg-surface-secondary px-2 py-0.5 text-xs text-muted">
                             +{tags.length - 2}
-                          </Chip>
+                          </span>
                         ) : null}
                       </div>
                     ) : (

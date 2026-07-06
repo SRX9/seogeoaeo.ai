@@ -60,7 +60,7 @@ export function TableSkeleton({ rows = 5, className }: { rows?: number; classNam
           className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface p-4"
         >
           <Box className="h-4 w-1/2" />
-          <Box className="h-5 w-16 rounded-full" />
+          <Box className="h-4 w-16 rounded-lg" />
         </div>
       ))}
     </div>
@@ -69,7 +69,7 @@ export function TableSkeleton({ rows = 5, className }: { rows?: number; classNam
 
 /** A single text line; pass a width via className. */
 function ChipSkeleton({ className }: { className?: string }) {
-  return <Box className={cn("h-6 w-20 rounded-full", className)} />;
+  return <Box className={cn("h-6 w-20 rounded-lg", className)} />;
 }
 
 /** A row of chip placeholders, for a `PageHeader` meta row. */

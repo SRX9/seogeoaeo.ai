@@ -1,14 +1,16 @@
 "use client";
 
-import { Chip, toast } from "@heroui/react";
+import { toast } from "@heroui/react";
+import { buttonVariants } from "@heroui/react/button";
 import { Table } from "@heroui/react/table";
 import { EmptyState } from "@heroui-pro/react/empty-state";
+import Link from "next/link";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { StatusText } from "@/components/ui/status-text";
 import { ActivityIcon, PenIcon, SearchIcon, UsersIcon } from "@/components/icons";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, type ActivityResponse } from "@/lib/api/queries";
-import { statusColor } from "@/lib/ui/status";
 
 type ActivityCache = ActivityResponse;
 
@@ -81,11 +83,20 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
     return (
       <EmptyState className="rounded-xl border border-dashed border-border">
         <EmptyState.Header>
+          <EmptyState.Media variant="icon">
+            <ActivityIcon />
+          </EmptyState.Media>
           <EmptyState.Title>No activity yet</EmptyState.Title>
           <EmptyState.Description>
-            Run research from the dashboard or wait for the weekly cron.
+            Once Claudia starts working, every research run, writing job, and audit she
+            does shows up here — with credits spent and one-click retries.
           </EmptyState.Description>
         </EmptyState.Header>
+        <EmptyState.Content>
+          <Link href="/dashboard" className={buttonVariants({ size: "sm", variant: "secondary" })}>
+            Go to overview
+          </Link>
+        </EmptyState.Content>
       </EmptyState>
     );
   }
@@ -125,9 +136,7 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
                     </div>
                   </Table.Cell>
                   <Table.Cell>
-                    <Chip color={statusColor(item.status)} variant="soft" size="sm">
-                      {item.status}
-                    </Chip>
+                    <StatusText status={item.status} />
                   </Table.Cell>
                   <Table.Cell>
                     {item.credits > 0 ? (

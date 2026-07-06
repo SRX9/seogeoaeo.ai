@@ -1,6 +1,5 @@
 import { buttonVariants } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
-import { Chip } from "@heroui/react/chip";
 import Link from "next/link";
 import {
   ArrowRightIcon,
@@ -35,7 +34,7 @@ const heroPreviewPillars = [
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
+    <span className="inline-flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
       <span className="size-1.5 rounded-full bg-accent" aria-hidden />
       {children}
     </span>
@@ -92,9 +91,9 @@ function HeroPreview() {
             <div className="mt-2 flex items-end gap-2">
               <span className="text-5xl font-semibold tabular-nums text-foreground">78</span>
               <span className="pb-1 text-sm text-muted">/ 100</span>
-              <Chip color="success" variant="soft" className="mb-1 ml-auto">
+              <span className="mb-1 ml-auto rounded-lg bg-success-soft px-2 py-0.5 text-xs font-medium text-success-soft-foreground">
                 +14 this month
-              </Chip>
+              </span>
             </div>
             <div className="mt-6 space-y-4">
               {heroPreviewPillars.map((pillar) => (
@@ -127,19 +126,27 @@ function HeroPreview() {
                   className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-surface/50 px-3 py-2.5"
                 >
                   <span className="truncate text-sm text-foreground">{row.title}</span>
-                  <Chip
-                    variant="soft"
-                    color={
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1.5 text-xs font-medium ${
                       row.status === "Published"
-                        ? "success"
+                        ? "text-success"
                         : row.status === "Scheduled"
-                          ? "accent"
-                          : "default"
-                    }
-                    className="shrink-0"
+                          ? "text-accent-soft-foreground"
+                          : "text-muted"
+                    }`}
                   >
+                    <span
+                      aria-hidden
+                      className={`size-1.5 rounded-full ${
+                        row.status === "Published"
+                          ? "bg-success"
+                          : row.status === "Scheduled"
+                            ? "bg-accent"
+                            : "bg-muted/60"
+                      }`}
+                    />
                     {row.status}
-                  </Chip>
+                  </span>
                 </li>
               ))}
             </ul>

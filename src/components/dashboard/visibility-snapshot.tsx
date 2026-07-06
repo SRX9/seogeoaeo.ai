@@ -2,6 +2,8 @@ import { Button, buttonVariants } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import Link from "next/link";
 import { ScoreGauge } from "@/components/dashboard/score-gauge";
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon } from "@/components/icons";
+import { cn } from "@/lib/cn";
 import type { VisibilitySubScoreKey, VisibilitySummary } from "@/lib/api/queries";
 import { SUBSCORE_EXPLAINERS, SUBSCORE_LABELS } from "@/lib/visibility/display";
 
@@ -37,8 +39,12 @@ export function VisibilitySnapshot({ summary }: { summary: VisibilitySummary }) 
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-foreground">Visibility</h2>
-        <Link href={reportHref} className="text-sm text-muted hover:text-foreground">
-          {summary.hasAudit ? "Full report →" : "Open visibility →"}
+        <Link
+          href={reportHref}
+          className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+        >
+          {summary.hasAudit ? "Full report" : "Open visibility"}
+          <ChevronRightIcon className="size-3.5" />
         </Link>
       </div>
 
@@ -58,8 +64,18 @@ export function VisibilitySnapshot({ summary }: { summary: VisibilitySummary }) 
                 </ScoreGauge>
                 <div className="text-center text-sm">
                   {delta != null ? (
-                    <p className={delta >= 0 ? "text-success" : "text-danger"}>
-                      {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)} vs last audit
+                    <p
+                      className={cn(
+                        "inline-flex items-center gap-1 tabular-nums",
+                        delta >= 0 ? "text-success" : "text-danger",
+                      )}
+                    >
+                      {delta >= 0 ? (
+                        <ArrowUpIcon className="size-3.5" />
+                      ) : (
+                        <ArrowDownIcon className="size-3.5" />
+                      )}
+                      {Math.abs(delta)} vs last audit
                     </p>
                   ) : (
                     <p className="text-muted">First reading</p>

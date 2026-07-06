@@ -4,6 +4,7 @@ import { buttonVariants } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Meter } from "@heroui/react/meter";
 import Link from "next/link";
+import { CheckIcon } from "@/components/icons";
 import type { OnboardingStep } from "@/lib/api/queries";
 
 type OnboardingChecklistProps = {
@@ -47,11 +48,15 @@ export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
               <span
                 className={
                   step.completed
-                    ? "mt-0.5 inline-flex size-5 items-center justify-center rounded-full bg-success-soft text-xs text-success-soft-foreground"
-                    : "mt-0.5 inline-flex size-5 items-center justify-center rounded-full border border-border text-xs text-muted"
+                    ? "mt-0.5 inline-flex size-5 items-center justify-center rounded-full bg-success-soft text-success-soft-foreground"
+                    : "mt-0.5 inline-flex size-5 items-center justify-center rounded-full border border-border text-muted"
                 }
               >
-                {step.completed ? "✓" : "·"}
+                {step.completed ? (
+                  <CheckIcon className="size-3" />
+                ) : (
+                  <span className="size-1 rounded-full bg-current" aria-hidden />
+                )}
               </span>
               <div>
                 <Link href={step.href} className="font-medium text-foreground hover:text-muted">
