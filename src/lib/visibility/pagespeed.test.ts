@@ -94,7 +94,9 @@ describe("fetchPageSpeed", () => {
   it("fetches and parses a successful response", async () => {
     vi.stubEnv("GOOGLE_PSI_API_KEY", "test-key");
     expect(isPsiConfigured()).toBe(true);
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(PSI_BODY), { status: 200 }));
+    const fetchImpl = vi.fn(
+      async (_input: unknown, _init?: unknown) => new Response(JSON.stringify(PSI_BODY), { status: 200 }),
+    );
     const result = await fetchPageSpeed("https://acme.example/", { fetchImpl });
     expect(result?.scores.performance).toBe(42);
     const calledUrl = String(fetchImpl.mock.calls[0][0]);
