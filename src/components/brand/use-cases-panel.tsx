@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Input, Label, toast } from "@heroui/react";
+import { Card, Input, Label, Switch, toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -149,16 +149,18 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
                   {useCase.origin === "user" || useCase.edited ? (
                     <span className="text-xs uppercase tracking-wide text-muted">yours</span>
                   ) : null}
-                  <LoadingButton
-                    variant="ghost"
-                    size="sm"
-                    isPending={toggle.isPending && toggle.variables?.id === useCase.id}
+                  <Switch
+                    aria-label={`Write for "${useCase.job}"`}
+                    isSelected={useCase.enabled}
                     isDisabled={toggle.isPending}
-                    pendingLabel="Saving…"
-                    onPress={() => toggle.mutate({ id: useCase.id, enabled: !useCase.enabled })}
+                    onChange={(enabled) => toggle.mutate({ id: useCase.id, enabled })}
                   >
-                    {useCase.enabled ? "Disable" : "Enable"}
-                  </LoadingButton>
+                    <Switch.Content>
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Content>
+                  </Switch>
                 </div>
               </li>
             ))}

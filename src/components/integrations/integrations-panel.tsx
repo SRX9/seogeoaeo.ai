@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Chip, Input, Label, toast } from "@heroui/react";
+import { Card, Input, Label, Switch, toast } from "@heroui/react";
+import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -48,7 +49,7 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
         </div>
         <Link
           href="/help/integrations"
-          className="text-sm font-medium text-foreground/80 hover:text-foreground"
+          className={buttonVariants({ size: "sm", variant: "secondary" })}
         >
           View guide
         </Link>
@@ -61,13 +62,9 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
               <Card.Title>{integration.name}</Card.Title>
               <Card.Description>{integration.description}</Card.Description>
             </div>
-            <div className="flex items-center gap-2">
-              <StatusChip integration={integration} />
-              {integration.enabled ? (
-                <Chip color="success" variant="soft">
-                  Enabled
-                </Chip>
-              ) : null}
+            <div className="flex items-center gap-3 text-xs font-medium">
+              <StatusText integration={integration} />
+              {integration.enabled ? <span className="text-success">Enabled</span> : null}
             </div>
           </div>
 
@@ -87,26 +84,54 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
   );
 }
 
-function StatusChip({ integration }: { integration: IntegrationView }) {
+/** Labelled on/off switch for an integration — enable/disable is a state, not an action. */
+function EnableSwitch({
+  name,
+  enabled,
+  disabled,
+  onToggle,
+}: {
+  name: string;
+  enabled: boolean;
+  disabled: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-muted px-3 py-2.5">
+      <div>
+        <p className="text-sm font-medium text-foreground">
+          {enabled ? "Enabled" : "Disabled"}
+        </p>
+        <p className="text-xs text-muted">
+          {enabled
+            ? `Claudia publishes to ${name}.`
+            : `Turn on to let Claudia publish to ${name}.`}
+        </p>
+      </div>
+      <Switch
+        aria-label={`Enable ${name}`}
+        isSelected={enabled}
+        isDisabled={disabled}
+        onChange={onToggle}
+      >
+        <Switch.Content>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch.Content>
+      </Switch>
+    </div>
+  );
+}
+
+function StatusText({ integration }: { integration: IntegrationView }) {
   if (integration.status === "available") {
-    return (
-      <Chip color="success" variant="soft">
-        Available
-      </Chip>
-    );
+    return <span className="text-success">Available</span>;
   }
   if (integration.status === "gated") {
-    return (
-      <Chip color="warning" variant="soft">
-        Gated
-      </Chip>
-    );
+    return <span className="text-warning">Gated</span>;
   }
-  return (
-    <Chip color="danger" variant="soft">
-      Unavailable
-    </Chip>
-  );
+  return <span className="text-danger">Unavailable</span>;
 }
 
 type DraftState = {
@@ -249,15 +274,12 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
   if (!hasSetupFields) {
     return (
       <div className="mt-4">
-        <LoadingButton
-          variant={integration.enabled ? "secondary" : "primary"}
-          isPending={toggle.isPending}
-          pendingLabel="Saving..."
-          isDisabled={busy}
-          onPress={() => toggle.mutate(!integration.enabled)}
-        >
-          {integration.enabled ? `Disable ${integration.name}` : `Enable ${integration.name}`}
-        </LoadingButton>
+        <EnableSwitch
+          name={integration.name}
+          enabled={integration.enabled}
+          disabled={busy}
+          onToggle={(next) => toggle.mutate(next)}
+        />
       </div>
     );
   }
@@ -293,6 +315,13 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
         />
       ))}
 
+      <EnableSwitch
+        name={integration.name}
+        enabled={integration.enabled}
+        disabled={busy || !canToggle}
+        onToggle={(next) => toggle.mutate(next)}
+      />
+
       <div className="flex flex-wrap gap-2">
         <LoadingButton
           type="submit"
@@ -304,21 +333,12 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
         </LoadingButton>
         <LoadingButton
           variant="secondary"
-          isPending={toggle.isPending}
-          pendingLabel="Saving..."
-          isDisabled={busy || !canToggle}
-          onPress={() => toggle.mutate(!integration.enabled)}
-        >
-          {integration.enabled ? "Disable" : "Enable"}
-        </LoadingButton>
-        <LoadingButton
-          variant="ghost"
           isPending={clear.isPending}
           pendingLabel="Clearing..."
           isDisabled={busy}
           onPress={() => clear.mutate()}
         >
-          Clear
+          Clear connection
         </LoadingButton>
       </div>
 

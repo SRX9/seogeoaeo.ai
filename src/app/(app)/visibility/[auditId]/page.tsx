@@ -1,119 +1,115 @@
 "use client";
 
 import { Button, Card } from "@heroui/react";
-import { use, useCallback, useEffect, useState } from "react";
+import { buttonVariants } from "@heroui/react/button";
+import { use } from "react";
+import { ScoreGauge } from "@/components/dashboard/score-gauge";
+import { Section } from "@/components/feedback/section";
+import { CardSkeleton, StatGridSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
+import { useVisibilityReport, type VisibilityReport } from "@/lib/api/queries";
+import { SubScoreTile } from "@/components/visibility/subscore-tile";
 
 /** V6.1 — in-app report view: score dashboard + findings + Markdown/PDF export. */
 
-interface ReportModel {
-  site: string;
-  overall: number | null;
-  band: string;
-  aiVisibility: number | null;
-  subScores: { key: string; label: string; score: number | null }[];
-  platforms: { platform: string; score: number | null }[];
-  quickWins: { title: string; recommendation: string }[];
-  themes: { week: number; title: string; findings: { title: string; recommendation: string }[] }[];
-  impact: string;
-}
-
 const fmt = (n: number | null) => (n == null ? "—" : `${Math.round(n)}`);
+
+const reportSkeleton = (
+  <div className="space-y-6">
+    <CardSkeleton lines={2} />
+    <StatGridSkeleton tiles={6} />
+    <CardSkeleton lines={4} />
+  </div>
+);
+
+function ReportContent({ model }: { model: VisibilityReport["model"] }) {
+  return (
+    <>
+      <Card className="p-5">
+        <div className="flex items-center gap-5">
+          <ScoreGauge value={model.overall} size={110} barSize={8}>
+            <span className="text-2xl font-semibold leading-none text-foreground tabular-nums">
+              {fmt(model.overall)}
+            </span>
+          </ScoreGauge>
+          <div>
+            <p className="text-sm text-default-500">Overall visibility</p>
+            <p className="text-xl font-semibold">{model.band}</p>
+            <p className="mt-1 text-sm text-default-600">{model.impact}</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {model.subScores.map((s) => (
+          <SubScoreTile key={s.key} subScoreKey={s.key} label={s.label} score={s.score} />
+        ))}
+      </div>
+
+      <Card className="p-5">
+        <h2 className="mb-2 font-semibold">Quick wins</h2>
+        <ul className="space-y-2 text-sm">
+          {model.quickWins.map((f, i) => (
+            <li key={i}>
+              <span className="font-medium">{f.title}</span> — {f.recommendation}
+            </li>
+          ))}
+          {model.quickWins.length === 0 && <li className="text-default-400">None outstanding.</li>}
+        </ul>
+      </Card>
+
+      {model.themes.map((t) => (
+        <Card key={t.week} className="p-5">
+          <h2 className="mb-2 font-semibold">
+            Week {t.week}: {t.title}
+          </h2>
+          <ul className="space-y-2 text-sm">
+            {t.findings.map((f, i) => (
+              <li key={i}>
+                <span className="font-medium">{f.title}</span> — {f.recommendation}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ))}
+    </>
+  );
+}
 
 export default function ReportPage({ params }: { params: Promise<{ auditId: string }> }) {
   const { auditId } = use(params);
-  const [model, setModel] = useState<ReportModel | null>(null);
-  const [markdown, setMarkdown] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/visibility/${auditId}/report`);
-      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to load report");
-      const data = await res.json();
-      setModel(data.model);
-      setMarkdown(data.markdown);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load report");
-    }
-  }, [auditId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const report = useVisibilityReport(auditId);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title="Visibility report"
-        description={model?.site ?? "Loading…"}
+        description={report.data?.model.site ?? "Your full audit, scored and prioritized."}
         meta={
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onPress={() => navigator.clipboard.writeText(markdown)}>
+            <Button
+              size="sm"
+              variant="outline"
+              isDisabled={!report.data}
+              onPress={() => navigator.clipboard.writeText(report.data?.markdown ?? "")}
+            >
               Copy Markdown
             </Button>
             <a
-              className="inline-flex items-center rounded-medium bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+              className={buttonVariants({ size: "sm", variant: "primary" })}
               href={`/api/visibility/${auditId}/pdf`}
               target="_blank"
               rel="noreferrer"
             >
-              Download
+              Download PDF
             </a>
           </div>
         }
       />
 
-      {error && <p className="text-sm text-danger">{error}</p>}
-
-      {model && (
-        <>
-          <Card className="p-5">
-            <p className="text-sm text-default-500">Overall visibility</p>
-            <p className="text-3xl font-semibold">
-              {fmt(model.overall)}
-              <span className="ml-2 text-base font-normal text-default-400">/100 · {model.band}</span>
-            </p>
-            <p className="mt-2 text-sm text-default-600">{model.impact}</p>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {model.subScores.map((s) => (
-              <Card key={s.key} className="p-4">
-                <p className="text-xs text-default-500">{s.label}</p>
-                <p className="text-xl font-semibold">{fmt(s.score)}</p>
-              </Card>
-            ))}
-          </div>
-
-          <Card className="p-5">
-            <h2 className="mb-2 font-semibold">Quick wins</h2>
-            <ul className="space-y-2 text-sm">
-              {model.quickWins.map((f, i) => (
-                <li key={i}>
-                  <span className="font-medium">{f.title}</span> — {f.recommendation}
-                </li>
-              ))}
-              {model.quickWins.length === 0 && <li className="text-default-400">None outstanding.</li>}
-            </ul>
-          </Card>
-
-          {model.themes.map((t) => (
-            <Card key={t.week} className="p-5">
-              <h2 className="mb-2 font-semibold">
-                Week {t.week}: {t.title}
-              </h2>
-              <ul className="space-y-2 text-sm">
-                {t.findings.map((f, i) => (
-                  <li key={i}>
-                    <span className="font-medium">{f.title}</span> — {f.recommendation}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ))}
-        </>
-      )}
+      <Section query={report} skeleton={reportSkeleton} errorLabel="Couldn't load this report.">
+        {(data) => <ReportContent model={data.model} />}
+      </Section>
     </div>
   );
 }
