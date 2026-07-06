@@ -17,16 +17,8 @@ import {
   useMe,
   useVisibilitySummary,
 } from "@/lib/api/queries";
-import { cn } from "@/lib/cn";
-import { statusColor } from "@/lib/ui/status";
-
-const STATUS_TEXT: Record<string, string> = {
-  success: "text-success",
-  danger: "text-danger",
-  warning: "text-warning",
-  accent: "text-accent",
-};
-const statusTextClass = (status: string) => STATUS_TEXT[statusColor(status)] ?? "text-muted";
+import { ChevronRightIcon } from "@/components/icons";
+import { StatusText } from "@/components/ui/status-text";
 
 const visibilitySkeleton = <CardSkeleton lines={3} />;
 const contentAgentSkeleton = <StatGridSkeleton />;
@@ -84,8 +76,12 @@ export default function DashboardPage() {
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-foreground">Recent articles</h2>
-                <Link href="/articles" className="text-sm text-muted hover:text-foreground">
+                <Link
+                  href="/articles"
+                  className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+                >
                   View all
+                  <ChevronRightIcon className="size-3.5" />
                 </Link>
               </div>
               <Table>
@@ -109,14 +105,7 @@ export default function DashboardPage() {
                             <span className="font-medium text-foreground">{article.title}</span>
                           </Table.Cell>
                           <Table.Cell>
-                            <span
-                              className={cn(
-                                "text-sm font-medium capitalize",
-                                statusTextClass(article.status),
-                              )}
-                            >
-                              {article.status}
-                            </span>
+                            <StatusText status={article.status} />
                           </Table.Cell>
                         </Table.Row>
                       ))}

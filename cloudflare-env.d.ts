@@ -65,4 +65,6 @@ interface CloudflareEnv {
   TAVILY_API_KEY?: string;
   SERPER_API_KEY?: string;
   KEYWORD_API_URL?: string;
+  /** Google PageSpeed Insights v5 API key (free) — Site Health checklist. */
+  GOOGLE_PSI_API_KEY?: string;
 }

@@ -16,11 +16,14 @@ import { logError } from "@/lib/logging/logger";
 import { fetchPage } from "@/lib/visibility/fetch-page";
 import { analyzeLlmsTxt, fetchLlmsTxt } from "@/lib/visibility/llms";
 import { analyzePlatforms } from "@/lib/visibility/platforms";
+import { fetchPageSpeed, isPsiConfigured } from "@/lib/visibility/pagespeed";
 import { fetchPageResilient } from "@/lib/visibility/resilient-fetch";
 import { fetchRobots } from "@/lib/visibility/robots";
+import { buildSiteHealth, type SiteHealthSnapshot } from "@/lib/visibility/site-health";
 import { siteHints } from "@/lib/visibility/schema/generate";
 import { computeAiVisibility, computeComposite } from "@/lib/visibility/scoring";
 import { crawlSitemap } from "@/lib/visibility/sitemap";
+import { seedToolRunsFromAudit } from "@/lib/visibility/toolbox-seed";
 import type {
   AnalyzerResult,
   PageSnapshot,
@@ -276,11 +279,16 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     await persistOffSiteSignals(auditId, brand, platforms);
 
     // ── Analysis (parallel, mirrors the 6 subagents) ─────────────────────
-    const analyzerResults: AnalyzerResult[] = await Promise.all(
-      analyzers.map((run) =>
-        run({ homepage, pages, robots, llms, businessType: businessType.type, brand, platforms, render }),
-      ),
-    );
+    // PageSpeed runs a full Lighthouse pass (~10–30s) — start it alongside
+    // the analyzers so it never adds wall-clock time to the audit.
+    const [analyzerResults, psi] = await Promise.all([
+      Promise.all(
+        analyzers.map((run) =>
+          run({ homepage, pages, robots, llms, businessType: businessType.type, brand, platforms, render }),
+        ),
+      ) as Promise<AnalyzerResult[]>,
+      isPsiConfigured() ? fetchPageSpeed(homepage.url) : Promise.resolve(null),
+    ]);
 
     // ── Synthesis ────────────────────────────────────────────────────────
     // Missing analyzers count as 0 so partial audits still yield a composite.
@@ -294,6 +302,30 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     });
 
     const findings = analyzerResults.flatMap((r) => r.findings);
+
+    // ── Site Health checklist (V9) — never fails the audit ───────────────
+    let siteHealth: SiteHealthSnapshot | null = null;
+    try {
+      const health = await buildSiteHealth({
+        homepage,
+        robots,
+        llms,
+        sitemapPageCount: sitemapPages.length,
+        render,
+        psi,
+        source: "audit",
+      });
+      siteHealth = health.snapshot;
+      // Net-new checks (favicon, logo, og:image, sitemap, PageSpeed) feed the
+      // fix queue through the same gate as the analyzers' findings below.
+      findings.push(...health.findings);
+    } catch (error) {
+      logError("visibility.site_health_failed", {
+        auditId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     if (blocked) {
       // The plain fetch hit bot protection; AI crawlers fetch like plain requests.
       findings.push({
@@ -315,6 +347,28 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
       await persistNewFindings(workspaceId, findings, { auditId });
     }
 
+    // Seed each Toolbox tool's latest run from this audit's data so the tool
+    // pages open on Claudia's results (setup run and recurring audits alike).
+    // Owned sites only — a competitor's results must never populate the
+    // owner's tools — and never fatal to the audit.
+    if (workspaceId && !isBenchmark) {
+      try {
+        await seedToolRunsFromAudit({
+          workspaceId,
+          siteUrl,
+          homepage,
+          robots,
+          llms,
+          businessType: businessType.type,
+        });
+      } catch (error) {
+        logError("visibility.tool_seed_failed", {
+          auditId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     await db
       .update(audits)
       .set({
@@ -327,6 +381,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
         technicalScore: subScores.get("technical") ?? null,
         schemaScore: subScores.get("schema") ?? null,
         platformScore: subScores.get("platform") ?? null,
+        siteHealth,
         scorerVersion: SCORER_VERSION,
         completedAt: new Date(),
       })

@@ -10,7 +10,8 @@ export type JobKind =
   | "weekly_pipeline"
   | "daily_pipeline"
   | "setup_run"
-  | "competitor_rediscovery";
+  | "competitor_rediscovery"
+  | "site_health_check";
 export type JobStatus = "running" | "completed" | "failed";
 
 export async function createAgentJob(scope: BrandScope, kind: JobKind, message?: string) {

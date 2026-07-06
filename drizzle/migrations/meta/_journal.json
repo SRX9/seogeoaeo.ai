@@ -218,6 +218,13 @@
       "when": 1783230707750,
       "tag": "0030_familiar_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783354685545,
+      "tag": "0031_typical_quicksilver",
+      "breakpoints": true
     }
   ]
 }

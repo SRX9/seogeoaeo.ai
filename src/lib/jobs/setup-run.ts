@@ -17,7 +17,13 @@ import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { createWorkflowInstance } from "@/lib/jobs/workflow";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
 import { day0BriefPrompt, seedTrackedPromptsPrompt } from "@/lib/llm/prompts";
-import { logError, logInfo } from "@/lib/logging/logger";
+import { logError, logInfo, logWarn } from "@/lib/logging/logger";
+import {
+  assertHasCredits,
+  InsufficientCreditsError,
+  spendCredits,
+} from "@/lib/usage/credits";
+import { CREDIT_COSTS, type BillableAction } from "@/lib/billing/credits";
 import { runResearch } from "@/lib/research/run";
 import { recentAnswerExcerpts, runAnswerCheck } from "@/lib/visibility/answers";
 import { applyFix } from "@/lib/visibility/apply-fix";
@@ -37,8 +43,12 @@ import { runAudit } from "@/server/visibility/run-audit";
  * pipeline moves on, so one broken step can't wedge setup in `running` forever.
  *
  * Idempotency: one `setup_runs` row per brand (unique index); a re-run of an
- * already-done/skipped step is a no-op. Setup Run cost is plan-included: no
- * step spends credits.
+ * already-done/skipped step is a no-op.
+ *
+ * Metering: setup work spends credits like the same work triggered manually
+ * (audit, answer check, benchmark, research, article). Each spend is idempotent
+ * by refId so Workflow retries never double-charge; a step whose balance is
+ * short is *skipped with a note* — never wedged, never free.
  *
  * Outside Cloudflare (plain `next dev`, no SETUP_WORKFLOW binding) the whole
  * pipeline falls back to running inline in the request's `waitUntil`.
@@ -145,6 +155,45 @@ async function latestOwnAuditId(workspaceId: string, siteUrl: string): Promise<s
 
 const MAX_SETUP_FIXES = 10;
 
+/** Skip note for steps the balance can't cover — the run keeps moving. */
+const NO_CREDITS_SKIP = "Not enough credits — top up and this runs on the next audit cycle.";
+
+/** Pre-flight: turns a short balance into a skip note instead of a failed step. */
+async function hasCreditsFor(scope: BrandScope, action: BillableAction): Promise<boolean> {
+  try {
+    await assertHasCredits(scope.workspaceId, CREDIT_COSTS[action]);
+    return true;
+  } catch (error) {
+    if (error instanceof InsufficientCreditsError) return false;
+    throw error;
+  }
+}
+
+/**
+ * Charge one setup step after its work succeeded, keyed on the work's own id so
+ * a retried Workflow step never double-charges. A balance drained between the
+ * pre-check and here is logged, not thrown — finished work is never orphaned
+ * (mirrors article generation's post-work charge).
+ */
+async function chargeSetupWork(scope: BrandScope, action: BillableAction, refId: string) {
+  try {
+    await spendCredits(scope.workspaceId, CREDIT_COSTS[action], {
+      reason: action,
+      brandId: scope.brandId,
+      refType: action === "research_run" ? "research_run" : "visibility",
+      refId,
+    });
+  } catch (error) {
+    if (!(error instanceof InsufficientCreditsError)) throw error;
+    logWarn("setup_run.credit_charge_skipped", {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      action,
+      refId,
+    });
+  }
+}
+
 /** Everything a step runner needs; loaded fresh per step so runners are self-contained. */
 type StepContext = {
   scope: BrandScope;
@@ -169,7 +218,9 @@ type StepResult = string | { skip: string };
 const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult>> = {
   first_audit: async ({ scope, website }) => {
     if (!website) return { skip: "No website on the brand profile yet." };
+    if (!(await hasCreditsFor(scope, "visibility_audit"))) return { skip: NO_CREDITS_SKIP };
     const auditId = await runAudit(scope.workspaceId, website);
+    await chargeSetupWork(scope, "visibility_audit", auditId);
     const [audit] = await getDb().select().from(audits).where(eq(audits.id, auditId)).limit(1);
     return audit?.overallScore != null
       ? `Visibility score ${Math.round(audit.overallScore)}/100.`
@@ -212,8 +263,10 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
   },
 
   answer_check: async ({ scope }) => {
+    if (!(await hasCreditsFor(scope, "answer_run"))) return { skip: NO_CREDITS_SKIP };
     const result = await runAnswerCheck(scope.brandId);
     if (result.cells.length === 0) return { skip: "No prompts or engines available yet." };
+    await chargeSetupWork(scope, "answer_run", `setup-answers-${scope.brandId}`);
     const best = [...result.share].sort((a, b) => b.appeared - a.appeared)[0];
     return best
       ? `In ${best.appeared} of ${best.prompts} ${best.engine} answers today.`
@@ -243,14 +296,18 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     }
     const rival = comps[0];
     if (!rival) return { skip: "No competitor found yet." };
+    if (!(await hasCreditsFor(scope, "competitor_benchmark"))) return { skip: NO_CREDITS_SKIP };
     // "benchmark": scores a rival under our workspace — must never surface as
     // the owner's score (summary/badge/baseline) or write fix-queue findings.
-    await runAudit(scope.workspaceId, rival.url, "benchmark");
+    const benchmarkAuditId = await runAudit(scope.workspaceId, rival.url, "benchmark");
+    await chargeSetupWork(scope, "competitor_benchmark", benchmarkAuditId);
     return `Benchmarked ${rival.name}.`;
   },
 
   topic_research: async ({ scope }) => {
+    if (!(await hasCreditsFor(scope, "research_run"))) return { skip: NO_CREDITS_SKIP };
     const research = await runResearch(scope, { idempotencyKey: `setup-${scope.brandId}` });
+    await chargeSetupWork(scope, "research_run", research.runId);
     return `Queued ${research.topicsCreated} article topics.`;
   },
 
@@ -281,8 +338,13 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     if (dailyArticleCapForPlan(planId) <= 0) return { skip: "Plan has no article allowance." };
     const [topic] = await listPendingTopicsForWriting(scope.brandId, 1);
     if (!topic) return { skip: "No topics queued yet." };
-    // Plan-included: the setup run's job is to show value on day 0, so it doesn't meter.
-    await generateArticleFromTopic(scope, topic.id, { skipCreditCheck: true, origin: "setup_run" });
+    try {
+      // Metered like any agent-written article: asserts up front, charges on success.
+      await generateArticleFromTopic(scope, topic.id, { origin: "setup_run" });
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) return { skip: NO_CREDITS_SKIP };
+      throw error;
+    }
     return `Wrote "${topic.title}".`;
   },
 

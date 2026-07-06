@@ -1,16 +1,32 @@
 "use client";
 
 import { Button, Card } from "@heroui/react";
+import { buttonVariants } from "@heroui/react/button";
+import { EmptyState } from "@heroui-pro/react/empty-state";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
+import { CircleCheckIcon } from "@/components/icons";
 import { Section } from "@/components/feedback/section";
 import { TableSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
-import { apiPatch } from "@/lib/api/fetcher";
-import { queryKeys, useVisibilityFindings, type VisibilityFinding } from "@/lib/api/queries";
+import { apiPatch, apiPost } from "@/lib/api/fetcher";
+import {
+  queryKeys,
+  useBrandProfile,
+  useVisibilityFindings,
+  type VisibilityFinding,
+} from "@/lib/api/queries";
 import { PILLAR_LABELS } from "@/lib/visibility/display";
+import { buildFixArtifact } from "@/lib/visibility/fix-artifact";
+import { buildFixPrompt } from "@/lib/visibility/fix-prompt";
 
-/** V8.2 — the fix queue: one severity-ranked list of every open finding. */
+/**
+ * V8.2 — the fix queue: one severity-ranked list of every open finding. Each
+ * row opens into the actual fix: a paste-ready snippet/file when we generated
+ * one, a "fix it for me" apply for auto-capable findings, and — always — a
+ * copy-paste prompt for the owner's AI coding assistant.
+ */
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const SEVERITY_DOT: Record<(typeof SEVERITIES)[number], string> = {
@@ -19,29 +35,192 @@ const SEVERITY_DOT: Record<(typeof SEVERITIES)[number], string> = {
   medium: "bg-accent",
   low: "bg-default-300",
 };
-const ACTION_LABEL: Record<string, string> = {
-  auto: "Fix it for me",
-  artifact: "Get the fix",
-  guided: "Show me how",
+const SEVERITY_HINT: Record<(typeof SEVERITIES)[number], string> = {
+  critical: "fix these first",
+  high: "big score impact",
+  medium: "worth doing soon",
+  low: "nice to have",
 };
 
-function FindingsList({ findings }: { findings: VisibilityFinding[] }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+/** Copy-to-clipboard button with a transient "Copied" confirmation. */
+function CopyButton({
+  text,
+  label,
+  variant = "secondary",
+}: {
+  text: string;
+  label: string;
+  variant?: "primary" | "secondary" | "outline";
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      size="sm"
+      variant={variant}
+      onPress={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Clipboard access denied — nothing to do, button stays unchanged
+        }
+      }}
+    >
+      {copied ? "Copied ✓" : label}
+    </Button>
+  );
+}
 
-  const dismiss = useMutation({
-    mutationFn: (findingId: string) =>
-      apiPatch("/api/visibility/findings", { findingId, action: "dismiss" }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings }),
+function downloadFile(filename: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** The expanded fix panel: the artifact (if any) + the AI-assistant prompt. */
+function FixDetail({ finding, website }: { finding: VisibilityFinding; website: string | null }) {
+  const artifact = buildFixArtifact(finding.fixPayload);
+  const prompt = buildFixPrompt(finding, website);
+  const hasArtifact = artifact.content.trim().length > 0;
+
+  return (
+    <div className="mt-4 space-y-4 border-t border-border pt-4">
+      {hasArtifact && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">The fix, ready to use</p>
+          <p className="text-sm text-default-500">{artifact.instructions}</p>
+          <pre className="max-h-72 overflow-auto rounded-lg bg-default-100 p-3 text-xs">
+            {artifact.content}
+          </pre>
+          <div className="flex flex-wrap gap-2">
+            <CopyButton text={artifact.content} label="Copy fix" />
+            {artifact.mode === "file" && artifact.filename && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => downloadFile(artifact.filename!, artifact.content)}
+              >
+                Download {artifact.filename}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
+        <p className="text-sm font-medium">Fix it with your AI coding assistant</p>
+        <p className="text-sm text-default-500">
+          Copy this prompt and paste it into Cursor, Claude Code, or Copilot inside your
+          website&apos;s project — it tells the assistant exactly what to change and how to verify
+          it.
+        </p>
+        <CopyButton text={prompt} label="Copy prompt" variant="primary" />
+      </div>
+    </div>
+  );
+}
+
+function FindingCard({ finding, website }: { finding: VisibilityFinding; website: string | null }) {
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
+
+  const resolve = useMutation({
+    mutationFn: (action: "dismiss" | "complete") =>
+      apiPatch("/api/visibility/findings", { findingId: finding.id, action }),
+    onSuccess: invalidate,
+  });
+  const applyAuto = useMutation({
+    mutationFn: () => apiPost("/api/visibility/fix", { findingId: finding.id }),
+    onSuccess: invalidate,
   });
 
+  return (
+    <Card className="p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs text-default-400">{PILLAR_LABELS[finding.pillar]}</p>
+          <p className="font-medium">{finding.title}</p>
+          <p className="mt-1 text-sm text-default-500">{finding.recommendation}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {finding.fixCapability === "auto" && (
+            <Button
+              size="sm"
+              variant="primary"
+              isDisabled={applyAuto.isPending}
+              onPress={() => applyAuto.mutate()}
+            >
+              {applyAuto.isPending ? "Applying…" : "Fix it for me"}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant={finding.fixCapability === "auto" ? "secondary" : "primary"}
+            onPress={() => setOpen(!open)}
+          >
+            {open ? "Hide fix" : "Show me the fix"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            isDisabled={resolve.isPending}
+            onPress={() => resolve.mutate("complete")}
+          >
+            Done
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            isDisabled={resolve.isPending}
+            onPress={() => resolve.mutate("dismiss")}
+          >
+            Dismiss
+          </Button>
+        </div>
+      </div>
+      {applyAuto.isError && (
+        <p className="mt-2 text-sm text-danger">Couldn&apos;t apply this fix — try again.</p>
+      )}
+      {open && <FixDetail finding={finding} website={website} />}
+    </Card>
+  );
+}
+
+function FindingsList({
+  findings,
+  website,
+}: {
+  findings: VisibilityFinding[];
+  website: string | null;
+}) {
   if (findings.length === 0) {
     return (
-      <Card className="p-8 text-center text-sm text-default-500">
-        Nothing in the queue. Run an audit from <span className="font-medium">Visibility</span> to
-        populate it.
-      </Card>
+      <EmptyState className="rounded-xl border border-dashed border-border">
+        <EmptyState.Header>
+          <EmptyState.Media variant="icon">
+            <CircleCheckIcon />
+          </EmptyState.Media>
+          <EmptyState.Title>Your fix queue is clear</EmptyState.Title>
+          <EmptyState.Description>
+            No open findings right now. Run an audit and anything worth fixing lands here,
+            ranked by how much it moves your score.
+          </EmptyState.Description>
+        </EmptyState.Header>
+        <EmptyState.Content>
+          <Link
+            href="/visibility"
+            className={buttonVariants({ size: "sm", variant: "secondary" })}
+          >
+            Open visibility
+          </Link>
+        </EmptyState.Content>
+      </EmptyState>
     );
   }
 
@@ -55,40 +234,12 @@ function FindingsList({ findings }: { findings: VisibilityFinding[] }) {
             <h2 className="flex items-center gap-2 text-sm font-semibold capitalize text-default-600">
               <span className={`size-2 rounded-full ${SEVERITY_DOT[sev]}`} aria-hidden />
               {sev}
-              <span className="font-normal text-default-400">· {group.length}</span>
+              <span className="font-normal normal-case text-default-400">
+                · {group.length} · {SEVERITY_HINT[sev]}
+              </span>
             </h2>
             {group.map((f) => (
-              <Card key={f.id} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs text-default-400">{PILLAR_LABELS[f.pillar]}</p>
-                    <p className="font-medium">{f.title}</p>
-                    <p className="mt-1 text-sm text-default-500">{f.recommendation}</p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onPress={() => setOpen(open === f.id ? null : f.id)}
-                    >
-                      {ACTION_LABEL[f.fixCapability ?? "guided"]}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      isDisabled={dismiss.isPending && dismiss.variables === f.id}
-                      onPress={() => dismiss.mutate(f.id)}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-                {open === f.id && f.fixPayload != null && (
-                  <pre className="mt-3 overflow-x-auto rounded-lg bg-default-100 p-3 text-xs">
-                    {JSON.stringify(f.fixPayload, null, 2)}
-                  </pre>
-                )}
-              </Card>
+              <FindingCard key={f.id} finding={f} website={website} />
             ))}
           </div>
         );
@@ -99,19 +250,20 @@ function FindingsList({ findings }: { findings: VisibilityFinding[] }) {
 
 export default function FixQueuePage() {
   const findings = useVisibilityFindings();
+  const website = useBrandProfile().data?.profile.website?.trim() || null;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader
         title="Fix queue"
-        description="Everything worth fixing, ranked by impact. One action per row."
+        description="Every issue Claudia's audits found on your site, ranked by how much fixing it will lift your visibility score. Open a row to get the exact fix — copy it, download it, or hand it to your AI coding assistant."
       />
       <Section
         query={findings}
         skeleton={<TableSkeleton rows={6} />}
         errorLabel="Couldn't load your fix queue."
       >
-        {(data) => <FindingsList findings={data.findings} />}
+        {(data) => <FindingsList findings={data.findings} website={website} />}
       </Section>
     </div>
   );

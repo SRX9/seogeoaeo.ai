@@ -5,6 +5,7 @@ import { TextShimmer } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ClaudiaAvatar } from "@/components/dashboard/claudia-avatar";
+import { CheckIcon, MinusIcon, XIcon } from "@/components/icons";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { apiPost } from "@/lib/api/fetcher";
 import {
@@ -58,9 +59,9 @@ function derivedBrief(a: AutomationStats): string {
 }
 
 function StepIcon({ status }: { status: SetupStep["status"] }) {
-  if (status === "done") return <span className="text-success">✓</span>;
-  if (status === "skipped") return <span className="text-default-400">–</span>;
-  if (status === "failed") return <span className="text-danger">✕</span>;
+  if (status === "done") return <CheckIcon className="size-3.5 text-success" />;
+  if (status === "skipped") return <MinusIcon className="size-3.5 text-default-400" />;
+  if (status === "failed") return <XIcon className="size-3.5 text-danger" />;
   if (status === "running")
     return (
       <span
@@ -68,7 +69,7 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
         aria-label="running"
       />
     );
-  return <span className="text-default-300">○</span>;
+  return <span className="inline-block size-2 rounded-full border border-default-300" />;
 }
 
 function HeroShell({ children }: { children: React.ReactNode }) {
@@ -155,7 +156,7 @@ export function ClaudiaHero() {
           <ul className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
             {run.steps.map((step) => (
               <li key={step.key} className="flex items-start gap-2 text-sm">
-                <span className="mt-0.5 w-4 shrink-0 text-center">
+                <span className="mt-0.5 flex h-5 w-4 shrink-0 items-center justify-center">
                   <StepIcon status={step.status} />
                 </span>
                 <span

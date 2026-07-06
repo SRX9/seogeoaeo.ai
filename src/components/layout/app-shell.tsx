@@ -66,6 +66,7 @@ const primaryNav: NavEntry[] = [
     children: [
       { href: "/visibility", label: "Overview" },
       { href: "/visibility/fixes", label: "Fix queue" },
+      { href: "/visibility/health", label: "Site health" },
       { href: "/visibility/answers", label: "AI answers" },
       ...toolChildren,
     ],
