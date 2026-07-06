@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofPanel } from "@/components/visibility/proof-panel";
+import { useSetupInProgress } from "@/lib/api/queries";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { SUBSCORE_EXPLAINERS, SUBSCORE_LABELS } from "@/lib/visibility/display";
 import type { SubScore } from "@/lib/visibility/types";
@@ -29,6 +30,7 @@ export default function VisibilityPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsWebsite, setNeedsWebsite] = useState(false);
+  const settingUp = useSetupInProgress();
 
   const load = useCallback(async () => {
     const res = await fetch("/api/visibility/summary");
@@ -74,11 +76,16 @@ export default function VisibilityPage() {
         title="Visibility"
         description="How discoverable your site is across Google, answer boxes, and AI assistants."
         meta={
-          <Button size="sm" variant="primary" isDisabled={running} onPress={runAudit}>
+          <Button size="sm" variant="primary" isDisabled={running || settingUp} onPress={runAudit}>
             {running ? "Starting…" : `Run audit · ${CREDIT_COSTS.visibility_audit} cr`}
           </Button>
         }
       />
+      {settingUp && (
+        <p className="text-sm text-muted">
+          Claudia is setting up your brand — her first audit is already running as part of it.
+        </p>
+      )}
       {error && <p className="text-sm text-danger">{error}</p>}
       {needsWebsite && (
         <p className="text-sm text-warning">

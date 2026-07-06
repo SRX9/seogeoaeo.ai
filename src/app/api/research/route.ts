@@ -1,4 +1,4 @@
-import { handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server";
+import { assertNoSetupRunning, handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
 import { getLatestResearchRun, listResearchRuns } from "@/lib/research/repository";
@@ -20,6 +20,7 @@ export async function GET() {
 export async function POST() {
   return handleApi(async () => {
     const { workspace, brand, scope } = await requireApiBrand();
+    await assertNoSetupRunning(brand.id);
     const cost = CREDIT_COSTS.research_run;
 
     const assertResearchAllowed = async () => {

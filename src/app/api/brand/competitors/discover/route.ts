@@ -1,4 +1,4 @@
-import { handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server";
+import { assertNoSetupRunning, handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
 import { discoverCompetitors } from "@/lib/brand/enrich";
@@ -18,6 +18,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 export async function POST() {
   return handleApi(async () => {
     const { workspace, brand } = await requireApiBrand();
+    await assertNoSetupRunning(brand.id);
     const cost = CREDIT_COSTS.competitor_discovery;
 
     try {

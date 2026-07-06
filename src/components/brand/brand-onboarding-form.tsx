@@ -19,9 +19,17 @@ import {
 } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { TagInput } from "@/components/ui/tag-input";
+import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
+import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe } from "@/lib/api/queries";
-import { articlesPerMonth, isActiveSubscription, plans, type PlanId } from "@/lib/billing/plans";
+import {
+  isActiveSubscription,
+  planFeatureList,
+  plans,
+  planTaglines,
+  type PlanId,
+} from "@/lib/billing/plans";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 import type {
   IntegrationConfigKey,
@@ -265,10 +273,11 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   const [competitorSuggestions, setCompetitorSuggestions] = useState<DiscoveredCompetitor[]>([]);
   const [manualCompetitor, setManualCompetitor] = useState({ name: "", url: "" });
   const [checkoutLoading, setCheckoutLoading] = useState<PlanId | null>(null);
-  // "finalizing" = returned from Stripe; restore draft, wait for the subscription
-  // webhook, then create the brand.
+  // "finalizing" = returned from Stripe; restore draft, confirm the checkout
+  // session server-side (webhook stays as backup), then create the brand.
   const [phase, setPhase] = useState<"form" | "finalizing">("form");
   const [finalizeTimedOut, setFinalizeTimedOut] = useState(false);
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   // Persistence is gated until bootstrap has read localStorage, so the empty
   // initial state never clobbers a saved draft (e.g. across the Stripe redirect).
   const [ready, setReady] = useState(false);
@@ -287,6 +296,10 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   useEffect(() => {
     fieldsRef.current = fields;
   }, [fields]);
+
+  // Coming Back from Stripe can restore this page from bfcache with the
+  // "Redirecting…" state frozen on the plan buttons — clear it.
+  useBfcacheReset(() => setCheckoutLoading(null));
 
   // Autofocus the first field of each screen so Enter-to-continue flows
   // without reaching for the mouse.
@@ -504,6 +517,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
 
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get("checkout");
+    const sessionId = params.get("session_id");
     const draft = loadDraft();
 
     if (draft) {
@@ -519,6 +533,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     }
 
     if (checkout === "success") {
+      if (sessionId) setCheckoutSessionId(sessionId);
       setPhase("finalizing");
       window.history.replaceState(null, "", "/onboarding");
     } else if (checkout === "canceled") {
@@ -533,9 +548,19 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // While finalizing, poll the subscription until Stripe's webhook flips it
-  // active (it can lag the redirect by a second or two).
+  // Confirm the checkout session server-side the moment we're back from Stripe.
+  // This activates the subscription synchronously (idempotent with the webhook),
+  // so the poll below is only a fallback for the rare confirm failure.
   const refetchMe = me.refetch;
+  const checkoutConfirm = useCheckoutConfirm({
+    sessionId: checkoutSessionId,
+    enabled: phase === "finalizing" && !isSubscribed,
+    onSettled: () => void refetchMe(),
+  });
+
+  // While finalizing, poll the subscription until it flips active — normally the
+  // confirm call above settles this immediately; the poll covers webhook-only
+  // races and transient confirm failures.
   useEffect(() => {
     if (phase !== "finalizing" || isSubscribed) return;
     const poll = setInterval(() => {
@@ -678,6 +703,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
           setError(null);
           setFinalizeTimedOut(false);
           finalizeStartedRef.current = false;
+          checkoutConfirm.reset();
           void refetchMe();
         }}
       />
@@ -1195,10 +1221,17 @@ function PlanPaywall({
                 ${plan.price}
                 <span className="text-sm font-normal text-muted">/mo</span>
               </p>
-              <p className="mt-1 text-xs text-muted">
-                {plan.monthlyCredits.toLocaleString()} credits/mo · ≈{articlesPerMonth(plan.monthlyCredits)}{" "}
-                articles · {plan.dailyArticleCap}/day
-              </p>
+              <p className="mt-1 text-xs text-muted">{planTaglines[plan.id]}</p>
+              <ul className="mt-3 flex-1 space-y-1.5 border-t border-border pt-3">
+                {planFeatureList(plan.id).map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-xs text-muted">
+                    <span aria-hidden className="mt-px text-accent">
+                      ✓
+                    </span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
               <div className="mt-4">
                 <LoadingButton
                   fullWidth
@@ -1238,12 +1271,16 @@ function FinalizeScreen({
     ? "Something went wrong"
     : creating
       ? "Setting Claudia up…"
-      : "Confirming your plan…";
+      : timedOut
+        ? "Still activating…"
+        : "Confirming your plan…";
   const subtitle = error
     ? error
     : creating
       ? "Creating your brand and starting her Setup Run."
-      : "Payment received — activating your subscription. This only takes a moment.";
+      : timedOut
+        ? "Your payment went through, but activation is taking longer than usual. Try again — nothing is lost."
+        : "Payment received — activating your subscription. This only takes a moment.";
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">

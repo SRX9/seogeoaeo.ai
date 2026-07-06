@@ -17,6 +17,8 @@ const serverSchema = z.object({
   STRIPE_PRICE_PACK_SMALL: z.string().optional(),
   STRIPE_PRICE_PACK_MEDIUM: z.string().optional(),
   STRIPE_PRICE_PACK_LARGE: z.string().optional(),
+  // Customer Portal configuration (bpc_...) from /api/admin/portal-config.
+  STRIPE_PORTAL_CONFIG_ID: z.string().optional(),
   ENCRYPTION_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   AUTH_DEV_BYPASS: z.string().optional(),

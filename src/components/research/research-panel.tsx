@@ -12,7 +12,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
-import { queryKeys, useCredits, useResearch } from "@/lib/api/queries";
+import { queryKeys, useCredits, useResearch, useSetupInProgress } from "@/lib/api/queries";
 
 const sources = [
   {
@@ -37,6 +37,7 @@ export function ResearchPanel() {
   const router = useRouter();
   const { data } = useResearch();
   const credits = useCredits();
+  const settingUp = useSetupInProgress();
   const latest = data?.latest ?? null;
   const cost = credits.data?.costs.research_run;
 
@@ -98,6 +99,7 @@ export function ResearchPanel() {
         <LoadingButton
           className="w-fit"
           isPending={run.isPending}
+          isDisabled={settingUp}
           pendingLabel="Researching…"
           onPress={() => run.mutate()}
         >
@@ -105,7 +107,9 @@ export function ResearchPanel() {
           {cost ? `Run research · ${cost} credits` : "Run research"}
         </LoadingButton>
         <p className="text-xs leading-relaxed text-muted">
-          Runs in the background and drops scored topics into your queue.
+          {settingUp
+            ? "Claudia is setting up your brand — research is already part of her setup run."
+            : "Runs in the background and drops scored topics into your queue."}
         </p>
       </div>
 

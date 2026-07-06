@@ -1,10 +1,12 @@
 "use client";
 
-import { Card, Chip } from "@heroui/react";
+import { Card } from "@heroui/react";
 import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
-import { articlesPerMonth, plans, type PlanId } from "@/lib/billing/plans";
+import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
+import { cn } from "@/lib/cn";
+import { planFeatureList, plans, planTaglines, type PlanId } from "@/lib/billing/plans";
 import { creditPacks, type CreditPackId } from "@/lib/billing/credits";
 
 type BillingActionsProps = {
@@ -21,6 +23,14 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
   const [error, setError] = useState<string | null>(null);
   const hasPlan = Boolean(currentPlanId);
   const busy = loadingPlan !== null || loadingPack !== null || portalLoading;
+
+  // Back from Stripe can restore this page from bfcache with the
+  // "Redirecting…" state frozen on the buttons — clear it.
+  useBfcacheReset(() => {
+    setLoadingPlan(null);
+    setLoadingPack(null);
+    setPortalLoading(false);
+  });
 
   async function startCheckout(planId: PlanId) {
     setError(null);
@@ -86,30 +96,39 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
             const isThisLoading = loadingPlan === plan.id || (switchViaPortal && portalLoading);
 
             return (
-              <Card key={plan.id} className={isCurrent ? "border-success/40" : undefined}>
+              <Card
+                key={plan.id}
+                className={cn("flex flex-col", isCurrent && "border-success/40")}
+              >
                 <Card.Header>
                   <div className="flex items-start justify-between gap-2">
                     <Card.Title>{plan.name}</Card.Title>
                     {isCurrent ? (
-                      <Chip color="success" variant="soft">
-                        Current
-                      </Chip>
+                      <span className="text-xs font-medium text-success">Current</span>
                     ) : plan.id === POPULAR_PLAN && !hasPlan ? (
-                      <Chip color="accent" variant="soft">
-                        Popular
-                      </Chip>
+                      <span className="text-xs font-medium text-accent">Popular</span>
                     ) : null}
                   </div>
-                  <Card.Description>
-                    {plan.monthlyCredits.toLocaleString()} credits/mo · ≈
-                    {articlesPerMonth(plan.monthlyCredits)} articles
-                  </Card.Description>
+                  <Card.Description>{planTaglines[plan.id]}</Card.Description>
                 </Card.Header>
-                <Card.Content>
+                <Card.Content className="flex-1">
                   <p className="text-xl font-semibold text-foreground tabular-nums">
                     ${plan.price}
                     <span className="text-sm font-normal text-muted">/mo</span>
                   </p>
+                  <p className="mt-1 text-xs text-muted tabular-nums">
+                    {plan.monthlyCredits.toLocaleString()} credits/mo
+                  </p>
+                  <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
+                    {planFeatureList(plan.id).map((feature) => (
+                      <li key={feature} className="flex items-start gap-2 text-xs text-muted">
+                        <span aria-hidden className="mt-px text-accent">
+                          ✓
+                        </span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </Card.Content>
                 <Card.Footer>
                   <LoadingButton

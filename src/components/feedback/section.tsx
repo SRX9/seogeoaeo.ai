@@ -2,8 +2,20 @@
 
 import { Button } from "@heroui/react";
 import { Component, type ReactNode } from "react";
-import { getErrorMessage } from "@/lib/api/fetcher";
+import { ApiError, getErrorMessage } from "@/lib/api/fetcher";
 import type { QueryLike } from "@/lib/api/queries";
+
+/** The workspace has no brand yet (mid-onboarding) — a transient state, not a
+ * failure: render the skeleton instead of an error card. */
+function isNoBrandError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 404 &&
+    typeof error.details === "object" &&
+    error.details !== null &&
+    (error.details as { details?: { code?: string } }).details?.code === "NO_BRAND"
+  );
+}
 
 /**
  * Per-section async wrapper. Renders one page section independently: a skeleton
@@ -72,7 +84,7 @@ export function Section<T>({
   children: (data: T) => ReactNode;
 }) {
   // Fetch failed and we have nothing cached to show.
-  if (query.error != null && query.data === undefined) {
+  if (query.error != null && query.data === undefined && !isNoBrandError(query.error)) {
     return <SectionError error={query.error} label={errorLabel} onRetry={() => query.refetch()} />;
   }
   // Still loading (no data yet) — show the section's skeleton.

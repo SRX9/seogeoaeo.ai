@@ -1,6 +1,6 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
+import { assertNoSetupRunning, handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
 import { visibilityCapsForPlan } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { brandProfiles } from "@/lib/db/schema/brand";
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const { workspace, subscription, brand } = await requireApiBrand();
     const brandId = brand.id;
+    await assertNoSetupRunning(brandId);
     const db = getDb();
     const { action, prompts } = parseBody(postSchema, await readJson(request));
 

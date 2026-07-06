@@ -7,7 +7,13 @@ import { useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
-import { queryKeys, useCompetitors, useCredits, type Competitor } from "@/lib/api/queries";
+import {
+  queryKeys,
+  useCompetitors,
+  useCredits,
+  useSetupInProgress,
+  type Competitor,
+} from "@/lib/api/queries";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 
 type Suggestion = { name: string; url: string; reason?: string };
@@ -23,6 +29,7 @@ export function CompetitorDiscovery() {
   const queryClient = useQueryClient();
   const { data } = useCompetitors();
   const credits = useCredits();
+  const settingUp = useSetupInProgress();
   const competitors = data?.competitors ?? [];
   const cost = credits.data?.costs.competitor_discovery;
 
@@ -118,6 +125,7 @@ export function CompetitorDiscovery() {
             <LoadingButton
               type="button"
               isPending={discover.isPending}
+              isDisabled={settingUp}
               pendingLabel="Searching…"
               onPress={handleDiscover}
             >
@@ -127,6 +135,12 @@ export function CompetitorDiscovery() {
                   ? `Find competitors · ${cost} credits`
                   : "Find competitors"}
             </LoadingButton>
+
+            {settingUp ? (
+              <p className="text-sm text-muted">
+                Claudia is setting up your brand — competitor discovery runs as part of it.
+              </p>
+            ) : null}
 
             {showUpgrade ? (
               <p className="rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">

@@ -45,11 +45,17 @@ export async function POST(request: Request) {
     // Onboarding pays before the brand exists, so it resumes there (restoring the
     // in-progress draft and finishing brand creation); everything else returns to
     // the billing tab.
+    // `{CHECKOUT_SESSION_ID}` is substituted by Stripe on redirect; the client
+    // posts it to /api/billing/checkout/confirm so activation doesn't have to
+    // wait for (or depend on) webhook delivery.
     const [successUrl, cancelUrl] =
       returnTo === "onboarding"
-        ? [`${origin}/onboarding?checkout=success`, `${origin}/onboarding?checkout=canceled`]
+        ? [
+            `${origin}/onboarding?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+            `${origin}/onboarding?checkout=canceled`,
+          ]
         : [
-            `${origin}/account?tab=billing&checkout=success`,
+            `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
             `${origin}/account?tab=billing&checkout=canceled`,
           ];
 

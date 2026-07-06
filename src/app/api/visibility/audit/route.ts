@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
+import { assertNoSetupRunning, getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
 import { getDb } from "@/lib/db";
 import { auditFindings, audits } from "@/lib/db/schema/visibility";
 import { assertVisibilityCredits, InsufficientCreditsError } from "@/lib/usage/credits";
@@ -33,6 +33,7 @@ const startAuditSchema = z.object({ url: urlSchema.optional() });
 export async function POST(request: Request) {
   return handleApi(async () => {
     const { workspace, brand } = await requireApiBrand();
+    await assertNoSetupRunning(brand.id);
     const { url: override } = parseBody(startAuditSchema, await readJson(request));
     const website = override ?? (await getBrandProfile(brand.id))?.website;
     const url = website ? parseBody(urlSchema, website) : null;

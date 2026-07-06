@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
+import { getSession } from "@/lib/auth/session";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -11,6 +13,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Already signed in — there's nothing to do here; the app layout routes
+  // brand-less users on to onboarding from the dashboard.
+  const session = await getSession();
+  if (session) {
+    redirect("/dashboard");
+  }
+
   return <LoginForm />;
 }

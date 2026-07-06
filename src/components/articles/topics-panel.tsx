@@ -13,7 +13,7 @@ import { InlineLoader } from "@/components/feedback/states";
 import { PenIcon, PlusIcon, SparklesIcon } from "@/components/icons";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
-import { queryKeys, useTopics, type Topic } from "@/lib/api/queries";
+import { queryKeys, useSetupInProgress, useTopics, type Topic } from "@/lib/api/queries";
 import { cn } from "@/lib/cn";
 import { statusTextClass } from "@/lib/ui/status";
 
@@ -223,6 +223,7 @@ function TopicList({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const settingUp = useSetupInProgress();
 
   const generate = useMutation({
     mutationFn: (topicId: string) =>
@@ -290,7 +291,7 @@ function TopicList({
                     isIconOnly
                     aria-label={`Generate article · ${articleCost} credits`}
                     isPending={isGenerating}
-                    isDisabled={generate.isPending}
+                    isDisabled={generate.isPending || settingUp}
                     onPress={() => generate.mutate(topic.id)}
                   >
                     {isGenerating ? (
@@ -300,7 +301,11 @@ function TopicList({
                     )}
                   </Button>
                   <Tooltip.Content>
-                    <p>Generate article · {articleCost} credits</p>
+                    <p>
+                      {settingUp
+                        ? "Claudia is setting up your brand — generation unlocks when she's done."
+                        : `Generate article · ${articleCost} credits`}
+                    </p>
                   </Tooltip.Content>
                 </Tooltip>
               ) : (

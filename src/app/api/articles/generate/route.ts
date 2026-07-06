@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  assertNoSetupRunning,
   handleApi,
   HttpError,
   jsonOk,
@@ -24,6 +25,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 export async function POST(request: Request) {
   return handleApi(async () => {
     const { workspace, subscription, scope } = await requireApiBrand();
+    await assertNoSetupRunning(scope.brandId);
     const { topicId } = parseBody(z.object({ topicId: z.string().min(1) }), await readJson(request));
 
     const active = isActiveSubscription(subscription?.status);
