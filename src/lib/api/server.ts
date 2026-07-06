@@ -48,6 +48,26 @@ export async function requireApiBrand() {
   return { ...ctx, scope: { workspaceId: ctx.workspace.id, brandId: ctx.brand.id } };
 }
 
+/**
+ * 409 while Claudia's Setup Run is executing for the brand. Manual triggers
+ * that overlap her setup steps (research, audits, answer checks, competitor
+ * discovery, article generation) call this after {@link requireApiBrand} so a
+ * stale tab can't kick off duplicate work mid-setup.
+ */
+export async function assertNoSetupRunning(brandId: string): Promise<void> {
+  const { getSetupRun, isSetupRunStale } = await import("@/lib/jobs/setup-run");
+  const run = await getSetupRun(brandId);
+  // A stale `running` row means the executor died — don't let a dead run block
+  // manual work; the setup-run GET poller's self-heal resumes or finishes it.
+  if (run?.status === "running" && !isSetupRunStale(run)) {
+    throw new HttpError(
+      409,
+      "Claudia is still setting up this brand — this runs automatically once she's done.",
+      { code: "SETUP_IN_PROGRESS" },
+    );
+  }
+}
+
 /** Parse a request body with a zod schema, throwing a 400 HttpError on failure. */
 export function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.infer<S> {
   const result = schema.safeParse(body);

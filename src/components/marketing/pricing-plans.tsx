@@ -1,51 +1,11 @@
 import { buttonVariants } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
-import { Chip } from "@heroui/react/chip";
 import Link from "next/link";
 import { CircleCheckIcon } from "@/components/icons";
-import { articlesPerMonth, plans, type PlanId } from "@/lib/billing/plans";
+import { planFeatureList, plans, planTaglines, type PlanId } from "@/lib/billing/plans";
 import { creditPacks } from "@/lib/billing/credits";
 
 const POPULAR_PLAN: PlanId = "startup";
-
-const planTagline: Record<PlanId, string> = {
-  indie: "Solo creators testing the engines",
-  startup: "Growing teams shipping weekly",
-  scale: "Brands scaling content output",
-  enterprise: "Agencies & multi-brand ops",
-};
-
-/**
- * Qualitative highlights per tier. Volume (articles/credits) is rendered
- * separately from the live plan data so the numbers can never drift; these
- * bullets cover the capabilities that step up as the plan grows.
- */
-const planFeatures: Record<PlanId, string[]> = {
-  indie: [
-    "Weekly content autopilot",
-    "Publish to dev.to, WordPress, Ghost, Hashnode & webhooks",
-    "Full visibility audit across SEO, AEO & GEO",
-    "One brand workspace",
-  ],
-  startup: [
-    "Everything in Indie",
-    "Scheduled re-audits & monthly progress reports",
-    "Priority topic-research queue",
-    "Up to 3 brand workspaces",
-  ],
-  scale: [
-    "Everything in Startup",
-    "Competitor AI-visibility benchmarking",
-    "PDF visibility reports",
-    "Up to 10 brand workspaces",
-  ],
-  enterprise: [
-    "Everything in Scale",
-    "White-label reports & branding",
-    "Agency tools — CRM & proposals",
-    "Unlimited workspaces + priority support",
-  ],
-};
 
 const freeFeatures = [
   "Unlimited brand & site setup",
@@ -73,9 +33,9 @@ export function PricingPlans() {
       <Card className="mb-6 border-accent/30 bg-accent-soft/20">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-baseline gap-2">
               <Card.Title>Free</Card.Title>
-              <Chip variant="soft">$0 / mo</Chip>
+              <span className="text-sm font-medium text-muted">$0 / mo</span>
             </div>
             <Card.Description className="mt-1">
               Set up your brand, research topics, and snapshot your visibility — no card required.
@@ -109,12 +69,10 @@ export function PricingPlans() {
                 <div className="flex items-start justify-between gap-2">
                   <Card.Title>{plan.name}</Card.Title>
                   {isPopular ? (
-                    <Chip color="accent" variant="soft">
-                      Popular
-                    </Chip>
+                    <span className="text-xs font-medium text-accent">Most popular</span>
                   ) : null}
                 </div>
-                <Card.Description>{planTagline[id]}</Card.Description>
+                <Card.Description>{planTaglines[id]}</Card.Description>
               </Card.Header>
               <Card.Content className="flex-1">
                 <p className="text-3xl font-semibold leading-none text-foreground tabular-nums">
@@ -122,11 +80,10 @@ export function PricingPlans() {
                   <span className="text-base font-normal text-muted">/mo</span>
                 </p>
                 <p className="mt-2 text-sm text-muted tabular-nums">
-                  {plan.monthlyCredits.toLocaleString()} credits · ≈
-                  {articlesPerMonth(plan.monthlyCredits)} articles/mo
+                  {plan.monthlyCredits.toLocaleString()} credits/mo
                 </p>
                 <ul className="mt-5 space-y-2.5 border-t border-border/60 pt-5">
-                  {planFeatures[id].map((feature) => (
+                  {planFeatureList(id).map((feature) => (
                     <FeatureItem key={feature}>{feature}</FeatureItem>
                   ))}
                 </ul>

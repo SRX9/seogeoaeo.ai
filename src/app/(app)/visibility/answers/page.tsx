@@ -3,6 +3,7 @@
 import { Button, Card } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
+import { useSetupInProgress } from "@/lib/api/queries";
 
 /**
  * V5.5 — AI answers page: share-of-answer per engine + the prompt × engine grid.
@@ -44,6 +45,7 @@ export default function AnswersPage() {
   const [data, setData] = useState<{ prompts: PromptRow[]; runs: RunRow[]; share: EngineShare[] } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const settingUp = useSetupInProgress();
 
   const load = useCallback(async () => {
     try {
@@ -87,16 +89,32 @@ export default function AnswersPage() {
         description="Are the AI engines naming you — or your competitor — when people ask about your category?"
         meta={
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" isDisabled={busy !== null} onPress={() => act("seed")}>
+            <Button
+              size="sm"
+              variant="outline"
+              isDisabled={busy !== null || settingUp}
+              onPress={() => act("seed")}
+            >
               {busy === "seed" ? "Seeding…" : "Seed prompts"}
             </Button>
-            <Button size="sm" variant="primary" isDisabled={busy !== null} onPress={() => act("run")}>
+            <Button
+              size="sm"
+              variant="primary"
+              isDisabled={busy !== null || settingUp}
+              onPress={() => act("run")}
+            >
               {busy === "run" ? "Checking…" : "Run check"}
             </Button>
           </div>
         }
       />
 
+      {settingUp && (
+        <p className="text-sm text-muted">
+          Claudia is setting up your brand — she seeds prompts and runs the first answer check
+          herself.
+        </p>
+      )}
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="grid grid-cols-3 gap-3">

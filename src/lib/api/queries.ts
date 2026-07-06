@@ -313,18 +313,34 @@ export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: () => apiGet<MeResponse>("/api/me") });
 }
 
+/** Active brand id from the workspace bootstrap — null while `me` loads or the
+ * workspace has no brand yet (mid-onboarding). */
+export function useActiveBrandId(): string | null {
+  return useMe().data?.activeBrandId ?? null;
+}
+
+/**
+ * Gate for brand-scoped queries. Every section endpoint 404s (`NO_BRAND`) when
+ * the workspace has no brand — during onboarding of the first brand that's the
+ * normal state, so brand-scoped hooks must not fire until a brand exists.
+ */
+function useHasBrand(): boolean {
+  return Boolean(useActiveBrandId());
+}
+
 export function useAutomation() {
-  return useQuery(automationQueryOptions());
+  return useQuery({ ...automationQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useOnboarding() {
-  return useQuery(onboardingQueryOptions());
+  return useQuery({ ...onboardingQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useBrandProfile() {
   return useQuery({
     queryKey: queryKeys.brandProfile,
     queryFn: () => apiGet<{ profile: BrandProfile }>("/api/brand/profile"),
+    enabled: useHasBrand(),
   });
 }
 
@@ -332,6 +348,7 @@ export function useCompetitors() {
   return useQuery({
     queryKey: queryKeys.competitors,
     queryFn: () => apiGet<{ competitors: Competitor[] }>("/api/brand/competitors"),
+    enabled: useHasBrand(),
   });
 }
 
@@ -339,15 +356,16 @@ export function useUseCases() {
   return useQuery({
     queryKey: queryKeys.useCases,
     queryFn: () => apiGet<{ useCases: UseCase[] }>("/api/brand/use-cases"),
+    enabled: useHasBrand(),
   });
 }
 
 export function useTopics() {
-  return useQuery(topicsQueryOptions());
+  return useQuery({ ...topicsQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useArticles() {
-  return useQuery(articlesQueryOptions());
+  return useQuery({ ...articlesQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useArticle(id: string) {
@@ -355,14 +373,14 @@ export function useArticle(id: string) {
     queryKey: queryKeys.article(id),
     queryFn: () =>
       apiGet<{ article: Article; publications: Publication[] }>(`/api/articles/${id}`),
-    enabled: Boolean(id),
+    enabled: useHasBrand() && Boolean(id),
     // Keep the previously opened article on screen while the next one loads.
     placeholderData: keepPreviousData,
   });
 }
 
 export function useActivity() {
-  return useQuery(activityQueryOptions());
+  return useQuery({ ...activityQueryOptions(), enabled: useHasBrand() });
 }
 
 /**
@@ -387,13 +405,14 @@ export function usePrefetchAppData(enabled: boolean) {
 }
 
 export function useResearch() {
-  return useQuery(researchQueryOptions());
+  return useQuery({ ...researchQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useIntegrations() {
   return useQuery({
     queryKey: queryKeys.integrations,
     queryFn: () => apiGet<{ integrations: IntegrationView[] }>("/api/integrations"),
+    enabled: useHasBrand(),
   });
 }
 
@@ -421,11 +440,12 @@ export function useGoogleTraffic() {
   return useQuery({
     queryKey: queryKeys.googleTraffic,
     queryFn: () => apiGet<GoogleTrafficStatus>("/api/integrations/google"),
+    enabled: useHasBrand(),
   });
 }
 
 export function useCredits() {
-  return useQuery(creditsQueryOptions());
+  return useQuery({ ...creditsQueryOptions(), enabled: useHasBrand() });
 }
 
 export type VisibilitySubScoreKey =
@@ -454,7 +474,7 @@ export type VisibilitySummary = {
 };
 
 export function useVisibilitySummary() {
-  return useQuery(visibilitySummaryQueryOptions());
+  return useQuery({ ...visibilitySummaryQueryOptions(), enabled: useHasBrand() });
 }
 
 export type SetupStepStatus = "pending" | "running" | "done" | "skipped" | "failed";
@@ -470,6 +490,18 @@ export function useSetupRun() {
   return useQuery({
     queryKey: queryKeys.setupRun,
     queryFn: () => apiGet<SetupRunResponse>("/api/setup-run"),
-    refetchInterval: (q) => (q.state.data?.run?.status === "running" ? 4000 : false),
+    enabled: useHasBrand(),
+    refetchInterval: (q) => (q.state.data?.run?.status === "running" ? 10_000 : false),
   });
+}
+
+/**
+ * Whether Claudia's Setup Run is currently executing for the active brand.
+ * Manual triggers that overlap her setup work (research, audits, article
+ * generation, competitor discovery) disable themselves on this so the work
+ * can't be duplicated while she's setting the brand up.
+ */
+export function useSetupInProgress(): boolean {
+  const { data } = useSetupRun();
+  return data?.run?.status === "running";
 }

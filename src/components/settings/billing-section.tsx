@@ -1,14 +1,15 @@
 "use client";
 
-import { Chip } from "@heroui/react/chip";
 import { Meter } from "@heroui/react/meter";
 import { Table } from "@heroui/react/table";
-import { useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BillingActions } from "@/components/billing/billing-actions";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
+import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
 import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
-import { combineQueries, useCredits, useMe } from "@/lib/api/queries";
+import { combineQueries, queryKeys, useCredits, useMe } from "@/lib/api/queries";
 
 const billingSkeleton = (
   <div className="space-y-10">
@@ -47,9 +48,26 @@ function formatDate(value: string | null) {
 export function BillingSection() {
   const searchParams = useSearchParams();
   const upgrade = searchParams.get("upgrade");
+  const checkout = searchParams.get("checkout");
+  const sessionId = searchParams.get("session_id");
+  const queryClient = useQueryClient();
+  const router = useRouter();
   const me = useMe();
   const credits = useCredits();
   const query = combineQueries(me, credits);
+
+  // Back from Stripe: confirm the session server-side (idempotent with the
+  // webhook) so the new plan / top-up credits show up immediately, then strip
+  // the checkout params from the URL.
+  useCheckoutConfirm({
+    sessionId,
+    enabled: checkout === "success",
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      queryClient.invalidateQueries({ queryKey: queryKeys.credits });
+      router.replace("/account?tab=billing");
+    },
+  });
 
   return (
     <Section
@@ -81,9 +99,11 @@ export function BillingSection() {
       <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Chip color={active ? "success" : "default"} variant="soft">
+            <span
+              className={`text-sm font-medium capitalize ${active ? "text-success" : "text-muted"}`}
+            >
               {active ? (subscription?.status ?? "active") : "Free"}
-            </Chip>
+            </span>
             {plan ? (
               <span className="text-sm text-foreground">
                 {plan.name} · {plan.monthlyCredits.toLocaleString()} credits/mo

@@ -4,6 +4,7 @@ import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
 import { SgaLogo } from "@/components/icons";
 import { NAV_LINKS } from "@/lib/site";
@@ -31,6 +32,10 @@ export function SiteHeader({ className }: SiteHeaderProps) {
     getScrolledSnapshot,
     getServerScrolledSnapshot,
   );
+  // Logged-in visitors get a single "Open dashboard" CTA instead of the
+  // sign-in/sign-up pair. While the session is resolving we keep the logged-out
+  // CTAs (the common case for a marketing page) to avoid a layout jump.
+  const { data: session } = authClient.useSession();
 
   return (
     <header
@@ -71,15 +76,23 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             ))}
           </div>
           <ThemeToggle />
-          <Link
-            href="/login"
-            className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
-          >
-            Sign in
-          </Link>
-          <Link href="/login" className={buttonVariants()}>
-            Get started free
-          </Link>
+          {session ? (
+            <Link href="/dashboard" className={buttonVariants()}>
+              Open dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
+              >
+                Sign in
+              </Link>
+              <Link href="/login" className={buttonVariants()}>
+                Get started free
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </header>
