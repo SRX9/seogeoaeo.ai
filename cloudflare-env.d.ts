@@ -35,6 +35,8 @@ interface CloudflareEnv {
   CACHE?: KvCacheBinding;
   EMAIL?: SendEmailBinding;
   AGENT_WORKFLOW?: AgentWorkflowBinding;
+  /** Same shape, different Workflow: Claudia's one-time Setup Run (SetupRunWorkflow). */
+  SETUP_WORKFLOW?: AgentWorkflowBinding;
   CRON_SECRET: string;
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;

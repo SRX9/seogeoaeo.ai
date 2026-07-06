@@ -35,6 +35,11 @@
     "binding": "AGENT_WORKFLOW",
     "class_name": "DailyBrandWorkflow",
     "script_name": "agent-workflow"
+  }, {
+    "name": "setup-run",
+    "binding": "SETUP_WORKFLOW",
+    "class_name": "SetupRunWorkflow",
+    "script_name": "agent-workflow"
   }],
   "assets": {
     "directory": ".open-next/assets",

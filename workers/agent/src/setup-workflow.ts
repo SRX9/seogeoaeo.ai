@@ -1,0 +1,103 @@
+import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+
+/** Bindings/vars this Worker needs — it talks to the app over HTTP, no DB. */
+type Env = {
+  /** Shared bearer token the app's /api/agent/* routes check. */
+  CRON_SECRET: string;
+  /** Origin of the Next.js app, e.g. https://seogeoaeo.ai. */
+  APP_ORIGIN: string;
+};
+
+/** Instance params, set by `triggerSetupRun` in the app. */
+type Params = {
+  workspaceId: string;
+  brandId: string;
+  planId?: string | null;
+};
+
+/**
+ * Ordered step keys — must mirror SETUP_STEPS in `src/lib/jobs/setup-run.ts`.
+ * The app tolerates unknown/extra keys (parseSteps), so a drift here degrades
+ * to a 400 on that one step rather than corrupting the run.
+ */
+const STEP_KEYS = [
+  "first_audit",
+  "seed_prompts",
+  "answer_check",
+  "competitor_baseline",
+  "topic_research",
+  "quick_win_fixes",
+  "first_article",
+  "day0_brief",
+] as const;
+
+/**
+ * Heavy steps run full site audits (up to 50 gated page fetches) or long LLM
+ * generations — they need real wall clock. The rest settle in seconds.
+ */
+const HEAVY_STEPS = new Set<string>([
+  "first_audit",
+  "answer_check",
+  "competitor_baseline",
+  "topic_research",
+  "first_article",
+]);
+
+// Per-step retry/backoff. Steps are HTTP calls into the app; transient failures
+// (LLM hiccup, brief 5xx) retry, exhaustion marks the step failed and moves on.
+const RETRIES = { limit: 3, delay: "30 seconds", backoff: "exponential" } as const;
+
+type StepResult = { status: string; note?: string | null };
+
+/**
+ * Claudia's Setup Run (AP2), made durable. One instance per ignition; each
+ * setup step is a checkpointed `step.do` calling back into the app, where the
+ * real DB/LLM/audit logic lives and every outcome is persisted before the call
+ * returns. Isolate death costs at most one step's retry — never the run. A step
+ * that exhausts its retries is left `failed` (already persisted app-side) and
+ * the pipeline continues, so one broken step can't strand setup in `running`.
+ */
+export class SetupRunWorkflow extends WorkflowEntrypoint<Env, Params> {
+  async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
+    const p = event.payload;
+
+    const call = async (stepKey: string): Promise<StepResult> => {
+      const res = await fetch(new URL("/api/agent/setup-step", this.env.APP_ORIGIN), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.env.CRON_SECRET}`,
+        },
+        body: JSON.stringify({
+          workspaceId: p.workspaceId,
+          brandId: p.brandId,
+          planId: p.planId ?? null,
+          step: stepKey,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`setup-step ${stepKey} → ${res.status} ${text.slice(0, 300)}`);
+      }
+      return (await res.json()) as StepResult;
+    };
+
+    const outcomes: Record<string, string> = {};
+    for (const key of STEP_KEYS) {
+      try {
+        const result = await step.do(
+          `step:${key}`,
+          { retries: RETRIES, timeout: HEAVY_STEPS.has(key) ? "10 minutes" : "5 minutes" },
+          () => call(key),
+        );
+        outcomes[key] = result.status;
+      } catch {
+        // The app already persisted the step as failed; setup must keep moving.
+        outcomes[key] = "failed";
+      }
+    }
+
+    const settled = await step.do("finalize", { retries: RETRIES }, () => call("finalize"));
+    return { run: settled.status, steps: outcomes };
+  }
+}

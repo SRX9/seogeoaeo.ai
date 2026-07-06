@@ -8,6 +8,11 @@
 			"name": "daily-content-agent",
 			"binding": "AGENT_WORKFLOW",
 			"class_name": "DailyBrandWorkflow"
+		},
+		{
+			"name": "setup-run",
+			"binding": "SETUP_WORKFLOW",
+			"class_name": "SetupRunWorkflow"
 		}
 	],
 	"send_email": [
