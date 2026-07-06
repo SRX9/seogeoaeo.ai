@@ -49,6 +49,8 @@ export const audits = pgTable(
     platformScore: real("platform_score"),
     /** Discovery payloads (robots/sitemap/llms) for tools that re-read a run. */
     discovery: jsonb("discovery"),
+    /** Site Health checklist snapshot (SiteHealthSnapshot) computed at audit time. */
+    siteHealth: jsonb("site_health"),
     error: text("error"),
     runVersion: integer("run_version").notNull().default(1),
     /** Deterministic scoring methodology version (see visibility/version.ts). */

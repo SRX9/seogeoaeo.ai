@@ -33,10 +33,13 @@ export const queryKeys = {
   credits: ["credits"] as const,
   visibilitySummary: ["visibility", "summary"] as const,
   visibilityFindings: ["visibility", "findings"] as const,
+  siteHealth: ["visibility", "site-health"] as const,
   visibilityAnswers: ["visibility", "answers"] as const,
   visibilityTraffic: ["visibility", "traffic"] as const,
   visibilityReport: (auditId: string) => ["visibility", "report", auditId] as const,
   setupRun: ["setup-run"] as const,
+  toolLatestRuns: ["tools", "latest"] as const,
+  toolRun: (slug: string) => ["tools", "run", slug] as const,
 };
 
 export type SessionUser = { id: string; email: string; name: string; image?: string | null };
@@ -283,6 +286,10 @@ const visibilityFindingsQueryOptions = () => ({
   queryKey: queryKeys.visibilityFindings,
   queryFn: () => apiGet<{ findings: VisibilityFinding[] }>("/api/visibility/findings"),
 });
+const siteHealthQueryOptions = () => ({
+  queryKey: queryKeys.siteHealth,
+  queryFn: () => apiGet<SiteHealthResponse>("/api/visibility/site-health"),
+});
 const visibilityAnswersQueryOptions = () => ({
   queryKey: queryKeys.visibilityAnswers,
   queryFn: () => apiGet<VisibilityAnswers>("/api/visibility/answers"),
@@ -415,6 +422,7 @@ export function usePrefetchAppData(enabled: boolean) {
     queryClient.prefetchQuery(visibilitySummaryQueryOptions());
     // Visibility pages, so sidebar navigation renders instantly from cache.
     queryClient.prefetchQuery(visibilityFindingsQueryOptions());
+    queryClient.prefetchQuery(siteHealthQueryOptions());
     queryClient.prefetchQuery(visibilityAnswersQueryOptions());
     queryClient.prefetchQuery(visibilityTrafficQueryOptions());
     // Shared across pages.
@@ -513,6 +521,20 @@ export function useVisibilityFindings() {
   return useQuery({ ...visibilityFindingsQueryOptions(), enabled: useHasBrand() });
 }
 
+/** Site Health checklist (V9) — freshest of last audit's snapshot vs a manual refresh. */
+export type SiteHealthResponse = {
+  hasData: boolean;
+  snapshot: import("@/lib/visibility/site-health").SiteHealthSnapshot | null;
+  lastAuditAt: string | null;
+  refreshCooldownUntil: string | null;
+  /** Manual rechecks the workspace has left this week (Claudia's weekly auto-check doesn't count). */
+  refreshesLeft: number;
+};
+
+export function useSiteHealth() {
+  return useQuery({ ...siteHealthQueryOptions(), enabled: useHasBrand() });
+}
+
 /** Share-of-answer per engine + the prompt × engine grid (V5.5). */
 export type VisibilityAnswers = {
   prompts: { id: string; prompt: string; active: boolean }[];
@@ -568,6 +590,45 @@ export function useVisibilityReport(auditId: string) {
     queryKey: queryKeys.visibilityReport(auditId),
     queryFn: () => apiGet<VisibilityReport>(`/api/visibility/${auditId}/report`),
     enabled: useHasBrand() && Boolean(auditId),
+  });
+}
+
+/** A finding persisted from a Toolbox run, as the tool page shows it. */
+export type ToolRunFinding = {
+  id: string;
+  pillar: "seo" | "aeo" | "geo";
+  severity: "critical" | "high" | "medium" | "low";
+  title: string;
+  recommendation: string;
+  isResolved: boolean;
+};
+
+/** Latest stored run of one Toolbox tool (V8.3) — what the tool page opens on. */
+export type ToolRunDetail = {
+  id: string;
+  score: number | null;
+  input: string | null;
+  data: unknown;
+  createdAt: string;
+  findings: ToolRunFinding[];
+};
+
+export function useToolRun(slug: string) {
+  return useQuery({
+    queryKey: queryKeys.toolRun(slug),
+    queryFn: () => apiGet<{ run: ToolRunDetail | null }>(`/api/tools/${slug}`),
+    enabled: useHasBrand() && Boolean(slug),
+  });
+}
+
+/** Latest run (score + time) per tool slug, for the Toolbox grid cards. */
+export type ToolLatestRuns = Record<string, { score: number | null; createdAt: string }>;
+
+export function useToolLatestRuns() {
+  return useQuery({
+    queryKey: queryKeys.toolLatestRuns,
+    queryFn: () => apiGet<{ latest: ToolLatestRuns }>("/api/tools"),
+    enabled: useHasBrand(),
   });
 }
 

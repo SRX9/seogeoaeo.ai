@@ -2,7 +2,7 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { getDb } from "@/lib/db";
-import { toolRuns } from "@/lib/db/schema/visibility";
+import { auditFindings, toolRuns } from "@/lib/db/schema/visibility";
 import {
   assertVisibilityCredits,
   InsufficientCreditsError,
@@ -18,6 +18,53 @@ import { getTool } from "@/lib/visibility/toolbox-registry";
 
 /** Double-submit window: an identical run inside this window returns the stored result. */
 const DEDUP_WINDOW_MS = 15_000;
+
+/**
+ * Latest stored run for this tool, so the tool page opens on the last result
+ * (with its findings) instead of an empty runner. Rerunning is the POST.
+ */
+export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+  return handleApi(async () => {
+    const { workspace } = await getApiContext();
+    const { slug } = await params;
+    if (!getTool(slug)) throw new HttpError(404, "Unknown tool");
+
+    const db = getDb();
+    const [run] = await db
+      .select()
+      .from(toolRuns)
+      .where(and(eq(toolRuns.workspaceId, workspace.id), eq(toolRuns.slug, slug)))
+      .orderBy(desc(toolRuns.createdAt))
+      .limit(1);
+    if (!run) return jsonOk({ run: null });
+
+    // Findings persisted for this run. Deduping means a rerun that re-found a
+    // known issue attaches nothing new, so this list can be empty — the data
+    // payload still carries the full result.
+    const findings = await db
+      .select({
+        id: auditFindings.id,
+        pillar: auditFindings.pillar,
+        severity: auditFindings.severity,
+        title: auditFindings.title,
+        recommendation: auditFindings.recommendation,
+        isResolved: auditFindings.isResolved,
+      })
+      .from(auditFindings)
+      .where(and(eq(auditFindings.workspaceId, workspace.id), eq(auditFindings.toolRunId, run.id)));
+
+    return jsonOk({
+      run: {
+        id: run.id,
+        score: run.score,
+        input: (run.input as { input?: string } | null)?.input ?? null,
+        data: run.result,
+        createdAt: run.createdAt,
+        findings,
+      },
+    });
+  });
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   return handleApi(async () => {

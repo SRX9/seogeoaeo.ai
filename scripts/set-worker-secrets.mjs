@@ -47,6 +47,7 @@ const knownSecretNames = [
   "CONTEXT_DEV_API_KEY",
   "CONTEXT_API_KEY",
   "FIRECRAWL_API_KEY",
+  "GOOGLE_PSI_API_KEY",
 ];
 
 // Never pushed as Worker runtime secrets: wrangler-auth credentials and

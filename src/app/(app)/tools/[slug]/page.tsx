@@ -1,15 +1,21 @@
 "use client";
 
 import { Button, Card, TextArea } from "@heroui/react";
-import { buttonVariants } from "@heroui/react/button";
-import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
-import { use, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
+import { CardSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
+import { ToolResultCard, type ToolFindingView } from "@/components/tools/tool-result";
+import { queryKeys, useBrandProfile, useToolRun } from "@/lib/api/queries";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { getToolMeta } from "@/lib/visibility/toolbox-meta";
 
-/** V8.3 — shared ToolRunner shell for every Toolbox tool. */
+/**
+ * V8.3 — one Toolbox tool. Opens on the tool's latest stored result (so the
+ * page is a report, not an empty box) with a re-run action that spends credits
+ * only when the owner explicitly asks for a fresh reading.
+ */
 
 const PLACEHOLDER: Record<string, string> = {
   domain: "example.com",
@@ -17,20 +23,44 @@ const PLACEHOLDER: Record<string, string> = {
   "page-or-text": "Paste a URL, HTML, or a paragraph of text…",
 };
 
+type FreshResult = {
+  score: number | null;
+  findings: ToolFindingView[];
+  data: unknown;
+};
+
 export default function ToolRunnerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const tool = getToolMeta(slug);
+  const queryClient = useQueryClient();
+  const latest = useToolRun(slug);
+  const website = useBrandProfile().data?.profile.website?.trim() || null;
+
   const [input, setInput] = useState("");
-  const [result, setResult] = useState<{ score: number | null; findings: unknown[]; data: unknown } | null>(null);
+  const touched = useRef(false);
+  const [fresh, setFresh] = useState<FreshResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Prefill the input once: the last run's input, else the brand's website for
+  // URL/domain tools — so re-running is one click, not a copy-paste chore.
+  const lastInput = latest.data?.run?.input ?? null;
+  const inputKind = tool?.inputKind;
+  useEffect(() => {
+    if (touched.current) return;
+    const prefill =
+      lastInput ?? (inputKind === "domain" || inputKind === "url" ? website : null);
+    if (prefill) setInput(prefill);
+  }, [lastInput, website, inputKind]);
+
   if (!tool) return notFound();
+
+  const storedRun = latest.data?.run ?? null;
+  const hasResult = fresh != null || storedRun != null;
 
   const run = async () => {
     setBusy(true);
     setError(null);
-    setResult(null);
     try {
       const res = await fetch(`/api/tools/${slug}`, {
         method: "POST",
@@ -39,7 +69,15 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       });
       if (res.status === 402) throw new Error("Out of credits — top up to run this tool.");
       if (!res.ok) throw new Error((await res.json()).error ?? "Run failed");
-      setResult(await res.json());
+      const body = (await res.json()) as {
+        score: number | null;
+        findings: ToolFindingView[];
+        data: unknown;
+      };
+      setFresh({ score: body.score, findings: body.findings ?? [], data: body.data });
+      queryClient.invalidateQueries({ queryKey: queryKeys.toolRun(slug) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.toolLatestRuns });
+      queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Run failed");
     } finally {
@@ -57,32 +95,51 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           className="min-h-20"
           placeholder={PLACEHOLDER[tool.inputKind]}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            touched.current = true;
+            setInput(e.target.value);
+          }}
           variant="secondary"
           fullWidth
         />
         <div className="flex items-center justify-between">
-          <span className="text-xs text-default-400">Costs {CREDIT_COSTS[tool.costKey]} credits</span>
-          <Button size="sm" variant="primary" isDisabled={busy || input.trim().length === 0} onPress={run}>
-            {busy ? "Running…" : "Run"}
+          <span className="text-xs text-default-400">
+            A run costs {CREDIT_COSTS[tool.costKey]} credits — your last result stays here for
+            free.
+          </span>
+          <Button
+            size="sm"
+            variant="primary"
+            isDisabled={busy || input.trim().length === 0}
+            onPress={run}
+          >
+            {busy ? "Running…" : hasResult ? `Re-run · ${CREDIT_COSTS[tool.costKey]} cr` : `Run · ${CREDIT_COSTS[tool.costKey]} cr`}
           </Button>
         </div>
         {error && <p className="text-sm text-danger">{error}</p>}
       </Card>
 
-      {result && (
-        <Card className="space-y-3 p-5">
-          {result.score != null && <p className="text-2xl font-semibold">{Math.round(result.score)}/100</p>}
-          <p className="text-sm text-default-500">{result.findings.length} finding(s).</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/visibility/fixes" className={buttonVariants({ size: "sm", variant: "secondary" })}>
-              Open fix queue
-            </Link>
-            <Link href="/visibility" className={buttonVariants({ size: "sm", variant: "secondary" })}>
-              Open Visibility
-            </Link>
-          </div>
-          <pre className="overflow-x-auto rounded bg-default-100 p-3 text-xs">{JSON.stringify(result.data, null, 2)}</pre>
+      {fresh ? (
+        <ToolResultCard
+          score={fresh.score}
+          ranAt={null}
+          findings={fresh.findings}
+          data={fresh.data}
+          freshRun
+        />
+      ) : storedRun ? (
+        <ToolResultCard
+          score={storedRun.score}
+          ranAt={storedRun.createdAt}
+          findings={storedRun.findings.filter((f) => !f.isResolved)}
+          data={storedRun.data}
+          freshRun={false}
+        />
+      ) : latest.isLoading ? (
+        <CardSkeleton lines={4} />
+      ) : (
+        <Card className="p-5 text-sm text-default-500">
+          No runs yet. Run it once and this page will always show your latest result.
         </Card>
       )}
     </div>

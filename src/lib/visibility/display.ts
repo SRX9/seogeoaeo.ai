@@ -41,6 +41,17 @@ export const SUBSCORE_PILLAR: Record<SubScore["key"], Pillar> = {
   platform: "geo",
 };
 
+/** Site Health checklist group labels (owner language, client-safe). */
+export const HEALTH_GROUP_LABELS = {
+  search_listing: "Search listing",
+  social_preview: "Social & link previews",
+  performance: "Speed (Core Web Vitals)",
+  crawler_access: "Crawler access",
+  structured_data: "Structured data",
+  ai_readiness: "AI readiness",
+  security: "Security",
+} as const;
+
 /** Quick-snapshot signal labels (V1.5 public result). */
 export const QUICK_SIGNAL_LABELS = {
   crawlerAccess: "AI assistants can reach your site",

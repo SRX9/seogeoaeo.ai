@@ -7,6 +7,7 @@ import { syncTrafficForBrand } from "@/lib/integrations/google-traffic";
 import { maybeRediscoverCompetitors } from "@/lib/jobs/competitor-rediscovery";
 import { getDailyRun, upsertDailyRun, type DailyRunStatus } from "@/lib/jobs/daily-repository";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
+import { maybeRunWeeklySiteHealth } from "@/lib/jobs/site-health-weekly";
 import { runResearch } from "@/lib/research/run";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
 
@@ -213,6 +214,15 @@ export async function settleDailyForBrand(
     await maybeRediscoverCompetitors(scope, input.planId);
   } catch (error) {
     console.error("[daily] competitor rediscovery failed", error);
+  }
+
+  // Weekly: re-verify every Site Health check (speed, meta, social previews,
+  // crawler access) and queue fixes for anything that slipped. Plan-included
+  // and best-effort — a failed check never affects the day's status.
+  try {
+    await maybeRunWeeklySiteHealth(scope);
+  } catch (error) {
+    console.error("[daily] site health check failed", error);
   }
 
   // Out of credits with work still queued — nudge the owner (throttled).
