@@ -45,7 +45,7 @@ function cell(run: RunRow | undefined): { label: string; className: string } {
 
 const answersSkeleton = (
   <div className="space-y-6">
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid gap-4 sm:grid-cols-3">
       <CardSkeleton lines={1} />
       <CardSkeleton lines={1} />
       <CardSkeleton lines={1} />
@@ -60,12 +60,12 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         {ENGINES.map((engine) => {
           const s = data.share.find((x) => x.engine === engine);
           const EngineIcon = ENGINE_ICONS[engine] ?? SparklesIcon;
           return (
-            <Card key={engine} className="p-4">
+            <Card key={engine} className="p-5">
               <div className="flex items-center gap-2">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted">
                   <EngineIcon className="size-4" />
@@ -84,7 +84,7 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
       </div>
 
       <Card className="overflow-x-auto p-0">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-140 text-sm">
           <thead>
             <tr className="border-b border-default-100 text-left text-default-500">
               <th className="p-3">Prompt</th>
@@ -137,7 +137,7 @@ export default function AnswersPage() {
   const errorMessage = act.error ? getErrorMessage(act.error, "Request failed") : null;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
         title="AI answers"
         description="Are the AI engines naming you — or your competitor — when people ask about your category?"

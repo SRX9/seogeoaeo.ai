@@ -26,7 +26,12 @@ export async function PATCH(request: Request) {
   return handleApi(async () => {
     const { workspace } = await getApiContext();
     const { findingId, action } = parseBody(patchSchema, await readJson(request));
-    await setFindingResolved(findingId, workspace.id, action !== "reopen");
+    await setFindingResolved(
+      findingId,
+      workspace.id,
+      action !== "reopen",
+      action === "dismiss" ? "dismissed" : "completed",
+    );
     return jsonOk({ findingId, resolved: action !== "reopen" });
   });
 }

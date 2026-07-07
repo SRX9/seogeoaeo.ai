@@ -1,6 +1,8 @@
 "use client";
 
+import { AutonomyCategories } from "@/components/settings/autonomy-categories";
 import { AutonomyPanel } from "@/components/settings/autonomy-panel";
+import { BadgePanel } from "@/components/settings/badge-panel";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { useMe } from "@/lib/api/queries";
@@ -24,16 +26,27 @@ export function AutomationSection() {
           return <p className="text-sm text-muted">No brand selected.</p>;
         }
 
-        // Key by brand so the panel remounts (and re-seeds its toggle) when the
-        // user switches brands — autonomy is set per brand. The brand id is passed
-        // explicitly so the write targets this brand regardless of the
-        // active-brand cookie.
+        // Key by brand so the panels remount (and re-seed their toggles) when
+        // the user switches brands — both settings are per brand. The brand id
+        // is passed explicitly so the write targets this brand regardless of
+        // the active-brand cookie.
         return (
-          <AutonomyPanel
-            key={activeBrand.id}
-            brandId={activeBrand.id}
-            currentMode={activeBrand.autonomyMode}
-          />
+          <div className="space-y-8">
+            <AutonomyPanel
+              key={`autonomy-${activeBrand.id}`}
+              brandId={activeBrand.id}
+              currentMode={activeBrand.autonomyMode}
+            />
+            <AutonomyCategories
+              key={`autonomy-categories-${activeBrand.id}`}
+              brandId={activeBrand.id}
+            />
+            <BadgePanel
+              key={`badge-${activeBrand.id}`}
+              brandId={activeBrand.id}
+              initialEnabled={activeBrand.badgePublic}
+            />
+          </div>
         );
       }}
     </Section>

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { CREDIT_COSTS, type VisibilityAction } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { creditLedger, subscriptions } from "@/lib/db/schema";
+import { logError } from "@/lib/logging/logger";
 
 export type CreditBalance = {
   monthly: number;
@@ -183,6 +184,15 @@ export async function grantCredits(
       .limit(1);
 
     if (!sub) {
+      // A paid grant with no subscription row means signup provisioning failed
+      // for this workspace — money was taken and nothing will be credited.
+      // Loud, because silently returning zeros here is invisible to everyone.
+      logError("credits.grant_missing_subscription", {
+        workspaceId,
+        amount,
+        reason: ref.reason,
+        refId: ref.refId ?? null,
+      });
       return { monthly: 0, purchased: 0, total: 0 };
     }
 
@@ -259,6 +269,7 @@ export async function resetMonthlyCredits(
       .limit(1);
 
     if (!sub) {
+      logError("credits.reset_missing_subscription", { workspaceId, grant, refId: ref.refId });
       return { monthly: 0, purchased: 0, total: 0 };
     }
 

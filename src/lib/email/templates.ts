@@ -64,29 +64,45 @@ export function visibilityAlertEmail(input: VisibilityAlertEmailInput): EmailCon
   return { subject, html, text };
 }
 
-export type WeeklyDigestEmailInput = {
+export type WeeklyReportEmailInput = {
+  brandName: string;
   siteUrl: string;
-  digest: string;
-  dashboardUrl: string;
+  /** Owner-language report lines, proof-stack order (renderReportLines). */
+  lines: string[];
+  /** At most one ask — AP5's "one ask, max" rule is enforced upstream. */
+  ask: { what: string; href: string } | null;
+  reportsUrl: string;
 };
 
-/** AP5 — the weekly report. `digest` comes from buildDigest (proof-stack order). */
-export function weeklyDigestEmail(input: WeeklyDigestEmailInput): EmailContent {
-  const subject = `Your weekly visibility report — ${input.siteUrl}`;
+/** AP5 — the full weekly report: both halves of Claudia's job, one ask max. */
+export function weeklyReportEmail(input: WeeklyReportEmailInput): EmailContent {
+  const subject = `Claudia's weekly report — ${input.brandName}`;
   const text = [
-    `Claudia's weekly report for ${input.siteUrl}:`,
+    `Here's my week on ${input.siteUrl}:`,
     "",
-    input.digest,
+    ...input.lines.map((line) => `- ${line}`),
+    ...(input.ask ? ["", `One thing from you: ${input.ask.what} ${input.ask.href}`] : []),
     "",
-    `Full report: ${input.dashboardUrl}`,
+    `Every report: ${input.reportsUrl}`,
   ].join("\n");
+
   const body =
-    `<p style="margin:12px 0;">Here's what moved on <strong style="color:#eef1f7;">${escapeHtml(input.siteUrl)}</strong> this week:</p>` +
-    `<p style="margin:12px 0;color:#eef1f7;">${escapeHtml(input.digest)}</p>`;
-  const html = claudiaEmailHtml("Claudia · weekly report", "Your visibility this week", body, {
-    href: input.dashboardUrl,
-    label: "View full report",
-  });
+    `<p style="margin:12px 0;">Here's my week on <strong style="color:#eef1f7;">${escapeHtml(input.siteUrl)}</strong>:</p>` +
+    `<ul style="margin:12px 0;padding-left:20px;">${input.lines
+      .map((line) => `<li style="margin:8px 0;color:#eef1f7;">${escapeHtml(line)}</li>`)
+      .join("")}</ul>` +
+    (input.ask
+      ? `<p style="margin:16px 0 4px;color:#eef1f7;"><strong>One thing from you:</strong> ${escapeHtml(input.ask.what)}</p>`
+      : `<p style="margin:16px 0 4px;">Nothing needed from you this week — I've got it.</p>`);
+
+  const html = claudiaEmailHtml(
+    "Claudia · weekly report",
+    `My week on ${input.brandName}`,
+    body,
+    input.ask
+      ? { href: input.ask.href, label: "Take care of it" }
+      : { href: input.reportsUrl, label: "View the full report" },
+  );
   return { subject, html, text };
 }
 

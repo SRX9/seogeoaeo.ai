@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { logError, logInfo } from "@/lib/logging/logger";
-import { sendWeeklyDigests } from "@/server/visibility/digest";
+import { sendWeeklyReports } from "@/server/reports/weekly";
 
 /**
  * AP5 — the weekly report. Cloudflare's scheduled handler POSTs here every
- * Monday; each owned site on an active subscription gets Claudia's proof-stack
- * digest emailed to the workspace owner.
+ * Monday; each owned site on an active subscription gets Claudia's full weekly
+ * report (both halves of her job, one ask max) emailed to the workspace owner
+ * and archived at /reports.
  */
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const sent = await sendWeeklyDigests();
+    const sent = await sendWeeklyReports();
     logInfo("cron.digest.completed", { sent });
     return NextResponse.json({ ok: true, sent });
   } catch (error) {

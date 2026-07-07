@@ -12,8 +12,18 @@ export type Session = {
   user: SessionUser;
 };
 
+/**
+ * The local-preview auth bypass. Hard-fenced from production builds: the flag
+ * hands any anonymous request a full session (and, via getBillingContext, an
+ * active plan with credits), so a stray `AUTH_DEV_BYPASS=true` on the deployed
+ * worker must be inert rather than an open door.
+ */
+export function isAuthDevBypass(): boolean {
+  return process.env.AUTH_DEV_BYPASS === "true" && process.env.NODE_ENV !== "production";
+}
+
 export async function getSession(): Promise<Session | null> {
-  if (process.env.AUTH_DEV_BYPASS === "true") {
+  if (isAuthDevBypass()) {
     return {
       user: {
         id: "dev-user",

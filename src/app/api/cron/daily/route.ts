@@ -4,7 +4,8 @@ import { listBrands } from "@/lib/brand/repository";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { listActiveWorkspaceIds } from "@/lib/jobs/enumerate";
 import { enqueueWorkflowInstances, type InstanceOptions } from "@/lib/jobs/workflow";
-import { logError, logInfo } from "@/lib/logging/logger";
+import { deleteExpiredRateLimitBuckets } from "@/lib/security/rate-limit";
+import { logError, logInfo, logWarn } from "@/lib/logging/logger";
 import { getUtcDayKey } from "@/lib/workspace/settings";
 
 /**
@@ -27,6 +28,18 @@ export async function GET(request: Request) {
       { error: "AGENT_WORKFLOW binding is not available" },
       { status: 500 },
     );
+  }
+
+  // Housekeeping piggybacked on the daily fire: expired rate-limit buckets
+  // (one row per IP/action) would otherwise accumulate forever. Best-effort —
+  // a failed sweep must not block the content agent.
+  try {
+    const swept = await deleteExpiredRateLimitBuckets();
+    if (swept > 0) logInfo("cron.daily.rate_buckets_swept", { swept });
+  } catch (error) {
+    logWarn("cron.daily.rate_bucket_sweep_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const runDate = getUtcDayKey();

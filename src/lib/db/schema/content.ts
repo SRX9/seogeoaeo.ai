@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { workspaces } from "./app";
 import { brands } from "./brand";
 
@@ -93,6 +102,98 @@ export const competitorContent = pgTable(
     index("competitor_content_brand_id_idx").on(table.brandId),
     uniqueIndex("competitor_content_brand_url_idx").on(table.brandId, table.url),
   ],
+);
+
+/**
+ * C2 — the brand's Search Console query×page report, refreshed weekly (28-day
+ * window, top rows by impressions). Feeds the striking-distance/CTR-gap/family
+ * topic mining plays and C4's article performance checkpoints. Rows for a
+ * period are replaced wholesale on sync; the unique index backstops races.
+ */
+export const searchQueries = pgTable(
+  "search_queries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    query: text("query").notNull(),
+    page: text("page").notNull(),
+    clicks: integer("clicks").notNull().default(0),
+    impressions: integer("impressions").notNull().default(0),
+    position: real("position"),
+    /** ISO dates (YYYY-MM-DD), matching traffic_snapshots' convention. */
+    periodStart: text("period_start").notNull(),
+    periodEnd: text("period_end").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("search_queries_brand_id_idx").on(table.brandId),
+    uniqueIndex("search_queries_brand_query_page_period_idx").on(
+      table.brandId,
+      table.query,
+      table.page,
+      table.periodStart,
+    ),
+  ],
+);
+
+/**
+ * C4 — article performance checkpoints. Each published article is read at
+ * day 7 / 28 / 90 from the C2 `search_queries` report (page + target-query
+ * family) and given a verdict that drives the loop: winner → follow-up
+ * topics; stalling → title/meta + answer-block fixes; dead → deprioritize
+ * the family. Unique (article, day) = the checkpoint runner's idempotency.
+ */
+export const performanceCheckpoints = pgTable(
+  "performance_checkpoints",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    /** 7 | 28 | 90 — days since first publish. */
+    day: integer("day").notNull(),
+    impressions: integer("impressions"),
+    clicks: integer("clicks"),
+    position: real("position"),
+    /** winner | stalling | dead | watching (null metrics = GSC not connected). */
+    verdict: text("verdict"),
+    /** What the verdict dispatched: follow-up topic ids / finding count / family. */
+    actionsJson: text("actions_json"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("performance_checkpoints_brand_id_idx").on(table.brandId),
+    uniqueIndex("performance_checkpoints_article_day_idx").on(table.articleId, table.day),
+  ],
+);
+
+/**
+ * C4 — learned per-source topic weights (bounded 0.5–2.0, shrink toward 1 on
+ * small samples). Multiplied into research scoring so sources that keep
+ * producing winners for this brand rise and dead-end sources sink.
+ */
+export const topicSourceWeights = pgTable(
+  "topic_source_weights",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    weight: real("weight").notNull().default(1),
+    /** Checkpoints behind the weight — shown in the backlog UI for transparency. */
+    sample: integer("sample").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("topic_source_weights_brand_source_idx").on(table.brandId, table.source)],
 );
 
 export const articles = pgTable(

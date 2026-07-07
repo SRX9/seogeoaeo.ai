@@ -14,6 +14,11 @@ export const brands = pgTable(
     // "REVIEW" leaves them as drafts. Each brand (site) runs independently;
     // billing is the only setting shared across a workspace's brands.
     autonomyMode: text("autonomy_mode").notNull().default("FULL_AUTO"),
+    // V8.6 — opt-in for the public score badge. The /api/public/badge endpoint
+    // only renders a score for domains whose brand flipped this on; default off
+    // so a customer's audit score is never publicly readable unless they chose
+    // to embed the badge.
+    badgePublic: boolean("badge_public").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

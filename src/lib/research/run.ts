@@ -5,6 +5,7 @@ import {
   deleteResearchTopicsForRun,
   listTopicTitles,
 } from "@/lib/articles/repository";
+import { getSourceWeights } from "@/lib/articles/performance";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { buildResearchContext, researchProviders } from "@/lib/research/providers";
 import {
@@ -120,7 +121,12 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
       (finding) => !existing.has(finding.title.toLowerCase()),
     );
 
-    const { topics: scoredTopics, tokenUsage } = await scoreFindings(novelFindings, context);
+    // C4: sources with a winning track record for this brand score higher.
+    // (Never throws — a failed read degrades to unweighted scoring and logs.)
+    const sourceWeights = await getSourceWeights(brandId);
+    const { topics: scoredTopics, tokenUsage } = await scoreFindings(novelFindings, context, {
+      sourceWeights,
+    });
     const created = await createResearchTopics(scope, run.id, scoredTopics);
 
     const summary = `Found ${findings.length} signals, kept ${created.length} ranked topics after scoring and deduplication.`;

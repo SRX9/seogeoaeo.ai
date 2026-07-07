@@ -8,7 +8,7 @@ import { useState } from "react";
 import { ScoreGauge } from "@/components/dashboard/score-gauge";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton, StatGridSkeleton } from "@/components/feedback/skeletons";
-import { ArrowRightIcon } from "@/components/icons";
+import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from "@/components/icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofPanel } from "@/components/visibility/proof-panel";
 import { SubScoreTile } from "@/components/visibility/subscore-tile";
@@ -61,8 +61,8 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
 
   return (
     <>
-      <Card className="p-6">
-        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+      <Card className="p-6 sm:p-8">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
           <ScoreGauge value={latest?.overall} size={148} barSize={10}>
             <span className="text-3xl font-semibold leading-none text-foreground tabular-nums">
               {fmt(latest?.overall)}
@@ -74,8 +74,17 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
             <p className="text-2xl font-semibold">{latest?.band ?? "—"}</p>
             <div className="mt-1 space-y-0.5 text-sm">
               {delta != null ? (
-                <p className={delta >= 0 ? "text-success" : "text-danger"}>
-                  {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)} vs last audit
+                <p
+                  className={`inline-flex items-center gap-1 tabular-nums ${
+                    delta >= 0 ? "text-success" : "text-danger"
+                  }`}
+                >
+                  {delta >= 0 ? (
+                    <ArrowUpIcon className="size-3.5" />
+                  ) : (
+                    <ArrowDownIcon className="size-3.5" />
+                  )}
+                  {Math.abs(delta)} vs last audit
                 </p>
               ) : (
                 <p className="text-muted">First reading</p>
@@ -167,7 +176,7 @@ export default function VisibilityPage() {
         : "Failed";
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
         title="Visibility"
         description="How discoverable your site is across Google, answer boxes, and AI assistants."

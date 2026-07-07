@@ -86,6 +86,7 @@ export function ContentAgentSnapshot({
     agentState,
     dailyCap,
     pendingTopics,
+    nextTopic,
     articlesWritten,
     articlesPublished,
     thisWeek,
@@ -111,6 +112,13 @@ export function ContentAgentSnapshot({
           {state.label}
         </span>
       </div>
+
+      {nextTopic && agentState === "active" ? (
+        <p className="text-sm text-muted">
+          Writing next: <span className="font-medium text-foreground">{nextTopic.title}</span>
+          {nextTopic.thesis ? <> — {nextTopic.thesis}</> : null}
+        </p>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile

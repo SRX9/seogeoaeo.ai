@@ -23,10 +23,12 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
     onSuccess: (_data, autonomyMode) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
       queryClient.invalidateQueries({ queryKey: queryKeys.automation });
+      // The dial sets the per-category defaults shown below it.
+      queryClient.invalidateQueries({ queryKey: queryKeys.brandAutonomy });
       toast.success(
         autonomyMode === "FULL_AUTO"
-          ? "Auto-publish on — new articles publish automatically."
-          : "Review mode on — new articles stay as drafts until you approve them.",
+          ? "Autopilot on — Claudia publishes and applies safe fixes herself."
+          : "Copilot on — Claudia prepares everything and asks before acting.",
       );
     },
     onError: (error, autonomyMode) => {
@@ -55,24 +57,24 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
   return (
     <Card>
       <Card.Header>
-        <Card.Title>Autonomy mode</Card.Title>
+        <Card.Title>How Claudia works</Card.Title>
         <Card.Description>
-          Controls the default status for this brand&apos;s scheduled and generated articles. Each
-          brand is set independently.
+          One dial for both halves of her job — writing and fixing. Each brand is set
+          independently; fine-tune individual areas below.
         </Card.Description>
       </Card.Header>
       <Card.Content>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="font-medium text-foreground">Auto-publish</p>
+            <p className="font-medium text-foreground">{isAuto ? "Autopilot" : "Copilot"}</p>
             <p className="mt-1 text-sm text-muted">
               {isAuto
-                ? "New articles are approved and publish automatically when connectors are enabled."
-                : "New articles stay as drafts until you review and approve them."}
+                ? "She publishes articles herself and applies safe fixes herself. Everything logged, everything reversible."
+                : "She prepares articles and fixes, then waits for your one-click approval before anything goes live."}
             </p>
           </div>
           <Switch
-            aria-label="Auto-publish"
+            aria-label="Autopilot"
             isSelected={isAuto}
             isDisabled={pending}
             onChange={handleToggle}
@@ -92,12 +94,13 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
             <AlertDialog.CloseTrigger />
             <AlertDialog.Header>
               <AlertDialog.Icon status="warning" />
-              <AlertDialog.Heading>Turn on auto-publish?</AlertDialog.Heading>
+              <AlertDialog.Heading>Turn on Autopilot?</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
               <p>
-                New articles will be approved and published automatically to every enabled
-                destination — with no review step. You can switch back to review mode anytime.
+                Claudia will publish new articles to every enabled destination and apply safe
+                fixes on her own — no review step. Every action is logged and reversible, and
+                you can switch back to Copilot anytime.
               </p>
             </AlertDialog.Body>
             <AlertDialog.Footer>
@@ -105,7 +108,7 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
                 Cancel
               </Button>
               <Button slot="close" onPress={() => apply("FULL_AUTO")}>
-                Enable auto-publish
+                Enable Autopilot
               </Button>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>

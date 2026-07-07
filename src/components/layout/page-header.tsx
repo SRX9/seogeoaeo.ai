@@ -116,7 +116,9 @@ export function PageHeader({ title, description, actions, meta, className }: Pag
                 stuck ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
               )}
             >
-              <p className="overflow-hidden text-sm text-muted">{description}</p>
+              <p className="max-w-2xl overflow-hidden text-pretty text-sm leading-relaxed text-muted">
+                {description}
+              </p>
             </div>
           ) : null}
         </div>

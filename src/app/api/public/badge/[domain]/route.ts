@@ -1,18 +1,23 @@
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { brandProfiles, brands } from "@/lib/db/schema/brand";
 import { audits } from "@/lib/db/schema/visibility";
 import { renderBadge } from "@/lib/growth/badge";
 
 /**
  * V8.6 — public score badge SVG. No auth (it's meant to be embedded), cached
- * hard, and only renders a score for domains that have a completed owned audit.
- * Links back to the free checker via the badge markup the customer embeds.
+ * hard, and only renders a score for domains that have a completed owned audit
+ * AND whose brand opted in (`brands.badge_public`) — a customer's score must
+ * never be publicly readable unless they chose to embed the badge. Links back
+ * to the free checker via the badge markup the customer embeds.
  */
 
-/** Hostname of a URL, lowercased, www-stripped; null when unparsable. */
+/** Hostname of a URL (scheme optional — profile websites may lack one),
+ * lowercased, www-stripped; null when unparsable. */
 function hostOf(url: string): string | null {
   try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    const withScheme = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    return new URL(withScheme).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
     return null;
   }
@@ -29,7 +34,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ dom
   // alone would let "acme.com" hit "not-acme.com" and surface another tenant's
   // score. Owned audits only: competitor benchmarks never back a public badge.
   const rows = await db
-    .select({ siteUrl: audits.siteUrl, score: audits.overallScore, createdAt: audits.createdAt })
+    .select({
+      siteUrl: audits.siteUrl,
+      workspaceId: audits.workspaceId,
+      score: audits.overallScore,
+      createdAt: audits.createdAt,
+    })
     .from(audits)
     .where(
       and(
@@ -45,6 +55,22 @@ export async function GET(_request: Request, { params }: { params: Promise<{ dom
 
   // No audit for this exact domain → 404 rather than a made-up 0/100 score.
   if (match?.score == null) {
+    return new Response("No completed audit for this domain", {
+      status: 404,
+      headers: { "Cache-Control": "public, max-age=300" },
+    });
+  }
+
+  // Opt-in gate: the audit's workspace must have a brand on this domain with
+  // the badge enabled. Same 404 as "no audit" so the endpoint can't be used to
+  // probe which domains are customers.
+  const optIns = await db
+    .select({ website: brandProfiles.website })
+    .from(brands)
+    .innerJoin(brandProfiles, eq(brandProfiles.brandId, brands.id))
+    .where(and(eq(brands.workspaceId, match.workspaceId), eq(brands.badgePublic, true)));
+  const optedIn = optIns.some((row) => row.website && hostOf(row.website) === needle);
+  if (!optedIn) {
     return new Response("No completed audit for this domain", {
       status: 404,
       headers: { "Cache-Control": "public, max-age=300" },

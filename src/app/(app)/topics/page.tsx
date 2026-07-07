@@ -7,7 +7,8 @@ import { ResearchPanel } from "@/components/research/research-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
-import { combineQueries, useCredits, useMe } from "@/lib/api/queries";
+import Link from "next/link";
+import { combineQueries, useCredits, useGoogleTraffic, useMe } from "@/lib/api/queries";
 import { isActiveSubscription } from "@/lib/billing/plans";
 
 const queueSkeleton = <CardSkeleton lines={4} />;
@@ -15,7 +16,11 @@ const queueSkeleton = <CardSkeleton lines={4} />;
 export default function TopicsPage() {
   const me = useMe();
   const credits = useCredits();
+  const traffic = useGoogleTraffic();
   const hint = combineQueries(me, credits);
+  // C2 nudge: without Search Console, Claudia mines topics from guesses instead
+  // of the queries the site already almost ranks for.
+  const showGscNudge = traffic.data ? !traffic.data.gsc.connected : false;
 
   // Read without gating — defaults to "ready" until /api/me resolves so the
   // warning only appears when we actually know the LLM env is unconfigured.
@@ -32,7 +37,7 @@ export default function TopicsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Topics"
         description="Research-ranked backlog and manual topics for article generation."
@@ -59,6 +64,15 @@ export default function TopicsPage() {
           );
         }}
       </Section>
+
+      {showGscNudge ? (
+        <p className="text-sm text-muted">
+          <Link href="/settings?tab=integrations" className="font-medium text-accent underline-offset-2 hover:underline">
+            Connect Search Console
+          </Link>{" "}
+          and Claudia will find the queries you already almost rank for.
+        </p>
+      ) : null}
 
       <Tabs defaultSelectedKey="research">
         <Tabs.ListContainer>

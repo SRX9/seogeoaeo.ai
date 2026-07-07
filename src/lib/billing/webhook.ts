@@ -47,9 +47,24 @@ export async function processStripeWebhookEvent(
     ((subscriptionId: string) => getStripe().subscriptions.retrieve(subscriptionId));
 
   switch (event.type) {
-    case "checkout.session.completed": {
+    // async_payment_succeeded is the settlement event for delayed-notification
+    // methods (bank debits, some wallets): `completed` fires first with
+    // payment_status "unpaid" and is deferred below, then this event lands once
+    // the money actually arrives. Same idempotent apply path for both.
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded": {
       const checkoutSession = event.data.object as Stripe.Checkout.Session;
       return applyCompletedCheckoutSession(checkoutSession, { retrieveSubscription });
+    }
+    case "checkout.session.async_payment_failed": {
+      const checkoutSession = event.data.object as Stripe.Checkout.Session;
+      // Nothing was granted (the topup grant requires payment_status "paid"),
+      // so there's nothing to claw back — just leave a trace for support.
+      logWarn("stripe.checkout.async_payment_failed", {
+        sessionId: checkoutSession.id,
+        workspaceId: checkoutSession.metadata?.workspaceId,
+      });
+      return { handled: true, action: event.type };
     }
     case "customer.subscription.updated":
     case "customer.subscription.created": {
@@ -95,6 +110,16 @@ export async function applyCompletedCheckoutSession(
 
   // One-time credit pack purchase: add to the never-expiring bucket.
   if (checkoutSession.metadata?.type === "topup") {
+    // Delayed-notification payment methods complete the session before the
+    // money settles. Never grant credits on an unpaid session — the
+    // async_payment_succeeded webhook re-enters here once it's actually paid.
+    if (checkoutSession.payment_status !== "paid") {
+      logInfo("stripe.topup.awaiting_payment", {
+        sessionId: checkoutSession.id,
+        paymentStatus: checkoutSession.payment_status,
+      });
+      return { handled: true, action: "checkout.session.completed.topup.awaiting_payment" };
+    }
     const packId = checkoutSession.metadata?.packId;
     const pack = packId ? getCreditPack(packId) : undefined;
     if (workspaceId && pack) {
@@ -129,8 +154,12 @@ export async function applyCompletedCheckoutSession(
     const subscription = await retrieveSubscription(subscriptionId);
     await syncSubscriptionFromStripe(workspaceId, subscription);
     // AP2 ignition: never depend on the client's fire-and-forget POST —
-    // startSetupRun is idempotent, so a duplicate trigger is a no-op.
-    igniteInBackground(workspaceId);
+    // startSetupRun is idempotent, so a duplicate trigger is a no-op. Only for
+    // paid sessions: an async payment method's unpaid `completed` event must
+    // not start credit-spending setup work; async_payment_succeeded re-enters.
+    if (checkoutSession.payment_status === "paid") {
+      igniteInBackground(workspaceId);
+    }
     logInfo("stripe.checkout.completed", { workspaceId, subscriptionId });
     return { handled: true, action: "checkout.session.completed" };
   }

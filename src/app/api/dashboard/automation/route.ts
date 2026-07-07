@@ -27,9 +27,13 @@ export async function GET() {
 
     // Only scored topics are writable by the agent, so "queued" mirrors exactly
     // what it will pick up (listPendingTopicsForWriting).
-    const pendingTopics = topics.filter(
-      (topic) => topic.status === "pending" && topic.score != null,
-    ).length;
+    const writable = topics
+      .filter((topic) => topic.status === "pending" && topic.score != null)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const pendingTopics = writable.length;
+    // C4: what she writes next and why — the topic's traffic thesis, verbatim.
+    const nextUp = writable[0];
+    const nextTopic = nextUp ? { title: nextUp.title, thesis: nextUp.thesis ?? null } : null;
     // Articles the agent itself wrote today (from its daily-run row, not manual work).
     const writtenToday = todayRun?.articlesWritten ?? 0;
     const dailyCap = active ? dailyArticleCapForPlan(subscription?.planId) : 0;
@@ -58,6 +62,7 @@ export async function GET() {
       dailyCap,
       writtenToday,
       pendingTopics,
+      nextTopic,
       workingSince: workspace.createdAt.toISOString(),
       totalRuns: weeklyStats.totalRuns,
       // Durable lifetime + this-week tallies from usage_counters.

@@ -102,6 +102,34 @@ export async function generateText(tier: ModelTier, messages: LlmMessage[]) {
   return postChat(config, tier, messages);
 }
 
+/**
+ * Parse a model's "JSON" output tolerantly: some providers ignore
+ * `response_format` and wrap the payload in a ```json fence (or add prose
+ * around it). Try verbatim first, then the fenced block, then the outermost
+ * JSON object/array — a genuinely malformed payload still throws.
+ */
+export function parseModelJson<T>(text: string): T {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed)?.[1];
+    if (fenced) {
+      try {
+        return JSON.parse(fenced.trim()) as T;
+      } catch {
+        // fall through to the outermost-braces attempt
+      }
+    }
+    const start = trimmed.search(/[{[]/);
+    const end = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
+    if (start !== -1 && end > start) {
+      return JSON.parse(trimmed.slice(start, end + 1)) as T;
+    }
+    throw new Error(`LLM returned non-JSON output: ${trimmed.slice(0, 200)}`);
+  }
+}
+
 export async function generateJson<T>(tier: ModelTier, messages: LlmMessage[]) {
   const config = getLlmConfig();
   if (!config) {
@@ -110,7 +138,7 @@ export async function generateJson<T>(tier: ModelTier, messages: LlmMessage[]) {
   const result = await postChat(config, tier, messages, { json: true });
   return {
     ...result,
-    data: JSON.parse(result.text) as T,
+    data: parseModelJson<T>(result.text),
   };
 }
 

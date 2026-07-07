@@ -10,6 +10,7 @@ import { CardSkeleton } from "@/components/feedback/skeletons";
 import { apiPost } from "@/lib/api/fetcher";
 import {
   queryKeys,
+  useAgentBrief,
   useAutomation,
   useMe,
   useSetupRun,
@@ -92,6 +93,9 @@ export function ClaudiaHero() {
   const me = useMe();
   const setup = useSetupRun();
   const automation = useAutomation();
+  // The standing daily brief — progressive: the hero never waits on it (the
+  // Day-0 brief / derived stats cover the gap until it loads).
+  const agentBrief = useAgentBrief();
 
   const start = useMutation({
     mutationFn: () => apiPost("/api/setup-run", {}),
@@ -219,8 +223,15 @@ export function ClaudiaHero() {
     stats.enabled &&
     stats.agentState !== "paused_no_subscription" &&
     stats.agentState !== "paused_no_credits";
-  const brief = run.briefText?.trim() || (stats ? derivedBrief(stats) : "");
-  const briefLabel = run.briefText?.trim() ? "Claudia's Day-0 brief" : "On the job";
+  // Freshest first: the daily brief (regenerated after every run), then the
+  // one-time Day-0 brief, then a deterministic line from durable stats.
+  const dailyBrief = agentBrief.data?.brief?.text?.trim();
+  const brief = dailyBrief || run.briefText?.trim() || (stats ? derivedBrief(stats) : "");
+  const briefLabel = dailyBrief
+    ? "Claudia's brief"
+    : run.briefText?.trim()
+      ? "Claudia's Day-0 brief"
+      : "On the job";
 
   return (
     <HeroShell>

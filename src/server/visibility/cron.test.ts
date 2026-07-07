@@ -29,4 +29,9 @@ describe("shouldAlert", () => {
     expect(shouldAlert(delta(-3), 0).alert).toBe(false);
     expect(shouldAlert(delta(5), 0).alert).toBe(false);
   });
+
+  it("fires exactly at the AP4 drop threshold (≥5 points)", () => {
+    expect(shouldAlert(delta(-5), 0).alert).toBe(true);
+    expect(shouldAlert(delta(-4), 0).alert).toBe(false);
+  });
 });

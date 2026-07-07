@@ -86,7 +86,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-8">
       <PageHeader title={tool.name} description={tool.description} />
 
       <Card className="space-y-3 p-5">
@@ -102,7 +102,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           variant="secondary"
           fullWidth
         />
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-xs text-default-400">
             A run costs {CREDIT_COSTS[tool.costKey]} credits — your last result stays here for
             free.
@@ -110,10 +110,11 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           <Button
             size="sm"
             variant="primary"
+            className="sm:shrink-0"
             isDisabled={busy || input.trim().length === 0}
             onPress={run}
           >
-            {busy ? "Running…" : hasResult ? `Re-run · ${CREDIT_COSTS[tool.costKey]} cr` : `Run · ${CREDIT_COSTS[tool.costKey]} cr`}
+            {busy ? "Running…" : hasResult ? "Re-run tool" : "Run tool"}
           </Button>
         </div>
         {error && <p className="text-sm text-danger">{error}</p>}

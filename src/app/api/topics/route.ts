@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { handleApi, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
+import { getSourceWeights } from "@/lib/articles/performance";
 import { createTopic, listTopics } from "@/lib/articles/repository";
 
 const topicSchema = z.object({
@@ -8,12 +9,15 @@ const topicSchema = z.object({
   keywords: z.string().max(500).optional(),
 });
 
-/** List the active brand's topic queue (ranked). */
+/** List the active brand's topic queue (ranked), plus C4's learned source weights. */
 export async function GET() {
   return handleApi(async () => {
     const { brand } = await requireApiBrand();
-    const topics = await listTopics(brand.id);
-    return jsonOk({ topics });
+    const [topics, sourceWeights] = await Promise.all([
+      listTopics(brand.id),
+      getSourceWeights(brand.id), // never throws — degrades to {} and logs
+    ]);
+    return jsonOk({ topics, sourceWeights });
   });
 }
 

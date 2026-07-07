@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { requireSession } from "@/lib/auth/session";
+import { isAuthDevBypass, requireSession } from "@/lib/auth/session";
 import { getWorkspaceWithSubscription } from "@/lib/workspace";
 
 /**
@@ -9,7 +9,7 @@ import { getWorkspaceWithSubscription } from "@/lib/workspace";
  * themselves and send the user to billing with a clear message.
  */
 export async function getBillingContext() {
-  if (process.env.AUTH_DEV_BYPASS === "true") {
+  if (isAuthDevBypass()) {
     const session = await requireSession();
     return {
       session,
@@ -53,8 +53,14 @@ export async function getBillingContext() {
 }
 
 export async function getRequestOrigin() {
+  // In production, redirect targets (Stripe success/cancel URLs) must come from
+  // config, never from client-influenceable headers like x-forwarded-host.
+  const configured = process.env.BETTER_AUTH_URL;
+  if (process.env.NODE_ENV === "production" && configured) {
+    return configured.replace(/\/$/, "");
+  }
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
-  return host ? `${protocol}://${host}` : (process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
+  return host ? `${protocol}://${host}` : (configured ?? "http://localhost:3000");
 }

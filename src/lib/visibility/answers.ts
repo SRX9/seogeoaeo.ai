@@ -219,11 +219,18 @@ function buildFindings(cells: AnswerCell[]): Finding[] {
 
 /**
  * Run every active tracked prompt through each engine, persist the runs, and
- * return the per-engine share plus fix-queue findings for misses.
+ * return the per-engine share plus fix-queue findings for misses. Passing
+ * `refId` (scheduled runs use the monitor cycle's audit id) makes the persist
+ * replace-by-refId: an at-least-once workflow retry that re-runs the fan-out
+ * swaps its own rows instead of double-counting the week's answer share.
  */
 export async function runAnswerCheck(
   brandId: string,
-  opts: { askImpl?: Partial<Record<EngineName, AskEngine>>; engines?: EngineName[] } = {},
+  opts: {
+    askImpl?: Partial<Record<EngineName, AskEngine>>;
+    engines?: EngineName[];
+    refId?: string;
+  } = {},
 ): Promise<AnswerRunResult> {
   const db = getDb();
   const brand = await db.query.brands.findFirst({ where: eq(brands.id, brandId) });
@@ -272,6 +279,7 @@ export async function runAnswerCheck(
     rows.push({
       brandId,
       promptId: p.id,
+      refId: opts.refId ?? null,
       engine,
       answerExcerpt: ans.text.slice(0, 500),
       brandMentioned,
@@ -281,7 +289,15 @@ export async function runAnswerCheck(
     cells.push({ promptId: p.id, prompt: p.prompt, engine, brandMentioned, brandCited, competitors: competitorsFlags, excerpt: ans.text.slice(0, 300) });
   }
 
-  if (rows.length) await db.insert(answerRuns).values(rows);
+  if (rows.length) {
+    if (opts.refId) {
+      // Retry-safe: replace any rows a previous attempt of this cycle inserted.
+      await db
+        .delete(answerRuns)
+        .where(and(eq(answerRuns.brandId, brandId), eq(answerRuns.refId, opts.refId)));
+    }
+    await db.insert(answerRuns).values(rows);
+  }
 
   return {
     cells,

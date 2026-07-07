@@ -156,7 +156,7 @@ function SummaryHeader({
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-3">
           {stats.map((s) => (
@@ -238,8 +238,8 @@ function Checklist({ data, website }: { data: SiteHealthResponse; website: strin
         if (checks.length === 0) return null;
         const failing = checks.filter((c) => c.status !== "pass").length;
         return (
-          <Card key={group} className="p-4">
-            <div className="mb-1 flex items-baseline justify-between gap-2">
+          <Card key={group} className="p-5">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold">{HEALTH_GROUP_LABELS[group]}</h2>
               <p className="text-xs text-default-400">
                 {failing === 0 ? "All good" : `${failing} to fix`}
@@ -262,7 +262,7 @@ export default function SiteHealthPage() {
   const website = useBrandProfile().data?.profile.website?.trim() || null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Site health"
         description="Every check your site should pass to look its best in Google and AI assistants. Green means done; anything else opens into the exact fix — copy the prompt and hand it to your AI coding assistant."

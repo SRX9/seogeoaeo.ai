@@ -219,7 +219,39 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
       ) : (
         <TopicList topics={visibleTopics} canGenerate={canGenerate} articleCost={articleCost} />
       )}
+      <SourceWeightsNote weights={data?.sourceWeights} />
     </section>
+  );
+}
+
+/** Owner-language labels for C4's learned source weights. */
+const SOURCE_WEIGHT_LABELS: Record<string, string> = {
+  gsc_query: "Search Console topics",
+  use_case: "use-case topics",
+  competitor_gap: "competitor-gap topics",
+  trend_query: "trend topics",
+  web_search: "web-search topics",
+  keyword_api: "keyword topics",
+};
+
+/**
+ * C4 transparency: when the performance loop has learned a meaningful weight
+ * for a source, say so — the backlog ranking shouldn't feel arbitrary.
+ */
+function SourceWeightsNote({ weights }: { weights?: Record<string, number> }) {
+  if (!weights) return null;
+  const learned = Object.entries(weights)
+    .filter(([source, weight]) => Math.abs(weight - 1) >= 0.1 && SOURCE_WEIGHT_LABELS[source])
+    .sort((a, b) => b[1] - a[1]);
+  if (learned.length === 0) return null;
+  const lines = learned.map(
+    ([source, weight]) =>
+      `${SOURCE_WEIGHT_LABELS[source]} ${weight.toFixed(1)}× (${weight > 1 ? "they keep winning here" : "they haven't been landing"})`,
+  );
+  return (
+    <p className="text-xs text-muted">
+      From what&apos;s worked for your site so far, Claudia is weighing {lines.join(", ")}.
+    </p>
   );
 }
 
