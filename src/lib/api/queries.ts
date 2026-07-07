@@ -18,6 +18,7 @@ import type {
 export const queryKeys = {
   me: ["me"] as const,
   automation: ["dashboard", "automation"] as const,
+  agentBrief: ["dashboard", "brief"] as const,
   onboarding: ["onboarding"] as const,
   brands: ["brands"] as const,
   brandProfile: ["brand", "profile"] as const,
@@ -278,6 +279,10 @@ const activityQueryOptions = () => ({
   queryKey: queryKeys.activity,
   queryFn: () => apiGet<ActivityResponse>("/api/activity"),
 });
+const agentBriefQueryOptions = () => ({
+  queryKey: queryKeys.agentBrief,
+  queryFn: () => apiGet<{ brief: AgentBrief }>("/api/dashboard/brief"),
+});
 const visibilitySummaryQueryOptions = () => ({
   queryKey: queryKeys.visibilitySummary,
   queryFn: () => apiGet<VisibilitySummary>("/api/visibility/summary"),
@@ -355,6 +360,13 @@ export function useAutomation() {
   return useQuery({ ...automationQueryOptions(), enabled: useHasBrand() });
 }
 
+/** AP3 — Claudia's standing Overview brief, refreshed by the daily job. */
+export type AgentBrief = { text: string; generatedAt: string };
+
+export function useAgentBrief() {
+  return useQuery({ ...agentBriefQueryOptions(), enabled: useHasBrand() });
+}
+
 export function useOnboarding() {
   return useQuery({ ...onboardingQueryOptions(), enabled: useHasBrand() });
 }
@@ -417,6 +429,7 @@ export function usePrefetchAppData(enabled: boolean) {
     // Dashboard sections (each loads independently from its own endpoint).
     queryClient.prefetchQuery(creditsQueryOptions());
     queryClient.prefetchQuery(automationQueryOptions());
+    queryClient.prefetchQuery(agentBriefQueryOptions());
     queryClient.prefetchQuery(onboardingQueryOptions());
     queryClient.prefetchQuery(researchQueryOptions());
     queryClient.prefetchQuery(visibilitySummaryQueryOptions());

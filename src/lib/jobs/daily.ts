@@ -1,3 +1,4 @@
+import { refreshAgentBrief } from "@/lib/agent/brief";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
@@ -223,6 +224,14 @@ export async function settleDailyForBrand(
     await maybeRunWeeklySiteHealth(scope);
   } catch (error) {
     console.error("[daily] site health check failed", error);
+  }
+
+  // AP3: regenerate Claudia's Overview brief from today's run data. Best-effort
+  // and unmetered — the dashboard falls back to a derived brief on a miss.
+  try {
+    await refreshAgentBrief(scope, input.brandName ?? "your brand");
+  } catch (error) {
+    console.error("[daily] agent brief refresh failed", error);
   }
 
   // Out of credits with work still queued — nudge the owner (throttled).
