@@ -94,7 +94,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       .orderBy(desc(toolRuns.createdAt))
       .limit(1);
     if (recent && (recent.input as { input?: string } | null)?.input === input) {
-      return jsonOk({ runId: recent.id, score: recent.score, findings: [], data: recent.result });
+      // Return the run's persisted findings so the deduped response renders the
+      // same as the original click (an empty list would blank the fix panel).
+      const recentFindings = await db
+        .select({
+          severity: auditFindings.severity,
+          title: auditFindings.title,
+          recommendation: auditFindings.recommendation,
+        })
+        .from(auditFindings)
+        .where(
+          and(eq(auditFindings.workspaceId, workspace.id), eq(auditFindings.toolRunId, recent.id)),
+        )
+        .orderBy(auditFindings.severity, auditFindings.createdAt);
+      return jsonOk({
+        runId: recent.id,
+        score: recent.score,
+        findings: recentFindings,
+        data: recent.result,
+      });
     }
 
     // Pre-check (402) without charging; charge only after tool.run() succeeds so a

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { ACTIVE_SUBSCRIPTION_STATUSES, visibilityCapsForPlan } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
@@ -78,6 +78,26 @@ async function autoApplyFixes(
   const brand = brandRows.find((b) => b.website && apexDomain(b.website) === apexDomain(siteUrl));
   if (!brand || brand.autonomyMode !== "FULL_AUTO") return 0;
 
+  // The cap is *per month* (that's what the plan copy promises), not per
+  // re-audit — on a weekly cadence an uncounted cap would quietly be 4× the
+  // advertised number. Count what this workspace already auto-applied this
+  // calendar month (resolvedAt is stamped by applyFix) and spend the remainder.
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const [used] = await db
+    .select({ n: count() })
+    .from(auditFindings)
+    .where(
+      and(
+        eq(auditFindings.workspaceId, workspaceId),
+        eq(auditFindings.fixCapability, "auto"),
+        eq(auditFindings.isResolved, true),
+        gte(auditFindings.resolvedAt, monthStart),
+      ),
+    );
+  const remaining = autoFixCap - (used?.n ?? 0);
+  if (remaining <= 0) return 0;
+
   const findings = await db
     .select({ id: auditFindings.id })
     .from(auditFindings)
@@ -88,7 +108,7 @@ async function autoApplyFixes(
         eq(auditFindings.isResolved, false),
       ),
     )
-    .limit(autoFixCap);
+    .limit(remaining);
 
   let applied = 0;
   for (const finding of findings) {

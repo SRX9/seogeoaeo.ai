@@ -31,6 +31,7 @@ export async function GET() {
         id: brand.id,
         name: brand.name,
         autonomyMode: brand.autonomyMode,
+        badgePublic: brand.badgePublic ?? false,
       })),
       activeBrandId: ctx.brand?.id ?? null,
     });

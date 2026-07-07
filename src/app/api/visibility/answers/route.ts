@@ -5,6 +5,7 @@ import { visibilityCapsForPlan } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { brandProfiles } from "@/lib/db/schema/brand";
 import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
+import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import {
   assertVisibilityCredits,
   InsufficientCreditsError,
@@ -86,6 +87,18 @@ export async function POST(request: Request) {
       await assertVisibilityCredits(workspace.id, "answer_run");
     } catch (error) {
       if (error instanceof InsufficientCreditsError) throw new HttpError(402, error.message);
+      throw error;
+    }
+    // Single-flight guard: the charge's refId is minted per request, so ledger
+    // idempotency can't dedupe a double-click on its own. The workspace limiter
+    // increments atomically in Postgres, so two concurrent "run" requests can't
+    // both pass — the loser gets a 429 instead of a second fan-out + charge.
+    try {
+      await assertWorkspaceRateLimit(workspace.id, "answer_run", 1, 30_000);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw new HttpError(429, "An answer check just ran — give it a moment before rerunning.");
+      }
       throw error;
     }
     const result = await runAnswerCheck(brandId);

@@ -79,7 +79,7 @@ export type MeResponse = {
     hasStripeCustomer: boolean;
     creditEmailsEnabled: boolean;
   } | null;
-  brands: { id: string; name: string; autonomyMode: string }[];
+  brands: { id: string; name: string; autonomyMode: string; badgePublic: boolean }[];
   activeBrandId: string | null;
 };
 

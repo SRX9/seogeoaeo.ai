@@ -35,7 +35,7 @@ export async function applyFix(findingId: string, workspaceId: string): Promise<
   const finding = await loadOwnedFinding(findingId, workspaceId);
   const artifact = buildFixArtifact(finding.fixPayload);
   const db = getDb();
-  await db.update(auditFindings).set({ isResolved: true }).where(eq(auditFindings.id, findingId));
+  await db.update(auditFindings).set({ isResolved: true, resolvedAt: new Date() }).where(eq(auditFindings.id, findingId));
   return { findingId, artifact, resolved: true };
 }
 
@@ -43,6 +43,6 @@ export async function applyFix(findingId: string, workspaceId: string): Promise<
 export async function revertFix(findingId: string, workspaceId: string): Promise<{ findingId: string; resolved: boolean }> {
   await loadOwnedFinding(findingId, workspaceId);
   const db = getDb();
-  await db.update(auditFindings).set({ isResolved: false }).where(eq(auditFindings.id, findingId));
+  await db.update(auditFindings).set({ isResolved: false, resolvedAt: null }).where(eq(auditFindings.id, findingId));
   return { findingId, resolved: false };
 }

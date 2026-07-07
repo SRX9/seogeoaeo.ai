@@ -105,6 +105,20 @@ export async function updateBrandAutonomy(
   return brand ?? null;
 }
 
+/** Opt a brand's domain in/out of the public score badge (V8.6). */
+export async function updateBrandBadgePublic(
+  workspaceId: string,
+  brandId: string,
+  badgePublic: boolean,
+) {
+  const [brand] = await getDb()
+    .update(brands)
+    .set({ badgePublic, updatedAt: new Date() })
+    .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
+    .returning();
+  return brand ?? null;
+}
+
 export async function deleteBrand(workspaceId: string, brandId: string) {
   await getDb()
     .delete(brands)

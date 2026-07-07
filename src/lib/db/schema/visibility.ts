@@ -104,6 +104,9 @@ export const auditFindings = pgTable(
     /** Machine-applicable payload for V7.2 auto-apply. */
     fixPayload: jsonb("fix_payload"),
     isResolved: boolean("is_resolved").notNull().default(false),
+    /** When the finding was resolved (fix applied / dismissed) — null while open.
+     * Backs the monthly auto-fix cap count (V8.5). */
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("audit_findings_audit_id_idx").on(table.auditId)],

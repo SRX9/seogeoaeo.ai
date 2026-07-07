@@ -28,6 +28,17 @@ describe("isAllowedByRobots", () => {
   it("allows everything when there is no wildcard group", () => {
     expect(isAllowedByRobots(robotsResult(""), "https://acme.example/x")).toBe(true);
   });
+
+  it("honors * wildcards and $ anchors in rule paths", () => {
+    const wild = robotsResult(
+      "User-agent: *\nDisallow: /*?\nDisallow: /private*\nDisallow: /*.pdf$\n",
+    );
+    expect(isAllowedByRobots(wild, "https://acme.example/search?q=x")).toBe(false);
+    expect(isAllowedByRobots(wild, "https://acme.example/private-area/page")).toBe(false);
+    expect(isAllowedByRobots(wild, "https://acme.example/docs/manual.pdf")).toBe(false);
+    expect(isAllowedByRobots(wild, "https://acme.example/docs/manual.pdf.html")).toBe(true);
+    expect(isAllowedByRobots(wild, "https://acme.example/pricing")).toBe(true);
+  });
 });
 
 describe("fetchPagesWithGates", () => {

@@ -53,16 +53,38 @@ async function sha256Hex(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * One robots rule against a path, honoring the REP pattern syntax: `*` matches
+ * any run of characters and a trailing `$` anchors the end. A plain rule is the
+ * usual prefix match. Treating patterns literally (the old `startsWith`) made
+ * rules like `Disallow: /*?` never match — and we'd crawl disallowed pages.
+ */
+export function robotsRuleMatches(rulePath: string, pathname: string): boolean {
+  if (!rulePath.includes("*") && !rulePath.endsWith("$")) {
+    return pathname.startsWith(rulePath);
+  }
+  const anchored = rulePath.endsWith("$");
+  const body = anchored ? rulePath.slice(0, -1) : rulePath;
+  const pattern = `^${body.split("*").map(escapeRegex).join(".*")}${anchored ? "$" : ""}`;
+  return new RegExp(pattern).test(pathname);
+}
+
 /** Honor robots.txt: check the wildcard group's rules for a URL's path. */
 export function isAllowedByRobots(robots: RobotsResult, url: string): boolean {
   const rules = robots.agent_rules["*"];
   if (!rules) return true;
-  const pathname = new URL(url).pathname;
+  // The REP matches rules against path + query (rules like `/*?` target query
+  // strings), so keep the search part.
+  const target = new URL(url);
+  const pathname = target.pathname + target.search;
   let verdict = true;
   let matchLength = -1;
   for (const rule of rules) {
     if (!rule.path) continue;
-    if (pathname.startsWith(rule.path) && rule.path.length > matchLength) {
+    // Most-specific rule wins; per the REP, specificity is the rule's length.
+    if (robotsRuleMatches(rule.path, pathname) && rule.path.length > matchLength) {
       matchLength = rule.path.length;
       verdict = rule.directive === "Allow";
     }

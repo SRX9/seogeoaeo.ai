@@ -123,5 +123,5 @@ export async function setFindingResolved(id: string, workspaceId: string, resolv
   const db = getDb();
   const finding = await db.query.auditFindings.findFirst({ where: eq(auditFindings.id, id) });
   if (!finding || finding.workspaceId !== workspaceId) throw new Error("Finding not found");
-  await db.update(auditFindings).set({ isResolved: resolved }).where(eq(auditFindings.id, id));
+  await db.update(auditFindings).set({ isResolved: resolved, resolvedAt: resolved ? new Date() : null }).where(eq(auditFindings.id, id));
 }

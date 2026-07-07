@@ -4,10 +4,12 @@ import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
 import { brandProfiles, brands } from "@/lib/db/schema/brand";
 import { answerRuns, auditFindings, audits } from "@/lib/db/schema/visibility";
+import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
 import { sendToWorkspaceOwner } from "@/lib/email/notify";
 import { weeklyDigestEmail } from "@/lib/email/templates";
 import { getServerEnv } from "@/lib/env";
 import { buildDigest } from "@/lib/jobs/visibility-agent";
+import { getUtcDayKey } from "@/lib/workspace/settings";
 import { apexDomain, computeShare, type EngineName } from "@/lib/visibility/answers";
 import { compareAudits } from "@/lib/visibility/compare";
 
@@ -119,16 +121,27 @@ async function digestForSite(workspaceId: string, siteUrl: string): Promise<stri
 export async function sendWeeklyDigests(): Promise<number> {
   const sites = await activeOwnedSites();
   const origin = getServerEnv().BETTER_AUTH_URL ?? "https://seogeoaeo.ai";
+  // Re-fire guard: the cron runs inline (no per-site checkpointing), so a
+  // timeout mid-loop followed by a manual re-fire would re-email everyone
+  // already sent. A KV marker per (fire day, workspace, site) makes the re-fire
+  // resume instead of resend. Degrades to no dedupe off-Cloudflare (KV absent).
+  const dayKey = getUtcDayKey();
+  const sentKey = (workspaceId: string, siteUrl: string) =>
+    `digest:sent:${dayKey}:${workspaceId}:${apexDomain(siteUrl)}`;
   let sent = 0;
   for (const site of sites) {
     try {
+      if (await kvGetJson<boolean>(sentKey(site.workspaceId, site.siteUrl))) continue;
       const digest = await digestForSite(site.workspaceId, site.siteUrl);
       if (!digest) continue;
       const ok = await sendToWorkspaceOwner(
         site.workspaceId,
         weeklyDigestEmail({ siteUrl: site.siteUrl, digest, dashboardUrl: `${origin}/dashboard` }),
       );
-      if (ok) sent += 1;
+      if (ok) {
+        sent += 1;
+        await kvPutJson(sentKey(site.workspaceId, site.siteUrl), true, 6 * 24 * 60 * 60);
+      }
     } catch (error) {
       console.error(`[visibility] weekly digest failed for ${site.siteUrl}`, error);
     }
