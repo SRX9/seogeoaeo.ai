@@ -32,7 +32,7 @@ export default function TopicsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Topics"
         description="Research-ranked backlog and manual topics for article generation."

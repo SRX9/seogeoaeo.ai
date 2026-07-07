@@ -8,7 +8,6 @@ import { authClient } from "@/lib/auth/client";
 import type { SessionUser } from "@/lib/auth/session";
 import { BrandSwitcher } from "@/components/brand/brand-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { TOOLBOX_META } from "@/lib/visibility/toolbox-meta";
 import {
   ActivityIcon,
   ChevronUpDownIcon,
@@ -26,26 +25,9 @@ type NavLeaf = { kind: "leaf"; href: string; label: string; icon: IconType };
 type NavGroup = { kind: "group"; id: string; label: string; icon: IconType; children: NavChild[] };
 type NavEntry = NavLeaf | NavGroup;
 
-/** Concise sidebar labels for the analyzers (the Toolbox `name`s are too long for
- * a nav rail). Falls back to the registry name for any tool not listed here. */
-const TOOL_NAV_LABELS: Record<string, string> = {
-  "crawler-access": "AI Crawler Access",
-  "content-signals": "Content Signals",
-  "llms-txt": "llms.txt",
-  "meta-audit": "Meta & Open Graph",
-  citability: "AI Citability",
-  "technical-seo": "Technical SEO",
-  "schema-audit": "Schema Validator",
-  "schema-generator": "JSON-LD Generator",
-};
-
-const toolChildren: NavChild[] = TOOLBOX_META.map((t) => ({
-  href: `/tools/${t.slug}`,
-  label: TOOL_NAV_LABELS[t.slug] ?? t.name,
-}));
-
-/** Grouped nav — Visibility (report + every analyzer) and Content Writer (Claudia's
- * topics + articles) are collapsible sections; the rest are flat. */
+/** Grouped nav — Visibility and Content Writer (Claudia's topics + articles) are
+ * collapsible sections; the rest are flat. The standalone analyzers live behind
+ * the single "Extra tools" entry (/tools grid) instead of one nav row each. */
 const primaryNav: NavEntry[] = [
   { kind: "leaf", href: "/dashboard", label: "Overview", icon: OverviewIcon },
   {
@@ -68,7 +50,7 @@ const primaryNav: NavEntry[] = [
       { href: "/visibility/fixes", label: "Fix queue" },
       { href: "/visibility/health", label: "Site health" },
       { href: "/visibility/answers", label: "AI answers" },
-      ...toolChildren,
+      { href: "/tools", label: "Extra tools" },
     ],
   },
   { kind: "leaf", href: "/activity", label: "Activity", icon: ActivityIcon },

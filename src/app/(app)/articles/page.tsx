@@ -12,7 +12,7 @@ export default function ArticlesPage() {
   const articles = useArticles();
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
         title="Articles"
         description="Generated drafts, edits, and publication status."

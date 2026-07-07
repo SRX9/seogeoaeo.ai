@@ -35,7 +35,10 @@ function SettingsContent() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <PageHeader title="Brand settings" description="Settings for the selected brand." />
+      <PageHeader
+        title="Brand settings"
+        description="Your brand's profile, publishing automation, and connected platforms."
+      />
 
       <Segment
         aria-label="Brand settings sections"

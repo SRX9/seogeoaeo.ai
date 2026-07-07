@@ -37,7 +37,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-5xl space-y-8">
       <PageHeader
         title="Overview"
         description="Claudia, working on your visibility and content."

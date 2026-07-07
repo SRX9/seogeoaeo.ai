@@ -25,8 +25,8 @@ const reportSkeleton = (
 function ReportContent({ model }: { model: VisibilityReport["model"] }) {
   return (
     <>
-      <Card className="p-5">
-        <div className="flex items-center gap-5">
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
           <ScoreGauge value={model.overall} size={110} barSize={8}>
             <span className="text-2xl font-semibold leading-none text-foreground tabular-nums">
               {fmt(model.overall)}
@@ -48,7 +48,7 @@ function ReportContent({ model }: { model: VisibilityReport["model"] }) {
 
       <Card className="p-5">
         <h2 className="mb-2 font-semibold">Quick wins</h2>
-        <ul className="space-y-2 text-sm">
+        <ul className="space-y-2.5 text-sm leading-relaxed">
           {model.quickWins.map((f, i) => (
             <li key={i}>
               <span className="font-medium">{f.title}</span> — {f.recommendation}
@@ -63,7 +63,7 @@ function ReportContent({ model }: { model: VisibilityReport["model"] }) {
           <h2 className="mb-2 font-semibold">
             Week {t.week}: {t.title}
           </h2>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-2.5 text-sm leading-relaxed">
             {t.findings.map((f, i) => (
               <li key={i}>
                 <span className="font-medium">{f.title}</span> — {f.recommendation}
@@ -81,7 +81,7 @@ export default function ReportPage({ params }: { params: Promise<{ auditId: stri
   const report = useVisibilityReport(auditId);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Visibility report"
         description={report.data?.model.site ?? "Your full audit, scored and prioritized."}

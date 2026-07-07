@@ -33,6 +33,45 @@ body {
   .textarea {
     resize: none;
   }
+
+  /*
+   * Press feedback on every pressable: a subtle scale-down confirms the UI
+   * heard the click the instant it lands. Transform-only, GPU-composited.
+   * (Colour transitions are listed alongside so this shorthand doesn't wipe
+   * out HeroUI's hover colour fades.)
+   */
+  .button,
+  .toggle-button,
+  .close-button {
+    transition:
+      transform 160ms var(--ease-out-strong),
+      background-color 150ms ease,
+      color 150ms ease,
+      border-color 150ms ease,
+      opacity 150ms ease;
+  }
+  .button:active,
+  .button[data-pressed="true"],
+  .toggle-button:active,
+  .close-button:active {
+    transform: scale(0.97);
+  }
+
+  /*
+   * Cards fade-and-rise in when they first mount (page load, skeleton→content
+   * swap). Entering elements never start from nothing: 6px rise + fade, fast
+   * ease-out, well under 300ms. Reduced-motion users get the instant override
+   * below.
+   */
+  .card {
+    transition:
+      opacity 240ms var(--ease-out-strong),
+      transform 240ms var(--ease-out-strong);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -47,11 +86,24 @@ body {
 }
 
 /*
+ * Shared motion vocabulary. Built-in CSS easings are too weak — these stronger
+ * curves make interactions feel intentional (fast start, soft landing).
+ */
+:root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/*
  * Light mode: replace Glass's blue ambient gradient with a calm, neutral
  * "lunar grey" surface. The blue tint washed out translucent glass surfaces
  * and hurt legibility; a low-chroma cool-grey canvas lets the white surfaces
- * float clearly. Dark mode keeps Glass's stock ambient glow. Hue (264) is
- * carried from Glass at near-zero chroma so it reads neutral, not coloured.
+ * float clearly. Hue (264) is carried from Glass at near-zero chroma so it
+ * reads neutral, not coloured.
+ *
+ * Note: `--accent` is deliberately NOT overridden — Glass's black/white accent
+ * (buttons, the Claudia orb, selected states) is the intended look. Colour
+ * comes from charts, status tokens, and the ambient canvas instead.
  */
 .glass-light,
 html[data-theme="glass-light"] {
@@ -61,6 +113,49 @@ html[data-theme="glass-light"] {
     oklch(98% 0.003 264) 0%,
     oklch(93.5% 0.004 264) 100%
   );
+  /* Multi-hue chart palette (Glass derives all five from the accent, which
+   * renders every chart as one hue). Ordered by series priority. */
+  --chart-1: oklch(55% 0.17 255);
+  --chart-2: oklch(60% 0.12 185);
+  --chart-3: oklch(55% 0.16 300);
+  --chart-4: oklch(70% 0.13 75);
+  --chart-5: oklch(60% 0.17 350);
+}
+
+/*
+ * Dark mode: three problems with stock Glass, fixed at the token layer.
+ *
+ * 1. `--foreground` was `--snow` (99% white) — max-contrast body text that
+ *    glares on a near-black canvas. Softened to a cool off-white; muted drops
+ *    further so headings / body / secondary text form three visible tiers
+ *    instead of one wall of white.
+ * 2. Charts derived five greys from the white accent — replaced with a real
+ *    multi-hue palette, and the ambient canvas glow is deepened from a faint
+ *    blue wash into an indigo→teal aurora so the glass surfaces have
+ *    something to refract.
+ *
+ * `--accent` stays Glass's stock white on purpose: buttons, the Claudia orb,
+ * and selected states are meant to read black/white, not coloured.
+ */
+.glass-dark,
+html[data-theme="glass-dark"] {
+  --foreground: oklch(87% 0.008 255);
+  --muted: oklch(63% 0.016 255);
+  --background-gradient: linear-gradient(
+    oklch(48% 0.15 265 / 0.28) 0%,
+    oklch(60% 0.09 200 / 0.08) 50%,
+    oklch(60% 0.09 180 / 0) 100%
+  );
+  --chart-1: oklch(70% 0.14 250);
+  --chart-2: oklch(76% 0.11 180);
+  --chart-3: oklch(70% 0.14 300);
+  --chart-4: oklch(80% 0.13 80);
+  --chart-5: oklch(72% 0.15 350);
+}
+
+/* Text selection carries the accent instead of the browser default. */
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
 /*

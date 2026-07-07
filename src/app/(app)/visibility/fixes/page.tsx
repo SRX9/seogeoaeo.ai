@@ -141,7 +141,7 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
   });
 
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs text-default-400">{PILLAR_LABELS[finding.pillar]}</p>
@@ -230,7 +230,7 @@ function FindingsList({
         const group = findings.filter((f) => f.severity === sev);
         if (group.length === 0) return null;
         return (
-          <div key={sev} className="space-y-2">
+          <div key={sev} className="space-y-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold capitalize text-default-600">
               <span className={`size-2 rounded-full ${SEVERITY_DOT[sev]}`} aria-hidden />
               {sev}
@@ -253,7 +253,7 @@ export default function FixQueuePage() {
   const website = useBrandProfile().data?.profile.website?.trim() || null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Fix queue"
         description="Every issue Claudia's audits found on your site, ranked by how much fixing it will lift your visibility score. Open a row to get the exact fix — copy it, download it, or hand it to your AI coding assistant."
