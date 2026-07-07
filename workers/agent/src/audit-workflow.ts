@@ -73,6 +73,17 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
         planId: p.planId ?? null,
       }),
     );
+
+    // AP4: the cadence answer check. Non-fatal — the audit, fixes, and delta
+    // above already landed; a failed answer fan-out must not fail the cycle.
+    try {
+      await step.do("answers", { retries: RETRIES, timeout: "10 minutes" }, () =>
+        call({ step: "answers", auditId }),
+      );
+    } catch (error) {
+      console.error("[audit-workflow] answers step failed (non-fatal)", error);
+    }
+
     return { mode: p.mode, auditId, ok: true, alerted: finished.alerted === true };
   }
 }

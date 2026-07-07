@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderBadge } from "@/lib/growth/badge";
-import { buildDigest, canAutoApply, dueForReaudit } from "@/lib/jobs/visibility-agent";
-import type { DeltaReport } from "./compare";
+import { canAutoApply, dueForReaudit } from "@/lib/jobs/visibility-agent";
 import { median } from "./baseline";
 import { dedupeFindings, type OpenFinding } from "./findings-repository";
 import { getTool, TOOLBOX } from "./toolbox-registry";
@@ -60,7 +59,7 @@ describe("toolbox registry", () => {
   });
 });
 
-describe("visibility agent cadence + digest", () => {
+describe("visibility agent cadence", () => {
   it("gates re-audits by plan cadence", () => {
     const now = new Date("2026-07-02");
     expect(dueForReaudit(null, "monthly", now)).toBe(true);
@@ -73,23 +72,6 @@ describe("visibility agent cadence + digest", () => {
     expect(canAutoApply(2, "auto")).toBe(true);
     expect(canAutoApply(2, "artifact")).toBe(false);
     expect(canAutoApply(1, "auto")).toBe(false);
-  });
-
-  it("builds a proof-stack-ordered digest in Claudia's voice", () => {
-    const delta = {
-      overall: { key: "overall", label: "Overall", baseline: 61, current: 68, delta: 7, trend: "▲" },
-    } as DeltaReport;
-    const digest = buildDigest({
-      siteUrl: "acme.example",
-      delta,
-      answerShare: [{ engine: "perplexity", prompts: 10, appeared: 4, cited: 2, share: 40 }],
-      fixesApplied: 3,
-      clicksDeltaPct: 9,
-    });
-    expect(digest).toContain("61 → 68");
-    expect(digest).toContain("4 of 10");
-    expect(digest).toContain("Clicks +9%");
-    expect(digest).toContain("Claudia fixed 3");
   });
 });
 

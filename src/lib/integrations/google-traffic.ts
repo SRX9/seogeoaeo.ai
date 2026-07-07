@@ -4,7 +4,7 @@ import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { trafficConnections } from "@/lib/db/schema/visibility";
 import { syncGa4 } from "@/lib/integrations/ga4";
-import { syncGsc } from "@/lib/integrations/gsc";
+import { isQueryDataStale, syncGsc, syncGscQueries } from "@/lib/integrations/gsc";
 
 /**
  * V6.6 connect — the glue between better-auth's Google grant and the existing
@@ -143,6 +143,15 @@ export async function syncTrafficForBrand(
       let days: number;
       if (source === "gsc" && conn.siteUrl) {
         days = await syncGsc(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
+        // C2: the query×page report refreshes weekly, riding the daily sync's
+        // token. Best-effort — a failed report never fails the daily pull.
+        try {
+          if (await isQueryDataStale(scope.brandId)) {
+            await syncGscQueries(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
+          }
+        } catch (error) {
+          console.error("[google-traffic] query report sync failed", error);
+        }
       } else if (source === "ga4" && conn.propertyId) {
         days = await syncGa4(scope.brandId, conn.propertyId, token, { fetchImpl: opts.fetchImpl });
       } else {

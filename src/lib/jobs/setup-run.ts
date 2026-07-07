@@ -329,7 +329,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
       .limit(Math.min(caps.autoFixCap || 0, MAX_SETUP_FIXES));
     if (findings.length === 0) return { skip: "No auto-applicable fixes found." };
     for (const finding of findings) {
-      await applyFix(finding.id, scope.workspaceId);
+      await applyFix(finding.id, scope.workspaceId, "agent");
     }
     return `Applied ${findings.length} quick-win fix${findings.length === 1 ? "" : "es"}.`;
   },

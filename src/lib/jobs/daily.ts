@@ -2,6 +2,7 @@ import { refreshAgentBrief } from "@/lib/agent/brief";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
+import { maybeUpdateSourceWeights, runDueCheckpoints } from "@/lib/articles/performance";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { sendOutOfCreditsEmail } from "@/lib/email/notify";
 import { syncTrafficForBrand } from "@/lib/integrations/google-traffic";
@@ -207,6 +208,21 @@ export async function settleDailyForBrand(
     await syncTrafficForBrand(scope);
   } catch (error) {
     console.error("[daily] traffic sync failed", error);
+  }
+
+  // C4: read any published articles whose day-7/28/90 checkpoint came due
+  // (cheap reads of the C2 query report) and act on the verdicts. Best-effort.
+  try {
+    await runDueCheckpoints(scope);
+  } catch (error) {
+    console.error("[daily] performance checkpoints failed", error);
+  }
+
+  // C4: monthly, re-learn per-source topic weights from checkpoint outcomes.
+  try {
+    await maybeUpdateSourceWeights(scope);
+  } catch (error) {
+    console.error("[daily] source weight learning failed", error);
   }
 
   // Every 15 days: re-run evidence-based competitor discovery and auto-fill any

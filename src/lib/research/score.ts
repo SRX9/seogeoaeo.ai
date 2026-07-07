@@ -45,6 +45,11 @@ function heuristicScore(finding: ResearchFinding, context: ResearchContext) {
   if (finding.sourceType === "competitor_gap") {
     score += 10;
   }
+  // C2: Google-verified demand (we already rank and get impressions) outranks
+  // every guess-based source.
+  if (finding.sourceType === "gsc_query") {
+    score += 20;
+  }
   if (finding.sourceType === "trend_query") {
     score += 12;
   }
@@ -138,7 +143,15 @@ function sourcesByTitle(findings: ResearchFinding[]) {
   return map;
 }
 
-export async function scoreFindings(findings: ResearchFinding[], context: ResearchContext) {
+export async function scoreFindings(
+  findings: ResearchFinding[],
+  context: ResearchContext,
+  opts: {
+    /** C4 — learned per-sourceType multipliers (bounded 0.5–2.0), applied
+     * before the MIN_SCORE cutoff so a losing source can fall out entirely. */
+    sourceWeights?: Record<string, number>;
+  } = {},
+) {
   const sources = sourcesByTitle(findings);
   const unique = uniqueByTitle(findings);
   let tokenUsage: TokenUsageSummary = emptyTokenUsage();
@@ -159,9 +172,10 @@ export async function scoreFindings(findings: ResearchFinding[], context: Resear
       // An idea two independent sources produced is more than the sum of its
       // scores — boost it before the cutoff so it can't fall below MIN_SCORE.
       const confirmations = sources.get(slug)?.size ?? 1;
+      const weight = opts.sourceWeights?.[topic.sourceType] ?? 1;
       const score = Math.min(
         100,
-        topic.score + (confirmations >= 2 ? MULTI_SOURCE_BOOST : 0),
+        Math.round(topic.score * weight) + (confirmations >= 2 ? MULTI_SOURCE_BOOST : 0),
       );
       if (score < MIN_SCORE || seenSlugs.has(slug)) {
         return eligible;

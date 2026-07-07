@@ -1,7 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
 import type { Finding, FixCapability, Pillar, Severity } from "./types";
+
+/** How a finding left the queue. `dismissed` rows are never resurrected. */
+export type FindingResolution = "auto_applied" | "user_applied" | "completed" | "dismissed";
 
 /**
  * V8.2 — the fix queue's data layer. ONE severity-ranked queue merging every
@@ -41,11 +44,15 @@ export function dedupeFindings(rows: OpenFinding[]): OpenFinding[] {
 }
 
 /**
- * Persist analyzer findings into the shared fix queue, skipping any whose
- * (category, title) already exists for the workspace — open or dismissed — so
- * repeat audits/tool runs/answer runs never pile up duplicates or resurrect a
- * finding the owner already dismissed. Single owner of the column mapping for
- * every producer (audits, Toolbox runs, answer runs). Returns the insert count.
+ * Persist analyzer findings into the shared fix queue. Deduped by
+ * (category, title) per workspace — repeat audits/tool runs/answer runs never
+ * pile up duplicates — with resolution-aware semantics:
+ * - already OPEN → skip (one row per issue);
+ * - DISMISSED → skip (never resurrect a finding the owner said won't-fix);
+ * - resolved any other way (applied/completed) → the fix REGRESSED: reopen the
+ *   row and stamp `regressedAt` so the monitor cycle can report it.
+ * Single owner of the column mapping for every producer (audits, Toolbox runs,
+ * answer runs). Returns the insert count.
  */
 export async function persistNewFindings(
   workspaceId: string,
@@ -55,16 +62,40 @@ export async function persistNewFindings(
   if (findings.length === 0) return 0;
   const db = getDb();
   const existing = await db
-    .select({ category: auditFindings.category, title: auditFindings.title })
+    .select({
+      id: auditFindings.id,
+      category: auditFindings.category,
+      title: auditFindings.title,
+      isResolved: auditFindings.isResolved,
+      resolution: auditFindings.resolution,
+    })
     .from(auditFindings)
     .where(eq(auditFindings.workspaceId, workspaceId));
-  const seen = new Set(existing.map((f) => `${f.category}::${f.title.toLowerCase()}`));
-  const fresh = findings.filter((f) => {
+  const byKey = new Map(existing.map((f) => [`${f.category}::${f.title.toLowerCase()}`, f]));
+
+  const fresh: Finding[] = [];
+  const regressed: string[] = [];
+  const seen = new Set<string>(); // dedupe within this batch
+  for (const f of findings) {
     const key = `${f.category}::${f.title.toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key); // also dedupe within this batch
-    return true;
-  });
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const row = byKey.get(key);
+    if (!row) {
+      fresh.push(f);
+    } else if (row.isResolved && row.resolution !== "dismissed") {
+      regressed.push(row.id);
+    }
+    // open or dismissed → skip
+  }
+
+  if (regressed.length > 0) {
+    await db
+      .update(auditFindings)
+      .set({ isResolved: false, regressedAt: new Date(), verifiedAt: null })
+      .where(inArray(auditFindings.id, regressed));
+  }
+
   if (fresh.length === 0) return 0;
   await db.insert(auditFindings).values(
     fresh.map((f) => ({
@@ -118,10 +149,22 @@ export async function getOpenFindings(workspaceId: string, filters: FindingFilte
   return findings;
 }
 
-/** Mark a finding resolved (manual complete) or dismissed (won't fix). */
-export async function setFindingResolved(id: string, workspaceId: string, resolved: boolean): Promise<void> {
+/** Mark a finding resolved (manual complete / won't-fix dismissal) or reopen it. */
+export async function setFindingResolved(
+  id: string,
+  workspaceId: string,
+  resolved: boolean,
+  resolution: Extract<FindingResolution, "completed" | "dismissed"> = "completed",
+): Promise<void> {
   const db = getDb();
   const finding = await db.query.auditFindings.findFirst({ where: eq(auditFindings.id, id) });
   if (!finding || finding.workspaceId !== workspaceId) throw new Error("Finding not found");
-  await db.update(auditFindings).set({ isResolved: resolved, resolvedAt: resolved ? new Date() : null }).where(eq(auditFindings.id, id));
+  await db
+    .update(auditFindings)
+    .set(
+      resolved
+        ? { isResolved: true, resolvedAt: new Date(), resolution }
+        : { isResolved: false, resolvedAt: null, resolution: null },
+    )
+    .where(eq(auditFindings.id, id));
 }

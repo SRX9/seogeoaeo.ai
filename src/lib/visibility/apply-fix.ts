@@ -30,12 +30,29 @@ async function loadOwnedFinding(findingId: string, workspaceId: string) {
   return finding;
 }
 
-/** Apply a finding's fix and mark it resolved (revertible). */
-export async function applyFix(findingId: string, workspaceId: string): Promise<ApplyResult> {
+/**
+ * Apply a finding's fix and mark it resolved (revertible). `source` records who
+ * applied it: the agent's standing loop ("agent" → `auto_applied`, counted
+ * against the plan's monthly auto-fix cap) or a user click ("user" →
+ * `user_applied`). Both are verified on the next scheduled re-audit.
+ */
+export async function applyFix(
+  findingId: string,
+  workspaceId: string,
+  source: "agent" | "user" = "user",
+): Promise<ApplyResult> {
   const finding = await loadOwnedFinding(findingId, workspaceId);
   const artifact = buildFixArtifact(finding.fixPayload);
   const db = getDb();
-  await db.update(auditFindings).set({ isResolved: true, resolvedAt: new Date() }).where(eq(auditFindings.id, findingId));
+  await db
+    .update(auditFindings)
+    .set({
+      isResolved: true,
+      resolvedAt: new Date(),
+      resolution: source === "agent" ? "auto_applied" : "user_applied",
+      verifiedAt: null,
+    })
+    .where(eq(auditFindings.id, findingId));
   return { findingId, artifact, resolved: true };
 }
 
@@ -43,6 +60,9 @@ export async function applyFix(findingId: string, workspaceId: string): Promise<
 export async function revertFix(findingId: string, workspaceId: string): Promise<{ findingId: string; resolved: boolean }> {
   await loadOwnedFinding(findingId, workspaceId);
   const db = getDb();
-  await db.update(auditFindings).set({ isResolved: false, resolvedAt: null }).where(eq(auditFindings.id, findingId));
+  await db
+    .update(auditFindings)
+    .set({ isResolved: false, resolvedAt: null, resolution: null })
+    .where(eq(auditFindings.id, findingId));
   return { findingId, resolved: false };
 }

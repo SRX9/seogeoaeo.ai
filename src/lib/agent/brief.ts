@@ -3,7 +3,9 @@ import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import type { BrandScope } from "@/lib/brand/repository";
 import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
 import { getDb } from "@/lib/db";
+import { brandProfiles } from "@/lib/db/schema/brand";
 import { answerRuns, auditFindings, audits } from "@/lib/db/schema/visibility";
+import { apexDomain } from "@/lib/visibility/answers";
 import { getUsageTotals } from "@/lib/jobs/repository";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
 import { agentBriefPrompt } from "@/lib/llm/prompts";
@@ -50,38 +52,48 @@ async function collectBriefFacts(scope: BrandScope): Promise<BriefFacts> {
   const db = getDb();
   const weekAgo = new Date(Date.now() - WEEK_MS);
 
-  const [usage, pending, recentAudits, resolvedFindings, recentAnswers] = await Promise.all([
-    getUsageTotals(scope.brandId),
-    listPendingTopicsForWriting(scope.brandId, 50),
-    // kind = "owned" — a competitor benchmark must never narrate as the owner's score.
-    db
-      .select({ overall: audits.overallScore })
-      .from(audits)
-      .where(
-        and(
-          eq(audits.workspaceId, scope.workspaceId),
-          eq(audits.status, "complete"),
-          eq(audits.kind, "owned"),
+  const [usage, pending, profile, workspaceAudits, resolvedFindings, recentAnswers] =
+    await Promise.all([
+      getUsageTotals(scope.brandId),
+      listPendingTopicsForWriting(scope.brandId, 50),
+      db.query.brandProfiles.findFirst({ where: eq(brandProfiles.brandId, scope.brandId) }),
+      // kind = "owned" — a competitor benchmark must never narrate as the owner's
+      // score. Fetched with siteUrl so multi-brand/multi-site workspaces can be
+      // narrowed to THIS brand's site below (another site's score must never
+      // narrate as this brand's).
+      db
+        .select({ overall: audits.overallScore, siteUrl: audits.siteUrl })
+        .from(audits)
+        .where(
+          and(
+            eq(audits.workspaceId, scope.workspaceId),
+            eq(audits.status, "complete"),
+            eq(audits.kind, "owned"),
+          ),
+        )
+        .orderBy(desc(audits.createdAt))
+        .limit(20),
+      // Findings carry no brand column — workspace-wide is the finest scope here.
+      db
+        .select({ id: auditFindings.id })
+        .from(auditFindings)
+        .where(
+          and(
+            eq(auditFindings.workspaceId, scope.workspaceId),
+            eq(auditFindings.isResolved, true),
+            gte(auditFindings.resolvedAt, weekAgo),
+          ),
         ),
-      )
-      .orderBy(desc(audits.createdAt))
-      .limit(2),
-    db
-      .select({ id: auditFindings.id })
-      .from(auditFindings)
-      .where(
-        and(
-          eq(auditFindings.workspaceId, scope.workspaceId),
-          eq(auditFindings.isResolved, true),
-          gte(auditFindings.resolvedAt, weekAgo),
-        ),
-      ),
-    db
-      .select({ mentioned: answerRuns.brandMentioned })
-      .from(answerRuns)
-      .where(and(eq(answerRuns.brandId, scope.brandId), gte(answerRuns.ranAt, weekAgo))),
-  ]);
+      db
+        .select({ mentioned: answerRuns.brandMentioned })
+        .from(answerRuns)
+        .where(and(eq(answerRuns.brandId, scope.brandId), gte(answerRuns.ranAt, weekAgo))),
+    ]);
 
+  const brandApex = profile?.website ? apexDomain(profile.website) : "";
+  const recentAudits = brandApex
+    ? workspaceAudits.filter((a) => apexDomain(a.siteUrl) === brandApex)
+    : workspaceAudits;
   const latest = recentAudits[0]?.overall ?? null;
   const previous = recentAudits[1]?.overall ?? null;
   return {

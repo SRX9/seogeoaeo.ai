@@ -10,6 +10,7 @@ import { BrandSwitcher } from "@/components/brand/brand-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   ActivityIcon,
+  ChartBarIcon,
   ChevronUpDownIcon,
   CreditCardIcon,
   GaugeIcon,
@@ -53,6 +54,7 @@ const primaryNav: NavEntry[] = [
       { href: "/tools", label: "Extra tools" },
     ],
   },
+  { kind: "leaf", href: "/reports", label: "Reports", icon: ChartBarIcon },
   { kind: "leaf", href: "/activity", label: "Activity", icon: ActivityIcon },
   { kind: "leaf", href: "/settings", label: "Brand settings", icon: SettingsIcon },
 ];

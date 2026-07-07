@@ -1,5 +1,6 @@
 "use client";
 
+import { AutonomyCategories } from "@/components/settings/autonomy-categories";
 import { AutonomyPanel } from "@/components/settings/autonomy-panel";
 import { BadgePanel } from "@/components/settings/badge-panel";
 import { Section } from "@/components/feedback/section";
@@ -35,6 +36,10 @@ export function AutomationSection() {
               key={`autonomy-${activeBrand.id}`}
               brandId={activeBrand.id}
               currentMode={activeBrand.autonomyMode}
+            />
+            <AutonomyCategories
+              key={`autonomy-categories-${activeBrand.id}`}
+              brandId={activeBrand.id}
             />
             <BadgePanel
               key={`badge-${activeBrand.id}`}

@@ -21,6 +21,43 @@ export const SUBSCORE_LABELS: Record<SubScore["key"], string> = {
   platform: "AI engine readiness",
 };
 
+/**
+ * AP4 — THE autonomy category registry: every fix category the standing loop
+ * can act on, its owner-language label, and whether its analyzer emits
+ * `fix_capability: auto` findings (drives the settings UI's *default* level;
+ * per-finding dispatch always trusts the finding's own `fixCapability`).
+ * Single source of truth — the settings UI, the PATCH enum, and
+ * AUTO_CAPABLE_CATEGORIES all derive from this map, so a new analyzer category
+ * only ever gets added here. Purely informational finding categories stay out
+ * of the autonomy surface.
+ */
+export const AUTONOMY_CATEGORIES: Record<string, { label: string; autoCapable: boolean }> = {
+  meta_tags: { label: "Search listings (titles & descriptions)", autoCapable: true },
+  schema: { label: "Structured data", autoCapable: true },
+  llms_txt: { label: "AI site guide (llms.txt)", autoCapable: true },
+  crawler_access: { label: "Crawler access", autoCapable: true },
+  answer_share: { label: "AI answer coverage", autoCapable: true },
+  performance: { label: "Speed fixes", autoCapable: true },
+  search_ctr: { label: "Low-click rescue (title rewrites)", autoCapable: true },
+};
+
+/** Owner-language labels for the per-category autonomy controls (derived). */
+export const AUTONOMY_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(AUTONOMY_CATEGORIES).map(([category, { label }]) => [category, label]),
+);
+
+/** "Week of June 29, 2026" from an ISO Monday (YYYY-MM-DD). Rendered in UTC so
+ * the label never slips a day for viewers west of Greenwich. */
+export function weekLabel(weekStart: string): string {
+  const date = new Date(`${weekStart}T00:00:00Z`);
+  return `Week of ${date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  })}`;
+}
+
 /** One-line "what's this" explainers for the sub-score tiles (owner language). */
 export const SUBSCORE_EXPLAINERS: Record<SubScore["key"], string> = {
   citability: "How easily AI assistants can lift a clean, self-contained answer from your pages.",

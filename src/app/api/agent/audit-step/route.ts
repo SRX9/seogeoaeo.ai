@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { getDb } from "@/lib/db";
-import { finishReaudit } from "@/server/visibility/cron";
+import { finishReaudit, runScheduledAnswerCheck } from "@/server/visibility/cron";
 import { runManualAudit } from "@/server/visibility/manual-audit";
 import { createAudit, executeAudit } from "@/server/visibility/run-audit";
 
@@ -10,9 +10,10 @@ type AuditStepBody = {
    * "manual"  — user-triggered audit: execute + charge credits on success.
    * "create"  — monitor: insert the new audit row, return its id.
    * "execute" — monitor: run the audit for an existing row.
-   * "finish"  — monitor: auto-fixes + delta vs baseline + alert email.
+   * "finish"  — monitor: autonomy dispatch + verification + delta + alert.
+   * "answers" — monitor: the AP4 cadence answer check (credit-gated, non-fatal).
    */
-  step: "manual" | "create" | "execute" | "finish";
+  step: "manual" | "create" | "execute" | "finish" | "answers";
   workspaceId: string;
   siteUrl: string;
   auditId?: string;
@@ -90,6 +91,15 @@ export async function POST(request: Request) {
           planId: body.planId ?? null,
         });
         return NextResponse.json({ alerted });
+      }
+      case "answers": {
+        if (!body.auditId) return NextResponse.json({ error: "Missing auditId" }, { status: 400 });
+        const result = await runScheduledAnswerCheck({
+          workspaceId: body.workspaceId,
+          siteUrl: body.siteUrl,
+          newAuditId: body.auditId,
+        });
+        return NextResponse.json(result);
       }
       default:
         return NextResponse.json({ error: `Unknown step "${String(body.step)}"` }, { status: 400 });

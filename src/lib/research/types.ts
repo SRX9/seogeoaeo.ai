@@ -5,7 +5,9 @@ export type ResearchSourceType =
   | "trend_query"
   | "keyword_api"
   | "use_case"
-  | "competitor_gap";
+  | "competitor_gap"
+  /** C2 — mined from the brand's own Search Console query report. */
+  | "gsc_query";
 
 /** C1 buyer-intent tiers — the first ranking key for the backlog. */
 export type IntentTier = "bofu" | "mofu" | "tofu";

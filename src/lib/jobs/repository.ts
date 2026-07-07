@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { agentJobs, usageCounters } from "@/lib/db/schema";
@@ -11,7 +11,9 @@ export type JobKind =
   | "daily_pipeline"
   | "setup_run"
   | "competitor_rediscovery"
-  | "site_health_check";
+  | "site_health_check"
+  | "visibility_monitor"
+  | "performance_check";
 export type JobStatus = "running" | "completed" | "failed";
 
 export async function createAgentJob(scope: BrandScope, kind: JobKind, message?: string) {
@@ -61,6 +63,60 @@ export async function getAgentJob(brandId: string, jobId: string) {
     .where(and(eq(agentJobs.brandId, brandId), eq(agentJobs.id, jobId)))
     .limit(1);
   return job ?? null;
+}
+
+/**
+ * The `visibility_monitor` job's metadata contract — written by
+ * `finishReaudit` (cron.ts), read by the weekly report and the autonomy
+ * settings API. One type ties producer and consumers together so a renamed
+ * field breaks the build instead of silently zeroing the receipts.
+ */
+export type VisibilityMonitorMeta = {
+  auditId?: string;
+  baselineAuditId?: string;
+  applied?: number;
+  proposed?: number;
+  queued?: number;
+  verified?: Array<{ category: string; title: string }>;
+  regressed?: Array<{ category: string; title: string }>;
+  alerted?: boolean;
+  /** Delta/competitor blobs — recorded for the activity log, not read back. */
+  overallDelta?: unknown;
+  categoryDeltas?: unknown;
+  competitor?: unknown;
+};
+
+/**
+ * The brand's most recent monitor cycle (optionally within a window), with its
+ * metadata parsed. A direct kind-filtered query — never a scan of recent jobs,
+ * which goes blind once other job kinds crowd the window.
+ */
+export async function latestVisibilityMonitorMeta(
+  brandId: string,
+  opts: { since?: Date } = {},
+): Promise<{ meta: VisibilityMonitorMeta; message: string | null; at: Date } | null> {
+  const conditions = [eq(agentJobs.brandId, brandId), eq(agentJobs.kind, "visibility_monitor")];
+  if (opts.since) conditions.push(gte(agentJobs.createdAt, opts.since));
+  const [job] = await getDb()
+    .select({
+      message: agentJobs.message,
+      metadataJson: agentJobs.metadataJson,
+      createdAt: agentJobs.createdAt,
+    })
+    .from(agentJobs)
+    .where(and(...conditions))
+    .orderBy(desc(agentJobs.createdAt))
+    .limit(1);
+  if (!job) return null;
+  let meta: VisibilityMonitorMeta = {};
+  if (job.metadataJson) {
+    try {
+      meta = JSON.parse(job.metadataJson) as VisibilityMonitorMeta;
+    } catch {
+      meta = {};
+    }
+  }
+  return { meta, message: job.message, at: job.createdAt };
 }
 
 export type WeeklyRunSummary = {

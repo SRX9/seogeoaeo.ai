@@ -31,6 +31,9 @@ export const queryKeys = {
   research: ["research"] as const,
   integrations: ["integrations"] as const,
   googleTraffic: ["integrations", "google"] as const,
+  brandAutonomy: ["brand", "autonomy"] as const,
+  reports: ["reports"] as const,
+  report: (id: string) => ["reports", id] as const,
   credits: ["credits"] as const,
   visibilitySummary: ["visibility", "summary"] as const,
   visibilityFindings: ["visibility", "findings"] as const,
@@ -114,6 +117,8 @@ export type AutomationStats = {
   writtenToday: number;
   /** Scored topics queued and waiting to be written. */
   pendingTopics: number;
+  /** C4 — the next topic she'll write and its traffic thesis. */
+  nextTopic: { title: string; thesis: string | null } | null;
   /** When the workspace (its content agent) was created. */
   workingSince: string;
   totalRuns: number;
@@ -185,6 +190,8 @@ export type Article = {
   gateResultsJson: string | null;
   updatedAt: string;
   createdAt: string;
+  /** C4 — latest performance checkpoint verdict, when one has run. */
+  performance?: { verdict: "winner" | "stalling" | "dead" | "watching"; day: number; position: number | null } | null;
 };
 
 export type Publication = {
@@ -269,7 +276,7 @@ const researchQueryOptions = () => ({
 });
 const topicsQueryOptions = () => ({
   queryKey: queryKeys.topics,
-  queryFn: () => apiGet<{ topics: Topic[] }>("/api/topics"),
+  queryFn: () => apiGet<{ topics: Topic[]; sourceWeights?: Record<string, number> }>("/api/topics"),
 });
 const articlesQueryOptions = () => ({
   queryKey: queryKeys.articles,
@@ -487,6 +494,60 @@ export function useGoogleTraffic() {
 
 export function useCredits() {
   return useQuery({ ...creditsQueryOptions(), enabled: useHasBrand() });
+}
+
+/** AP4 — one fix category's effective autonomy level for the standing loop. */
+export type AutonomyCategoryState = {
+  category: string;
+  label: string;
+  level: 0 | 1 | 2;
+  isOverride: boolean;
+  defaultLevel: 0 | 1 | 2;
+  verifiedLastCycle: number;
+};
+
+export type BrandAutonomyState = {
+  mode: "FULL_AUTO" | "REVIEW";
+  categories: AutonomyCategoryState[];
+  lastRun: { message: string | null; at: string } | null;
+};
+
+/** AP5 — one archived weekly report row. */
+export type WeeklyReportRow = {
+  id: string;
+  weekStart: string;
+  subject: string;
+  emailedAt: string | null;
+  createdAt: string;
+};
+
+export function useReports() {
+  return useQuery({
+    queryKey: queryKeys.reports,
+    queryFn: () => apiGet<{ reports: WeeklyReportRow[] }>("/api/reports"),
+    enabled: useHasBrand(),
+  });
+}
+
+export function useReport(id: string) {
+  return useQuery({
+    queryKey: queryKeys.report(id),
+    queryFn: () =>
+      apiGet<{
+        report: WeeklyReportRow;
+        lines: string[];
+        ask: { what: string; href: string } | null;
+      }>(`/api/reports/${id}`),
+    enabled: useHasBrand() && Boolean(id),
+  });
+}
+
+export function useBrandAutonomy(brandId: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.brandAutonomy, brandId] as const,
+    queryFn: () => apiGet<BrandAutonomyState>(`/api/brand/autonomy?brandId=${brandId}`),
+    enabled: Boolean(brandId),
+  });
 }
 
 export type VisibilitySubScoreKey =

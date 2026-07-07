@@ -17,7 +17,24 @@ type ArticleRow = {
   status: string;
   updatedAt: string;
   tags: string | null;
+  /** C4 — latest performance checkpoint, when one has run. */
+  performance?: { verdict: "winner" | "stalling" | "dead" | "watching"; day: number; position: number | null } | null;
 };
+
+/** Owner-language line for a C4 verdict (plain text — no pills). */
+function performanceLine(p: NonNullable<ArticleRow["performance"]>): string {
+  const pos = p.position != null ? `#${Math.round(p.position)}` : null;
+  switch (p.verdict) {
+    case "winner":
+      return pos ? `Winning — ${pos} in search` : "Winning in search";
+    case "stalling":
+      return pos ? `Stalling at ${pos} — rescue queued` : "Stalling — rescue queued";
+    case "dead":
+      return "No traction after 90 days";
+    default:
+      return `Watching (day ${p.day})`;
+  }
+}
 
 type ArticlesListProps = {
   articles: ArticleRow[];
@@ -105,6 +122,13 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                         {article.title}
                       </span>
                       <span className="text-xs text-muted">/{article.slug}</span>
+                      {article.performance ? (
+                        <span
+                          className={`text-xs ${article.performance.verdict === "winner" ? "text-success" : "text-muted"}`}
+                        >
+                          {performanceLine(article.performance)}
+                        </span>
+                      ) : null}
                     </div>
                   </Table.Cell>
                   <Table.Cell>

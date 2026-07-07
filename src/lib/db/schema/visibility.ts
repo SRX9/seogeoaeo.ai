@@ -104,9 +104,20 @@ export const auditFindings = pgTable(
     /** Machine-applicable payload for V7.2 auto-apply. */
     fixPayload: jsonb("fix_payload"),
     isResolved: boolean("is_resolved").notNull().default(false),
-    /** When the finding was resolved (fix applied / dismissed) — null while open.
-     * Backs the monthly auto-fix cap count (V8.5). */
+    /** When the finding was resolved (fix applied / dismissed) — null while open. */
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    /** HOW it was resolved: auto_applied | user_applied | completed | dismissed.
+     * Distinguishes agent applies (the monthly auto-fix cap counts these), user
+     * applies/completions (verified next cycle), and dismissals (never resurrected,
+     * never claimed as a fix). Null on rows resolved before the column existed. */
+    resolution: text("resolution"),
+    /** AP4: an applied fix re-detected by a later audit — the row is reopened and
+     * this stamp marks the regression for the monitor/weekly report. */
+    regressedAt: timestamp("regressed_at", { withTimezone: true }),
+    /** AP4 Level 1: Claudia prepared this fix and is waiting for one-click approval. */
+    proposedAt: timestamp("proposed_at", { withTimezone: true }),
+    /** AP4 verification: an applied fix confirmed gone on a later scheduled re-audit. */
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("audit_findings_audit_id_idx").on(table.auditId)],
@@ -204,6 +215,10 @@ export const answerRuns = pgTable(
       .references(() => trackedPrompts.id, { onDelete: "cascade" }),
     /** chatgpt | perplexity | gemini */
     engine: text("engine").notNull(),
+    /** Idempotency key for scheduled runs (the monitor cycle's audit id): a
+     * retried workflow step replaces its own rows instead of appending a
+     * duplicate set. Null for user-triggered checks. */
+    refId: text("ref_id"),
     ranAt: timestamp("ran_at", { withTimezone: true }).defaultNow().notNull(),
     answerExcerpt: text("answer_excerpt"),
     brandMentioned: boolean("brand_mentioned").notNull().default(false),

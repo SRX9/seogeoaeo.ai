@@ -1,16 +1,67 @@
-import type { EngineShare } from "@/lib/visibility/answers";
-import type { DeltaReport } from "@/lib/visibility/compare";
 import type { VisibilityCaps } from "@/lib/billing/plans";
+import { AUTONOMY_CATEGORIES } from "@/lib/visibility/display";
 
 /**
  * V8.5 — Claudia's visibility duties: monitor on the plan cadence, prepare fixes,
  * apply the categories she's authorized for (V7.2), and report the score delta.
- * This module holds the deterministic cadence + digest logic; the run wiring
- * lives in the daily cron handler (patched into the deployed worker by
+ * This module holds the deterministic cadence + dispatch-decision logic; the run
+ * wiring lives in the daily cron handler (patched into the deployed worker by
  * build-cloudflare.mjs). Autonomy is earned per category, opt-in.
  */
 
 export type AutonomyLevel = 0 | 1 | 2; // 0 monitor · 1 propose · 2 auto-apply
+
+/** The brand-level dial: Autopilot (FULL_AUTO) or Copilot (REVIEW). */
+export type AutonomyMode = "FULL_AUTO" | "REVIEW";
+
+/** What the standing loop does with one finding on a scheduled re-audit. */
+export type DispatchAction = "apply" | "propose" | "queue";
+
+/**
+ * Fix categories whose findings typically carry `fix_capability: auto` —
+ * used only to show *default* levels in the settings UI. Per-finding dispatch
+ * always trusts the finding's own `fixCapability`, never this set. Derived
+ * from the AUTONOMY_CATEGORIES registry so the settings panel can't drift
+ * from what the standing loop actually auto-applies (crawler_access robots
+ * fixes were exactly that drift before the registry existed).
+ */
+export const AUTO_CAPABLE_CATEGORIES: ReadonlySet<string> = new Set(
+  Object.entries(AUTONOMY_CATEGORIES)
+    .filter(([, { autoCapable }]) => autoCapable)
+    .map(([category]) => category),
+);
+
+/**
+ * The dial's per-category defaults (AP4 §4): Autopilot = auto-apply where the
+ * machinery can (`fix_capability: auto`), propose everywhere else; Copilot =
+ * propose everywhere. Level 0 (watch) is never a default — it's an explicit
+ * per-category opt-down.
+ */
+export function defaultLevelFor(mode: AutonomyMode, fixCapability: string | null): AutonomyLevel {
+  if (mode === "FULL_AUTO" && fixCapability === "auto") return 2;
+  return 1;
+}
+
+/**
+ * Decide one finding's fate. Per-category overrides (the `agent_autonomy`
+ * table) beat the dial; `canAutoApply` still gates Level 2, so a Level-2
+ * override on a `guided` category proposes rather than applies.
+ */
+export function dispatchDecision(
+  finding: { category: string; fixCapability: string | null },
+  mode: AutonomyMode,
+  overrides: Record<string, AutonomyLevel>,
+): DispatchAction {
+  const level = overrides[finding.category] ?? defaultLevelFor(mode, finding.fixCapability);
+  if (canAutoApply(level, finding.fixCapability)) return "apply";
+  if (level >= 1) return "propose";
+  return "queue";
+}
+
+export interface FindingKey {
+  category: string;
+  title: string;
+}
 
 const CADENCE_DAYS: Record<VisibilityCaps["monitoringCadence"], number> = {
   none: Number.POSITIVE_INFINITY,
@@ -35,39 +86,3 @@ export function canAutoApply(level: AutonomyLevel, fixCapability: string | null)
   return level === 2 && fixCapability === "auto";
 }
 
-export interface DigestInput {
-  siteUrl: string;
-  delta: DeltaReport;
-  answerShare?: EngineShare[];
-  fixesApplied?: number;
-  awaitingApproval?: number;
-  clicksDeltaPct?: number | null;
-}
-
-/**
- * The weekly digest, ordered by the proof stack: score + delta, then answer
- * share, then traffic (when connected). Claudia's voice.
- */
-export function buildDigest(input: DigestInput): string {
-  const { delta, answerShare, fixesApplied = 0, awaitingApproval = 0, clicksDeltaPct } = input;
-  const lines: string[] = [];
-  const o = delta.overall;
-
-  lines.push(
-    o.delta === 0
-      ? `Your visibility score held at ${o.current ?? "—"}.`
-      : `Your visibility score moved ${o.baseline ?? "—"} → ${o.current ?? "—"} (${o.delta > 0 ? "+" : ""}${o.delta}).`,
-  );
-
-  if (answerShare && answerShare.length > 0) {
-    const best = [...answerShare].sort((a, b) => b.appeared - a.appeared)[0];
-    lines.push(`You appeared in ${best.appeared} of ${best.prompts} tracked ${best.engine} answers.`);
-  }
-  if (clicksDeltaPct != null) {
-    lines.push(`Clicks ${clicksDeltaPct >= 0 ? "+" : ""}${clicksDeltaPct}% since your baseline audit.`);
-  }
-  if (fixesApplied > 0) lines.push(`Claudia fixed ${fixesApplied} issue${fixesApplied === 1 ? "" : "s"} for you this cycle.`);
-  if (awaitingApproval > 0) lines.push(`${awaitingApproval} fix${awaitingApproval === 1 ? "" : "es"} are ready for your one-click approval.`);
-
-  return lines.join(" ");
-}
