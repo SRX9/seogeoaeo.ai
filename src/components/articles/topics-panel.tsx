@@ -33,7 +33,7 @@ const filters = [
 
 // Owner language for where a topic idea came from — never the raw enum.
 const SOURCE_BADGES: Record<string, string> = {
-  use_case: "Your use cases",
+  use_case: "Customer profiles",
   competitor_gap: "Competitor gap",
   gsc: "Search Console",
   web_search: "Web search",
@@ -227,7 +227,7 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
 /** Owner-language labels for C4's learned source weights. */
 const SOURCE_WEIGHT_LABELS: Record<string, string> = {
   gsc_query: "Search Console topics",
-  use_case: "use-case topics",
+  use_case: "customer-profile topics",
   competitor_gap: "competitor-gap topics",
   trend_query: "trend topics",
   web_search: "web-search topics",

@@ -17,10 +17,10 @@ type UseCasesPanelProps = {
 const EMPTY_USE_CASE = { job: "", persona: "", industry: "" };
 
 /**
- * C1 use-case inventory: Claudia maps the jobs buyers hire the product for; a
- * two-minute review here multiplies the quality of every bottom-of-funnel
- * article built on it. Rows the user edits or adds are never overwritten by
- * regeneration.
+ * C1 target-profile inventory: Claudia finds the buyer and user profiles most
+ * likely to need the product; a two-minute review here multiplies the quality
+ * of every bottom-of-funnel article built on it. Rows the user edits or adds
+ * are never overwritten by regeneration.
  */
 export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
   const queryClient = useQueryClient();
@@ -55,8 +55,8 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
         },
       ],
     }),
-    onSuccess: () => toast.success("Use case added"),
-    onError: (error) => toast.danger(getErrorMessage(error, "Could not add use case")),
+    onSuccess: () => toast.success("Customer profile added"),
+    onError: (error) => toast.danger(getErrorMessage(error, "Could not add customer profile")),
   });
 
   const toggle = useOptimisticMutation<unknown, { id: string; enabled: boolean }, UseCasesCache>({
@@ -77,11 +77,11 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
       queryClient.setQueryData<UseCasesCache>(queryKeys.useCases, { useCases: result.useCases });
       toast.success(
         result.added > 0
-          ? `Claudia found ${result.added} new use case${result.added > 1 ? "s" : ""}.`
-          : "Nothing new — your inventory already covers what Claudia can see.",
+          ? `Claudia found ${result.added} new profile${result.added > 1 ? "s" : ""}.`
+          : "Nothing new — your target profiles already cover what Claudia can see.",
       );
     } catch (error) {
-      toast.danger(getErrorMessage(error, "Could not regenerate use cases"));
+      toast.danger(getErrorMessage(error, "Could not refresh customer profiles"));
     } finally {
       setRegenerating(false);
     }
@@ -104,29 +104,28 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
       <Card.Header>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Card.Title>Use cases</Card.Title>
+            <Card.Title>Customer profiles</Card.Title>
             <Card.Description>
-              Claudia mapped what buyers hire your product for. Confirm these are right and she
-              writes for the buyers that matter — each one seeds tutorials, comparisons, and
-              answer pages.
+              Claudia searches for the buyers and users most likely to need your product. Confirm
+              the roles, industries, and situations she should write for.
             </Card.Description>
           </div>
           <LoadingButton
             variant="secondary"
             size="sm"
             isPending={regenerating}
-            pendingLabel="Mapping…"
+            pendingLabel="Searching..."
             onPress={regenerate}
           >
-            Re-map from profile
+            Search from profile
           </LoadingButton>
         </div>
       </Card.Header>
       <Card.Content className="space-y-4">
         {useCases.length === 0 ? (
           <p className="text-sm text-muted">
-            No use cases yet. Save your brand profile and Claudia maps them automatically, or add
-            one below.
+            No customer profiles yet. Save your brand profile and Claudia searches automatically,
+            or add one below.
           </p>
         ) : (
           <ul className="space-y-3">
@@ -136,9 +135,9 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
                 className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-surface p-4 ${useCase.enabled ? "" : "opacity-55"}`}
               >
                 <div>
-                  <p className="font-medium text-foreground">{useCase.job}</p>
+                  <p className="font-medium text-foreground">{useCase.persona}</p>
                   <p className="text-sm text-muted">
-                    {useCase.persona}
+                    {useCase.job}
                     {useCase.industry ? ` · ${useCase.industry}` : ""}
                   </p>
                   {useCase.evidence ? (
@@ -150,7 +149,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
                     <span className="text-xs uppercase tracking-wide text-muted">yours</span>
                   ) : null}
                   <Switch
-                    aria-label={`Write for "${useCase.job}"`}
+                    aria-label={`Write for "${useCase.persona}"`}
                     isSelected={useCase.enabled}
                     isDisabled={toggle.isPending}
                     onChange={(enabled) => toggle.mutate({ id: useCase.id, enabled })}
@@ -170,20 +169,20 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
         <form onSubmit={handleAdd} className="space-y-3 border-t border-border pt-4">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="uc-job">Job</Label>
-              <Input id="uc-job" name="job" value={fields.job} onChange={set("job")} required placeholder="send automatic invoice reminders" variant="secondary" fullWidth />
+              <Label htmlFor="uc-job">Need or situation</Label>
+              <Input id="uc-job" name="job" value={fields.job} onChange={set("job")} required placeholder="prove AI search visibility before competitors do" variant="secondary" fullWidth />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="uc-persona">Who does it</Label>
-              <Input id="uc-persona" name="persona" value={fields.persona} onChange={set("persona")} required placeholder="freelance designers" variant="secondary" fullWidth />
+              <Label htmlFor="uc-persona">Customer or user profile</Label>
+              <Input id="uc-persona" name="persona" value={fields.persona} onChange={set("persona")} required placeholder="B2B SaaS marketing leads" variant="secondary" fullWidth />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="uc-industry">Industry (optional)</Label>
-              <Input id="uc-industry" name="industry" value={fields.industry} onChange={set("industry")} placeholder="creative services" variant="secondary" fullWidth />
+              <Label htmlFor="uc-industry">Industry or segment</Label>
+              <Input id="uc-industry" name="industry" value={fields.industry} onChange={set("industry")} placeholder="AI search, SEO, content marketing" variant="secondary" fullWidth />
             </div>
           </div>
-          <LoadingButton type="submit" variant="secondary" isPending={add.isPending} pendingLabel="Adding…">
-            Add use case
+          <LoadingButton type="submit" variant="secondary" isPending={add.isPending} pendingLabel="Adding...">
+            Add profile
           </LoadingButton>
         </form>
       </Card.Content>

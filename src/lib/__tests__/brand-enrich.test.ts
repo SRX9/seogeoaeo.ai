@@ -104,6 +104,99 @@ describe("discoverCompetitors", () => {
     expect(result.map((c) => c.url)).toEqual(["https://rival.com", "https://foo.io"]);
   });
 
+  it("fallback drops the brand's own subdomains and canonicalizes competitor content subdomains", async () => {
+    mockGetLlmConfig.mockReturnValue(null);
+    mockSerper.mockResolvedValue(
+      serperResult({
+        organic: [
+          { title: "Acme Blog", link: "https://blog.acme.com/best-tools" },
+          { title: "Acme Docs", link: "https://docs.acme.com/alternatives" },
+          { title: "Rival article", link: "https://blog.rival.com/acme-alternatives" },
+          { title: "Foo", link: "https://foo.io" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 3);
+
+    expect(result.map((c) => c.url)).toEqual(["https://rival.com", "https://foo.io"]);
+  });
+
+  it("fallback keeps distinct domains on country-code second-level suffixes", async () => {
+    mockGetLlmConfig.mockReturnValue(null);
+    mockSerper.mockResolvedValue(
+      serperResult({
+        organic: [
+          { title: "Mybrand", link: "https://mybrand.co.at" },
+          { title: "Rival", link: "https://rival.co.at" },
+          { title: "Other", link: "https://other.com" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors(
+      { name: "Mybrand", website: "https://mybrand.co.at" },
+      3,
+    );
+
+    expect(result.map((c) => c.url)).toEqual(["https://rival.co.at", "https://other.com"]);
+  });
+
+  it("fallback keeps distinct competitors on hosted platform suffixes", async () => {
+    mockGetLlmConfig.mockReturnValue(null);
+    mockSerper.mockResolvedValue(
+      serperResult({
+        organic: [
+          { title: "Mybrand", link: "https://mybrand.pages.dev" },
+          { title: "Rival", link: "https://rival.pages.dev" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors(
+      { name: "Mybrand", website: "https://mybrand.pages.dev" },
+      3,
+    );
+
+    expect(result).toEqual([{ name: "rival.pages.dev", url: "https://rival.pages.dev" }]);
+  });
+
+  it("fallback drops same-brand properties on alternate domains and publishing platforms", async () => {
+    mockGetLlmConfig.mockReturnValue(null);
+    mockSerper.mockResolvedValue(
+      serperResult({
+        organic: [
+          { title: "Acme Newsletter", link: "https://acme.substack.com/p/best-tools" },
+          { title: "Acme Blog", link: "https://acme-blog.com/best-tools" },
+          { title: "Acme Help", link: "https://help-acme.io/articles" },
+          { title: "Rival", link: "https://rival.com" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 3);
+
+    expect(result).toEqual([{ name: "rival.com", url: "https://rival.com" }]);
+  });
+
+  it("fallback keeps competitors whose domain label contains the brand token", async () => {
+    mockGetLlmConfig.mockReturnValue(null);
+    mockSerper.mockResolvedValue(
+      serperResult({
+        organic: [
+          { title: "Acme Analytics", link: "https://acme-analytics.com" },
+          { title: "Acme Blog", link: "https://acme-blog.com/best-tools" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 3);
+
+    expect(result).toEqual([
+      { name: "acme-analytics.com", url: "https://acme-analytics.com" },
+    ]);
+  });
+
   it("LLM path normalizes URLs, excludes the brand domain, and dedupes", async () => {
     mockGetLlmConfig.mockReturnValue(llmConfig);
     mockSerper.mockResolvedValue(
@@ -126,6 +219,102 @@ describe("discoverCompetitors", () => {
       { name: "Rival", url: "https://rival.com" },
       { name: "Other", url: "https://other.com" },
     ]);
+  });
+
+  it("LLM path rejects self-brand suggestions and converts blog URLs to homepages", async () => {
+    mockGetLlmConfig.mockReturnValue(llmConfig);
+    mockSerper.mockResolvedValue(
+      serperResult({ organic: [{ title: "Rival blog", link: "https://blog.rival.com/post" }] }),
+    );
+    mockGenerateJson.mockResolvedValue(
+      jsonResult({
+        competitors: [
+          { name: "Acme Blog", url: "https://blog.acme.com/post" },
+          { name: "Rival", url: "https://blog.rival.com/post" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 5);
+
+    expect(result).toEqual([{ name: "Rival", url: "https://rival.com" }]);
+  });
+
+  it("LLM path rejects same-brand URLs on alternate domains without resolving them by name", async () => {
+    mockGetLlmConfig.mockReturnValue(llmConfig);
+    mockSerper.mockResolvedValue(
+      serperResult({ organic: [{ title: "Rival", link: "https://rival.com" }] }),
+    );
+    mockGenerateJson.mockResolvedValue(
+      jsonResult({
+        competitors: [
+          { name: "Learning Center", url: "https://acme.substack.com/p/best-tools" },
+          { name: "Rival", url: "https://rival.com" },
+        ],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 5);
+
+    expect(result).toEqual([{ name: "Rival", url: "https://rival.com" }]);
+    expect(mockSerper.mock.calls.some(([query]) => query.includes("official website"))).toBe(
+      false,
+    );
+  });
+
+  it("LLM path resolves official homepages when the supplied URL is excluded", async () => {
+    mockGetLlmConfig.mockReturnValue(llmConfig);
+    mockSerper.mockImplementation(async (query) => {
+      if (query.includes("official website")) {
+        return serperResult({
+          knowledgeGraph: { title: "Rival", website: "https://rival.com" },
+        });
+      }
+      return serperResult({
+        organic: [
+          {
+            title: "Top Acme Alternatives",
+            link: "https://www.g2.com/products/acme",
+            snippet: "Rival is a common alternative.",
+          },
+        ],
+      });
+    });
+    mockGenerateJson.mockResolvedValue(
+      jsonResult({
+        competitors: [{ name: "Rival", url: "https://www.g2.com/products/rival" }],
+      }),
+    );
+
+    const result = await discoverCompetitors({ name: "Acme", website: "https://acme.com" }, 3);
+
+    expect(result).toEqual([{ name: "Rival", url: "https://rival.com" }]);
+  });
+
+  it("LLM path resolves official homepages when supplied URL text is not a usable host", async () => {
+    mockGetLlmConfig.mockReturnValue(llmConfig);
+    mockSerper.mockImplementation(async (query) => {
+      if (query.includes("official website")) {
+        return serperResult({
+          knowledgeGraph: { title: "Rival", website: "https://rival.com" },
+        });
+      }
+      return serperResult({});
+    });
+    mockGenerateJson.mockResolvedValue(
+      jsonResult({ competitors: [{ name: "Rival", url: "rival" }] }),
+    );
+
+    const result = await discoverCompetitors(
+      {
+        name: "Acme",
+        website: "https://acme.com",
+        answerExcerpts: ["Rival is mentioned as another option."],
+      },
+      3,
+    );
+
+    expect(result).toEqual([{ name: "Rival", url: "https://rival.com" }]);
   });
 
   it("mines aggregator listicles and resolves name-only competitors via a homepage lookup", async () => {

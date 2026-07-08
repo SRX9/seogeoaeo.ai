@@ -35,9 +35,9 @@ export async function PUT(request: Request) {
       seedKeywords: data.seedKeywords ?? "",
     });
 
-    // C1: Claudia maps the product's use cases right after the profile is
-    // saved (onboarding) and re-maps when the description changes. Additive —
-    // user rows and edits are preserved. Never fail the save over it.
+    // C1: Claudia finds target customer/user profiles right after the profile is
+    // saved (onboarding) and refreshes them when the description changes.
+    // Additive — user rows and edits are preserved. Never fail the save over it.
     const descriptionChanged =
       (previous?.productDescription ?? "") !== (data.productDescription ?? "");
     if (data.productDescription && (descriptionChanged || previous === null)) {

@@ -19,7 +19,7 @@ const patchSchema = z.object({
   enabled: z.boolean().optional(),
 });
 
-/** Edit or enable/disable a use case. Edits mark the row user-owned. */
+/** Edit or enable/disable a customer/user profile. Edits mark the row user-owned. */
 export async function PATCH(request: Request, { params }: RouteProps) {
   return handleApi(async () => {
     const [{ id }, { brand }, body] = await Promise.all([
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const data = parseBody(patchSchema, body);
     const useCase = await updateUseCase(brand.id, id, data);
     if (!useCase) {
-      throw new HttpError(404, "Use case not found");
+      throw new HttpError(404, "Customer profile not found");
     }
     return jsonOk({ useCase });
   });

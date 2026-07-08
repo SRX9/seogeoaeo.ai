@@ -20,6 +20,8 @@ Postgres. v1 is complete on `main` per `docs/v1-implementation-phases.md`.
 | Cloudflare build | `pnpm build:cf` |
 | DB migrate | `pnpm db:migrate` |
 
+Do not start the local dev server unless the user explicitly asks for it.
+
 ## Services
 
 | Service | Required? | Notes |

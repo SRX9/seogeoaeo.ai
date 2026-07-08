@@ -6,17 +6,26 @@ import {
   parseBody,
   readJson,
 } from "@/lib/api/server";
+import { z } from "zod";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { setActiveBrandCookie } from "@/lib/brand/context";
 import {
   BrandExistsError,
   createBrand,
   createCompetitors,
+  getBrandByName,
   listBrands,
+  listCompetitors,
   upsertBrandProfile,
 } from "@/lib/brand/repository";
-import { createUseCase } from "@/lib/brand/use-cases";
+import { createUseCase, listUseCases } from "@/lib/brand/use-cases";
 import { brandOnboardingSchema } from "@/lib/brand/schemas";
+import {
+  isSetupRunStale,
+  startSetupRun,
+  triggerSetupRun,
+} from "@/lib/jobs/setup-run";
+import { getStripe } from "@/lib/billing/stripe";
 import {
   emptySecretStates,
   getIntegrationProvider,
@@ -52,6 +61,18 @@ type OnboardingIntegrationSetup = {
   secrets: Partial<Record<IntegrationSecretKey, string>>;
   enable: boolean;
 };
+
+const createBrandSchema = brandOnboardingSchema.extend({
+  /**
+   * Stripe-return finalization is replayable: React Strict Mode, bfcache, user
+   * retries, or a lost response can send the same draft again after the brand
+   * row already exists. Normal "add brand" submits keep duplicate-name errors.
+   */
+  resumeExisting: z.boolean().optional().default(false),
+  checkoutSessionId: z.string().max(255).optional(),
+});
+
+const RESUME_EXISTING_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 function hasValues(values: Record<string, string>) {
   return Object.values(values).some((value) => value.trim().length > 0);
@@ -102,6 +123,99 @@ function prepareOnboardingIntegration(
   }
 }
 
+function onboardingUseCaseKey(job: string, persona: string) {
+  return `${job.trim().toLowerCase()}::${persona.trim().toLowerCase()}`;
+}
+
+async function seedOnboardingCompetitors(
+  scope: { workspaceId: string; brandId: string },
+  inputs: { name: string; url: string }[],
+) {
+  const existing = await listCompetitors(scope.brandId);
+  const seenHosts = new Set(
+    existing.map((competitor) => safeHost(competitor.url) ?? competitor.url.toLowerCase()),
+  );
+  const deduped = inputs.filter((competitor) => {
+    const key = safeHost(competitor.url) ?? competitor.url.toLowerCase();
+    if (seenHosts.has(key)) {
+      return false;
+    }
+    seenHosts.add(key);
+    return true;
+  });
+
+  if (deduped.length === 0) return;
+
+  await createCompetitors(
+    scope,
+    deduped.map((competitor) => ({
+      name: competitor.name,
+      url: competitor.url,
+      rssUrl: "",
+      sitemapUrl: "",
+    })),
+  );
+}
+
+async function seedOnboardingUseCases(
+  scope: { workspaceId: string; brandId: string },
+  inputs: { job: string; persona: string; industry?: string | null }[],
+) {
+  const existing = await listUseCases(scope.brandId);
+  const known = new Set(
+    existing.map((useCase) => onboardingUseCaseKey(useCase.job, useCase.persona)),
+  );
+
+  for (const useCase of inputs) {
+    const key = onboardingUseCaseKey(useCase.job, useCase.persona);
+    if (known.has(key)) continue;
+    known.add(key);
+    await createUseCase(
+      scope,
+      { job: useCase.job, persona: useCase.persona, industry: useCase.industry || null },
+      "generated",
+    );
+  }
+}
+
+async function igniteSetupRunForBrand(
+  scope: { workspaceId: string; brandId: string },
+  planId: string | null | undefined,
+) {
+  const { run, created } = await startSetupRun(scope);
+  if (created || run.status === "failed" || isSetupRunStale(run)) {
+    await triggerSetupRun(scope, planId, run, { resume: !created });
+  }
+  return { id: run.id, status: run.status };
+}
+
+async function canResumeExistingBrand(
+  workspaceId: string,
+  userId: string,
+  brand: NonNullable<Awaited<ReturnType<typeof getBrandByName>>>,
+  checkoutSessionId: string | undefined,
+) {
+  if (!checkoutSessionId?.startsWith("cs_")) {
+    return false;
+  }
+
+  try {
+    const checkoutSession = await getStripe().checkout.sessions.retrieve(checkoutSessionId);
+    const sessionCreatedAt = checkoutSession.created * 1000;
+    const brandCreatedAt = brand.createdAt.getTime();
+
+    return (
+      checkoutSession.status === "complete" &&
+      checkoutSession.metadata?.workspaceId === workspaceId &&
+      checkoutSession.metadata?.userId === userId &&
+      brandCreatedAt >= sessionCreatedAt &&
+      Date.now() - brandCreatedAt <= RESUME_EXISTING_WINDOW_MS
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Multi-step "register a brand" submission. Creates the brand, its profile, an
  * optional first competitor, and an optional publishing integration, then makes
@@ -110,7 +224,7 @@ function prepareOnboardingIntegration(
 export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getApiContext();
-    const data = parseBody(brandOnboardingSchema, await readJson(request));
+    const data = parseBody(createBrandSchema, await readJson(request));
     const integrationSetup = prepareOnboardingIntegration(
       data.integrationProvider,
       data.integrationConfig,
@@ -122,9 +236,26 @@ export async function POST(request: Request) {
       brand = await createBrand(ctx.workspace.id, data.name, data.autonomyMode);
     } catch (error) {
       if (error instanceof BrandExistsError) {
-        throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
+        if (!data.resumeExisting) {
+          throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
+        }
+        const existing = await getBrandByName(ctx.workspace.id, data.name);
+        if (!existing) {
+          throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
+        }
+        const canResume = await canResumeExistingBrand(
+          ctx.workspace.id,
+          ctx.session.user.id,
+          existing,
+          data.checkoutSessionId,
+        );
+        if (!canResume) {
+          throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
+        }
+        brand = existing;
+      } else {
+        throw error;
       }
-      throw error;
     }
     const scope = { workspaceId: ctx.workspace.id, brandId: brand.id };
 
@@ -145,42 +276,21 @@ export async function POST(request: Request) {
         ? [{ name: data.competitorName, url: data.competitorUrl }]
         : []),
     ];
-    const seenHosts = new Set<string>();
-    const dedupedCompetitors = competitorInputs.filter((competitor) => {
-      const key = safeHost(competitor.url) ?? competitor.url.toLowerCase();
-      if (seenHosts.has(key)) {
-        return false;
-      }
-      seenHosts.add(key);
-      return true;
-    });
-    if (dedupedCompetitors.length > 0) {
+    if (competitorInputs.length > 0) {
       try {
-        await createCompetitors(
-          scope,
-          dedupedCompetitors.map((competitor) => ({
-            name: competitor.name,
-            url: competitor.url,
-            rssUrl: "",
-            sitemapUrl: "",
-          })),
-        );
+        await seedOnboardingCompetitors(scope, competitorInputs);
       } catch (error) {
         console.error("[brands] competitor seeding failed", error);
       }
     }
 
-    // Use cases confirmed on onboarding's autofill step — seed the C1 inventory
-    // so BOFU topic mining has buyer jobs to work from on day one.
-    for (const useCase of data.useCases ?? []) {
+    // Customer/user profiles confirmed on onboarding's autofill step — seed the
+    // C1 inventory so BOFU topic mining has target profiles from day one.
+    if (data.useCases.length > 0) {
       try {
-        await createUseCase(
-          scope,
-          { job: useCase.job, persona: useCase.persona, industry: useCase.industry || null },
-          "generated",
-        );
+        await seedOnboardingUseCases(scope, data.useCases);
       } catch (error) {
-        console.error("[brands] use-case seeding failed", error);
+        console.error("[brands] target-profile seeding failed", error);
       }
     }
 
@@ -203,12 +313,18 @@ export async function POST(request: Request) {
     }
 
     await setActiveBrandCookie(brand.id);
-    // Ignition readiness (AP2): with an active subscription the client kicks off
-    // Claudia's Setup Run immediately; otherwise it routes to plan selection.
+    // Ignition readiness (AP2): start Claudia's Setup Run here with the brand id
+    // we just created/selected. This avoids a second client-side request that
+    // can race the active-brand cookie after Stripe redirects.
+    const canIgnite = isActiveSubscription(ctx.subscription?.status);
+    const setupRun = canIgnite
+      ? await igniteSetupRunForBrand(scope, ctx.subscription?.planId)
+      : null;
     return jsonOk(
       {
         brand: { id: brand.id, name: brand.name },
-        canIgnite: isActiveSubscription(ctx.subscription?.status),
+        canIgnite,
+        setupRun,
       },
       { status: 201 },
     );

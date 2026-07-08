@@ -14,11 +14,11 @@ const previewSchema = z.object({
 });
 
 /**
- * Onboarding use-case autofill: map the jobs buyers hire the product for from the
- * name + AI-prefilled profile, before any brand row exists. Free (Claudia runs
- * this once during onboarding) but rate-limited per workspace since each call
- * spends LLM + Serper budget. Returns suggestions only — the client confirms them
- * and they're persisted when the brand is created.
+ * Onboarding target-profile autofill: find likely customer and user profiles
+ * from the name + AI-prefilled product profile, before any brand row exists.
+ * Free (Claudia runs this once during onboarding) but rate-limited per workspace
+ * since each call spends LLM + Serper budget. Returns suggestions only — the
+ * client confirms them and they're persisted when the brand is created.
  */
 export async function POST(request: Request) {
   return handleApi(async () => {

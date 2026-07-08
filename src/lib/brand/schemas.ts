@@ -38,10 +38,13 @@ export const onboardingCompetitorSchema = z.object({
   url: z.string().url(),
 });
 
-/** A use case confirmed on onboarding's autofill step. */
+/** A customer/user profile confirmed on onboarding's autofill step. */
 export const onboardingUseCaseSchema = z.object({
+  /** The need, problem, or buying situation this profile has. */
   job: z.string().min(2).max(200),
+  /** The actual customer or user profile to target. */
   persona: z.string().min(1).max(200),
+  /** The related industry, market, or segment. */
   industry: z.string().max(200).optional().or(z.literal("")),
 });
 

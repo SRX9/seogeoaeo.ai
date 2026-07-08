@@ -19,7 +19,7 @@ export type ResearchFinding = {
   sourceType: ResearchSourceType;
   evidenceUrls: string[];
   snippet?: string;
-  /** Buyer intent, when the provider knows it (use-case/competitor findings do). */
+  /** Buyer intent, when the provider knows it (target-profile/competitor findings do). */
   intentTier?: IntentTier;
   /** One owner-readable line: why this topic will drive traffic. */
   thesis?: string;
@@ -41,7 +41,7 @@ export type ResearchContext = {
     sitemapUrl?: string | null;
   }>;
   seedQueries: string[];
-  /** Enabled rows from the C1 use-case inventory. */
+  /** Enabled rows from the C1 target-profile inventory. */
   useCases: Array<{ job: string; persona: string; industry?: string | null }>;
   /** Titles of every topic/article we already have — for gap diffs. */
   ourTitles: string[];

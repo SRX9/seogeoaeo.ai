@@ -18,6 +18,10 @@ import {
   type ReactNode,
 } from "react";
 import { CheckIcon } from "@/components/icons";
+import {
+  CompetitorRadar,
+  CompetitorSuggestionCard,
+} from "@/components/brand/competitor-visuals";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { TagInput } from "@/components/ui/tag-input";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
@@ -45,8 +49,8 @@ type ProviderOption = IntegrationProviderDefinition;
  * Fullscreen, one-question-at-a-time onboarding. Deliberately no step list,
  * numbers, or counters — a thin progress bar is the only pacing cue, so the
  * flow never reads as "homework". Each screen is a conversation beat where
- * Claudia does the work (prefill, competitor scan, use-case mapping) and the
- * user just confirms. The final screen is the paywall: paid-first, no idle state.
+ * Claudia does the work (prefill, competitor scan, customer-profile search) and
+ * the user just confirms. The final screen is the paywall: paid-first, no idle state.
  */
 const STEPS = [
   {
@@ -70,8 +74,8 @@ const STEPS = [
     optional: true,
   },
   {
-    question: "What buyers hire you for",
-    hint: "Claudia mapped the jobs your buyers come for. Confirm these and she writes the tutorials, comparisons, and answer pages that win them.",
+    question: "Searching for your target customers and users",
+    hint: "Claudia studies what you offer and why it is useful, then finds the customer profiles, industries, and users most likely to buy or adopt it.",
     optional: true,
   },
   {
@@ -135,6 +139,8 @@ type BrandCreatePayload = {
   integrationConfig: Record<string, string>;
   integrationSecrets: Record<string, string>;
   autonomyMode: "FULL_AUTO" | "REVIEW";
+  resumeExisting?: boolean;
+  checkoutSessionId?: string;
 };
 
 const INITIAL_FIELDS: Fields = {
@@ -191,7 +197,7 @@ const PREFILL_MESSAGES = [
 // brand exists) and a mid-flow refresh. Cleared once the brand is created.
 const DRAFT_KEY = "claudia:onboarding-draft";
 
-type OnboardingDraft = { fields: Fields; step: number };
+type OnboardingDraft = { fields: Fields; step: number; checkoutSessionId?: string | null };
 
 function loadDraft(): OnboardingDraft | null {
   try {
@@ -379,8 +385,8 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     },
   });
 
-  // Use-case autofill — same free/preview treatment. Maps the jobs buyers hire
-  // the product for straight from the prefilled profile.
+  // Target-profile autofill — same free/preview treatment. Finds the customer
+  // and user profiles worth targeting from the prefilled product profile.
   const useCasesPreview = useMutation({
     mutationFn: (payload: {
       name: string;
@@ -463,19 +469,15 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     return () => clearInterval(id);
   }, [prefill.isPending]);
 
-  // Create the brand, its profile, competitors, use cases, and an optional
+  // Create the brand, its profile, competitors, target profiles, and an optional
   // publishing integration in one request, then start Claudia's Setup Run.
   const create = useMutation({
     mutationFn: (data: BrandCreatePayload) =>
       apiPost<{ brand: { id: string; name: string }; canIgnite?: boolean }>("/api/brands", data),
     onSuccess: async ({ canIgnite }) => {
       clearDraft();
-      // Ignition (AP2): subscribed workspaces start Claudia's Setup Run right
-      // away. By this point the flow has already gated on a plan, so canIgnite is
-      // expected true — the billing fallback stays only as a safety net.
-      if (canIgnite) {
-        void fetch("/api/setup-run", { method: "POST" }).catch(() => undefined);
-      }
+      // The API starts Claudia's Setup Run with the new brand id before it
+      // responds, so this client only has to refresh caches and navigate.
       // Await the `me` refetch: the app layout decides "needs onboarding" from its
       // brand count, so we must not navigate until `me` reflects the new brand.
       await queryClient.invalidateQueries({ queryKey: queryKeys.me });
@@ -501,7 +503,11 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
       return;
     }
     setError(null);
-    create.mutate(buildPayload(current));
+    create.mutate({
+      ...buildPayload(current),
+      resumeExisting: phase === "finalizing",
+      checkoutSessionId: phase === "finalizing" ? checkoutSessionId ?? undefined : undefined,
+    });
   }
 
   // Persist the draft on every change so a Stripe redirect (or refresh) can
@@ -528,7 +534,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
       setFields(draft.fields);
       setCompetitorSuggestions(draft.fields.competitors ?? []);
       // Preserve restored picks — seed the dedupe keys so resuming on the
-      // competitor/use-case step doesn't re-run discovery and re-select all.
+      // competitor/profile step doesn't re-run discovery and re-select all.
       const signature = `${draft.fields.name?.trim() ?? ""}|${draft.fields.website?.trim() ?? ""}`;
       if (draft.fields.competitors?.length) competitorKeyRef.current = signature;
       if (draft.fields.useCases?.length) {
@@ -537,13 +543,25 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     }
 
     if (checkout === "success") {
-      if (sessionId) setCheckoutSessionId(sessionId);
+      const resumeSessionId = sessionId ?? draft?.checkoutSessionId ?? null;
+      if (resumeSessionId) {
+        setCheckoutSessionId(resumeSessionId);
+        if (draft) {
+          saveDraft({ ...draft, checkoutSessionId: resumeSessionId });
+        }
+      }
       setPhase("finalizing");
       window.history.replaceState(null, "", "/onboarding");
     } else if (checkout === "canceled") {
+      if (draft?.checkoutSessionId) {
+        saveDraft({ ...draft, checkoutSessionId: null });
+      }
       setStep(STEP_LAUNCH);
       setError("Checkout canceled — pick a plan when you're ready. Your setup is saved.");
       window.history.replaceState(null, "", "/onboarding");
+    } else if (draft?.checkoutSessionId) {
+      setCheckoutSessionId(draft.checkoutSessionId);
+      setPhase("finalizing");
     } else if (draft) {
       setStep(Math.min(draft.step ?? 0, lastStep));
     }
@@ -595,7 +613,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     setError(null);
     setCheckoutLoading(planId);
     // Force-save so the draft is on disk before we leave the page.
-    saveDraft({ fields, step: STEP_LAUNCH });
+    saveDraft({ fields, step: STEP_LAUNCH, checkoutSessionId: null });
     try {
       const data = await apiPost<{ url: string }>("/api/billing/checkout", {
         planId,
@@ -864,39 +882,39 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
             {step === STEP_COMPETITORS ? (
               <div data-no-advance className="flex flex-col gap-4">
                 {competitorsPreview.isPending ? (
-                  <DiscoveryLoading
+                  <CompetitorRadar
+                    scanning
                     title="Scanning the market"
-                    subtitle="Finding the rivals buyers compare you against…"
+                    subtitle="Finding the rivals buyers compare you against."
                   />
                 ) : (
                   <>
                     {competitorSuggestions.length > 0 ? (
-                      <ul className="space-y-2">
-                        {competitorSuggestions.map((suggestion) => {
-                          const checked = fields.competitors.some((c) => c.url === suggestion.url);
-                          return (
-                            <li key={suggestion.url}>
-                              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface p-3">
-                                <input
-                                  type="checkbox"
-                                  className="mt-1 h-4 w-4 accent-accent"
+                      <div className="space-y-3">
+                        <CompetitorRadar
+                          competitors={competitorSuggestions}
+                          title={`${competitorSuggestions.length} likely rival${competitorSuggestions.length === 1 ? "" : "s"} found`}
+                          subtitle="Review the logos and untick anything that does not belong."
+                        />
+                        <ul className="space-y-2">
+                          {competitorSuggestions.map((suggestion, index) => {
+                            const checked = fields.competitors.some((c) => c.url === suggestion.url);
+                            return (
+                              <li
+                                key={suggestion.url}
+                                className="competitor-result-card"
+                                style={{ animationDelay: `${index * 45}ms` }}
+                              >
+                                <CompetitorSuggestionCard
+                                  suggestion={suggestion}
                                   checked={checked}
-                                  onChange={() => toggleCompetitor(suggestion.url)}
+                                  onToggle={() => toggleCompetitor(suggestion.url)}
                                 />
-                                <span>
-                                  <span className="block font-medium text-foreground">
-                                    {suggestion.name}
-                                  </span>
-                                  <span className="block text-sm text-muted">{suggestion.url}</span>
-                                  {suggestion.reason ? (
-                                    <span className="block text-sm text-muted">{suggestion.reason}</span>
-                                  ) : null}
-                                </span>
-                              </label>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     ) : (
                       <p className="rounded-xl border border-border bg-surface-muted px-3 py-3 text-sm text-muted">
                         Claudia didn&apos;t surface clear rivals yet — add one below, or skip and she
@@ -950,13 +968,13 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
               </div>
             ) : null}
 
-            {/* Screen 5 — use cases (auto-mapped) */}
+            {/* Screen 5 — target customers and users (auto-searched) */}
             {step === STEP_USE_CASES ? (
               <div data-no-advance className="flex flex-col gap-4">
                 {useCasesPreview.isPending ? (
                   <DiscoveryLoading
-                    title="Mapping your buyers"
-                    subtitle="Working out the jobs buyers hire you for…"
+                    title="Finding target profiles"
+                    subtitle="Searching for the customers and users most likely to need your product..."
                   />
                 ) : fields.useCases.length > 0 ? (
                   <>
@@ -969,9 +987,9 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                           }`}
                         >
                           <div>
-                            <p className="font-medium text-foreground">{useCase.job}</p>
+                            <p className="font-medium text-foreground">{useCase.persona}</p>
                             <p className="text-sm text-muted">
-                              {useCase.persona}
+                              {useCase.job}
                               {useCase.industry ? ` · ${useCase.industry}` : ""}
                             </p>
                           </div>
@@ -993,13 +1011,14 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                       isDisabled={useCasesPreview.isPending}
                       onPress={() => runUseCasePreview(true)}
                     >
-                      Re-map from profile
+                      Search again
                     </Button>
                   </>
                 ) : (
                   <p className="rounded-xl border border-border bg-surface-muted px-3 py-3 text-sm text-muted">
-                    Claudia needs a bit more to map your buyers — she&apos;ll do this automatically
-                    once your profile is saved. You can review and edit use cases in Brand settings.
+                    Claudia needs a bit more to find target profiles. She&apos;ll search again once
+                    your profile is saved, and you can review or edit customer profiles in Brand
+                    settings.
                   </p>
                 )}
               </div>
@@ -1187,11 +1206,11 @@ function DiscoveryLoading({ title, subtitle }: { title: string; subtitle: string
 }
 
 function LaunchSummary({ fields }: { fields: Fields }) {
-  const enabledUseCases = fields.useCases.filter((useCase) => useCase.enabled).length;
+  const enabledProfiles = fields.useCases.filter((useCase) => useCase.enabled).length;
   const rows: { label: string; value: string }[] = [
     { label: "Brand", value: fields.name.trim() || "—" },
     { label: "Competitors tracked", value: String(fields.competitors.length) },
-    { label: "Buyer use cases", value: String(enabledUseCases) },
+    { label: "Target profiles", value: String(enabledProfiles) },
     {
       label: "Autonomy",
       value: fields.autonomyMode === "FULL_AUTO" ? "Autopilot" : "Copilot",

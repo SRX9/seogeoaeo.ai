@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -8,6 +9,14 @@ import { Toaster } from "@/components/feedback/toaster";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+});
+
+const calSans = localFont({
+  src: "../../font/CalSans-SemiBold.ttf",
+  variable: "--font-cal-sans",
+  weight: "600",
+  style: "normal",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -64,7 +73,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SeoGeoAeo AI" />
       </head>
       <body
-        className={`${inter.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
+        className={`${inter.variable} ${calSans.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
         <Providers>{children}</Providers>
         <Toaster />

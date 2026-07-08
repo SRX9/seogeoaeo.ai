@@ -194,6 +194,8 @@ export function competitorDiscoveryPrompt(
       'text — set its url to "" if you do not know its real homepage. Include only genuine competing ' +
       "products/companies. Exclude the brand itself, review aggregators (g2, capterra, trustpilot), " +
       "marketplaces, social networks, news, and wikis. Use real homepage URLs (https://domain). " +
+      "Never return a blog, article, docs, resource, or support URL; convert evidence pages to the " +
+      "company's canonical homepage. Exclude every subdomain of the brand website. " +
       "reason is one short sentence citing the evidence. Return fewer than the limit rather than padding " +
       "with weak matches.",
     user: `Brand name: ${brand.name}
@@ -225,7 +227,7 @@ export function seedTrackedPromptsPrompt(
     system:
       "You write the questions real buyers ask AI assistants (ChatGPT, Perplexity, Gemini) when shopping in a " +
       `product category. Return JSON with key prompts: an array of at most ${limit} strings. ` +
-      'Mix category questions ("best X for Y"), use-case questions, and comparison questions a buyer of this ' +
+      'Mix category questions ("best X for Y"), buyer-situation questions, and comparison questions a buyer of this ' +
       "product would plausibly ask. Never mention the brand by name — these prompts measure whether AI answers " +
       "surface the brand unprompted. Keep each under 15 words, plain language, no numbering.",
     user: `Brand name: ${brand.name}
@@ -274,13 +276,18 @@ export function extractUseCasesPrompt(
 ) {
   return {
     system:
-      "You map a product's real use cases — the jobs buyers hire it for and who those buyers " +
-      'are. Return JSON {"useCases": [{ "job", "persona", "industry", "evidence" }]} with at ' +
-      'most 8 rows. "job" is a concrete task in the buyer\'s words ("send automatic invoice ' +
-      'reminders"), "persona" is who does it ("freelance designers"), "industry" is optional, ' +
-      '"evidence" says where you saw it (a page, an article, the product description). Only ' +
-      "use cases the material actually supports — never invent personas. Fewer, real rows " +
-      "beat padded ones.",
+      "You identify target customer and user profiles for a product. First understand what the " +
+      "product offers, what it is useful for, and which outcomes it creates; then infer the " +
+      "related roles, company types, industries, and buyer/user situations most likely to need it. " +
+      'Return JSON {"useCases": [{ "job", "persona", "industry", "evidence" }]} with at most ' +
+      '8 rows. The API key is named "useCases", but each row must be a customer profile: ' +
+      '"persona" is the specific customer or user profile ("B2B SaaS marketing leads"), ' +
+      '"industry" is the related industry, market, or segment, and "job" is a verb phrase for ' +
+      "the problem, buying situation, or outcome they need solved in their own words " +
+      '("prove AI search visibility before competitors do"). "evidence" says what supports the profile. Do not return product ' +
+      "feature lists, generic offer summaries, or lines about what the company provides. Only " +
+      "include profiles the material supports or strongly implies. Fewer, sharper profiles beat " +
+      "padded ones.",
     user: `Product context:
 ${brandBlock(brand) || "No brand profile yet."}
 
