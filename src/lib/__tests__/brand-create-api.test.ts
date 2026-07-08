@@ -11,6 +11,7 @@ import {
   upsertBrandProfile,
 } from "@/lib/brand/repository";
 import { createUseCase, listUseCases } from "@/lib/brand/use-cases";
+import { getStripe } from "@/lib/billing/stripe";
 import { startSetupRun, triggerSetupRun } from "@/lib/jobs/setup-run";
 
 vi.mock("@/lib/api/server", async (importOriginal) => {
@@ -55,6 +56,10 @@ vi.mock("@/lib/integrations/repository", () => ({
   updateIntegrationConfig: vi.fn(),
 }));
 
+vi.mock("@/lib/billing/stripe", () => ({
+  getStripe: vi.fn(),
+}));
+
 vi.mock("@/lib/jobs/setup-run", () => ({
   isSetupRunStale: vi.fn(() => false),
   startSetupRun: vi.fn(),
@@ -68,8 +73,8 @@ const brand = {
   name: "Acme",
   autonomyMode: "FULL_AUTO",
   badgePublic: false,
-  createdAt: new Date("2026-01-01T00:00:00Z"),
-  updatedAt: new Date("2026-01-01T00:00:00Z"),
+  createdAt: new Date(),
+  updatedAt: new Date(),
 };
 const scope = { workspaceId, brandId: brand.id };
 const setupRun = {
@@ -103,6 +108,23 @@ function onboardingBody(extra: Record<string, unknown> = {}) {
   };
 }
 
+const checkoutSessionId = "cs_test_resume";
+
+function mockCompletedCheckoutSession() {
+  vi.mocked(getStripe).mockReturnValue({
+    checkout: {
+      sessions: {
+        retrieve: vi.fn().mockResolvedValue({
+          id: checkoutSessionId,
+          status: "complete",
+          created: Math.floor(brand.createdAt.getTime() / 1000) - 60,
+          metadata: { workspaceId, userId: "user-1" },
+        }),
+      },
+    },
+  } as unknown as ReturnType<typeof getStripe>);
+}
+
 describe("/api/brands", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,12 +143,15 @@ describe("/api/brands", () => {
       run: setupRun as Awaited<ReturnType<typeof startSetupRun>>["run"],
       created: true,
     });
+    mockCompletedCheckoutSession();
   });
 
   it("resumes a replayed checkout-return brand create and starts setup with the brand id", async () => {
     vi.mocked(createBrand).mockRejectedValue(new BrandExistsError("Acme"));
 
-    const response = await POST(jsonRequest(onboardingBody({ resumeExisting: true })));
+    const response = await POST(
+      jsonRequest(onboardingBody({ resumeExisting: true, checkoutSessionId })),
+    );
     const body = await response.json();
 
     expect(response.status).toBe(201);
@@ -141,6 +166,20 @@ describe("/api/brands", () => {
     expect(triggerSetupRun).toHaveBeenCalledWith(scope, "startup", expect.objectContaining({
       id: setupRun.id,
     }), { resume: false });
+  });
+
+  it("rejects resumeExisting when it is not tied to a checkout replay", async () => {
+    vi.mocked(createBrand).mockRejectedValue(new BrandExistsError("Acme"));
+
+    const response = await POST(jsonRequest(onboardingBody({ resumeExisting: true })));
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.details).toEqual({ code: "BRAND_EXISTS" });
+    expect(getBrandByName).toHaveBeenCalledWith(workspaceId, "Acme");
+    expect(upsertBrandProfile).not.toHaveBeenCalled();
+    expect(setActiveBrandCookie).not.toHaveBeenCalled();
+    expect(startSetupRun).not.toHaveBeenCalled();
   });
 
   it("keeps normal duplicate brand submits strict", async () => {
@@ -163,7 +202,9 @@ describe("/api/brands", () => {
       { id: "use-case-1", brandId: brand.id, job: "Track acquisition", persona: "Founders" },
     ] as Awaited<ReturnType<typeof listUseCases>>);
 
-    const response = await POST(jsonRequest(onboardingBody({ resumeExisting: true })));
+    const response = await POST(
+      jsonRequest(onboardingBody({ resumeExisting: true, checkoutSessionId })),
+    );
 
     expect(response.status).toBe(201);
     expect(createCompetitors).not.toHaveBeenCalled();

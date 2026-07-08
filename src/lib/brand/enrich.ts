@@ -105,6 +105,12 @@ const BRAND_SIGNATURE_STOPWORDS = new Set([
 ]);
 
 const MULTI_PART_PUBLIC_SUFFIXES = new Set([
+  "github.io",
+  "pages.dev",
+  "vercel.app",
+  "netlify.app",
+  "webflow.io",
+  "workers.dev",
   "co.in",
   "co.jp",
   "co.nz",
@@ -118,6 +124,26 @@ const MULTI_PART_PUBLIC_SUFFIXES = new Set([
   "net.au",
   "org.au",
   "org.uk",
+]);
+
+const COUNTRY_CODE_SECOND_LEVEL_SUFFIXES = new Set([
+  "ac",
+  "co",
+  "com",
+  "edu",
+  "gov",
+  "net",
+  "org",
+]);
+
+const HOSTED_PROPERTY_SUFFIXES = new Set([
+  "github.io",
+  "pages.dev",
+  "substack.com",
+  "vercel.app",
+  "netlify.app",
+  "webflow.io",
+  "workers.dev",
 ]);
 
 const EMPTY_DETAILS: BrandDetails = {
@@ -136,15 +162,25 @@ function clampField(value: unknown, key: keyof typeof FIELD_LIMITS): string {
 
 /** Hostname without a leading "www.", or null when the value isn't a URL/host. */
 function hostOf(value: string | undefined | null): string | null {
-  if (!value) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
     return null;
   }
-  const raw = value.includes("://") ? value : `https://${value}`;
+  const raw = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   try {
-    return new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
+    const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
+    return isUsablePublicHost(host) ? host : null;
   } catch {
     return null;
   }
+}
+
+function isUsablePublicHost(host: string): boolean {
+  const parts = host.split(".").filter(Boolean);
+  return (
+    parts.length >= 2 &&
+    parts.every((part) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(part))
+  );
 }
 
 function isExcludedHost(host: string): boolean {
@@ -159,6 +195,13 @@ function registrableHost(host: string): string {
 
   const suffix = parts.slice(-2).join(".");
   if (MULTI_PART_PUBLIC_SUFFIXES.has(suffix) && parts.length >= 3) {
+    return parts.slice(-3).join(".");
+  }
+  if (
+    parts.length >= 3 &&
+    parts.at(-1)?.length === 2 &&
+    COUNTRY_CODE_SECOND_LEVEL_SUFFIXES.has(parts.at(-2) ?? "")
+  ) {
     return parts.slice(-3).join(".");
   }
   return suffix;
@@ -186,6 +229,26 @@ function hostLabels(host: string): string[] {
     .map((part) => part.toLowerCase().replace(/[^a-z0-9]+/g, " "))
     .flatMap((part) => part.split(/\s+/))
     .filter(Boolean);
+}
+
+function isHostedBrandPropertyHost(host: string, signatures: Set<string>): boolean {
+  for (const suffix of HOSTED_PROPERTY_SUFFIXES) {
+    if (host === suffix || !host.endsWith(`.${suffix}`)) {
+      continue;
+    }
+    const subdomain = host.slice(0, -(suffix.length + 1));
+    const labels = hostLabels(subdomain);
+    const compact = labels.join("");
+    for (const signature of signatures) {
+      if (labels.length === 1 && labels[0] === signature) {
+        return true;
+      }
+      if (compact === signature) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function brandSignatures(brandName: string, ownHost: string | null): Set<string> {
@@ -235,8 +298,11 @@ function isLikelyOwnBrandHost(
 
   const labels = hostLabels(host);
   const hostCompact = labels.join("");
+  if (isHostedBrandPropertyHost(host, signatures)) {
+    return true;
+  }
   for (const signature of signatures) {
-    if (labels.includes(signature) || hostCompact === signature) {
+    if (hostCompact === signature) {
       return true;
     }
     for (const word of OWNED_PROPERTY_WORDS) {
@@ -349,12 +415,26 @@ function normalizeCompetitorUrl(
   ownHost: string | null,
   brandName: string,
 ): string | null {
+  return evaluateCompetitorUrl(value, ownHost, brandName).url;
+}
+
+function evaluateCompetitorUrl(
+  value: string | undefined | null,
+  ownHost: string | null,
+  brandName: string,
+): { url: string | null; rejection: "invalid" | "excluded" | "own" | null } {
   const rawHost = hostOf(value);
   const host = rawHost ? canonicalCompetitorHost(rawHost) : null;
-  if (!host || isExcludedHost(host) || isLikelyOwnBrandHost(host, brandName, ownHost)) {
-    return null;
+  if (!host) {
+    return { url: null, rejection: "invalid" };
   }
-  return `https://${host}`;
+  if (isExcludedHost(host)) {
+    return { url: null, rejection: "excluded" };
+  }
+  if (isLikelyOwnBrandHost(host, brandName, ownHost)) {
+    return { url: null, rejection: "own" };
+  }
+  return { url: `https://${host}`, rejection: null };
 }
 
 export type CompetitorDiscoveryInput = {
@@ -534,10 +614,16 @@ export async function discoverCompetitors(
     }
 
     const providedUrl = typeof item.url === "string" ? item.url.trim() : "";
-    let url = normalizeCompetitorUrl(providedUrl, ownHost, brand.name);
+    const evaluatedUrl = evaluateCompetitorUrl(providedUrl, ownHost, brand.name);
+    let url = evaluatedUrl.url;
     // The LLM may name a competitor it found only in listicle/answer text —
     // resolve its homepage with a bounded number of extra searches.
-    if (!url && !providedUrl && item.name && resolutions < 3) {
+    if (
+      !url &&
+      item.name &&
+      resolutions < 3 &&
+      (!providedUrl || evaluatedUrl.rejection === "invalid" || evaluatedUrl.rejection === "excluded")
+    ) {
       resolutions += 1;
       url = await resolveHomepage(item.name, ownHost, brand.name);
     }

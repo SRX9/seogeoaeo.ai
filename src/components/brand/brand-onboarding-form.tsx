@@ -140,6 +140,7 @@ type BrandCreatePayload = {
   integrationSecrets: Record<string, string>;
   autonomyMode: "FULL_AUTO" | "REVIEW";
   resumeExisting?: boolean;
+  checkoutSessionId?: string;
 };
 
 const INITIAL_FIELDS: Fields = {
@@ -196,7 +197,7 @@ const PREFILL_MESSAGES = [
 // brand exists) and a mid-flow refresh. Cleared once the brand is created.
 const DRAFT_KEY = "claudia:onboarding-draft";
 
-type OnboardingDraft = { fields: Fields; step: number };
+type OnboardingDraft = { fields: Fields; step: number; checkoutSessionId?: string | null };
 
 function loadDraft(): OnboardingDraft | null {
   try {
@@ -502,7 +503,11 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
       return;
     }
     setError(null);
-    create.mutate({ ...buildPayload(current), resumeExisting: phase === "finalizing" });
+    create.mutate({
+      ...buildPayload(current),
+      resumeExisting: phase === "finalizing",
+      checkoutSessionId: phase === "finalizing" ? checkoutSessionId ?? undefined : undefined,
+    });
   }
 
   // Persist the draft on every change so a Stripe redirect (or refresh) can
@@ -538,13 +543,25 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     }
 
     if (checkout === "success") {
-      if (sessionId) setCheckoutSessionId(sessionId);
+      const resumeSessionId = sessionId ?? draft?.checkoutSessionId ?? null;
+      if (resumeSessionId) {
+        setCheckoutSessionId(resumeSessionId);
+        if (draft) {
+          saveDraft({ ...draft, checkoutSessionId: resumeSessionId });
+        }
+      }
       setPhase("finalizing");
       window.history.replaceState(null, "", "/onboarding");
     } else if (checkout === "canceled") {
+      if (draft?.checkoutSessionId) {
+        saveDraft({ ...draft, checkoutSessionId: null });
+      }
       setStep(STEP_LAUNCH);
       setError("Checkout canceled — pick a plan when you're ready. Your setup is saved.");
       window.history.replaceState(null, "", "/onboarding");
+    } else if (draft?.checkoutSessionId) {
+      setCheckoutSessionId(draft.checkoutSessionId);
+      setPhase("finalizing");
     } else if (draft) {
       setStep(Math.min(draft.step ?? 0, lastStep));
     }
@@ -596,7 +613,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
     setError(null);
     setCheckoutLoading(planId);
     // Force-save so the draft is on disk before we leave the page.
-    saveDraft({ fields, step: STEP_LAUNCH });
+    saveDraft({ fields, step: STEP_LAUNCH, checkoutSessionId: null });
     try {
       const data = await apiPost<{ url: string }>("/api/billing/checkout", {
         planId,

@@ -12,6 +12,7 @@
  *
  * Inter is wired into HeroUI via `--font-inter` (set by next/font in
  * `layout.tsx`); Glass already maps `--font-sans` to `var(--font-inter)`.
+ * Cal Sans is loaded beside it and reserved for title hierarchy only.
  */
 
 /*
@@ -20,8 +21,23 @@
  * anchored to the viewport so translucent glass surfaces read against it.
  */
 body {
+  --font-title: var(--font-cal-sans), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   background-image: var(--background-gradient);
   background-attachment: fixed;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-title {
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-kerning: normal;
+  }
 }
 
 /*

@@ -25,6 +25,7 @@ import {
   startSetupRun,
   triggerSetupRun,
 } from "@/lib/jobs/setup-run";
+import { getStripe } from "@/lib/billing/stripe";
 import {
   emptySecretStates,
   getIntegrationProvider,
@@ -68,7 +69,10 @@ const createBrandSchema = brandOnboardingSchema.extend({
    * row already exists. Normal "add brand" submits keep duplicate-name errors.
    */
   resumeExisting: z.boolean().optional().default(false),
+  checkoutSessionId: z.string().max(255).optional(),
 });
+
+const RESUME_EXISTING_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 function hasValues(values: Record<string, string>) {
   return Object.values(values).some((value) => value.trim().length > 0);
@@ -185,6 +189,33 @@ async function igniteSetupRunForBrand(
   return { id: run.id, status: run.status };
 }
 
+async function canResumeExistingBrand(
+  workspaceId: string,
+  userId: string,
+  brand: NonNullable<Awaited<ReturnType<typeof getBrandByName>>>,
+  checkoutSessionId: string | undefined,
+) {
+  if (!checkoutSessionId?.startsWith("cs_")) {
+    return false;
+  }
+
+  try {
+    const checkoutSession = await getStripe().checkout.sessions.retrieve(checkoutSessionId);
+    const sessionCreatedAt = checkoutSession.created * 1000;
+    const brandCreatedAt = brand.createdAt.getTime();
+
+    return (
+      checkoutSession.status === "complete" &&
+      checkoutSession.metadata?.workspaceId === workspaceId &&
+      checkoutSession.metadata?.userId === userId &&
+      brandCreatedAt >= sessionCreatedAt &&
+      Date.now() - brandCreatedAt <= RESUME_EXISTING_WINDOW_MS
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Multi-step "register a brand" submission. Creates the brand, its profile, an
  * optional first competitor, and an optional publishing integration, then makes
@@ -210,6 +241,15 @@ export async function POST(request: Request) {
         }
         const existing = await getBrandByName(ctx.workspace.id, data.name);
         if (!existing) {
+          throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
+        }
+        const canResume = await canResumeExistingBrand(
+          ctx.workspace.id,
+          ctx.session.user.id,
+          existing,
+          data.checkoutSessionId,
+        );
+        if (!canResume) {
           throw new HttpError(409, error.message, { code: "BRAND_EXISTS" });
         }
         brand = existing;
