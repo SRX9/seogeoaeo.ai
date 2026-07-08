@@ -9,10 +9,10 @@ import { serperSearch } from "@/lib/research/serper";
 import { logInfo, logWarn } from "@/lib/logging/logger";
 
 /**
- * C1 use-case inventory: the jobs buyers hire this product for, and who those
- * buyers are. User-facing in Brand settings from day one — auto-generated at
- * onboarding, human-reviewable, and the seed for every BOFU article the
- * use-case research provider proposes.
+ * C1 target-profile inventory: the customer and user profiles most likely to
+ * need this product, plus the situation they need solved. User-facing in Brand
+ * settings from day one — auto-generated at onboarding, human-reviewable, and
+ * the seed for every BOFU article the profile-driven research provider proposes.
  */
 
 export type UseCaseInput = {
@@ -47,7 +47,7 @@ function isUseCaseRow(row: UseCaseInput): boolean {
 
 /**
  * The generation core, decoupled from any brand row: search the web for the
- * product, ask the LLM to map the jobs buyers hire it for, and return valid
+ * product, ask the LLM to find target customer/user profiles, and return valid
  * rows. Shared by {@link syncUseCases} (persists, deduped) and
  * {@link previewUseCases} (onboarding, before a brand exists). Returns `[]`
  * whenever the LLM is unconfigured or the profile has no description to ground on.
@@ -64,8 +64,8 @@ async function generateUseCaseInputs(
   // fetches of user-supplied URLs (no SSRF surface). serperSearch degrades to
   // empty results on its own, so the profile alone is always enough.
   const query = profile.name
-    ? `${profile.name} use cases features`
-    : profile.productDescription.slice(0, 60);
+    ? `${profile.name} customers users industries`
+    : `${profile.productDescription.slice(0, 60)} target customers`;
   const { organic } = await serperSearch(query, { num: 6 });
   const searchContext = organic
     .slice(0, 6)
@@ -102,7 +102,7 @@ async function generateUseCaseInputs(
 }
 
 /**
- * Onboarding preview: map use cases straight from the entered/AI-prefilled
+ * Onboarding preview: find target profiles from the entered/AI-prefilled
  * profile, before any brand row exists. No DB writes, no dedup — the client
  * confirms the rows and they're persisted when the brand is created.
  */

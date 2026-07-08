@@ -75,10 +75,11 @@ export const competitors = pgTable(
 );
 
 /**
- * C1 use-case inventory: every real use case of the product, extracted at
- * onboarding and owned by the user in Brand settings. Shared context for
- * research, writing, and comparison pages. Regeneration adds rows but never
- * overwrites rows the user touched (`edited`) or created (`origin: "user"`).
+ * C1 target-profile inventory: customer/user profiles most likely to need the
+ * product, extracted at onboarding and owned by the user in Brand settings.
+ * Shared context for research, writing, and comparison pages. Regeneration adds
+ * rows but never overwrites rows the user touched (`edited`) or created
+ * (`origin: "user"`).
  */
 export const brandUseCases = pgTable(
   "brand_use_cases",
@@ -90,9 +91,9 @@ export const brandUseCases = pgTable(
     brandId: uuid("brand_id")
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
-    /** The job the buyer hires the product for ("send invoice reminders"). */
+    /** The need, problem, or buying situation for this profile. */
     job: text("job").notNull(),
-    /** Who does that job ("freelance designers"). */
+    /** The customer or user profile to target. */
     persona: text("persona").notNull(),
     industry: text("industry"),
     /** Where the row came from ("stated on the pricing page"). */

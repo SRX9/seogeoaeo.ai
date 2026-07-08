@@ -23,6 +23,15 @@ export class CompetitorLimitError extends Error {
   }
 }
 
+function isBrandNameUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const details = error as { code?: unknown; constraint_name?: unknown; constraint?: unknown };
+  const constraint = details.constraint_name ?? details.constraint;
+  return details.code === "23505" && constraint === "brands_workspace_name_unique";
+}
+
 async function countCompetitors(brandId: string) {
   const [row] = await getDb()
     .select({ value: count() })
@@ -39,6 +48,18 @@ export async function listBrands(workspaceId: string) {
     .orderBy(asc(brands.createdAt));
 }
 
+export async function getBrandByName(workspaceId: string, name: string) {
+  const trimmed = name.trim();
+  const [brand] = await getDb()
+    .select()
+    .from(brands)
+    .where(
+      and(eq(brands.workspaceId, workspaceId), sql`lower(${brands.name}) = lower(${trimmed})`),
+    )
+    .limit(1);
+  return brand ?? null;
+}
+
 export async function getBrand(workspaceId: string, brandId: string) {
   const [brand] = await getDb()
     .select()
@@ -50,14 +71,7 @@ export async function getBrand(workspaceId: string, brandId: string) {
 
 export async function createBrand(workspaceId: string, name: string, autonomyMode?: AutonomyMode) {
   const trimmed = name.trim();
-  const [existing] = await getDb()
-    .select({ id: brands.id })
-    .from(brands)
-    .where(
-      and(eq(brands.workspaceId, workspaceId), sql`lower(${brands.name}) = lower(${trimmed})`),
-    )
-    .limit(1);
-  if (existing) {
+  if (await getBrandByName(workspaceId, trimmed)) {
     throw new BrandExistsError(trimmed);
   }
   // Inherit autonomy from the workspace's most recent brand so a new brand runs
@@ -70,16 +84,26 @@ export async function createBrand(workspaceId: string, name: string, autonomyMod
     .where(eq(brands.workspaceId, workspaceId))
     .orderBy(desc(brands.createdAt))
     .limit(1);
-  const [brand] = await getDb()
-    .insert(brands)
-    .values({
-      workspaceId,
-      name: trimmed,
-      // An explicit onboarding choice (Autopilot/Copilot) wins over inheritance.
-      ...(autonomyMode ? { autonomyMode } : sibling ? { autonomyMode: sibling.autonomyMode } : {}),
-    })
-    .returning();
-  return brand;
+  try {
+    const [brand] = await getDb()
+      .insert(brands)
+      .values({
+        workspaceId,
+        name: trimmed,
+        // An explicit onboarding choice (Autopilot/Copilot) wins over inheritance.
+        ...(autonomyMode ? { autonomyMode } : sibling ? { autonomyMode: sibling.autonomyMode } : {}),
+      })
+      .returning();
+    return brand;
+  } catch (error) {
+    // Two Stripe-return tabs or React Strict Mode remounts can race between the
+    // duplicate pre-check and insert. Surface that as the same domain error so
+    // the onboarding resume path can complete the existing brand.
+    if (isBrandNameUniqueViolation(error)) {
+      throw new BrandExistsError(trimmed);
+    }
+    throw error;
+  }
 }
 
 export async function renameBrand(workspaceId: string, brandId: string, name: string) {

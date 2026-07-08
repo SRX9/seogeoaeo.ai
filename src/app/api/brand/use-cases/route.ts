@@ -9,7 +9,7 @@ const useCaseSchema = z.object({
   evidence: z.string().max(500).optional(),
 });
 
-/** List the active brand's use-case inventory. */
+/** List the active brand's target-profile inventory. */
 export async function GET() {
   return handleApi(async () => {
     const { brand } = await requireApiBrand();
@@ -18,7 +18,7 @@ export async function GET() {
   });
 }
 
-/** Add a use case the user wrote themselves. */
+/** Add a customer/user profile the user wrote themselves. */
 export async function POST(request: Request) {
   return handleApi(async () => {
     const { scope } = await requireApiBrand();

@@ -1,10 +1,10 @@
 import type { ResearchContext, ResearchFinding, ResearchProvider } from "@/lib/research/types";
 
 /**
- * C1 use-case provider: expands the human-reviewed use-case inventory into
- * bottom-of-funnel article candidates. Deterministic — the LLM judgement
- * happened when the inventory was built; here we only enumerate the article
- * families each row earns. Buyers searching these are choosing a tool now.
+ * C1 target-profile provider: expands the human-reviewed customer-profile
+ * inventory into bottom-of-funnel article candidates. Deterministic — the LLM
+ * judgement happened when the inventory was built; here we only enumerate the
+ * article families each row earns. Buyers searching these are choosing a tool now.
  */
 
 const MAX_ROWS = 8;
@@ -39,18 +39,18 @@ export const useCaseProvider: ResearchProvider = {
 
     for (const row of context.useCases.slice(0, MAX_ROWS)) {
       const audience = row.industry ? `${row.persona} (${row.industry})` : row.persona;
-      const evidence = `Use case: ${row.job} — done by ${audience}`;
+      const evidence = `Target profile: ${audience} — needs to ${row.job}`;
 
       findings.push(
         bofu(
           product ? `How to ${row.job} with ${product}` : `How to ${row.job}`,
-          `${audience} searching how to ${row.job} are choosing a tool right now.`,
+          `${audience} trying to ${row.job} are choosing a tool right now.`,
           evidence,
           row.job,
         ),
         bofu(
           `Best way to ${row.job}`,
-          `Question-intent query with an answer we own — the AEO play for this use case.`,
+          `Question-intent query with an answer we own — the AEO play for this target profile.`,
           evidence,
           `best way to ${row.job}`,
         ),

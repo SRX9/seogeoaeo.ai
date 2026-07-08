@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
     // components it actually uses, instead of the whole package graph.
     optimizePackageImports: ["@heroui/react", "@heroui-pro/react"],
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "www.google.com",
+        pathname: "/s2/favicons",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

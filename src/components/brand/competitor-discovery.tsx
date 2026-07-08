@@ -4,6 +4,10 @@ import { Card, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import {
+  CompetitorRadar,
+  CompetitorSuggestionCard,
+} from "@/components/brand/competitor-visuals";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
@@ -152,30 +156,31 @@ export function CompetitorDiscovery() {
               </p>
             ) : null}
 
+            {discover.isPending ? (
+              <CompetitorRadar
+                scanning
+                title="Scanning the market"
+                subtitle="Checking search results, comparison pages, and recent AI answers."
+              />
+            ) : null}
+
             {suggestions.length > 0 ? (
               <div className="space-y-3">
+                <CompetitorRadar
+                  competitors={suggestions}
+                  title={`${suggestions.length} likely rival${suggestions.length === 1 ? "" : "s"} found`}
+                  subtitle="Company homepages are weighted above articles, aggregators, and own-domain pages."
+                />
                 <ul className="space-y-2">
                   {suggestions.map((suggestion) => {
                     const checked = selected.has(suggestion.url);
                     return (
                       <li key={suggestion.url}>
-                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface p-3">
-                          <input
-                            type="checkbox"
-                            className="mt-1 h-4 w-4 accent-accent"
-                            checked={checked}
-                            onChange={() => toggle(suggestion.url)}
-                          />
-                          <span>
-                            <span className="block font-medium text-foreground">
-                              {suggestion.name}
-                            </span>
-                            <span className="block text-sm text-muted">{suggestion.url}</span>
-                            {suggestion.reason ? (
-                              <span className="block text-sm text-muted">{suggestion.reason}</span>
-                            ) : null}
-                          </span>
-                        </label>
+                        <CompetitorSuggestionCard
+                          suggestion={suggestion}
+                          checked={checked}
+                          onToggle={() => toggle(suggestion.url)}
+                        />
                       </li>
                     );
                   })}
