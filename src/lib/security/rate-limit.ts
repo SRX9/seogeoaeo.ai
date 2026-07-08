@@ -2,6 +2,8 @@ import { lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { rateLimitBuckets } from "@/lib/db/schema";
 
+type RateLimitDb = Pick<ReturnType<typeof getDb>, "insert">;
+
 export class RateLimitError extends Error {
   constructor(message = "Rate limit exceeded. Try again later.") {
     super(message);
@@ -19,16 +21,7 @@ export class RateLimitError extends Error {
 async function assertRateLimit(bucketKey: string, limit: number, windowMs: number) {
   const now = new Date();
   const freshResetAt = new Date(now.getTime() + windowMs);
-  const [row] = await getDb()
-    .insert(rateLimitBuckets)
-    .values({ bucketKey, count: 1, resetAt: freshResetAt })
-    .onConflictDoUpdate({
-      target: rateLimitBuckets.bucketKey,
-      set: {
-        count: sql`CASE WHEN ${rateLimitBuckets.resetAt} <= ${now} THEN 1 ELSE ${rateLimitBuckets.count} + 1 END`,
-        resetAt: sql`CASE WHEN ${rateLimitBuckets.resetAt} <= ${now} THEN ${freshResetAt} ELSE ${rateLimitBuckets.resetAt} END`,
-      },
-    })
+  const [row] = await buildRateLimitUpsertQuery(getDb(), bucketKey, now, freshResetAt)
     .returning({ count: rateLimitBuckets.count, resetAt: rateLimitBuckets.resetAt });
 
   if (row.count > limit) {
@@ -36,6 +29,27 @@ async function assertRateLimit(bucketKey: string, limit: number, windowMs: numbe
   }
 
   return { remaining: limit - row.count, resetAt: row.resetAt };
+}
+
+export function buildRateLimitUpsertQuery(
+  db: RateLimitDb,
+  bucketKey: string,
+  now: Date,
+  freshResetAt: Date,
+) {
+  const nowParam = sql.param(now, rateLimitBuckets.resetAt);
+  const freshResetAtParam = sql.param(freshResetAt, rateLimitBuckets.resetAt);
+
+  return db
+    .insert(rateLimitBuckets)
+    .values({ bucketKey, count: 1, resetAt: freshResetAt })
+    .onConflictDoUpdate({
+      target: rateLimitBuckets.bucketKey,
+      set: {
+        count: sql`CASE WHEN ${rateLimitBuckets.resetAt} <= ${nowParam} THEN 1 ELSE ${rateLimitBuckets.count} + 1 END`,
+        resetAt: sql`CASE WHEN ${rateLimitBuckets.resetAt} <= ${nowParam} THEN ${freshResetAtParam} ELSE ${rateLimitBuckets.resetAt} END`,
+      },
+    });
 }
 
 /**
