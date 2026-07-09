@@ -4,6 +4,18 @@ const PUBLISH_POST_MUTATION = `
   mutation PublishPost($input: PublishPostInput!) {
     publishPost(input: $input) {
       post {
+        id
+        url
+      }
+    }
+  }
+`;
+
+const UPDATE_POST_MUTATION = `
+  mutation UpdatePost($input: UpdatePostInput!) {
+    updatePost(input: $input) {
+      post {
+        id
         url
       }
     }
@@ -23,35 +35,58 @@ export const hashnodeAdapter: PublishingAdapter = {
       return { ok: false, error: "Hashnode publication ID is not configured" };
     }
 
+    const tags = article.tags.map((tag) => ({
+      slug: tag.toLowerCase().replace(/\s+/g, "-"),
+      name: tag,
+    }));
+
+    const isUpdate = Boolean(context.externalId);
+    const body = isUpdate
+      ? {
+          query: UPDATE_POST_MUTATION,
+          variables: {
+            input: {
+              id: context.externalId,
+              title: article.title,
+              contentMarkdown: article.bodyMarkdown,
+              tags,
+            },
+          },
+        }
+      : {
+          query: PUBLISH_POST_MUTATION,
+          variables: {
+            input: {
+              title: article.title,
+              contentMarkdown: article.bodyMarkdown,
+              tags,
+              publicationId,
+            },
+          },
+        };
+
     const response = await fetch("https://gql.hashnode.com", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: apiKey,
       },
-      body: JSON.stringify({
-        query: PUBLISH_POST_MUTATION,
-        variables: {
-          input: {
-            title: article.title,
-            contentMarkdown: article.bodyMarkdown,
-            tags: article.tags.map((tag) => ({ slug: tag.toLowerCase().replace(/\s+/g, "-"), name: tag })),
-            publicationId,
-          },
-        },
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      const body = await response.text();
+      const text = await response.text();
       return {
         ok: false,
-        error: `Hashnode returned ${response.status}: ${body.slice(0, 200)}`,
+        error: `Hashnode returned ${response.status}: ${text.slice(0, 200)}`,
       };
     }
 
     const data = (await response.json()) as {
-      data?: { publishPost?: { post?: { url?: string } } };
+      data?: {
+        publishPost?: { post?: { id?: string; url?: string } };
+        updatePost?: { post?: { id?: string; url?: string } };
+      };
       errors?: { message: string }[];
     };
 
@@ -59,11 +94,16 @@ export const hashnodeAdapter: PublishingAdapter = {
       return { ok: false, error: data.errors.map((error) => error.message).join("; ") };
     }
 
-    const url = data.data?.publishPost?.post?.url;
+    const post = isUpdate ? data.data?.updatePost?.post : data.data?.publishPost?.post;
+    const url = post?.url;
     if (!url) {
       return { ok: false, error: "Hashnode did not return a published post URL" };
     }
 
-    return { ok: true, externalUrl: url };
+    return {
+      ok: true,
+      externalUrl: url,
+      externalId: post?.id ?? context.externalId ?? undefined,
+    };
   },
 };

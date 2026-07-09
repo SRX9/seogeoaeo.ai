@@ -219,10 +219,14 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
   first_audit: async ({ scope, website }) => {
     if (!website) return { skip: "No website on the brand profile yet." };
     if (!(await hasCreditsFor(scope, "visibility_audit"))) return { skip: NO_CREDITS_SKIP };
-    const auditId = await runAudit(scope.workspaceId, website);
-    await chargeSetupWork(scope, "visibility_audit", auditId);
+    const auditId = await runAudit(scope.workspaceId, website, "owned", scope.brandId);
     const [audit] = await getDb().select().from(audits).where(eq(audits.id, auditId)).limit(1);
-    return audit?.overallScore != null
+    // Charge only on success — mirror manual audits so a dead site never burns credits.
+    if (audit?.status !== "complete") {
+      return { skip: audit?.error ?? "Site could not be audited yet — we'll try again later." };
+    }
+    await chargeSetupWork(scope, "visibility_audit", auditId);
+    return audit.overallScore != null
       ? `Visibility score ${Math.round(audit.overallScore)}/100.`
       : "First audit complete.";
   },
@@ -264,9 +268,14 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
 
   answer_check: async ({ scope }) => {
     if (!(await hasCreditsFor(scope, "answer_run"))) return { skip: NO_CREDITS_SKIP };
-    const result = await runAnswerCheck(scope.brandId);
+    const refId = `setup-answers-${scope.brandId}`;
+    const result = await runAnswerCheck(scope.brandId, { refId });
     if (result.cells.length === 0) return { skip: "No prompts or engines available yet." };
-    await chargeSetupWork(scope, "answer_run", `setup-answers-${scope.brandId}`);
+    const { persistNewFindings } = await import("@/lib/visibility/findings-repository");
+    await persistNewFindings(scope.workspaceId, result.findings, {
+      brandId: scope.brandId,
+    });
+    await chargeSetupWork(scope, "answer_run", refId);
     const best = [...result.share].sort((a, b) => b.appeared - a.appeared)[0];
     return best
       ? `In ${best.appeared} of ${best.prompts} ${best.engine} answers today.`
@@ -299,7 +308,15 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     if (!(await hasCreditsFor(scope, "competitor_benchmark"))) return { skip: NO_CREDITS_SKIP };
     // "benchmark": scores a rival under our workspace — must never surface as
     // the owner's score (summary/badge/baseline) or write fix-queue findings.
-    const benchmarkAuditId = await runAudit(scope.workspaceId, rival.url, "benchmark");
+    const benchmarkAuditId = await runAudit(scope.workspaceId, rival.url, "benchmark", scope.brandId);
+    const [bench] = await getDb()
+      .select({ status: audits.status, error: audits.error })
+      .from(audits)
+      .where(eq(audits.id, benchmarkAuditId))
+      .limit(1);
+    if (bench?.status !== "complete") {
+      return { skip: bench?.error ?? `Couldn't reach ${rival.name} yet.` };
+    }
     await chargeSetupWork(scope, "competitor_benchmark", benchmarkAuditId);
     return `Benchmarked ${rival.name}.`;
   },
@@ -340,7 +357,9 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     if (!topic) return { skip: "No topics queued yet." };
     try {
       // Metered like any agent-written article: asserts up front, charges on success.
-      await generateArticleFromTopic(scope, topic.id, { origin: "setup_run" });
+      // Real app origin so markdown export / webhooks get a valid absolute URL.
+      const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || undefined;
+      await generateArticleFromTopic(scope, topic.id, { origin });
     } catch (error) {
       if (error instanceof InsufficientCreditsError) return { skip: NO_CREDITS_SKIP };
       throw error;

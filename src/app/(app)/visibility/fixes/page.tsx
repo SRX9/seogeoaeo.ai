@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
+import { Button, Card, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import { EmptyState } from "@heroui-pro/react/empty-state";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,7 +10,7 @@ import { CircleCheckIcon } from "@/components/icons";
 import { Section } from "@/components/feedback/section";
 import { TableSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
-import { apiPatch, apiPost } from "@/lib/api/fetcher";
+import { apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
   queryKeys,
   useBrandProfile,
@@ -134,10 +134,12 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
     mutationFn: (action: "dismiss" | "complete") =>
       apiPatch("/api/visibility/findings", { findingId: finding.id, action }),
     onSuccess: invalidate,
+    onError: (error) => toast.danger(getErrorMessage(error, "Couldn't update this finding.")),
   });
   const applyAuto = useMutation({
     mutationFn: () => apiPost("/api/visibility/fix", { findingId: finding.id }),
     onSuccess: invalidate,
+    onError: (error) => toast.danger(getErrorMessage(error, "Couldn't apply this fix.")),
   });
 
   return (

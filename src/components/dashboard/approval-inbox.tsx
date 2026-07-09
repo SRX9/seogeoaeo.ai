@@ -17,6 +17,7 @@ import {
   type VisibilityFinding,
   type VisibilityTraffic,
 } from "@/lib/api/queries";
+import { parseTags } from "@/lib/articles/format";
 import {
   notifyPublishError,
   notifyPublishResult,
@@ -71,7 +72,8 @@ function DraftActions({
         title: a.title,
         slug: a.slug,
         metaDescription: a.metaDescription ?? "",
-        tags: a.tags ?? "",
+        // DB stores tags as JSON; API expects comma-separated or an array.
+        tags: parseTags(a.tags).join(", "),
         bodyMarkdown: a.bodyMarkdown,
         status: "approved",
       });

@@ -102,6 +102,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
       tags: string;
       bodyMarkdown: string;
       status: "draft" | "approved";
+      expectedVersion: number;
     }) => apiPatch(`/api/articles/${article.id}`, payload),
     // Write the saved values into the cache up front so the status chip flips
     // (and Re-publish unlocks) immediately instead of after the follow-up GET.
@@ -172,6 +173,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         tags: fields.tags,
         bodyMarkdown: fields.bodyMarkdown,
         status,
+        expectedVersion: article.version,
       });
       if (thenPublish) {
         const summary = await publishMutation.mutateAsync();
@@ -188,16 +190,8 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   }
 
   async function republish() {
-    setIntent("republish");
-    try {
-      const summary = await publishMutation.mutateAsync();
-      notifyPublishResult(summary);
-      invalidate();
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      setIntent(null);
-    }
+    // Always save the form first — publish reads DB, not local editor state.
+    await save("approved", true, "republish");
   }
 
   const gates = parseGateResults(article.gateResultsJson);

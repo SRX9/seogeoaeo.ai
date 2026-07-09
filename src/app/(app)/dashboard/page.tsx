@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
       <Section query={proof} skeleton={proofSkeleton} errorLabel="Couldn't load your proof numbers.">
         {([summary, answersData, trafficData]) => (
-          <ProofStrip summary={summary} answers={answersData} traffic={trafficData.data} />
+          <ProofStrip summary={summary} answers={answersData} traffic={trafficData} />
         )}
       </Section>
 
@@ -62,7 +62,7 @@ export default function DashboardPage() {
           <ApprovalInbox
             articles={articlesData.articles}
             findings={findingsData.findings}
-            traffic={trafficData.data}
+            traffic={trafficData}
             integrations={integrationsData.integrations}
             automation={automationData}
             maxRows={4}

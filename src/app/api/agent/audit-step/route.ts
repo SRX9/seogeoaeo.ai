@@ -42,7 +42,10 @@ async function createReauditRow(workspaceId: string, siteUrl: string): Promise<s
     orderBy: (table, { desc }) => desc(table.createdAt),
     columns: { id: true },
   });
-  return existing?.id ?? createAudit(workspaceId, siteUrl);
+  if (existing?.id) return existing.id;
+  const { resolveBrandForSite } = await import("@/server/visibility/autonomy");
+  const brand = await resolveBrandForSite(workspaceId, siteUrl);
+  return createAudit(workspaceId, siteUrl, "owned", brand?.brandId ?? null);
 }
 
 /**

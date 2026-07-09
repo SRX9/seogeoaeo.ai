@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getApiContext, handleApi, HttpError } from "@/lib/api/server";
-import { visibilityCapsForPlan } from "@/lib/billing/plans";
+import { effectiveVisibilityCaps } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { audits } from "@/lib/db/schema/visibility";
 import { InsufficientCreditsError, spendForVisibilityJob } from "@/lib/usage/credits";
@@ -21,7 +21,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ aud
     const audit = await db.query.audits.findFirst({ where: eq(audits.id, auditId) });
     if (!audit || audit.workspaceId !== workspace.id) throw new HttpError(404, "Audit not found");
 
-    if (!visibilityCapsForPlan(subscription?.planId).pdfReports) {
+    if (!effectiveVisibilityCaps(subscription).pdfReports) {
       throw new HttpError(402, "PDF reports aren't included in your plan.");
     }
     const model = await buildReport(auditId);

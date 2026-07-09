@@ -11,7 +11,6 @@ import { getStoredAgentBrief } from "@/lib/agent/brief";
 import { getAgentPresence, type AgentPresenceLabel } from "@/lib/agent/presence";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import type { BrandScope } from "@/lib/brand/repository";
-import { getBrandProfile } from "@/lib/brand/repository";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
@@ -21,7 +20,6 @@ import { listIntegrations } from "@/lib/integrations/repository";
 import { getDailyRun } from "@/lib/jobs/daily-repository";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
 import { getCreditBalance } from "@/lib/usage/credits";
-import { apexDomain } from "@/lib/visibility/answers";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
 import {
   DAILY_RUN_SCHEDULE_LABEL,
@@ -78,10 +76,9 @@ async function loadAskContext(
     usage,
     pending,
     openFindings,
-    workspaceAudits,
+    brandAudits,
     recentAnswers,
     brief,
-    profile,
     draftRow,
     gscSnap,
     integrations,
@@ -91,13 +88,16 @@ async function loadAskContext(
   ] = await Promise.all([
     getUsageTotals(scope.brandId),
     listPendingTopicsForWriting(scope.brandId, 5),
-    getOpenFindings(scope.workspaceId),
+    getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
+    // brandId — multi-brand workspaces must never report another brand's score.
+    // Prefer brand-scoped rows (same pattern as /api/visibility/summary).
     db
-      .select({ overall: audits.overallScore, siteUrl: audits.siteUrl })
+      .select({ overall: audits.overallScore })
       .from(audits)
       .where(
         and(
           eq(audits.workspaceId, scope.workspaceId),
+          eq(audits.brandId, scope.brandId),
           eq(audits.status, "complete"),
           eq(audits.kind, "owned"),
         ),
@@ -111,7 +111,6 @@ async function loadAskContext(
       .orderBy(desc(answerRuns.ranAt))
       .limit(50),
     getStoredAgentBrief(scope.brandId),
-    getBrandProfile(scope.brandId),
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(articles)
@@ -129,12 +128,8 @@ async function loadAskContext(
     getWeeklyPipelineStats(scope.brandId),
   ]);
 
-  const brandApex = profile?.website ? apexDomain(profile.website) : "";
-  const recentAudits = brandApex
-    ? workspaceAudits.filter((a) => apexDomain(a.siteUrl) === brandApex)
-    : workspaceAudits;
-  const latest = recentAudits[0]?.overall ?? null;
-  const previous = recentAudits[1]?.overall ?? null;
+  const latest = brandAudits[0]?.overall ?? null;
+  const previous = brandAudits[1]?.overall ?? null;
 
   const draftCount = Number(draftRow[0]?.n ?? 0);
   const needsGsc = gscSnap.length === 0;

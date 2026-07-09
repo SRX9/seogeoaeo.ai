@@ -35,6 +35,9 @@ export async function getApiContext() {
     if (error instanceof Error && error.message === "UNAUTHENTICATED") {
       throw new HttpError(401, "Unauthenticated");
     }
+    if (error instanceof Error && error.message === "Workspace not found") {
+      throw new HttpError(503, "Workspace is still provisioning — refresh in a moment.");
+    }
     throw error;
   }
 }
@@ -72,7 +75,12 @@ export async function assertNoSetupRunning(brandId: string): Promise<void> {
 export function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.infer<S> {
   const result = schema.safeParse(body);
   if (!result.success) {
-    throw new HttpError(400, "Invalid input", result.error.flatten());
+    // Prefer the first field message so clients show something actionable.
+    const first =
+      result.error.issues[0]?.message && result.error.issues[0].path.length > 0
+        ? `${result.error.issues[0].path.join(".")}: ${result.error.issues[0].message}`
+        : result.error.issues[0]?.message;
+    throw new HttpError(400, first || "Invalid input", result.error.flatten());
   }
   return result.data;
 }

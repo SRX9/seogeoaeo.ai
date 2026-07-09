@@ -19,6 +19,8 @@ export const articlePublications = pgTable(
     provider: text("provider").notNull(),
     status: text("status").notNull().default("pending"),
     externalUrl: text("external_url"),
+    /** Remote post id on the destination CMS (WP post id, Ghost id, etc.) for updates. */
+    externalId: text("external_id"),
     errorMessage: text("error_message"),
     // Fingerprint of the article content at the last successful publish. Used to
     // skip re-publishing a destination when nothing has changed (avoids dupes,

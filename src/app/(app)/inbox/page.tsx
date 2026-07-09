@@ -26,7 +26,7 @@ export default function InboxPage() {
           <ApprovalInbox
             articles={articlesData.articles}
             findings={findingsData.findings}
-            traffic={trafficData.data}
+            traffic={trafficData}
             integrations={integrationsData.integrations}
             automation={automationData}
             showHeader={false}

@@ -6,12 +6,14 @@ import type { FixCapability, Pillar, Severity } from "@/lib/visibility/types";
 /** V8.2 — open findings for the fix queue + dismiss/complete. */
 export async function GET(request: Request) {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
+    const { workspace, brand } = await getApiContext();
     const p = new URL(request.url).searchParams;
     const findings = await getOpenFindings(workspace.id, {
       pillar: (p.get("pillar") as Pillar) ?? undefined,
       severity: (p.get("severity") as Severity) ?? undefined,
       capability: (p.get("capability") as FixCapability) ?? undefined,
+      // Multi-brand: only show findings for the active brand when known.
+      brandId: brand?.id,
     });
     return jsonOk({ findings });
   });

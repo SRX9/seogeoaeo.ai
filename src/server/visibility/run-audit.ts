@@ -183,6 +183,7 @@ export async function createAudit(
   workspaceId: string,
   siteUrl: string,
   kind: AuditKind = "owned",
+  brandId?: string | null,
 ): Promise<string> {
   const db = getDb();
   const previous = await db.query.audits.findFirst({
@@ -193,7 +194,13 @@ export async function createAudit(
   });
   const [row] = await db
     .insert(audits)
-    .values({ workspaceId, siteUrl, kind, runVersion: (previous?.runVersion ?? 0) + 1 })
+    .values({
+      workspaceId,
+      siteUrl,
+      kind,
+      brandId: brandId ?? null,
+      runVersion: (previous?.runVersion ?? 0) + 1,
+    })
     .returning({ id: audits.id });
   return row.id;
 }
@@ -213,9 +220,10 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
   const db = getDb();
   const auditRow = await db.query.audits.findFirst({
     where: eq(audits.id, auditId),
-    columns: { workspaceId: true, kind: true, status: true },
+    columns: { workspaceId: true, brandId: true, kind: true, status: true },
   });
   const workspaceId = auditRow?.workspaceId ?? null;
+  const brandId = auditRow?.brandId ?? null;
   const isBenchmark = auditRow?.kind === "benchmark";
 
   // Retry-safe under at-least-once Workflow delivery: a retry after a lost
@@ -366,7 +374,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     // the fix queue is the owner's to-do list, and a rival's robots/llms/schema
     // fixes must not surface there (nor be auto-applied).
     if (findings.length > 0 && workspaceId && !isBenchmark) {
-      await persistNewFindings(workspaceId, findings, { auditId });
+      await persistNewFindings(workspaceId, findings, { auditId, brandId });
     }
 
     // Seed each Toolbox tool's latest run from this audit's data so the tool
@@ -433,8 +441,9 @@ export async function runAudit(
   workspaceId: string,
   siteUrl: string,
   kind: AuditKind = "owned",
+  brandId?: string | null,
 ): Promise<string> {
-  const auditId = await createAudit(workspaceId, siteUrl, kind);
+  const auditId = await createAudit(workspaceId, siteUrl, kind, brandId);
   await executeAudit(auditId, siteUrl);
   return auditId;
 }

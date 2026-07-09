@@ -69,13 +69,16 @@ export async function deleteResearchTopicsForRun(researchRunId: string) {
 }
 
 export async function listPendingTopicsForWriting(brandId: string, limit: number) {
+  // Include retriable failed topics (transient LLM errors) so the daily agent
+  // doesn't permanently drop them. Stuck "generating" rows older than 2h are
+  // healed by the planner separately when needed.
   return getDb()
     .select()
     .from(topics)
     .where(
       and(
         eq(topics.brandId, brandId),
-        eq(topics.status, "pending"),
+        sql`${topics.status} IN ('pending', 'failed')`,
         sql`${topics.score} IS NOT NULL`,
       ),
     )
@@ -214,11 +217,18 @@ export async function updateArticle(
     tags: string[];
     bodyMarkdown: string;
     status: string;
+    /** When set, rejects the update if the stored version differs (optimistic lock). */
+    expectedVersion?: number;
   },
 ) {
   const existing = await getArticle(brandId, articleId);
   if (!existing) {
     return null;
+  }
+  if (input.expectedVersion != null && existing.version !== input.expectedVersion) {
+    const err = new Error("VERSION_CONFLICT") as Error & { current: typeof existing };
+    err.current = existing;
+    throw err;
   }
 
   const [article] = await getDb()

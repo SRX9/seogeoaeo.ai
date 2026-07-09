@@ -58,6 +58,7 @@ export async function setActiveBrandCookie(brandId: string) {
   (await cookies()).set(ACTIVE_BRAND_COOKIE, brandId, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });

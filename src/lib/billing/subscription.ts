@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { creditLedger, subscriptions } from "@/lib/db/schema";
 import {
   ACTIVE_SUBSCRIPTION_STATUSES,
+  FREE_PLAN_ID,
   getPlan,
   planFromStripePriceId,
   type PlanId,
@@ -32,6 +33,24 @@ export async function syncSubscriptionFromStripe(
     logWarn("stripe.subscription.unmapped_price", { workspaceId, priceId });
   }
 
+  // Non-active statuses (canceled, unpaid, past_due, …) must not keep paid
+  // plan caps or monthly credits. Purchased credits never expire.
+  if (!active) {
+    await markSubscriptionInactive(workspaceId, {
+      status: stripeSubscription.status,
+      keepStripeSubscriptionId: stripeSubscription.id,
+      stripeCustomerId:
+        typeof stripeSubscription.customer === "string"
+          ? stripeSubscription.customer
+          : stripeSubscription.customer.id,
+    });
+    return;
+  }
+
+  // Never invent "indie" for an unmapped price — leave the prior planId and
+  // grant nothing until env is fixed.
+  const resolvedPlanId = planId ?? undefined;
+
   await getDb()
     .update(subscriptions)
     .set({
@@ -41,7 +60,7 @@ export async function syncSubscriptionFromStripe(
           ? stripeSubscription.customer
           : stripeSubscription.customer.id,
       status: stripeSubscription.status,
-      planId: planId ?? "indie",
+      ...(resolvedPlanId ? { planId: resolvedPlanId } : {}),
       monthlyCreditGrant: grant,
       currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
       updatedAt: new Date(),
@@ -54,7 +73,7 @@ export async function syncSubscriptionFromStripe(
   // dedups on this refId under a row lock, so duplicate/out-of-order webhooks can't
   // double-grant — and because nothing here pre-empts the call, a transiently
   // failed refill is simply retried by Stripe rather than lost.
-  if (active && grant > 0 && periodEnd) {
+  if (grant > 0 && periodEnd && planId) {
     await resetMonthlyCredits(workspaceId, grant, {
       refId: `${stripeSubscription.id}:${priceId}:${periodEnd}`,
       refType: "stripe_subscription",
@@ -62,7 +81,16 @@ export async function syncSubscriptionFromStripe(
   }
 }
 
-export async function markSubscriptionInactive(workspaceId: string) {
+type InactiveOptions = {
+  status?: string;
+  keepStripeSubscriptionId?: string | null;
+  stripeCustomerId?: string | null;
+};
+
+export async function markSubscriptionInactive(
+  workspaceId: string,
+  options: InactiveOptions = {},
+) {
   await getDb().transaction(async (tx) => {
     const [sub] = await tx
       .select({
@@ -79,8 +107,13 @@ export async function markSubscriptionInactive(workspaceId: string) {
     await tx
       .update(subscriptions)
       .set({
-        status: "inactive",
-        stripeSubscriptionId: null,
+        status: options.status ?? "inactive",
+        // Drop paid plan caps so visibility gates stop treating them as entitled.
+        planId: FREE_PLAN_ID,
+        stripeSubscriptionId: options.keepStripeSubscriptionId ?? null,
+        ...(options.stripeCustomerId
+          ? { stripeCustomerId: options.stripeCustomerId }
+          : {}),
         // Monthly credits are plan-bound and don't survive cancellation;
         // purchased credits never expire and are left untouched.
         monthlyCredits: 0,

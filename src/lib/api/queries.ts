@@ -313,7 +313,8 @@ const visibilityAnswersQueryOptions = () => ({
 });
 const visibilityTrafficQueryOptions = () => ({
   queryKey: queryKeys.visibilityTraffic,
-  queryFn: () => apiGet<{ data: VisibilityTraffic }>("/api/visibility/traffic"),
+  // API returns the traffic payload at the top level (not wrapped in `{ data }`).
+  queryFn: () => apiGet<VisibilityTraffic>("/api/visibility/traffic"),
 });
 
 /** The minimal shape `<Section>` consumes; `combineQueries` produces it too. */

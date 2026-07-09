@@ -43,6 +43,7 @@ export async function upsertPublication(
   input: {
     status: PublicationStatus;
     externalUrl?: string | null;
+    externalId?: string | null;
     errorMessage?: string | null;
     attemptCount: number;
     publishedAt?: Date | null;
@@ -57,6 +58,7 @@ export async function upsertPublication(
       .set({
         status: input.status,
         externalUrl: input.externalUrl ?? null,
+        externalId: input.externalId ?? null,
         errorMessage: input.errorMessage ?? null,
         attemptCount: input.attemptCount,
         publishedAt: input.publishedAt ?? null,
@@ -77,6 +79,7 @@ export async function upsertPublication(
       provider,
       status: input.status,
       externalUrl: input.externalUrl ?? null,
+      externalId: input.externalId ?? null,
       errorMessage: input.errorMessage ?? null,
       attemptCount: input.attemptCount,
       publishedAt: input.publishedAt ?? null,

@@ -57,10 +57,15 @@ export function dedupeFindings(rows: OpenFinding[]): OpenFinding[] {
 export async function persistNewFindings(
   workspaceId: string,
   findings: Finding[],
-  ref: { auditId?: string; toolRunId?: string } = {},
+  ref: { auditId?: string; toolRunId?: string; brandId?: string | null } = {},
 ): Promise<number> {
   if (findings.length === 0) return 0;
   const db = getDb();
+  // Dedupe within the brand when known so multi-brand workspaces don't collide;
+  // fall back to workspace-wide for legacy rows without brandId.
+  const existingWhere = ref.brandId
+    ? and(eq(auditFindings.workspaceId, workspaceId), eq(auditFindings.brandId, ref.brandId))
+    : eq(auditFindings.workspaceId, workspaceId);
   const existing = await db
     .select({
       id: auditFindings.id,
@@ -70,7 +75,7 @@ export async function persistNewFindings(
       resolution: auditFindings.resolution,
     })
     .from(auditFindings)
-    .where(eq(auditFindings.workspaceId, workspaceId));
+    .where(existingWhere);
   const byKey = new Map(existing.map((f) => [`${f.category}::${f.title.toLowerCase()}`, f]));
 
   const fresh: Finding[] = [];
@@ -100,6 +105,7 @@ export async function persistNewFindings(
   await db.insert(auditFindings).values(
     fresh.map((f) => ({
       workspaceId,
+      brandId: ref.brandId ?? null,
       auditId: ref.auditId ?? null,
       toolRunId: ref.toolRunId ?? null,
       pillar: f.pillar,
@@ -118,11 +124,14 @@ export interface FindingFilters {
   pillar?: Pillar;
   severity?: Severity;
   capability?: FixCapability;
+  brandId?: string;
 }
 
-/** All open findings for a workspace, deduped and severity-ranked. */
+/** All open findings for a workspace (optionally brand), deduped and severity-ranked. */
 export async function getOpenFindings(workspaceId: string, filters: FindingFilters = {}): Promise<OpenFinding[]> {
   const db = getDb();
+  const conditions = [eq(auditFindings.workspaceId, workspaceId), eq(auditFindings.isResolved, false)];
+  if (filters.brandId) conditions.push(eq(auditFindings.brandId, filters.brandId));
   const rows = await db
     .select({
       id: auditFindings.id,
@@ -137,7 +146,7 @@ export async function getOpenFindings(workspaceId: string, filters: FindingFilte
       createdAt: auditFindings.createdAt,
     })
     .from(auditFindings)
-    .where(and(eq(auditFindings.workspaceId, workspaceId), eq(auditFindings.isResolved, false)))
+    .where(and(...conditions))
     .orderBy(desc(auditFindings.createdAt));
 
   let findings = dedupeFindings(

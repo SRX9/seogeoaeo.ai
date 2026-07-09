@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 /**
  * Shared bearer-token check for internal cron / agent-step endpoints. The same
  * `CRON_SECRET` is presented by Cloudflare's scheduled handler and by the
@@ -10,9 +12,18 @@ export function isCronAuthorized(request: Request): boolean {
   }
 
   const auth = request.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) {
-    return true;
-  }
+  const bearer = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length) : null;
+  const header = request.headers.get("x-cron-secret");
+  const presented = bearer ?? header;
+  if (!presented) return false;
 
-  return request.headers.get("x-cron-secret") === secret;
+  // Constant-time compare when lengths match; length mismatch is an instant deny.
+  try {
+    const a = Buffer.from(presented);
+    const b = Buffer.from(secret);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }

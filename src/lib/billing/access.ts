@@ -43,7 +43,14 @@ export async function getBillingContext() {
   }
 
   const session = await requireSession();
-  const workspace = await getWorkspaceWithSubscription(session.user.id);
+  let workspace = await getWorkspaceWithSubscription(session.user.id);
+
+  // Signup hook can race or fail — provision on demand so the app never 500s.
+  if (!workspace) {
+    const { ensureUserWorkspace } = await import("@/lib/workspace");
+    await ensureUserWorkspace(session.user.id, session.user.name);
+    workspace = await getWorkspaceWithSubscription(session.user.id);
+  }
 
   if (!workspace) {
     throw new Error("Workspace not found");

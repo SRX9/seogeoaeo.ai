@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { getPlan, getStripePriceId, type PlanId } from "@/lib/billing/plans";
+import { getPlan, getStripePriceId, isActiveSubscription, type PlanId } from "@/lib/billing/plans";
 import {
   getCreditPack,
   getPackStripePriceId,
@@ -88,6 +88,21 @@ export async function POST(request: Request) {
         },
       };
     } else {
+      // Already on a live subscription — plan changes go through the portal so
+      // we never create a second Stripe subscription that keeps billing after
+      // the local row is overwritten.
+      if (
+        isActiveSubscription(subscription?.status) &&
+        subscription?.stripeSubscriptionId
+      ) {
+        return NextResponse.json(
+          {
+            error: "You already have an active plan. Use Manage subscription to change it.",
+            code: "USE_PORTAL",
+          },
+          { status: 409 },
+        );
+      }
       const plan = getPlan(planId!);
       const stripePriceId = getStripePriceId(planId!);
       if (!plan || !stripePriceId) {

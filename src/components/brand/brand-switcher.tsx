@@ -3,7 +3,8 @@
 import { Button, Dropdown, Label, Spinner } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { apiPut } from "@/lib/api/fetcher";
+import { toast } from "@heroui/react";
+import { apiPut, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type MeResponse } from "@/lib/api/queries";
 import { ChevronUpDownIcon, CircleCheckIcon } from "@/components/icons";
 
@@ -46,10 +47,11 @@ export function BrandSwitcher({
       );
       return { previous };
     },
-    onError: (_error, _brandId, context) => {
+    onError: (error, _brandId, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.me, context.previous);
       }
+      toast.danger(getErrorMessage(error, "Couldn't switch brands."));
     },
     // The active brand scopes every query, so refresh the whole cache on switch.
     onSuccess: () => queryClient.invalidateQueries(),

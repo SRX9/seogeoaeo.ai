@@ -96,6 +96,18 @@ export function visibilityCapsForPlan(planId: string | null | undefined): Visibi
   return getPlan(planId ?? "")?.visibility ?? FREE_VISIBILITY_CAPS;
 }
 
+/**
+ * Status-aware visibility caps. Cancelled / inactive subscribers keep their
+ * historical `planId` for display in some UIs, but must not retain paid caps.
+ */
+export function effectiveVisibilityCaps(subscription: {
+  status?: string | null;
+  planId?: string | null;
+} | null | undefined): VisibilityCaps {
+  if (!isActiveSubscription(subscription?.status)) return FREE_VISIBILITY_CAPS;
+  return visibilityCapsForPlan(subscription?.planId);
+}
+
 export function getPlan(planId: string): Plan | undefined {
   return plans[planId as PlanId];
 }

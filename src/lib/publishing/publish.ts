@@ -108,18 +108,35 @@ async function publishToDestination(
     config: integration.config,
     secrets,
     origin,
+    // Prefer a stored remote id so adapters update instead of creating a duplicate.
+    externalId: existing?.externalId ?? null,
+    externalUrl: existing?.externalUrl ?? null,
   });
 
-  await upsertPublication(scope, article.id, provider, {
-    status: result.ok ? "published" : "failed",
-    externalUrl: result.externalUrl ?? null,
-    errorMessage: result.error ?? null,
-    attemptCount,
-    publishedAt: result.ok ? new Date() : null,
-    // Record the fingerprint only on success; keep the prior one on failure so
-    // it still reflects the last content we actually published.
-    publishedHash: result.ok ? fingerprint : (existing?.publishedHash ?? null),
-  });
+  if (result.ok) {
+    await upsertPublication(scope, article.id, provider, {
+      status: "published",
+      externalUrl: result.externalUrl ?? existing?.externalUrl ?? null,
+      externalId: result.externalId ?? existing?.externalId ?? null,
+      errorMessage: null,
+      attemptCount,
+      publishedAt: new Date(),
+      publishedHash: fingerprint,
+    });
+  } else {
+    // Never wipe a previously successful publish: the remote post is still live.
+    // Only stamp the error + attempt count so the UI can show retry context.
+    const wasPublished = existing?.status === "published";
+    await upsertPublication(scope, article.id, provider, {
+      status: wasPublished ? "published" : "failed",
+      externalUrl: existing?.externalUrl ?? null,
+      externalId: existing?.externalId ?? null,
+      errorMessage: result.error ?? null,
+      attemptCount,
+      publishedAt: existing?.publishedAt ?? null,
+      publishedHash: existing?.publishedHash ?? null,
+    });
+  }
 
   return { provider, result };
 }
