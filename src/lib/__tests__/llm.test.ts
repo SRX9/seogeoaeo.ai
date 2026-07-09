@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { slugify, parseTags, serializeTags } from "@/lib/articles/format";
-import { getLlmConfig } from "@/lib/llm/client";
+import { getLlmConfig, sanitizeLlmText } from "@/lib/llm/client";
 
 describe("article format helpers", () => {
   it("slugifies titles", () => {
@@ -10,6 +10,25 @@ describe("article format helpers", () => {
   it("round-trips tags", () => {
     const tags = ["seo", "content marketing"];
     expect(parseTags(serializeTags(tags))).toEqual(tags);
+  });
+});
+
+describe("sanitizeLlmText", () => {
+  it("replaces em dashes with a comma-space", () => {
+    expect(sanitizeLlmText("Hello—world")).toBe("Hello, world");
+    expect(sanitizeLlmText("Hello — world")).toBe("Hello, world");
+    expect(sanitizeLlmText("Hello  —  world")).toBe("Hello, world");
+  });
+
+  it("handles multiple em dashes and leaves other punctuation alone", () => {
+    expect(sanitizeLlmText("One — two — three.")).toBe("One, two, three.");
+    expect(sanitizeLlmText("Keep hyphens and en-dashes: pre-built, 10–20.")).toBe(
+      "Keep hyphens and en-dashes: pre-built, 10–20.",
+    );
+  });
+
+  it("is a no-op when no em dash is present", () => {
+    expect(sanitizeLlmText("Clean copy, no long dash.")).toBe("Clean copy, no long dash.");
   });
 });
 

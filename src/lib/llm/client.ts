@@ -24,6 +24,15 @@ export type LlmConfig = {
   models: Record<ModelTier, string>;
 };
 
+/**
+ * Strip em dashes from model output. Applied at every chat-completion
+ * boundary so callers never need to reimplement this. Surrounding whitespace
+ * is collapsed so "word — word" and "word—word" both become "word, word".
+ */
+export function sanitizeLlmText(text: string): string {
+  return text.replace(/\s*\u2014\s*/g, ", ");
+}
+
 export function getLlmConfig(): LlmConfig | null {
   const baseUrl = process.env.LLM_BASE_URL;
   const apiKey = process.env.LLM_API_KEY;
@@ -81,7 +90,7 @@ async function postChat(
   }
 
   return {
-    text,
+    text: sanitizeLlmText(text),
     model: modelForTier(config, tier),
     tier,
     usage: payload.usage
