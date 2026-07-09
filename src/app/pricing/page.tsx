@@ -9,38 +9,38 @@ import { CircleCheckIcon } from "@/components/icons";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Pricing — seogeoaeo.ai",
+  title: "Plans — Hire Claudia | seogeoaeo.ai",
   description:
-    "Simple, credit-based pricing for the all-in-one SEO·AEO·GEO suite. Start free, " +
-    "then upgrade to generate and publish optimized content automatically.",
+    "Salary-style plans for Claudia, your autonomous SEO·AEO·GEO employee. Safe fixes included, " +
+    "not metered per click. Start free, then hire her to write, fix, and report every week.",
   alternates: { canonical: `${SITE_URL}/pricing` },
 };
 
 const includedEverywhere = [
-  "Visibility audit across SEO, AEO & GEO",
-  "Brand-tuned article generation",
-  "Multi-engine topic research",
-  "Publish to dev.to, WordPress, Ghost, Hashnode & webhooks",
-  "Weekly content autopilot & scheduling",
-  "Markdown export",
+  "Visibility loop across Google, answer boxes & AI assistants",
+  "Brand-tuned writing with a traffic thesis per piece",
+  "Daily research → write → publish (within plan caps)",
+  "Safe fixes included in plan — never per-fix charges",
+  "Inbox for the rare decisions she needs from you",
+  "Weekly memo + work log in plain language",
 ];
 
 const pricingFaqs = [
   {
+    q: "Is this a taxi meter for SEO tools?",
+    a: "No. Plans are closer to a salary: she works on a cadence. Heavy AI jobs use credits so volume stays fair, but safe fixes are plan-included — we never charge you at the moment she delivers the core promise.",
+  },
+  {
     q: "How do credits work?",
-    a: "Every AI action spends credits — an article costs 100 credits, a research run 20. Each plan refreshes a monthly credit allowance. Unused monthly credits don't roll over, but one-time top-up packs you buy never expire.",
+    a: "Credits budget articles, research, and audits. Each plan refreshes a monthly allowance. Unused monthly credits don't roll over; one-time top-up packs never expire.",
   },
   {
     q: "Can I change plans or cancel anytime?",
-    a: "Yes. Upgrade, downgrade, or cancel whenever you like from your billing settings. Changes take effect at the start of your next cycle, and you keep access through the period you've paid for.",
+    a: "Yes. Upgrade, downgrade, or cancel from billing. Changes take effect next cycle; you keep access through the period you've paid for.",
   },
   {
-    q: "What happens when I run out of credits?",
-    a: "Generation pauses until your next monthly refresh, or you can buy a top-up pack to keep going. Purchased credits stack on top of your plan and never expire.",
-  },
-  {
-    q: "Do you offer an agency or white-label plan?",
-    a: "Enterprise includes white-label reports and agency tools like a prospect CRM and proposals. If you need something custom for a larger team, reach out and we'll tailor it.",
+    q: "What happens when credits run out?",
+    a: "She pauses heavy jobs gracefully, logs it, and can email you. Top up or wait for the monthly refresh — she won't invent work she can't fund.",
   },
 ];
 
@@ -52,14 +52,14 @@ export default function PricingPage() {
         <section className="mx-auto max-w-6xl px-4 pb-12 pt-24 text-center sm:pt-32">
           <span className="inline-flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
             <span className="size-1.5 rounded-full bg-accent" aria-hidden />
-            Pricing
+            Plans
           </span>
           <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-            Pricing that scales with your output
+            Capacity for the employee you hired
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg text-muted">
-            Start free with brand setup, research, and a visibility snapshot. Upgrade when
-            you&apos;re ready to generate and publish — and only pay for the volume you need.
+            Preview free. Hire Claudia on a plan so she can write, fix, and report —
+            more capacity as you scale, not more dashboards.
           </p>
         </section>
 
@@ -73,10 +73,10 @@ export default function PricingPage() {
           <div className="mx-auto max-w-4xl">
             <Card className="border-border/70">
               <h2 className="text-xl font-semibold text-foreground">
-                Every paid plan includes
+                Every paid hire includes
               </h2>
               <p className="mt-1 text-sm text-muted">
-                The full suite — plans differ by monthly credits, workspaces, and reporting depth.
+                Same employee, different capacity — credits, cadence, and fix volume.
               </p>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2">
                 {includedEverywhere.map((item) => (
@@ -93,7 +93,7 @@ export default function PricingPage() {
         <section className="border-t border-border/60 px-4 py-20">
           <div className="mx-auto max-w-3xl">
             <h2 className="text-center text-3xl font-semibold tracking-tight text-foreground">
-              Pricing questions
+              Plan questions
             </h2>
             <div className="mt-10 divide-y divide-border/60 border-y border-border/60">
               {pricingFaqs.map((faq) => (
@@ -113,7 +113,7 @@ export default function PricingPage() {
 
             <div className="mt-12 text-center">
               <Link href="/login" className={buttonVariants({ size: "lg" })}>
-                Get started free
+                Hire Claudia
               </Link>
             </div>
           </div>

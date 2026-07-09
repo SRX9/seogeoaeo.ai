@@ -37,6 +37,35 @@ export function OverviewIcon(props: IconProps) {
   );
 }
 
+/** Claudia / home — soft person presence mark. */
+export function ClaudiaIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19.5c1.5-3.5 4-5 7-5s5.5 1.5 7 5" />
+    </Icon>
+  );
+}
+
+/** Inbox — needs-you queue. */
+export function InboxIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11z" />
+      <path d="M4 9h4.2a2 2 0 0 1 1.6.8l.7.9a2 2 0 0 0 1.6.8h1.8a2 2 0 0 0 1.6-.8l.7-.9a2 2 0 0 1 1.6-.8H20" />
+    </Icon>
+  );
+}
+
+/** Workshop / advanced tools. */
+export function WorkshopIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z" />
+    </Icon>
+  );
+}
+
 export function TopicsIcon(props: IconProps) {
   return (
     <Icon {...props}>

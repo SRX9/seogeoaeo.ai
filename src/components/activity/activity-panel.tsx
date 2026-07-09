@@ -7,43 +7,36 @@ import { EmptyState } from "@heroui-pro/react/empty-state";
 import Link from "next/link";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { StatusText } from "@/components/ui/status-text";
-import { ActivityIcon, PenIcon, SearchIcon, UsersIcon } from "@/components/icons";
+import {
+  ActivityIcon,
+  GaugeIcon,
+  PenIcon,
+  SearchIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
+import { activityEventIconKind, type ActivityFeedItem } from "@/lib/activity/items";
 import { queryKeys, type ActivityResponse } from "@/lib/api/queries";
 
 type ActivityCache = ActivityResponse;
 
-type ActivityItem = {
-  id: string;
-  type: "research_run" | "agent_job" | "competitor_run";
-  title: string;
-  status: string;
-  message: string;
-  createdAt: string;
-  detail: string;
-  credits: number;
-  canRetry: boolean;
-};
+type ActivityItem = ActivityFeedItem;
 
 type ActivityPanelProps = {
   items: ActivityItem[];
 };
 
-// Research runs and research jobs surface a search glyph; writing jobs use the
-// pen; competitor discoveries use the people glyph. Everything else (e.g. the
-// weekly pipeline) falls back to the activity pulse so each row reads at a glance.
+const ICONS = {
+  users: UsersIcon,
+  gauge: GaugeIcon,
+  search: SearchIcon,
+  pen: PenIcon,
+  activity: ActivityIcon,
+} as const;
+
 function eventIcon(item: ActivityItem) {
-  if (item.type === "competitor_run") {
-    return UsersIcon;
-  }
-  if (item.type === "research_run" || item.detail === "research") {
-    return SearchIcon;
-  }
-  if (item.detail === "writing") {
-    return PenIcon;
-  }
-  return ActivityIcon;
+  return ICONS[activityEventIconKind(item)];
 }
 
 export function ActivityPanel({ items }: ActivityPanelProps) {
@@ -86,15 +79,15 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
           <EmptyState.Media variant="icon">
             <ActivityIcon />
           </EmptyState.Media>
-          <EmptyState.Title>No activity yet</EmptyState.Title>
+          <EmptyState.Title>No work logged yet</EmptyState.Title>
           <EmptyState.Description>
-            Once Claudia starts working, every research run, writing job, and audit she
-            does shows up here — with credits spent and one-click retries.
+            Once I start researching, writing, and checking visibility, every job shows up
+            here — with credits spent and one-click retries.
           </EmptyState.Description>
         </EmptyState.Header>
         <EmptyState.Content>
           <Link href="/dashboard" className={buttonVariants({ size: "sm", variant: "secondary" })}>
-            Go to overview
+            Back to Claudia
           </Link>
         </EmptyState.Content>
       </EmptyState>

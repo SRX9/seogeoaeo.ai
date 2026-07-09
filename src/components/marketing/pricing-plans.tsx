@@ -8,10 +8,10 @@ import { creditPacks } from "@/lib/billing/credits";
 const POPULAR_PLAN: PlanId = "startup";
 
 const freeFeatures = [
-  "Unlimited brand & site setup",
-  "Topic & keyword research",
+  "Meet Claudia & set up your brand",
+  "She pre-fills voice, rivals & use cases",
   "60-second visibility snapshot",
-  "1 article credit to try generation",
+  "1 article credit to try her writing",
 ];
 
 function FeatureItem({ children }: { children: React.ReactNode }) {
@@ -38,7 +38,7 @@ export function PricingPlans() {
               <span className="text-sm font-medium text-muted">$0 / mo</span>
             </div>
             <Card.Description className="mt-1">
-              Set up your brand, research topics, and snapshot your visibility — no card required.
+              Preview the hire — brand setup and a free snapshot, no card required.
             </Card.Description>
           </div>
           <ul className="grid gap-2 sm:grid-cols-2 lg:max-w-xl">
@@ -47,7 +47,7 @@ export function PricingPlans() {
             ))}
           </ul>
           <Link href="/login" className={`${buttonVariants()} shrink-0`}>
-            Get started free
+            Start free
           </Link>
         </div>
       </Card>
@@ -95,7 +95,7 @@ export function PricingPlans() {
                     variant: isPopular ? "primary" : "secondary",
                   })} w-full`}
                 >
-                  Choose {plan.name}
+                  Hire on {plan.name}
                 </Link>
               </Card.Footer>
             </Card>

@@ -15,7 +15,7 @@ export default function ArticlesPage() {
     <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
         title="Articles"
-        description="Generated drafts, edits, and publication status."
+        description="Every piece Claudia has drafted or published for this brand."
       />
       <Section
         query={articles}

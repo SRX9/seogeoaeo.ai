@@ -55,41 +55,41 @@ type ProviderOption = IntegrationProviderDefinition;
 const STEPS = [
   {
     question: "What's your brand called?",
-    hint: "Claudia reads your website and fills in the rest herself.",
+    hint: "Day one: she only needs a name and site — she reads the rest herself.",
     optional: false,
   },
   {
-    question: "Here's how Claudia understood you",
-    hint: "She drafted this from your website — fix anything that reads wrong.",
+    question: "Here's how she understood you",
+    hint: "Confirm or tweak — correction is cheaper than a blank form.",
     optional: false,
   },
   {
     question: "Any topics you already know matter?",
-    hint: "A few seed keywords help her first research run. She'll find plenty more on her own.",
+    hint: "Optional seeds for her first research. She'll find plenty more on her own.",
     optional: true,
   },
   {
     question: "Here are your closest rivals",
-    hint: "Claudia scanned the market — untick anything that isn't a real competitor. She benchmarks these and hunts the gaps.",
+    hint: "She scanned the market — untick anyone who isn't a real competitor.",
     optional: true,
   },
   {
-    question: "Searching for your target customers and users",
-    hint: "Claudia studies what you offer and why it is useful, then finds the customer profiles, industries, and users most likely to buy or adopt it.",
+    question: "Who are you trying to reach?",
+    hint: "She studied what you offer and drafted customer profiles. Toggle what fits.",
     optional: true,
   },
   {
-    question: "Where should articles get published?",
-    hint: "Connect now or later in Settings — drafts still pile up either way.",
+    question: "Where should she publish?",
+    hint: "Connect a CMS now or later under Brand → Connections. Drafts still pile up either way.",
     optional: true,
   },
   {
-    question: "How hands-on do you want to be?",
-    hint: "You can change this anytime in Settings.",
+    question: "How should Claudia work for you?",
+    hint: "One dial — you can change it anytime under Brand → How I work.",
     optional: false,
   },
   {
-    question: "Put Claudia to work",
+    question: "Hire Claudia",
     hint: "",
     optional: false,
   },
@@ -166,13 +166,14 @@ const AUTONOMY_OPTIONS = [
     title: "Autopilot",
     recommended: true,
     description:
-      "Claudia publishes articles and applies safe fixes herself. Everything is logged and reversible.",
+      "She publishes and applies safe fixes herself. Everything is logged and reversible — you glance the work log.",
   },
   {
     value: "REVIEW" as const,
     title: "Copilot",
     recommended: false,
-    description: "Claudia prepares everything and asks before publishing or changing anything.",
+    description:
+      "Same work, but drafts and fixes wait in your Inbox until you approve.",
   },
 ];
 
@@ -749,8 +750,8 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   const current = STEPS[step];
   const progress = ((step + 1) / STEPS.length) * 100;
   const launchHint = isSubscribed
-    ? "Everything's ready. Launch her setup run and she takes it from here."
-    : "Pick a plan to unlock Claudia. Your setup is saved — you'll come right back here.";
+    ? "Offer letter signed. Start her first day — Setup Run begins immediately."
+    : "Pick her capacity plan. Your answers are saved — you'll land right back here after checkout.";
 
   return (
     <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex min-h-dvh flex-col">
@@ -1119,9 +1120,9 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                   );
                 })}
                 <p className="text-xs text-muted">
-                  The moment your plan is active, Claudia starts her Setup Run: first audit, buyer
-                  questions, competitor baseline, topic research, and your first article — no steps
-                  for you.
+                  The moment your plan is live, she starts Setup Run on her own: first audit, AI
+                  answer check, competitors, topics, quick wins, first article, Day-0 brief. You can
+                  watch or leave.
                 </p>
               </div>
             ) : null}
@@ -1148,8 +1149,8 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
           <div className="mt-8 flex items-center gap-3">
             {step === STEP_LAUNCH ? (
               isSubscribed ? (
-                <LoadingButton type="submit" isPending={create.isPending} pendingLabel="Setting up…">
-                  Put Claudia to work
+                <LoadingButton type="submit" isPending={create.isPending} pendingLabel="Starting her…">
+                  Start her first day
                 </LoadingButton>
               ) : null
             ) : (
@@ -1276,7 +1277,7 @@ function PlanPaywall({
                   isDisabled={busy}
                   onPress={() => onPick(plan.id)}
                 >
-                  Start {plan.name}
+                  Hire on {plan.name}
                 </LoadingButton>
               </div>
             </div>
@@ -1284,8 +1285,8 @@ function PlanPaywall({
         })}
       </div>
       <p className="text-xs text-muted">
-        Secure checkout via Stripe — got a coupon code? Add it there. You&apos;ll come straight back
-        here and Claudia gets to work; your setup is saved.
+        Secure checkout via Stripe — coupon codes work there. You&apos;ll return here and she starts
+        Setup Run; your answers are already saved.
       </p>
     </div>
   );

@@ -132,9 +132,30 @@ export async function updateTopicStatus(topicId: string, status: string) {
     .where(eq(topics.id, topicId));
 }
 
+/**
+ * List articles for the brand **without** `bodyMarkdown` (payload is large).
+ * Includes `bodyLength` so UIs can gate approve/publish without a full GET.
+ * Use `getArticle` for the editor body.
+ */
 export async function listArticles(brandId: string) {
   return getDb()
-    .select()
+    .select({
+      id: articles.id,
+      workspaceId: articles.workspaceId,
+      brandId: articles.brandId,
+      topicId: articles.topicId,
+      title: articles.title,
+      slug: articles.slug,
+      metaDescription: articles.metaDescription,
+      tags: articles.tags,
+      status: articles.status,
+      version: articles.version,
+      shape: articles.shape,
+      gateResultsJson: articles.gateResultsJson,
+      createdAt: articles.createdAt,
+      updatedAt: articles.updatedAt,
+      bodyLength: sql<number>`char_length(${articles.bodyMarkdown})`.mapWith(Number),
+    })
     .from(articles)
     .where(eq(articles.brandId, brandId))
     .orderBy(desc(articles.updatedAt));

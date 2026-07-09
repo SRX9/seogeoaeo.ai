@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { getAgentPresence, isAgentLive } from "@/lib/agent/presence";
 import { apiGet } from "@/lib/api/fetcher";
 import type {
   IntegrationConfig,
@@ -44,6 +45,7 @@ export const queryKeys = {
   setupRun: ["setup-run"] as const,
   toolLatestRuns: ["tools", "latest"] as const,
   toolRun: (slug: string) => ["tools", "run", slug] as const,
+  inboxSummary: ["inbox", "summary"] as const,
 };
 
 export type SessionUser = { id: string; email: string; name: string; image?: string | null };
@@ -183,7 +185,10 @@ export type Article = {
   slug: string;
   metaDescription: string | null;
   tags: string | null;
+  /** Full body — present on detail GET; empty/absent on list. */
   bodyMarkdown: string;
+  /** char_length of body from list endpoint (list omits bodyMarkdown payload). */
+  bodyLength?: number;
   status: string;
   version: number;
   shape: string | null;
@@ -364,7 +369,15 @@ function useHasBrand(): boolean {
 }
 
 export function useAutomation() {
-  return useQuery({ ...automationQueryOptions(), enabled: useHasBrand() });
+  return useQuery({
+    ...automationQueryOptions(),
+    enabled: useHasBrand(),
+    // Soft-poll while her last daily run is still open so the status pill flips.
+    refetchInterval: (q) => {
+      const last = q.state.data?.lastRun?.status;
+      return last === "running" || last === "pending" ? 8_000 : false;
+    },
+  });
 }
 
 /** AP3 — Claudia's standing Overview brief, refreshed by the daily job. */
@@ -421,8 +434,97 @@ export function useArticle(id: string) {
   });
 }
 
+export function activityHasInFlight(data: ActivityResponse | undefined): boolean {
+  if (!data) return false;
+  return (
+    data.jobs.some((j) => j.status === "running" || j.status === "pending") ||
+    data.runs.some((r) => r.status === "running" || r.status === "pending") ||
+    data.competitors.some((c) => c.status === "running" || c.status === "pending")
+  );
+}
+
+/**
+ * Activity / work stream. Auto-polls every 8s while any job/run is in flight,
+ * then stops — no permanent websocket needed for Phase 3.
+ */
 export function useActivity() {
-  return useQuery({ ...activityQueryOptions(), enabled: useHasBrand() });
+  return useQuery({
+    ...activityQueryOptions(),
+    enabled: useHasBrand(),
+    refetchInterval: (q) => (activityHasInFlight(q.state.data) ? 8_000 : false),
+  });
+}
+
+/**
+ * True when Setup is running or the activity feed shows in-flight work —
+ * UI "live" chrome on the work stream. Uses the same signals as `getAgentPresence`.
+ */
+export function useAgentIsLive(): boolean {
+  const setup = useSetupRun();
+  const activity = useActivity();
+  const automation = useAutomation();
+  return isAgentLive({
+    setupStatus: setup.data?.run?.status ?? null,
+    automation: automation.data
+      ? {
+          enabled: automation.data.enabled,
+          agentState: automation.data.agentState,
+          writtenToday: automation.data.writtenToday,
+          lastRun: automation.data.lastRun,
+        }
+      : null,
+    activityInFlight: activityHasInFlight(activity.data),
+  });
+}
+
+/** Combined inbox data for home + /inbox — one place to update inputs. */
+export function useInboxData() {
+  const articles = useArticles();
+  const findings = useVisibilityFindings();
+  const traffic = useVisibilityTraffic();
+  const integrations = useIntegrations();
+  const automation = useAutomation();
+  return {
+    articles,
+    findings,
+    traffic,
+    integrations,
+    automation,
+    combined: combineQueries(articles, findings, traffic, integrations, automation),
+  };
+}
+
+/** Shell badge only — cheap count endpoint, not full article payloads. */
+export function useInboxSummaryCount(): number {
+  const q = useQuery({
+    queryKey: queryKeys.inboxSummary,
+    queryFn: () => apiGet<{ count: number }>("/api/inbox/summary"),
+    enabled: useHasBrand(),
+    staleTime: 30_000,
+  });
+  return q.data?.count ?? 0;
+}
+
+/**
+ * Shell status pill. Uses setup + automation only (cheap on every route).
+ * Live work-stream chrome uses `useAgentIsLive` (includes activity poll).
+ */
+export function useAgentStatusLabel(): string | null {
+  const setup = useSetupRun();
+  const automation = useAutomation();
+  return getAgentPresence({
+    setupStatus: setup.data?.run?.status ?? null,
+    automation: automation.data
+      ? {
+          enabled: automation.data.enabled,
+          agentState: automation.data.agentState,
+          writtenToday: automation.data.writtenToday,
+          lastRun: automation.data.lastRun,
+        }
+      : null,
+    // lastRun running/pending is enough for shell; avoid activity poll site-wide.
+    activityInFlight: false,
+  });
 }
 
 /**

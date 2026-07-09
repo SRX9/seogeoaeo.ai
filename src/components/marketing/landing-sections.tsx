@@ -21,15 +21,15 @@ import {
 import { plans } from "@/lib/billing/plans";
 
 const heroEvidence = [
-  "Multi-engine research",
-  "Brand-tuned voice",
-  "One-click publish",
+  "Works while you're offline",
+  "You only approve exceptions",
+  "Proves gains with real traffic",
 ];
 
 const heroPreviewPillars = [
-  { label: "SEO", value: 82 },
-  { label: "AEO", value: 74 },
-  { label: "GEO", value: 79 },
+  { label: "Google & search", value: 82 },
+  { label: "Answer boxes", value: 74 },
+  { label: "AI assistants", value: 79 },
 ];
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
@@ -45,24 +45,24 @@ export function Hero() {
   return (
     <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-24 sm:pt-32">
       <div className="mx-auto max-w-3xl text-center">
-        <SectionEyebrow>Autonomous SEO, GEO &amp; AEO</SectionEyebrow>
+        <SectionEyebrow>Hire an AI employee — not another dashboard</SectionEyebrow>
         <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">
-          Get found across search <span className="text-accent">and</span> AI
+          Meet <span className="text-accent">Claudia</span> — she keeps your brand findable
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted">
-          seogeoaeo.ai measures how discoverable your site is on Google and AI assistants,
-          fixes the gaps, and ships brand-tuned, search-optimized articles to every platform
-          you publish on — automatically.
+          Claudia audits you on Google and AI assistants, fixes what she can, writes and
+          publishes content that moves the score, and checks in weekly. You pay, connect, and
+          approve — she does the rest.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link href="/login" className={buttonVariants({ size: "lg" })}>
-            Get started free
+            Hire Claudia
           </Link>
           <Link
             href="#how-it-works"
             className={buttonVariants({ variant: "secondary", size: "lg" })}
           >
-            See how it works
+            See how she works
           </Link>
         </div>
         <ul className="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted sm:gap-x-10">
@@ -114,12 +114,12 @@ function HeroPreview() {
           </div>
 
           <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-muted">This week&apos;s content</p>
+            <p className="text-sm font-medium text-muted">Claudia this week</p>
             <ul className="mt-3 space-y-2.5">
               {[
-                { title: "How AI assistants pick their sources", status: "Published" },
-                { title: "The 2026 guide to answer-engine SEO", status: "Scheduled" },
-                { title: "llms.txt: the sitemap for AI", status: "Drafting" },
+                { title: "Published “How AI assistants pick sources”", status: "Done" },
+                { title: "Fixed schema on 3 key pages", status: "Done" },
+                { title: "Drafting comparison page for Perplexity gap", status: "Working" },
               ].map((row) => (
                 <li
                   key={row.title}
@@ -128,9 +128,9 @@ function HeroPreview() {
                   <span className="truncate text-sm text-foreground">{row.title}</span>
                   <span
                     className={`inline-flex shrink-0 items-center gap-1.5 text-xs font-medium ${
-                      row.status === "Published"
+                      row.status === "Done"
                         ? "text-success"
-                        : row.status === "Scheduled"
+                        : row.status === "Working"
                           ? "text-accent-soft-foreground"
                           : "text-muted"
                     }`}
@@ -138,9 +138,9 @@ function HeroPreview() {
                     <span
                       aria-hidden
                       className={`size-1.5 rounded-full ${
-                        row.status === "Published"
+                        row.status === "Done"
                           ? "bg-success"
-                          : row.status === "Scheduled"
+                          : row.status === "Working"
                             ? "bg-accent"
                             : "bg-muted/60"
                       }`}
@@ -170,7 +170,7 @@ export function TrustBar() {
   return (
     <section className="border-y border-border/60 bg-surface/30">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-8 sm:flex-row sm:justify-between">
-        <p className="text-sm font-medium text-muted">Write once, publish everywhere</p>
+        <p className="text-sm font-medium text-muted">She publishes where your audience already is</p>
         <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {publishTargets.map((target) => (
             <li key={target} className="text-sm font-medium text-foreground/80">
@@ -210,24 +210,24 @@ const pillars = [
 const capabilities = [
   {
     icon: GaugeIcon,
-    title: "Measure & fix your visibility",
+    title: "She measures & fixes visibility",
     blurb:
-      "One audit scores how findable you are across search and AI, then hands you a prioritized, copy-paste fix list — and applies many fixes inside the app.",
+      "Claudia scores how findable you are on Google and AI assistants, queues fixes by impact, and applies the safe ones when you put her on Autopilot.",
     points: [
-      "0–100 composite visibility score",
-      "Severity-ranked issues with a 30-day plan",
-      "Re-audit to prove the gain over time",
+      "Score with delta — never a vanity number alone",
+      "One inbox of approvals, not 35 tools",
+      "Re-audits on schedule to prove the gain",
     ],
   },
   {
     icon: PenIcon,
-    title: "Create & publish content",
+    title: "She writes & publishes content",
     blurb:
-      "It learns your brand voice, finds high-intent topics across every engine, writes optimized articles, and publishes them to the platforms you connect.",
+      "She learns your voice, picks topics with a traffic thesis, writes human-sounding pieces, and ships them to the CMS you connect.",
     points: [
-      "Multi-engine topic research",
+      "Evidence-backed topic queue",
       "Brand-tuned, citation-ready drafts",
-      "One-click & scheduled publishing",
+      "Publish on Autopilot or after your OK",
     ],
   },
 ];
@@ -237,13 +237,13 @@ export function Features() {
     <section id="features" className="border-t border-border/60 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <SectionEyebrow>The all-in-one suite</SectionEyebrow>
+          <SectionEyebrow>What she does every week</SectionEyebrow>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Everything to get found — and stay found
+            One employee. Both halves of the job.
           </h2>
           <p className="mt-4 text-muted">
-            Most tools only audit, or only write. seogeoaeo.ai does both: it measures your
-            visibility, fixes it, and produces the content that earns it.
+            Most products are toolboxes you operate. Claudia is the hire who operates them —
+            visibility and content, closed-loop, in your brand&apos;s voice.
           </p>
         </div>
 
@@ -312,27 +312,27 @@ export function Features() {
 const steps = [
   {
     icon: PlugIcon,
-    title: "Connect your site & brand",
+    title: "You hire her (3 minutes)",
     blurb:
-      "Add your URL. We learn your voice, detect your business type, and snapshot where you stand across SEO, AEO, and GEO.",
+      "Share your site. She reads the brand, proposes voice and competitors, and you confirm — almost no typing.",
   },
   {
     icon: GaugeIcon,
-    title: "Audit & prioritize",
+    title: "She onboards herself",
     blurb:
-      "Get a single visibility score with a severity-ranked fix list — from blocked AI crawlers to missing schema and thin content.",
+      "First audit, AI-answer check, topic research, quick-win fixes, first article, and a Day-0 brief. You can watch or leave.",
   },
   {
     icon: SparklesIcon,
-    title: "Generate optimized content",
+    title: "She works the standing loop",
     blurb:
-      "We research high-intent topics and write citation-ready articles tuned to your brand and the engines you want to win.",
+      "Daily writing within plan caps, cadence audits, fix dispatch, and answer tracking — logged in plain language.",
   },
   {
     icon: RocketIcon,
-    title: "Publish & prove the gain",
+    title: "You only decide exceptions",
     blurb:
-      "Push to your platforms in one click, then re-audit on a schedule to watch your visibility climb month over month.",
+      "Approve drafts or fixes on Copilot, connect GSC/CMS once, read her weekly memo. Autopilot means even fewer taps.",
   },
 ];
 
@@ -341,12 +341,12 @@ export function HowItWorks() {
     <section id="how-it-works" className="border-t border-border/60 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
-          <SectionEyebrow>How it works</SectionEyebrow>
+          <SectionEyebrow>How she works</SectionEyebrow>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            From invisible to cited in four steps
+            Onboard an employee — not a project plan
           </h2>
           <p className="mt-4 text-muted">
-            Set it up once. The loop — measure, fix, create, publish — then runs on its own.
+            Your job: pay, connect, approve. Hers: measure, fix, write, publish, prove.
           </p>
         </div>
 
@@ -374,10 +374,10 @@ export function HowItWorks() {
 }
 
 const employeePerks = [
-  { icon: CalendarIcon, text: "Shows up every week with new, on-brand articles" },
-  { icon: RefreshIcon, text: "Refreshes stale pages and re-audits automatically" },
-  { icon: ChartBarIcon, text: "Reports progress so you can see the traffic it earns" },
-  { icon: BoltIcon, text: "Never sleeps, never misses a publish, never goes off-brand" },
+  { icon: CalendarIcon, text: "Shows up daily with research, drafts, and publishes" },
+  { icon: RefreshIcon, text: "Re-audits and applies safe fixes on your plan cadence" },
+  { icon: ChartBarIcon, text: "Weekly memo: score delta, AI mentions, traffic proof" },
+  { icon: BoltIcon, text: "Never sleeps, never invents work you can't verify in the log" },
 ];
 
 export function ContentEmployee() {
@@ -387,18 +387,18 @@ export function ContentEmployee() {
         <Card className="overflow-hidden border-accent/30 bg-accent-soft/10">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
-              <SectionEyebrow>Your content employee</SectionEyebrow>
+              <SectionEyebrow>Meet Claudia</SectionEyebrow>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                Like hiring a content team — without the headcount
+                Your autonomous visibility &amp; content hire
               </h2>
               <p className="mt-4 text-muted">
-                Think of seogeoaeo.ai as a tireless content hire. Once you set the brief, it
-                researches, writes, optimizes, and publishes on a weekly cadence — and shows you
-                exactly what it shipped and what it moved.
+                Not a sidebar of tools you have to operate. An employee who already knows the
+                job — search, answer boxes, AI assistants, and the content that moves them —
+                and checks in like a great hire on Monday morning.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/login" className={buttonVariants()}>
-                  Put it to work
+                  Hire Claudia
                 </Link>
                 <Link
                   href="#pricing"
@@ -448,8 +448,8 @@ export function Publish() {
             Connect your platforms and ship
           </h2>
           <p className="mt-4 text-muted">
-            Approve a draft and it goes live where your audience already is — or export the
-            Markdown and take it anywhere.
+            Connect once. On Autopilot she publishes for you; on Copilot she waits for your OK —
+            or export Markdown and take it anywhere.
           </p>
         </div>
 
@@ -474,15 +474,15 @@ export function Publish() {
 }
 
 const freeTeaser = [
-  "Brand & site setup",
-  "Topic & keyword research",
-  "Visibility snapshot",
+  "Meet Claudia & set up the brand",
+  "She pre-fills voice, competitors & use cases",
+  "Free visibility snapshot to see the gap",
 ];
 
 const paidTeaser = [
-  "Everything in Free",
-  "Article generation & weekly autopilot",
-  "Publish everywhere + visibility fixes",
+  "Claudia works every day on your brand",
+  "Articles, audits, and safe fixes included in plan",
+  "Weekly memo + proof stack (score, AI answers, traffic)",
 ];
 
 export function Pricing() {
@@ -491,25 +491,25 @@ export function Pricing() {
     <section id="pricing" className="border-t border-border/60 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-5xl">
         <div className="mx-auto max-w-2xl text-center">
-          <SectionEyebrow>Pricing</SectionEyebrow>
+          <SectionEyebrow>Plans</SectionEyebrow>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Start free. Upgrade to publish.
+            Salary for an employee — not a taxi meter
           </h2>
           <p className="mt-4 text-muted">
-            Brand setup, research, and your first visibility snapshot are free. Paid plans
-            unlock article generation and automated publishing.
+            Try the free check to see the gap. Hire Claudia on a plan so she can write, fix, and
+            report — safe fixes are included, never charged per click.
           </p>
         </div>
 
         <div className="mt-12 grid items-stretch gap-6 md:grid-cols-2">
           <Card className="flex flex-col border-border/70">
             <div className="flex items-baseline gap-2">
-              <Card.Title>Free</Card.Title>
+              <Card.Title>Preview</Card.Title>
               <span className="text-2xl font-semibold tabular-nums text-foreground">$0</span>
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
-              Everything you need to get set up — no card required.
+              See who she is and where you stand — no card required.
             </Card.Description>
             <ul className="mt-5 flex-1 space-y-2.5">
               {freeTeaser.map((item) => (
@@ -520,20 +520,20 @@ export function Pricing() {
               ))}
             </ul>
             <Link href="/login" className={`${buttonVariants({ variant: "secondary" })} mt-6 w-full`}>
-              Get started free
+              Start free
             </Link>
           </Card>
 
           <Card className="flex flex-col border-accent/40 bg-accent-soft/10 ring-2 ring-accent/60">
             <div className="flex items-baseline gap-2">
-              <Card.Title>Paid plans</Card.Title>
+              <Card.Title>Hire Claudia</Card.Title>
               <span className="text-2xl font-semibold tabular-nums text-foreground">
                 from ${startingPrice}
               </span>
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
-              Scale article output and publishing across four tiers.
+              Four capacity tiers — she works; you glance and approve.
             </Card.Description>
             <ul className="mt-5 flex-1 space-y-2.5">
               {paidTeaser.map((item) => (
@@ -544,7 +544,7 @@ export function Pricing() {
               ))}
             </ul>
             <Link href="/pricing" className={`${buttonVariants()} mt-6 w-full`}>
-              Compare all plans
+              Compare capacity tiers
             </Link>
           </Card>
         </div>
@@ -565,28 +565,28 @@ export function Pricing() {
 
 const faqs = [
   {
-    q: "What's the difference between SEO, AEO, and GEO?",
-    a: "SEO wins the classic blue links on Google and Bing. AEO (Answer Engine Optimization) wins featured snippets and AI Overviews — being the extracted answer. GEO (Generative Engine Optimization) wins citations inside AI assistants like ChatGPT, Claude, and Perplexity. We optimize for all three at once.",
+    q: "Is this another SEO dashboard?",
+    a: "No. The product is Claudia — an autonomous employee. Your day-to-day is her status, inbox, and weekly memo. The full scorecard and toolbox live under Workshop for power users, not as the default.",
+  },
+  {
+    q: "What does Claudia actually do?",
+    a: "She measures how findable you are on Google (search), answer boxes, and AI assistants; prepares or applies safe fixes; researches topics with a traffic thesis; writes and can publish articles; and reports score delta, AI mentions, and real traffic when Search Console is connected.",
   },
   {
     q: "Do I need to be technical?",
-    a: "No. Connect your site, and we handle the audit, the fixes, the writing, and the publishing. Findings come with plain-language explanations and copy-paste solutions — and many fixes apply automatically inside the app.",
+    a: "No. Share your site, confirm what she inferred, pick Autopilot or Copilot, and start a plan. Findings use owner language — not jargon — and many fixes are one click.",
   },
   {
-    q: "Where can I publish?",
-    a: "dev.to, WordPress, Ghost, and Hashnode are built in, plus signed webhooks to any custom endpoint and one-click Markdown export. Connect a platform once and publish to it in a click or on a schedule.",
-  },
-  {
-    q: "How does the weekly autopilot work?",
-    a: "Set your brand and cadence once. Each cycle it researches high-intent topics, drafts optimized articles in your voice, and queues them to publish — then re-audits so you can see your visibility improve over time.",
+    q: "Autopilot vs Copilot?",
+    a: "Autopilot: she publishes and applies safe on-site fixes herself (everything logged and reversible). Copilot: she prepares the same work and waits for your approval in Inbox. You can switch anytime.",
   },
   {
     q: "What are credits?",
-    a: "Every AI action costs credits — an article is 100 credits, a research run is 20. Each plan includes a monthly credit allowance, and you can buy one-time top-up packs that never expire if you need more.",
+    a: "Credits budget heavy AI work (articles, research, audits). Safe fixes are plan-included — never metered per fix, because an employee is salaried, not a taxi. Top-up packs never expire if you need more volume.",
   },
   {
-    q: "Is there really a free plan?",
-    a: "Yes. Free covers unlimited brand setup, topic research, and a visibility snapshot, with one article credit so you can try generation. No credit card required to start.",
+    q: "Can I try before hiring her?",
+    a: "Yes. Free brand setup and a visibility snapshot show the gap. Paid plans put Claudia on the standing loop so she can write, fix, and report every week.",
   },
 ];
 
@@ -631,21 +631,21 @@ export function FinalCta() {
               <UsersIcon className="size-6" />
             </div>
             <h2 className="mt-6 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Make your site the one AI recommends
+              Hire the employee who already knows the job
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted">
-              Set up your brand, see your visibility score, and publish your first optimized
-              article today — free.
+              Share your site. Claudia sets herself up, starts working, and only pings you when
+              something needs a human.
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center gap-3 justify-center">
               <Link href="/login" className={buttonVariants({ size: "lg" })}>
-                Get started free
+                Hire Claudia
               </Link>
               <Link
                 href="/pricing"
                 className={buttonVariants({ variant: "secondary", size: "lg" })}
               >
-                View pricing
+                View plans
               </Link>
             </div>
           </div>

@@ -178,8 +178,8 @@ export default function VisibilityPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
-        title="Visibility"
-        description="How discoverable your site is across Google, answer boxes, and AI assistants."
+        title="Visibility scorecard"
+        description="Full score breakdown — day-to-day proof still lives on Claudia's home."
         meta={
           <Button
             size="sm"

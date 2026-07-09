@@ -14,6 +14,8 @@ export async function GET() {
     return jsonOk({
       articles: articles.map((article) => ({
         ...article,
+        // List omits full markdown; keep a stable field for shared Article type.
+        bodyMarkdown: "",
         performance: verdicts[article.id] ?? null,
       })),
     });

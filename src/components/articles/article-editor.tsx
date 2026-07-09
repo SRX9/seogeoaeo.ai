@@ -11,12 +11,16 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { AlertTriangleIcon, CheckIcon } from "@/components/icons";
 import { ApiError, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type Article, type Publication } from "@/lib/api/queries";
+import { parseTags } from "@/lib/articles/format";
+import {
+  notifyPublishResult,
+  type PublishSummary,
+} from "@/lib/articles/notify-publish";
 import { cn } from "@/lib/cn";
+import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 import { statusTextClass } from "@/lib/ui/status";
 
 type ArticleCache = { article: Article; publications: Publication[] };
-import { parseTags } from "@/lib/articles/format";
-import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 type ArticleEditorProps = {
   article: {
@@ -54,30 +58,6 @@ function parseGateResults(json: string | null | undefined): GateResult[] {
 }
 
 type Intent = "draft" | "publish" | "republish";
-
-type PublishSummary = {
-  ok: boolean;
-  published: number;
-  skipped: number;
-  failed: number;
-  unchanged: boolean;
-};
-
-// Pick the toast that matches what actually happened on the server: nothing to
-// send, a partial failure, or a clean publish.
-function notifyPublishResult(summary: PublishSummary) {
-  if (summary.unchanged) {
-    toast.info("No changes since the last publish — nothing to send.");
-  } else if (summary.failed > 0) {
-    toast.danger(
-      summary.published > 0
-        ? "Published, but some destinations failed — see Publishing below."
-        : "Publishing failed — see Publishing below.",
-    );
-  } else {
-    toast.success("Publishing to your connected destinations.");
-  }
-}
 
 // The rich-text editor pulls in tiptap/ProseMirror — a heavy chunk only needed
 // on this route. Load it on demand so it doesn't bloat the article page's JS.

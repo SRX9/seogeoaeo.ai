@@ -1,12 +1,19 @@
 # Claudia Autopilot — the zero-input SEO/AEO/GEO employee
 
-> **Status: proposal, for review.** This is the master plan for turning the product from
-> "a dashboard with an agent in it" into "an agent with a dashboard behind it."
+> **Status: in progress.** Master plan for turning the product from "a dashboard with an
+> agent in it" into "an agent with a workshop behind her."
 > It absorbs [V8.5](visibility-suite/phase-v8-surface/v8.5-claudia-visibility-agent.md),
 > [V7.3](visibility-suite/phase-v7-autofix/v7.3-scheduled-reaudits.md), and parts of
 > [V8.6](visibility-suite/phase-v8-surface/v8.6-growth-funnel.md), and it changes two settled
 > defaults: **the free operating tier goes away** (plan + trial becomes onboarding step 3) and
 > **autonomy defaults to on** (paid users hired an employee; she should start working, not wait).
+>
+> **Agent OS shell (shipped):** primary nav is **Claudia · Inbox · Reports · Brand**.
+> Topics, fix queue, site health, AI answers, toolbox, and the full job log live under
+> **Brand → Workshop** (and show a Workshop chrome banner with “Back to Claudia”). Home =
+> presence + Ask + proof + needs-you + live work stream. Inline inbox approvals + live
+> polling + marketing hire narrative shipped in later phases.
+
 
 ---
 

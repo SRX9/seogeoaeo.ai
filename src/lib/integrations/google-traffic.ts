@@ -13,10 +13,11 @@ import { isQueryDataStale, syncGsc, syncGscQueries } from "@/lib/integrations/gs
  * it pulls from (in `traffic_connections`) and drive the sync. Proof is never metered.
  */
 
-export const GSC_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
-export const GA4_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
-/** Requested on demand via authClient.linkSocial when the user clicks Connect. */
-export const GOOGLE_TRAFFIC_SCOPES = [GSC_SCOPE, GA4_SCOPE];
+export {
+  GSC_SCOPE,
+  GA4_SCOPE,
+  GOOGLE_TRAFFIC_SCOPES,
+} from "@/lib/integrations/google-scopes";
 
 export type TrafficSource = "gsc" | "ga4";
 

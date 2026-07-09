@@ -256,7 +256,7 @@ export default function FixQueuePage() {
     <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Fix queue"
-        description="Every issue Claudia's audits found on your site, ranked by how much fixing it will lift your visibility score. Open a row to get the exact fix — copy it, download it, or hand it to your AI coding assistant."
+        description="Every open finding, ranked by impact. For quick approvals use Inbox; this is the full list."
       />
       <Section
         query={findings}

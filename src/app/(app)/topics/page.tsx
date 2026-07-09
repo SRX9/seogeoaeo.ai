@@ -39,8 +39,8 @@ export default function TopicsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
-        title="Topics"
-        description="Research-ranked backlog and manual topics for article generation."
+        title="Topic queue"
+        description="What Claudia is planning to write next — evidence-backed theses first."
         meta={headerMeta}
       />
 

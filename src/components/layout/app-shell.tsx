@@ -3,72 +3,43 @@
 import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { AppLayout, Sidebar } from "@heroui-pro/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, type ComponentType, type ReactNode } from "react";
 import { authClient } from "@/lib/auth/client";
 import type { SessionUser } from "@/lib/auth/session";
 import { BrandSwitcher } from "@/components/brand/brand-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
-  ActivityIcon,
   ChartBarIcon,
   ChevronUpDownIcon,
+  ClaudiaIcon,
   CreditCardIcon,
-  GaugeIcon,
-  OverviewIcon,
-  PenIcon,
+  InboxIcon,
   SettingsIcon,
 } from "@/components/icons";
+import { WorkshopBanner } from "@/components/layout/workshop-banner";
+import { useAgentStatusLabel, useInboxSummaryCount } from "@/lib/api/queries";
 
 type BrandOption = { id: string; name: string };
 type IconType = ComponentType<{ className?: string }>;
-type NavChild = { href: string; label: string };
-type NavLeaf = { kind: "leaf"; href: string; label: string; icon: IconType };
-type NavGroup = { kind: "group"; id: string; label: string; icon: IconType; children: NavChild[] };
-type NavEntry = NavLeaf | NavGroup;
+type NavLeaf = { href: string; label: string; icon: IconType };
 
-/** Grouped nav — Visibility and Content Writer (Claudia's topics + articles) are
- * collapsible sections; the rest are flat. The standalone analyzers live behind
- * the single "Extra tools" entry (/tools grid) instead of one nav row each. */
-const primaryNav: NavEntry[] = [
-  { kind: "leaf", href: "/dashboard", label: "Overview", icon: OverviewIcon },
-  {
-    kind: "group",
-    id: "content-writer",
-    label: "Content Writer",
-    icon: PenIcon,
-    children: [
-      { href: "/topics", label: "Topics" },
-      { href: "/articles", label: "Articles" },
-    ],
-  },
-  {
-    kind: "group",
-    id: "visibility",
-    label: "Visibility",
-    icon: GaugeIcon,
-    children: [
-      { href: "/visibility", label: "Overview" },
-      { href: "/visibility/fixes", label: "Fix queue" },
-      { href: "/visibility/health", label: "Site health" },
-      { href: "/visibility/answers", label: "AI answers" },
-      { href: "/tools", label: "Extra tools" },
-    ],
-  },
-  { kind: "leaf", href: "/reports", label: "Reports", icon: ChartBarIcon },
-  { kind: "leaf", href: "/activity", label: "Activity", icon: ActivityIcon },
-  { kind: "leaf", href: "/settings", label: "Brand settings", icon: SettingsIcon },
+/**
+ * Agent OS primary nav — four owner surfaces only.
+ * Topics, visibility depth, toolbox, and activity live under Brand → Workshop.
+ */
+const primaryNav: NavLeaf[] = [
+  { href: "/dashboard", label: "Claudia", icon: ClaudiaIcon },
+  { href: "/inbox", label: "Inbox", icon: InboxIcon },
+  { href: "/reports", label: "Reports", icon: ChartBarIcon },
+  { href: "/settings", label: "Brand", icon: SettingsIcon },
 ];
 
-const allHrefs: string[] = primaryNav.flatMap((entry) =>
-  entry.kind === "leaf" ? [entry.href] : entry.children.map((c) => c.href),
-);
+const allHrefs = primaryNav.map((entry) => entry.href);
 
 function matchesHref(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** The single active href = the longest matching nav href, so `/visibility/fixes`
- * lights up "Fix queue" (not the shorter "/visibility" overview). */
 function activeHref(pathname: string): string | null {
   let best: string | null = null;
   for (const href of allHrefs) {
@@ -145,60 +116,33 @@ function UserMenu({ user }: { user: SessionUser }) {
 
 function NavMenu({
   active,
-  expandedKeys,
-  onExpandedChange,
+  inboxCount,
 }: {
   active: string | null;
-  expandedKeys: Set<string>;
-  onExpandedChange: (keys: Set<string>) => void;
+  inboxCount: number;
 }) {
   return (
-    <Sidebar.Menu
-      aria-label="Primary"
-      expandedKeys={expandedKeys}
-      onExpandedChange={(keys) => onExpandedChange(new Set(Array.from(keys, String)))}
-    >
+    <Sidebar.Menu aria-label="Primary">
       {primaryNav.map((entry) => {
-        if (entry.kind === "leaf") {
-          const Icon = entry.icon;
-          return (
-            <Sidebar.MenuItem
-              key={entry.href}
-              id={entry.href}
-              href={entry.href}
-              isCurrent={active === entry.href}
-              textValue={entry.label}
-            >
-              <Sidebar.MenuIcon>
-                <Icon />
-              </Sidebar.MenuIcon>
-              <Sidebar.MenuLabel>{entry.label}</Sidebar.MenuLabel>
-            </Sidebar.MenuItem>
-          );
-        }
         const Icon = entry.icon;
+        const badge = entry.href === "/inbox" && inboxCount > 0 ? inboxCount : undefined;
         return (
-          <Sidebar.MenuItem key={entry.id} id={entry.id} textValue={entry.label}>
+          <Sidebar.MenuItem
+            key={entry.href}
+            id={entry.href}
+            href={entry.href}
+            isCurrent={active === entry.href}
+            textValue={entry.label}
+          >
             <Sidebar.MenuIcon>
               <Icon />
             </Sidebar.MenuIcon>
             <Sidebar.MenuLabel>{entry.label}</Sidebar.MenuLabel>
-            <Sidebar.MenuTrigger>
-              <Sidebar.MenuIndicator />
-            </Sidebar.MenuTrigger>
-            <Sidebar.Submenu>
-              {entry.children.map((child) => (
-                <Sidebar.MenuItem
-                  key={child.href}
-                  id={child.href}
-                  href={child.href}
-                  isCurrent={active === child.href}
-                  textValue={child.label}
-                >
-                  <Sidebar.MenuLabel>{child.label}</Sidebar.MenuLabel>
-                </Sidebar.MenuItem>
-              ))}
-            </Sidebar.Submenu>
+            {badge != null ? (
+              <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-warning-soft-foreground">
+                {badge > 9 ? "9+" : badge}
+              </span>
+            ) : null}
           </Sidebar.MenuItem>
         );
       })}
@@ -211,28 +155,41 @@ function SidebarContent({
   brands,
   activeBrandId,
   active,
-  expandedKeys,
-  onExpandedChange,
+  inboxCount,
+  statusLabel,
 }: {
   user: SessionUser;
   brands: BrandOption[];
   activeBrandId: string | null;
   active: string | null;
-  expandedKeys: Set<string>;
-  onExpandedChange: (keys: Set<string>) => void;
+  inboxCount: number;
+  statusLabel: string | null;
 }) {
   return (
     <>
       <Sidebar.Header className="flex flex-col gap-1.5">
         <BrandSwitcher brands={brands} activeBrandId={activeBrandId} />
+        {statusLabel ? (
+          <p className="flex items-center gap-1.5 px-1 text-xs text-muted">
+            <span
+              className={
+                statusLabel === "Working" || statusLabel === "Setting up"
+                  ? "size-1.5 animate-pulse rounded-full bg-success"
+                  : statusLabel === "Needs attention" || statusLabel === "Paused"
+                    ? "size-1.5 rounded-full bg-warning"
+                    : "size-1.5 rounded-full bg-success/70"
+              }
+              aria-hidden
+            />
+            <span>
+              Claudia · <span className="text-foreground/80">{statusLabel}</span>
+            </span>
+          </p>
+        ) : null}
       </Sidebar.Header>
       <Sidebar.Content>
         <Sidebar.Group>
-          <NavMenu
-            active={active}
-            expandedKeys={expandedKeys}
-            onExpandedChange={onExpandedChange}
-          />
+          <NavMenu active={active} inboxCount={inboxCount} />
         </Sidebar.Group>
       </Sidebar.Content>
       <Sidebar.Footer className="gap-2">
@@ -255,29 +212,10 @@ type AppShellProps = {
 export function AppShell({ children, user, brands, activeBrandId }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-
   const active = useMemo(() => activeHref(pathname), [pathname]);
-  const activeGroupId = useMemo(() => {
-    if (!active) return null;
-    const group = primaryNav.find(
-      (entry): entry is NavGroup =>
-        entry.kind === "group" && entry.children.some((c) => c.href === active),
-    );
-    return group?.id ?? null;
-  }, [active]);
+  const inboxCount = useInboxSummaryCount();
+  const statusLabel = useAgentStatusLabel();
 
-  // Keep the section holding the current page open; leave the user's other
-  // expand/collapse choices intact.
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
-    () => new Set(activeGroupId ? [activeGroupId] : []),
-  );
-  useEffect(() => {
-    if (!activeGroupId) return;
-    setExpandedKeys((prev) => (prev.has(activeGroupId) ? prev : new Set(prev).add(activeGroupId)));
-  }, [activeGroupId]);
-
-  // The sidebar routes through HeroUI's `navigate` (router.push), which skips
-  // Next's automatic <Link> prefetch — so warm each route's chunk up front.
   useEffect(() => {
     for (const href of allHrefs) {
       router.prefetch(href);
@@ -296,8 +234,8 @@ export function AppShell({ children, user, brands, activeBrandId }: AppShellProp
               brands={brands}
               activeBrandId={activeBrandId}
               active={active}
-              expandedKeys={expandedKeys}
-              onExpandedChange={setExpandedKeys}
+              inboxCount={inboxCount}
+              statusLabel={statusLabel}
             />
           </Sidebar>
           <Sidebar.Mobile>
@@ -306,19 +244,18 @@ export function AppShell({ children, user, brands, activeBrandId }: AppShellProp
               brands={brands}
               activeBrandId={activeBrandId}
               active={active}
-              expandedKeys={expandedKeys}
-              onExpandedChange={setExpandedKeys}
+              inboxCount={inboxCount}
+              statusLabel={statusLabel}
             />
           </Sidebar.Mobile>
         </>
       }
     >
-      {/* No top navbar — on mobile this floating toggle opens the sidebar sheet.
-          AppLayout.MenuToggle is hidden above the `md` breakpoint via CSS. */}
       <div className="fixed left-3 top-3 z-50 md:hidden">
         <AppLayout.MenuToggle tooltip="Open menu" />
       </div>
       <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-16 md:px-8 md:py-8">
+        <WorkshopBanner />
         {children}
       </div>
     </AppLayout>
