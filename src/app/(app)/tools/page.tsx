@@ -79,7 +79,7 @@ export default function ToolboxPage() {
     <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
         title="Extra tools"
-        description="Standalone checks powered by the same engine as your full audit. Run any of them on demand — anything they find lands in your fix queue."
+        description="One-off analyzers on the same engine as full audits. Secondary surface — Claudia runs these on cadence for you."
       />
       {PILLAR_SECTIONS.map((pillar) => {
         const tools = TOOLBOX_META.filter((t) => t.pillar === pillar.key);

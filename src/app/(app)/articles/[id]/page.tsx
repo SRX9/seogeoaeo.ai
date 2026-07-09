@@ -10,9 +10,11 @@ export default function ArticlePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const me = useMe();
-  const { data, isLoading, error, refetch } = useArticle(id);
+  const { data, isLoading, error, refetch, isPlaceholderData } = useArticle(id);
 
-  if (isLoading || me.isLoading) {
+  // keepPreviousData keeps the prior article visible while the next loads — treat
+  // that as loading so we never mount the editor with A under B's route id.
+  if (isLoading || isPlaceholderData || me.isLoading) {
     return <PageLoader label="Loading article…" />;
   }
   if (error || !data) {
@@ -29,7 +31,9 @@ export default function ArticlePage() {
           Edit the content and SEO fields, then save as a draft or approve &amp; publish.
         </p>
       </div>
+      {/* key forces a full remount when navigating A → B on the same dynamic route */}
       <ArticleEditor
+        key={data.article.id}
         article={data.article}
         canPublish={canPublish}
         publications={data.publications}

@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { brandProfiles, brands, competitors } from "@/lib/db/schema/brand";
 import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
+import { sanitizeLlmText } from "@/lib/llm/client";
 import type { Finding } from "./types";
 
 /**
@@ -122,7 +123,7 @@ const askChatGPT: AskEngine = async (prompt) => {
         for (const a of part.annotations ?? []) if (a.type === "url_citation" && a.url) citations.push(a.url);
       }
     }
-    return { text, citations };
+    return { text: sanitizeLlmText(text), citations };
   } catch {
     return null;
   }
@@ -142,7 +143,10 @@ const askPerplexity: AskEngine = async (prompt) => {
       choices?: { message?: { content?: string } }[];
       citations?: string[];
     };
-    return { text: data.choices?.[0]?.message?.content ?? "", citations: data.citations ?? [] };
+    return {
+      text: sanitizeLlmText(data.choices?.[0]?.message?.content ?? ""),
+      citations: data.citations ?? [],
+    };
   } catch {
     return null;
   }
@@ -169,7 +173,7 @@ const askGemini: AskEngine = async (prompt) => {
     const citations = (cand?.groundingMetadata?.groundingChunks ?? [])
       .map((c) => c.web?.uri)
       .filter((u): u is string => !!u);
-    return { text, citations };
+    return { text: sanitizeLlmText(text), citations };
   } catch {
     return null;
   }

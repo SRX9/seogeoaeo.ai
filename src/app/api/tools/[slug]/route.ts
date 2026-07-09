@@ -69,7 +69,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
+    const { workspace, brand } = await getApiContext();
     const { slug } = await params;
     const tool = getTool(slug);
     if (!tool) throw new HttpError(404, "Unknown tool");
@@ -134,7 +134,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       result: result.data ?? null,
       score: result.score,
     });
-    await persistNewFindings(workspace.id, result.findings, { toolRunId: runId });
+    await persistNewFindings(workspace.id, result.findings, {
+      toolRunId: runId,
+      brandId: brand?.id ?? null,
+    });
 
     await spendForVisibilityJob(workspace.id, tool.costKey, runId);
     return jsonOk({ runId, score: result.score, findings: result.findings, data: result.data });

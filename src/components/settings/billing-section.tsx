@@ -91,7 +91,7 @@ export function BillingSection() {
           <div className="space-y-10">
       {!active && upgrade ? (
         <p className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">
-          You&apos;re out of credits. Pick a plan or grab a top-up pack below to keep generating.
+          You need a plan or more credits to continue. Pick a plan or grab a top-up pack below.
         </p>
       ) : null}
 

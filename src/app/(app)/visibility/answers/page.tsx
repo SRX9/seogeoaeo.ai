@@ -140,7 +140,7 @@ export default function AnswersPage() {
     <div className="mx-auto w-full max-w-4xl space-y-8">
       <PageHeader
         title="AI answers"
-        description="Are the AI engines naming you — or your competitor — when people ask about your category?"
+        description="Share-of-answer across ChatGPT, Perplexity, and Gemini — also summarized on Claudia's proof strip."
         meta={
           <div className="flex gap-2">
             <Button

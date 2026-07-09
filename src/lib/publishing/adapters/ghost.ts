@@ -49,25 +49,45 @@ export const ghostAdapter: PublishingAdapter = {
       };
     }
 
-    const endpoint = `${normalizeAdminUrl(adminApiUrl)}/ghost/api/admin/posts/?source=html`;
+    const base = normalizeAdminUrl(adminApiUrl);
+    const postPayload = {
+      title: article.title,
+      slug: article.slug,
+      html: markdownToHtml(article.bodyMarkdown),
+      status: "published",
+      meta_description: article.metaDescription ?? undefined,
+      tags: article.tags.map((name) => ({ name })),
+    };
+
+    // Ghost Admin API requires `updated_at` for edits — fetch the current post first.
+    let endpoint = `${base}/ghost/api/admin/posts/?source=html`;
+    let method: "POST" | "PUT" = "POST";
+    let postsBody: Record<string, unknown> = postPayload;
+
+    if (context.externalId) {
+      const getRes = await fetch(`${base}/ghost/api/admin/posts/${encodeURIComponent(context.externalId)}/`, {
+        headers: { authorization: `Ghost ${token}` },
+      });
+      if (getRes.ok) {
+        const existing = (await getRes.json()) as {
+          posts?: { id?: string; updated_at?: string; url?: string }[];
+        };
+        const current = existing.posts?.[0];
+        if (current?.updated_at) {
+          endpoint = `${base}/ghost/api/admin/posts/${encodeURIComponent(context.externalId)}/?source=html`;
+          method = "PUT";
+          postsBody = { ...postPayload, updated_at: current.updated_at };
+        }
+      }
+    }
+
     const response = await fetch(endpoint, {
-      method: "POST",
+      method,
       headers: {
         "content-type": "application/json",
         authorization: `Ghost ${token}`,
       },
-      body: JSON.stringify({
-        posts: [
-          {
-            title: article.title,
-            slug: article.slug,
-            html: markdownToHtml(article.bodyMarkdown),
-            status: "published",
-            meta_description: article.metaDescription ?? undefined,
-            tags: article.tags.map((name) => ({ name })),
-          },
-        ],
-      }),
+      body: JSON.stringify({ posts: [postsBody] }),
     });
 
     if (!response.ok) {
@@ -79,13 +99,18 @@ export const ghostAdapter: PublishingAdapter = {
     }
 
     const data = (await response.json()) as {
-      posts?: { url?: string }[];
+      posts?: { id?: string; url?: string }[];
     };
-    const url = data.posts?.[0]?.url;
+    const post = data.posts?.[0];
+    const url = post?.url;
     if (!url) {
       return { ok: false, error: "Ghost did not return a published post URL" };
     }
 
-    return { ok: true, externalUrl: url };
+    return {
+      ok: true,
+      externalUrl: url,
+      externalId: post?.id ?? context.externalId ?? undefined,
+    };
   },
 };

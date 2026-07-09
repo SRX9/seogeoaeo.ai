@@ -8,11 +8,13 @@ import { PageHeader } from "@/components/layout/page-header";
 import { BrandSection } from "@/components/settings/brand-section";
 import { AutomationSection } from "@/components/settings/automation-section";
 import { IntegrationsSection } from "@/components/settings/integrations-section";
+import { WorkshopSection } from "@/components/settings/workshop-section";
 
 const tabs = [
   { id: "brand", label: "Brand" },
-  { id: "automation", label: "Automation" },
-  { id: "integrations", label: "Integrations" },
+  { id: "automation", label: "How I work" },
+  { id: "integrations", label: "Connections" },
+  { id: "workshop", label: "Workshop" },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -36,8 +38,8 @@ function SettingsContent() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <PageHeader
-        title="Brand settings"
-        description="Your brand's profile, publishing automation, and connected platforms."
+        title="Brand"
+        description="How Claudia works for this brand — profile, autonomy, connections, and her workshop."
       />
 
       <Segment
@@ -56,6 +58,7 @@ function SettingsContent() {
       {selected === "brand" ? <BrandSection /> : null}
       {selected === "automation" ? <AutomationSection /> : null}
       {selected === "integrations" ? <IntegrationsSection /> : null}
+      {selected === "workshop" ? <WorkshopSection /> : null}
     </div>
   );
 }

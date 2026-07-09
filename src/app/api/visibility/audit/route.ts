@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const auditId = await createAudit(workspace.id, url);
+    const auditId = await createAudit(workspace.id, url, "owned", brand.id);
     // Durable execution (AuditRunWorkflow): survives isolate eviction, charges
     // credits only on success. Falls back to waitUntil outside Cloudflare.
     await triggerManualAudit(workspace.id, auditId, url);

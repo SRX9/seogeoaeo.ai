@@ -1,7 +1,7 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { assertNoSetupRunning, handleApi, HttpError, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
-import { visibilityCapsForPlan } from "@/lib/billing/plans";
+import { effectiveVisibilityCaps } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { brandProfiles } from "@/lib/db/schema/brand";
 import { answerRuns, trackedPrompts } from "@/lib/db/schema/visibility";
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     if (action === "seed") {
       // Plan cap: tracked prompts bound the answer-run fan-out (prompts × engines
       // external calls per run), so seeding must never exceed the plan allowance.
-      const cap = visibilityCapsForPlan(subscription?.planId).trackedPrompts;
+      const cap = effectiveVisibilityCaps(subscription).trackedPrompts;
       if (cap <= 0) throw new HttpError(402, "Your plan doesn't include tracked prompts.");
       const [{ activeCount }] = await db
         .select({ activeCount: count() })
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     }
     // Persist answer-gap findings into the shared fix queue (dedup lives in the
     // repository, shared with audits and Toolbox runs).
-    await persistNewFindings(workspace.id, result.findings);
+    await persistNewFindings(workspace.id, result.findings, { brandId });
     return jsonOk(result);
   });
 }

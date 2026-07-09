@@ -51,8 +51,14 @@ async function refreshesUsed(workspaceId: string): Promise<number> {
   return quota?.used ?? 0;
 }
 
-async function latestAuditSnapshot(workspaceId: string) {
+async function latestAuditSnapshot(workspaceId: string, brandId?: string) {
   const db = getDb();
+  const conditions = [
+    eq(audits.workspaceId, workspaceId),
+    eq(audits.status, "complete"),
+    eq(audits.kind, "owned"),
+  ];
+  if (brandId) conditions.push(eq(audits.brandId, brandId));
   const [latest] = await db
     .select({
       siteHealth: audits.siteHealth,
@@ -60,13 +66,7 @@ async function latestAuditSnapshot(workspaceId: string) {
       completedAt: audits.completedAt,
     })
     .from(audits)
-    .where(
-      and(
-        eq(audits.workspaceId, workspaceId),
-        eq(audits.status, "complete"),
-        eq(audits.kind, "owned"),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(desc(audits.createdAt))
     .limit(1);
   return latest ?? null;
@@ -74,10 +74,10 @@ async function latestAuditSnapshot(workspaceId: string) {
 
 export async function GET() {
   return handleApi(async () => {
-    const { workspace } = await requireApiBrand();
+    const { workspace, brand } = await requireApiBrand();
     const [overlay, latest, used] = await Promise.all([
       kvGetJson<SiteHealthSnapshot>(siteHealthOverlayKey(workspace.id)),
-      latestAuditSnapshot(workspace.id),
+      latestAuditSnapshot(workspace.id, brand.id),
       refreshesUsed(workspace.id),
     ]);
 
@@ -123,7 +123,7 @@ export async function POST() {
       );
     }
 
-    const latest = await latestAuditSnapshot(workspace.id);
+    const latest = await latestAuditSnapshot(workspace.id, brand.id);
     const siteUrl = latest?.siteUrl ?? (await getBrandProfile(brand.id))?.website;
     if (!siteUrl) {
       throw new HttpError(400, "This brand has no website yet — add one in brand settings.", {
@@ -148,7 +148,13 @@ export async function POST() {
     }
 
     await kvPutJson(quotaKey(workspace.id), { used: used + 1 }, QUOTA_TTL_SECONDS);
-    await spendForVisibilityJob(workspace.id, "tool_run_basic", crypto.randomUUID());
+    // Stable ref for the cooldown window so concurrent POSTs share one charge.
+    const cooldownBucket = Math.floor(Date.now() / REFRESH_COOLDOWN_MS);
+    await spendForVisibilityJob(
+      workspace.id,
+      "tool_run_basic",
+      `site-health:${workspace.id}:${cooldownBucket}`,
+    );
 
     return jsonOk({ snapshot, refreshed: true });
   });

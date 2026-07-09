@@ -83,6 +83,40 @@ export async function generateArticleFromTopic(
 
   const existing = await getArticleByTopic(brandId, topicId);
   if (existing) {
+    // Retry after a partial success: article was inserted and topic flipped to
+    // `generating`, then the isolate died before charge/complete. Ledger spend is
+    // idempotent on article id. Pure hits (topic already completed / never
+    // started generate) just return the existing row with no side effects.
+    if (topic.status === "generating") {
+      if (!options.skipCreditCheck) {
+        try {
+          await spendCredits(workspaceId, options.creditCost ?? CREDIT_COSTS.article_generation, {
+            reason: "article_generation",
+            brandId,
+            refType: "article",
+            refId: existing.id,
+          });
+        } catch (error) {
+          logWarn("article.credit_charge_skipped", {
+            workspaceId,
+            articleId: existing.id,
+            reason: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+      await updateTopicStatus(topicId, "completed");
+      if (existing.status === "approved") {
+        try {
+          await publishArticleToDestinations(scope, existing.id, options.origin);
+        } catch (error) {
+          logWarn("publish.auto_skipped", {
+            workspaceId,
+            articleId: existing.id,
+            reason: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+    }
     return { article: existing, trace: null };
   }
 
@@ -204,22 +238,33 @@ export async function generateArticleFromTopic(
     ]);
     tokenUsage = addTokenUsage(tokenUsage, metadata);
 
-    const article = await createArticle(scope, {
-      topicId: topic.id,
-      title: metadata.data.title || topic.title,
-      slug: metadata.data.slug || slugify(metadata.data.title || topic.title),
-      metaDescription: metadata.data.metaDescription,
-      tags: metadata.data.tags ?? [],
-      bodyMarkdown: body,
-      // A draft that failed the gates never auto-publishes, whatever the
-      // autonomy mode — it waits for a human.
-      status:
-        options.forceDraft || flaggedForReview
-          ? "draft"
-          : articleStatusForAutonomy(brand.autonomyMode),
-      shape,
-      gateResultsJson: JSON.stringify(gateResults),
-    });
+    let article;
+    try {
+      article = await createArticle(scope, {
+        topicId: topic.id,
+        title: metadata.data.title || topic.title,
+        slug: metadata.data.slug || slugify(metadata.data.title || topic.title),
+        metaDescription: metadata.data.metaDescription,
+        tags: metadata.data.tags ?? [],
+        bodyMarkdown: body,
+        // A draft that failed the gates never auto-publishes, whatever the
+        // autonomy mode — it waits for a human.
+        status:
+          options.forceDraft || flaggedForReview
+            ? "draft"
+            : articleStatusForAutonomy(brand.autonomyMode),
+        shape,
+        gateResultsJson: JSON.stringify(gateResults),
+      });
+    } catch (error) {
+      // Concurrent generate on the same topic (unique index) — return the winner.
+      const raced = await getArticleByTopic(brandId, topicId);
+      if (raced) {
+        article = raced;
+      } else {
+        throw error;
+      }
+    }
 
     // Charge only after the article exists, so a failed generation never burns
     // credits. Drains the monthly bucket before purchased credits. The balance

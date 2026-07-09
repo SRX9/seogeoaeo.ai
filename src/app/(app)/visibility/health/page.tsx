@@ -265,7 +265,7 @@ export default function SiteHealthPage() {
     <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Site health"
-        description="Every check your site should pass to look its best in Google and AI assistants. Green means done; anything else opens into the exact fix — copy the prompt and hand it to your AI coding assistant."
+        description="Technical checklist under the score. Green is good; open a row for the exact fix."
       />
       <Section
         query={health}

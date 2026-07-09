@@ -11,12 +11,16 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { AlertTriangleIcon, CheckIcon } from "@/components/icons";
 import { ApiError, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type Article, type Publication } from "@/lib/api/queries";
+import { parseTags } from "@/lib/articles/format";
+import {
+  notifyPublishResult,
+  type PublishSummary,
+} from "@/lib/articles/notify-publish";
 import { cn } from "@/lib/cn";
+import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 import { statusTextClass } from "@/lib/ui/status";
 
 type ArticleCache = { article: Article; publications: Publication[] };
-import { parseTags } from "@/lib/articles/format";
-import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 type ArticleEditorProps = {
   article: {
@@ -54,30 +58,6 @@ function parseGateResults(json: string | null | undefined): GateResult[] {
 }
 
 type Intent = "draft" | "publish" | "republish";
-
-type PublishSummary = {
-  ok: boolean;
-  published: number;
-  skipped: number;
-  failed: number;
-  unchanged: boolean;
-};
-
-// Pick the toast that matches what actually happened on the server: nothing to
-// send, a partial failure, or a clean publish.
-function notifyPublishResult(summary: PublishSummary) {
-  if (summary.unchanged) {
-    toast.info("No changes since the last publish — nothing to send.");
-  } else if (summary.failed > 0) {
-    toast.danger(
-      summary.published > 0
-        ? "Published, but some destinations failed — see Publishing below."
-        : "Publishing failed — see Publishing below.",
-    );
-  } else {
-    toast.success("Publishing to your connected destinations.");
-  }
-}
 
 // The rich-text editor pulls in tiptap/ProseMirror — a heavy chunk only needed
 // on this route. Load it on demand so it doesn't bloat the article page's JS.
@@ -122,6 +102,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
       tags: string;
       bodyMarkdown: string;
       status: "draft" | "approved";
+      expectedVersion: number;
     }) => apiPatch(`/api/articles/${article.id}`, payload),
     // Write the saved values into the cache up front so the status chip flips
     // (and Re-publish unlocks) immediately instead of after the follow-up GET.
@@ -192,6 +173,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         tags: fields.tags,
         bodyMarkdown: fields.bodyMarkdown,
         status,
+        expectedVersion: article.version,
       });
       if (thenPublish) {
         const summary = await publishMutation.mutateAsync();
@@ -208,16 +190,8 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   }
 
   async function republish() {
-    setIntent("republish");
-    try {
-      const summary = await publishMutation.mutateAsync();
-      notifyPublishResult(summary);
-      invalidate();
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      setIntent(null);
-    }
+    // Always save the form first — publish reads DB, not local editor state.
+    await save("approved", true, "republish");
   }
 
   const gates = parseGateResults(article.gateResultsJson);

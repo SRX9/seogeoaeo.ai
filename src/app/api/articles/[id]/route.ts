@@ -22,6 +22,8 @@ const articleSchema = z.object({
   status: z.enum(["draft", "review", "approved"]),
   // Tags accepted as an array or a comma-separated string.
   tags: z.union([z.array(z.string()), z.string()]).optional(),
+  /** Optimistic concurrency — reject if another save landed first. */
+  expectedVersion: z.number().int().positive().optional(),
 });
 
 /** Get a single article. */
@@ -75,14 +77,25 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     // doc. Read the stored body before it's overwritten; never block the save.
     const previous = data.status === "approved" ? await getArticle(brand.id, id) : null;
 
-    const article = await updateArticle(brand.id, id, {
-      title: data.title,
-      slug: data.slug || slugify(data.title),
-      metaDescription: data.metaDescription,
-      tags,
-      bodyMarkdown: data.bodyMarkdown,
-      status: data.status,
-    });
+    let article;
+    try {
+      article = await updateArticle(brand.id, id, {
+        title: data.title,
+        slug: data.slug || slugify(data.title),
+        metaDescription: data.metaDescription,
+        tags,
+        bodyMarkdown: data.bodyMarkdown,
+        status: data.status,
+        expectedVersion: data.expectedVersion,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "VERSION_CONFLICT") {
+        throw new HttpError(409, "This article was saved elsewhere — reload and try again.", {
+          code: "VERSION_CONFLICT",
+        });
+      }
+      throw error;
+    }
     if (!article) {
       throw new HttpError(404, "Article not found");
     }

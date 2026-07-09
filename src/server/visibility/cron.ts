@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { ACTIVE_SUBSCRIPTION_STATUSES, visibilityCapsForPlan } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
@@ -118,6 +118,7 @@ async function dispatchFixes(
     );
   let remaining = Math.max(0, autoFixCap - (used?.n ?? 0));
 
+  // Scope to this brand so multi-brand workspaces don't auto-apply each other's findings.
   const findings = await db
     .select({
       id: auditFindings.id,
@@ -126,7 +127,13 @@ async function dispatchFixes(
       proposedAt: auditFindings.proposedAt,
     })
     .from(auditFindings)
-    .where(and(eq(auditFindings.workspaceId, workspaceId), eq(auditFindings.isResolved, false)));
+    .where(
+      and(
+        eq(auditFindings.workspaceId, workspaceId),
+        eq(auditFindings.brandId, brand.brandId),
+        eq(auditFindings.isResolved, false),
+      ),
+    );
 
   const toPropose: string[] = [];
   for (const finding of findings) {
@@ -289,6 +296,10 @@ async function countNewCriticals(baselineId: string, currentId: string): Promise
  */
 async function latestAuditPerSite() {
   const db = getDb();
+  // Prefer the latest complete audit that finished its monitor cycle. A scrape
+  // that completed without `finish` must not advance the cadence window.
+  // Manual/setup audits never set monitorFinishedAt — treat them as valid baselines
+  // so a user-triggered audit still resets the re-audit clock.
   return db
     .selectDistinctOn([audits.workspaceId, audits.siteUrl], {
       id: audits.id,
@@ -303,6 +314,12 @@ async function latestAuditPerSite() {
       and(
         eq(audits.kind, "owned"),
         eq(audits.status, "complete"),
+        // Exclude unfinished monitor runs still inside the finish-retry window:
+        // a complete scrape without `finish` must not advance the cadence.
+        or(
+          isNotNull(audits.monitorFinishedAt),
+          lt(audits.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+        ),
         inArray(subscriptions.status, [...ACTIVE_SUBSCRIPTION_STATUSES]),
       ),
     )
@@ -378,6 +395,13 @@ export async function finishReaudit(args: {
     });
   }
 
+  // Stamp finish before attribution so a lost response on the job write still
+  // advances cadence correctly — finish work itself is retry-safe.
+  await getDb()
+    .update(audits)
+    .set({ monitorFinishedAt: new Date() })
+    .where(and(eq(audits.id, args.newAuditId), isNull(audits.monitorFinishedAt)));
+
   // Attribution — best-effort, after all idempotent writes (daily.ts pattern):
   // a failed log line never fails (or re-runs) the re-audit itself.
   if (brand) {
@@ -452,7 +476,7 @@ export async function runScheduledAnswerCheck(args: {
 
   await spendForVisibilityJob(args.workspaceId, "answer_run", args.newAuditId, brand.brandId);
   // Answer-gap findings join the shared fix queue (dedup lives in the repository).
-  await persistNewFindings(args.workspaceId, result.findings);
+  await persistNewFindings(args.workspaceId, result.findings, { brandId: brand.brandId });
   logInfo("cron.visibility.answers", {
     workspaceId: args.workspaceId,
     brandId: brand.brandId,
@@ -495,7 +519,13 @@ export async function settleStaleAudits(): Promise<number> {
  * Workflow instance instead, so one slow site can't starve the rest.
  */
 export async function reauditSite(site: DueSite): Promise<boolean> {
-  const newAuditId = await createAudit(site.workspaceId, site.siteUrl);
+  const brand = await resolveBrandForSite(site.workspaceId, site.siteUrl);
+  const newAuditId = await createAudit(
+    site.workspaceId,
+    site.siteUrl,
+    "owned",
+    brand?.brandId ?? null,
+  );
   const ok = await executeAudit(newAuditId, site.siteUrl);
   if (!ok) return false;
   return finishReaudit({

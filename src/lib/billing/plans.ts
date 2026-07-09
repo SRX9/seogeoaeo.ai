@@ -96,6 +96,18 @@ export function visibilityCapsForPlan(planId: string | null | undefined): Visibi
   return getPlan(planId ?? "")?.visibility ?? FREE_VISIBILITY_CAPS;
 }
 
+/**
+ * Status-aware visibility caps. Cancelled / inactive subscribers keep their
+ * historical `planId` for display in some UIs, but must not retain paid caps.
+ */
+export function effectiveVisibilityCaps(subscription: {
+  status?: string | null;
+  planId?: string | null;
+} | null | undefined): VisibilityCaps {
+  if (!isActiveSubscription(subscription?.status)) return FREE_VISIBILITY_CAPS;
+  return visibilityCapsForPlan(subscription?.planId);
+}
+
 export function getPlan(planId: string): Plan | undefined {
   return plans[planId as PlanId];
 }
@@ -116,10 +128,10 @@ export function articlesPerMonth(monthlyCredits: number): number {
 
 /** One-line taglines per plan, shared by every pricing surface. */
 export const planTaglines: Record<PlanId, string> = {
-  indie: "Solo creators testing the engines",
-  startup: "Growing teams shipping weekly",
-  scale: "Brands scaling content output",
-  enterprise: "Agencies & multi-brand ops",
+  indie: "Claudia part-time — one brand, monthly checks",
+  startup: "Claudia on staff — weekly content, real fixes",
+  scale: "Claudia full-time — weekly audits, more volume",
+  enterprise: "Claudia at scale — multi-brand capacity",
 };
 
 const CADENCE_LABELS: Record<VisibilityCaps["monitoringCadence"], string> = {
@@ -138,15 +150,15 @@ export function planFeatureList(planId: PlanId): string[] {
   const plan = plans[planId];
   const caps = plan.visibility;
   return [
-    `Claudia writes up to ${articlesPerMonth(plan.monthlyCredits)} articles/mo (${plan.dailyArticleCap}/day)`,
-    "Daily content autopilot — research, write & publish",
-    `${CADENCE_LABELS[caps.monitoringCadence]} visibility audits across SEO, AEO & GEO`,
-    `${caps.trackedPrompts} tracked AI prompts (ChatGPT, Perplexity, Gemini)`,
-    `Up to ${caps.autoFixCap} auto-fixes/mo applied by Claudia`,
-    `${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"} benchmarked`,
-    ...(caps.pdfReports ? ["PDF visibility reports"] : []),
-    "Publish to WordPress, Ghost, dev.to, Hashnode & webhooks",
-    "Google Search Console traffic proof",
+    `Writes up to ${articlesPerMonth(plan.monthlyCredits)} articles/mo (${plan.dailyArticleCap}/day)`,
+    "Daily research, writing & publishing on autopilot",
+    `${CADENCE_LABELS[caps.monitoringCadence]} visibility audits (Google, answer boxes & AI)`,
+    `${caps.trackedPrompts} tracked prompts across ChatGPT, Perplexity & Gemini`,
+    `Up to ${caps.autoFixCap} safe fixes/mo included — never per-fix`,
+    `${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"} she benchmarks`,
+    ...(caps.pdfReports ? ["PDF reports in her voice"] : []),
+    "Publishes to WordPress, Ghost, dev.to, Hashnode & webhooks",
+    "Search Console proof of real traffic (free to connect)",
   ];
 }
 

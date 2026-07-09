@@ -78,7 +78,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           <ThemeToggle />
           {session ? (
             <Link href="/dashboard" className={buttonVariants()}>
-              Open dashboard
+              Open Claudia
             </Link>
           ) : (
             <>
@@ -89,7 +89,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 Sign in
               </Link>
               <Link href="/login" className={buttonVariants()}>
-                Get started free
+                Hire Claudia
               </Link>
             </>
           )}

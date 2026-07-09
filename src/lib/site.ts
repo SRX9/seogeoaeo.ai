@@ -9,14 +9,14 @@ export const SITE_URL = "https://seogeoaeo.ai";
 export const SITE_NAME = "seogeoaeo.ai";
 
 export const SITE_DESCRIPTION =
-  "The all-in-one SEO·AEO·GEO suite that measures how findable your site is, " +
-  "fixes the gaps, and ships search-optimized articles to every platform you " +
-  "publish on — on autopilot.";
+  "Hire Claudia — an autonomous AI employee who audits your visibility across " +
+  "Google and AI assistants, fixes what she can, writes brand-tuned content, " +
+  "and proves the gain. You pay, connect, and approve.";
 
 /** Primary marketing nav, used by the public site header. */
 export const NAV_LINKS = [
-  { label: "Features", href: "/#features" },
-  { label: "How it works", href: "/#how-it-works" },
+  { label: "How she works", href: "/#how-it-works" },
+  { label: "What she does", href: "/#features" },
   { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "/#faq" },
 ] as const;
@@ -26,27 +26,27 @@ export const FOOTER_LINKS = [
   {
     title: "Product",
     links: [
-      { label: "Features", href: "/#features" },
-      { label: "How it works", href: "/#how-it-works" },
+      { label: "How she works", href: "/#how-it-works" },
+      { label: "What she does", href: "/#features" },
       { label: "Pricing", href: "/pricing" },
       { label: "Publishing", href: "/#publish" },
       { label: "Integration guide", href: "/help/integrations" },
     ],
   },
   {
-    title: "Engines",
+    title: "Where she wins",
     links: [
-      { label: "SEO", href: "/#features" },
-      { label: "AEO — answer engines", href: "/#features" },
-      { label: "GEO — AI assistants", href: "/#features" },
-      { label: "Visibility audit", href: "/#features" },
+      { label: "Google & search", href: "/#features" },
+      { label: "Answer boxes", href: "/#features" },
+      { label: "AI assistants", href: "/#features" },
+      { label: "Visibility score", href: "/#features" },
     ],
   },
   {
     title: "Company",
     links: [
       { label: "Sign in", href: "/login" },
-      { label: "Get started free", href: "/login" },
+      { label: "Hire Claudia", href: "/login" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
     ],

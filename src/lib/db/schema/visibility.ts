@@ -27,6 +27,8 @@ export const audits = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Owning brand when known — multi-brand workspaces filter visibility by this. */
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
     siteUrl: text("site_url").notNull(),
     /**
      * owned | benchmark — a benchmark audit scores a competitor's site under the
@@ -57,8 +59,17 @@ export const audits = pgTable(
     scorerVersion: integer("scorer_version").notNull().default(2),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    /**
+     * Set when the monitor workflow's `finish` step succeeds (dispatch/delta/alert).
+     * Cadence uses this so a complete scrape without finish doesn't advance the
+     * re-audit window and drop fixes/alerts until the next month/week.
+     */
+    monitorFinishedAt: timestamp("monitor_finished_at", { withTimezone: true }),
   },
-  (table) => [index("audits_workspace_id_idx").on(table.workspaceId)],
+  (table) => [
+    index("audits_workspace_id_idx").on(table.workspaceId),
+    index("audits_brand_id_idx").on(table.brandId),
+  ],
 );
 
 export const auditPages = pgTable(
@@ -88,6 +99,8 @@ export const auditFindings = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     /** Denormalized so the fix queue (V8.2) queries findings from audits AND tool runs uniformly. */
     workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Owning brand when known — multi-brand fix queues filter by this. */
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
     /** Null for standalone Toolbox-run findings (V8.3). */
     auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
     /** Set when the finding came from a standalone Toolbox run (V8.3). */
@@ -120,7 +133,10 @@ export const auditFindings = pgTable(
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("audit_findings_audit_id_idx").on(table.auditId)],
+  (table) => [
+    index("audit_findings_audit_id_idx").on(table.auditId),
+    index("audit_findings_brand_id_idx").on(table.brandId),
+  ],
 );
 
 export const citabilityBlocks = pgTable(

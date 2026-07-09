@@ -19,33 +19,44 @@ export const wordpressAdapter: PublishingAdapter = {
       return { ok: false, error: "WordPress username and application password are required" };
     }
 
-    const endpoint = `${normalizeSiteUrl(siteUrl)}/wp-json/wp/v2/posts`;
+    const base = normalizeSiteUrl(siteUrl);
     const auth = Buffer.from(`${username}:${appPassword}`).toString("base64");
+    const body = {
+      title: article.title,
+      content: markdownToHtml(article.bodyMarkdown),
+      status: "publish",
+      slug: article.slug,
+      excerpt: article.metaDescription ?? undefined,
+    };
+
+    // Update an existing post when we have its remote id; otherwise create.
+    const isUpdate = Boolean(context.externalId);
+    const endpoint = isUpdate
+      ? `${base}/wp-json/wp/v2/posts/${encodeURIComponent(context.externalId!)}`
+      : `${base}/wp-json/wp/v2/posts`;
 
     const response = await fetch(endpoint, {
-      method: "POST",
+      method: isUpdate ? "POST" : "POST", // WP REST uses POST for both create and update
       headers: {
         "content-type": "application/json",
         authorization: `Basic ${auth}`,
       },
-      body: JSON.stringify({
-        title: article.title,
-        content: markdownToHtml(article.bodyMarkdown),
-        status: "publish",
-        slug: article.slug,
-        excerpt: article.metaDescription ?? undefined,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      const body = await response.text();
+      const text = await response.text();
       return {
         ok: false,
-        error: `WordPress returned ${response.status}: ${body.slice(0, 200)}`,
+        error: `WordPress returned ${response.status}: ${text.slice(0, 200)}`,
       };
     }
 
-    const data = (await response.json()) as { link?: string };
-    return { ok: true, externalUrl: data.link };
+    const data = (await response.json()) as { id?: number | string; link?: string };
+    return {
+      ok: true,
+      externalUrl: data.link,
+      externalId: data.id != null ? String(data.id) : context.externalId ?? undefined,
+    };
   },
 };

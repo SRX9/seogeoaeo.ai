@@ -12,21 +12,23 @@ import { scoreBand } from "@/lib/visibility/display";
  */
 export async function GET() {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
+    const { workspace, brand } = await getApiContext();
     const db = getDb();
 
     // kind = "owned" — competitor benchmark audits share the workspace but must
     // never surface as the owner's hero score (or its delta baseline).
+    // Prefer brand-scoped rows when the active brand is set (multi-brand safe).
+    const conditions = [
+      eq(audits.workspaceId, workspace.id),
+      eq(audits.status, "complete"),
+      eq(audits.kind, "owned"),
+    ];
+    if (brand?.id) conditions.push(eq(audits.brandId, brand.id));
+
     const recent = await db
       .select()
       .from(audits)
-      .where(
-        and(
-          eq(audits.workspaceId, workspace.id),
-          eq(audits.status, "complete"),
-          eq(audits.kind, "owned"),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(desc(audits.createdAt))
       .limit(2);
 

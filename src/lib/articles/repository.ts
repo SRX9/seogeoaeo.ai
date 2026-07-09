@@ -69,13 +69,16 @@ export async function deleteResearchTopicsForRun(researchRunId: string) {
 }
 
 export async function listPendingTopicsForWriting(brandId: string, limit: number) {
+  // Include retriable failed topics (transient LLM errors) so the daily agent
+  // doesn't permanently drop them. Stuck "generating" rows older than 2h are
+  // healed by the planner separately when needed.
   return getDb()
     .select()
     .from(topics)
     .where(
       and(
         eq(topics.brandId, brandId),
-        eq(topics.status, "pending"),
+        sql`${topics.status} IN ('pending', 'failed')`,
         sql`${topics.score} IS NOT NULL`,
       ),
     )
@@ -132,9 +135,30 @@ export async function updateTopicStatus(topicId: string, status: string) {
     .where(eq(topics.id, topicId));
 }
 
+/**
+ * List articles for the brand **without** `bodyMarkdown` (payload is large).
+ * Includes `bodyLength` so UIs can gate approve/publish without a full GET.
+ * Use `getArticle` for the editor body.
+ */
 export async function listArticles(brandId: string) {
   return getDb()
-    .select()
+    .select({
+      id: articles.id,
+      workspaceId: articles.workspaceId,
+      brandId: articles.brandId,
+      topicId: articles.topicId,
+      title: articles.title,
+      slug: articles.slug,
+      metaDescription: articles.metaDescription,
+      tags: articles.tags,
+      status: articles.status,
+      version: articles.version,
+      shape: articles.shape,
+      gateResultsJson: articles.gateResultsJson,
+      createdAt: articles.createdAt,
+      updatedAt: articles.updatedAt,
+      bodyLength: sql<number>`char_length(${articles.bodyMarkdown})`.mapWith(Number),
+    })
     .from(articles)
     .where(eq(articles.brandId, brandId))
     .orderBy(desc(articles.updatedAt));
@@ -193,11 +217,18 @@ export async function updateArticle(
     tags: string[];
     bodyMarkdown: string;
     status: string;
+    /** When set, rejects the update if the stored version differs (optimistic lock). */
+    expectedVersion?: number;
   },
 ) {
   const existing = await getArticle(brandId, articleId);
   if (!existing) {
     return null;
+  }
+  if (input.expectedVersion != null && existing.version !== input.expectedVersion) {
+    const err = new Error("VERSION_CONFLICT") as Error & { current: typeof existing };
+    err.current = existing;
+    throw err;
   }
 
   const [article] = await getDb()

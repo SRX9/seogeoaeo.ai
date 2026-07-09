@@ -110,7 +110,7 @@ export function ProofPanel() {
       skeleton={<CardSkeleton lines={2} />}
       errorLabel="Couldn't load your traffic proof."
     >
-      {({ data }) => <ProofContent data={data} />}
+      {(data) => <ProofContent data={data} />}
     </Section>
   );
 }

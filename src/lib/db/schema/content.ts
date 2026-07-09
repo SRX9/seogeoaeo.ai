@@ -222,5 +222,11 @@ export const articles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("articles_brand_id_idx").on(table.brandId)],
+  (table) => [
+    index("articles_brand_id_idx").on(table.brandId),
+    // One article per topic — prevents concurrent generate races from double-writing.
+    uniqueIndex("articles_topic_id_unique_idx")
+      .on(table.topicId)
+      .where(sql`${table.topicId} is not null`),
+  ],
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
+import { Button, Card, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import { EmptyState } from "@heroui-pro/react/empty-state";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,7 +10,7 @@ import { CircleCheckIcon } from "@/components/icons";
 import { Section } from "@/components/feedback/section";
 import { TableSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
-import { apiPatch, apiPost } from "@/lib/api/fetcher";
+import { apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
   queryKeys,
   useBrandProfile,
@@ -134,10 +134,12 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
     mutationFn: (action: "dismiss" | "complete") =>
       apiPatch("/api/visibility/findings", { findingId: finding.id, action }),
     onSuccess: invalidate,
+    onError: (error) => toast.danger(getErrorMessage(error, "Couldn't update this finding.")),
   });
   const applyAuto = useMutation({
     mutationFn: () => apiPost("/api/visibility/fix", { findingId: finding.id }),
     onSuccess: invalidate,
+    onError: (error) => toast.danger(getErrorMessage(error, "Couldn't apply this fix.")),
   });
 
   return (
@@ -256,7 +258,7 @@ export default function FixQueuePage() {
     <div className="mx-auto w-full max-w-3xl space-y-8">
       <PageHeader
         title="Fix queue"
-        description="Every issue Claudia's audits found on your site, ranked by how much fixing it will lift your visibility score. Open a row to get the exact fix — copy it, download it, or hand it to your AI coding assistant."
+        description="Every open finding, ranked by impact. For quick approvals use Inbox; this is the full list."
       />
       <Section
         query={findings}

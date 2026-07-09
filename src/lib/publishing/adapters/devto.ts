@@ -8,21 +8,28 @@ export const devtoAdapter: PublishingAdapter = {
       return { ok: false, error: "Dev.to API key is not configured" };
     }
 
-    const response = await fetch("https://dev.to/api/articles", {
-      method: "POST",
+    const payload = {
+      article: {
+        title: article.title,
+        body_markdown: article.bodyMarkdown,
+        published: true,
+        tags: article.tags.slice(0, 4).join(","),
+        description: article.metaDescription ?? undefined,
+      },
+    };
+
+    const isUpdate = Boolean(context.externalId);
+    const endpoint = isUpdate
+      ? `https://dev.to/api/articles/${encodeURIComponent(context.externalId!)}`
+      : "https://dev.to/api/articles";
+
+    const response = await fetch(endpoint, {
+      method: isUpdate ? "PUT" : "POST",
       headers: {
         "content-type": "application/json",
         "api-key": apiKey,
       },
-      body: JSON.stringify({
-        article: {
-          title: article.title,
-          body_markdown: article.bodyMarkdown,
-          published: true,
-          tags: article.tags.slice(0, 4).join(","),
-          description: article.metaDescription ?? undefined,
-        },
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -33,7 +40,11 @@ export const devtoAdapter: PublishingAdapter = {
       };
     }
 
-    const data = (await response.json()) as { url?: string };
-    return { ok: true, externalUrl: data.url };
+    const data = (await response.json()) as { id?: number | string; url?: string };
+    return {
+      ok: true,
+      externalUrl: data.url,
+      externalId: data.id != null ? String(data.id) : context.externalId ?? undefined,
+    };
   },
 };

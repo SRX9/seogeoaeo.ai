@@ -16,7 +16,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "seogeoaeo.ai — Autonomous SEO, GEO & AEO on autopilot",
+  title: "seogeoaeo.ai — Hire Claudia for SEO, AEO & GEO",
   description: SITE_DESCRIPTION,
   alternates: { canonical: SITE_URL },
 };

@@ -9,6 +9,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { apiDelete, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type GoogleTrafficStatus } from "@/lib/api/queries";
 import { authClient } from "@/lib/auth/client";
+import { GOOGLE_TRAFFIC_SCOPES } from "@/lib/integrations/google-scopes";
 
 /**
  * V6.6 connect — "Connect Search Console" card. The OAuth grant is requested on
@@ -17,10 +18,6 @@ import { authClient } from "@/lib/auth/client";
  * daily job then pulls real traffic into the Proof panel. Proof is never metered.
  */
 
-const TRAFFIC_SCOPES = [
-  "https://www.googleapis.com/auth/webmasters.readonly",
-  "https://www.googleapis.com/auth/analytics.readonly",
-];
 
 function lastSyncLabel(iso: string | null): string {
   if (!iso) return "Not synced yet";
@@ -42,7 +39,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
         typeof window !== "undefined" ? window.location.href : "/settings?tab=integrations";
       const { data, error } = await authClient.linkSocial({
         provider: "google",
-        scopes: TRAFFIC_SCOPES,
+        scopes: [...GOOGLE_TRAFFIC_SCOPES],
         callbackURL,
       });
       if (error) throw new Error(error.message ?? "Link failed");

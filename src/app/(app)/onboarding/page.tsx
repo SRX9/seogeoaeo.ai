@@ -27,7 +27,7 @@ export default function OnboardingPage() {
           href="/dashboard"
           className="fixed left-6 top-5 z-20 text-sm text-muted transition hover:text-foreground"
         >
-          ← Back to dashboard
+          ← Back to Claudia
         </Link>
       ) : null}
       <BrandOnboardingForm providers={INTEGRATION_PROVIDERS} />

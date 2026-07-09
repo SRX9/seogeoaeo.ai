@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CREDIT_COSTS } from "./credits";
-import { plans, visibilityCapsForPlan } from "./plans";
+import { effectiveVisibilityCaps, plans, visibilityCapsForPlan } from "./plans";
 
 describe("visibility credit costs", () => {
   it("declares every visibility action, cheaper than an article", () => {
@@ -24,5 +24,13 @@ describe("visibilityCapsForPlan", () => {
 
   it("caps scale monotonically above indie", () => {
     expect(plans.scale.visibility.autoFixCap).toBeGreaterThan(plans.indie.visibility.autoFixCap);
+  });
+
+  it("effectiveVisibilityCaps ignores planId when status is not active", () => {
+    expect(effectiveVisibilityCaps({ status: "inactive", planId: "startup" }).pdfReports).toBe(
+      false,
+    );
+    expect(effectiveVisibilityCaps({ status: "active", planId: "startup" }).pdfReports).toBe(true);
+    expect(effectiveVisibilityCaps({ status: "canceled", planId: "scale" }).trackedPrompts).toBe(0);
   });
 });

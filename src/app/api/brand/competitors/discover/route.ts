@@ -75,11 +75,13 @@ export async function POST() {
     });
 
     // Charge only after a successful discovery call (the part with real cost).
+    // Per-run refId so retries/double-clicks don't free-ride after the first spend
+    // (ledger is idempotent on workspace+reason+refId — never key on brand id alone).
     await spendCredits(workspace.id, cost, {
       reason: "competitor_discovery",
       brandId: brand!.id,
-      refType: "brand",
-      refId: brand!.id,
+      refType: "discovery",
+      refId: crypto.randomUUID(),
     });
 
     return jsonOk({ suggestions });
