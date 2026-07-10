@@ -5,6 +5,7 @@ import {
   Input,
   Label,
   ListBox,
+  ProgressBar,
   Select,
   TextArea,
 } from "@heroui/react";
@@ -22,7 +23,11 @@ import {
   OnboardingDiscovery,
   type DiscoveryStage,
 } from "@/components/brand/onboarding-discovery";
-import { CheckIcon } from "@/components/icons";
+import {
+  OnboardingExitDialog,
+  useOnboardingExitGuard,
+} from "@/components/brand/onboarding-exit-guard";
+import { CheckIcon, SparklesIcon, SgaLogo } from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe } from "@/lib/api/queries";
@@ -32,6 +37,7 @@ import {
   plans,
   type PlanId,
 } from "@/lib/billing/plans";
+import { SIGNUP_GRANT_CREDITS } from "@/lib/billing/credits";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
 import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
@@ -84,9 +90,21 @@ const INITIAL_FIELDS: Fields = {
 };
 
 const MOMENTS = [
-  { title: "Give Claudia the site", description: "One required input. She reads the rest." },
-  { title: "Review the operating brief", description: "Correct assumptions in one place." },
-  { title: "Set authority and start", description: "Choose how she acts, then leave." },
+  {
+    label: "Discover",
+    title: "Turn your site into an operating brief",
+    description: "Paste one URL. Claudia reads the positioning, audience, and market for you.",
+  },
+  {
+    label: "Review",
+    title: "Your first week, already planned",
+    description: "Check the useful assumptions now. Everything stays editable after setup.",
+  },
+  {
+    label: "Launch",
+    title: "Choose how Claudia works",
+    description: "Set her authority, connect publishing when useful, and choose your starting pace.",
+  },
 ] as const;
 
 const DRAFT_KEY = "claudia:onboarding-v2-draft";
@@ -264,7 +282,13 @@ async function discoverOperatingBrief(
   };
 }
 
-export function BrandOnboardingForm({ providers }: { providers: ProviderOption[] }) {
+export function BrandOnboardingForm({
+  providers,
+  showDashboardEscape = false,
+}: {
+  providers: ProviderOption[];
+  showDashboardEscape?: boolean;
+}) {
   const isClient = useSyncExternalStore(subscribeToClient, () => true, () => false);
   if (!isClient) {
     return (
@@ -273,10 +297,21 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
       </CenteredFrame>
     );
   }
-  return <BrandOnboardingClient providers={providers} />;
+  return (
+    <BrandOnboardingClient
+      providers={providers}
+      showDashboardEscape={showDashboardEscape}
+    />
+  );
 }
 
-function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
+function BrandOnboardingClient({
+  providers,
+  showDashboardEscape,
+}: {
+  providers: ProviderOption[];
+  showDashboardEscape: boolean;
+}) {
   const [bootstrap] = useState(readBootstrap);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -292,6 +327,19 @@ function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
   const [discoveryStage, setDiscoveryStage] = useState<DiscoveryStage>("site");
   const [finalizeTimedOut, setFinalizeTimedOut] = useState(false);
   const finalizeStarted = useRef(false);
+  const isFirstBrand = (me.data?.brands.length ?? 0) === 0;
+  const {
+    isOpen: isExitDialogOpen,
+    open: openExitDialog,
+    stay: stayInOnboarding,
+    disarm: disarmExitGuard,
+    rearm: rearmExitGuard,
+    release: releaseExitGuard,
+    leave: leaveOnboarding,
+  } = useOnboardingExitGuard({
+    active: phase === "form",
+    fallbackHref: showDashboardEscape ? "/dashboard" : "/",
+  });
 
   useBfcacheReset(() => setCheckoutLoading(null));
 
@@ -324,9 +372,13 @@ function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.me });
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
-      router.push(canIgnite ? "/dashboard" : "/account?tab=billing&next=ignition");
+      await releaseExitGuard();
+      router.replace(canIgnite ? "/dashboard" : "/account?tab=billing&next=ignition");
     },
-    onError: (failure) => setError(getErrorMessage(failure, "Could not create this brand.")),
+    onError: (failure) => {
+      rearmExitGuard();
+      setError(getErrorMessage(failure, "Could not create this brand."));
+    },
   });
 
   const submitCreate = useCallback(() => {
@@ -337,12 +389,13 @@ function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
       return;
     }
     setError(null);
+    disarmExitGuard();
     create.mutate({
       ...buildPayload(fields),
       resumeExisting: phase === "finalizing",
       checkoutSessionId: phase === "finalizing" ? checkoutSessionId ?? undefined : undefined,
     });
-  }, [checkoutSessionId, create, fields, phase]);
+  }, [checkoutSessionId, create, disarmExitGuard, fields, phase]);
 
   useEffect(() => {
     if (bootstrap.cleanUrl) {
@@ -398,14 +451,17 @@ function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
   async function startCheckout(planId: PlanId) {
     setError(null);
     setCheckoutLoading(planId);
+    disarmExitGuard();
     saveDraft({ fields, moment: 2, checkoutSessionId: null });
     try {
       const result = await apiPost<{ url: string }>("/api/billing/checkout", {
         planId,
         returnTo: "onboarding",
       });
+      await releaseExitGuard();
       window.location.href = result.url;
     } catch (failure) {
+      rearmExitGuard();
       setError(getErrorMessage(failure, "Could not start checkout."));
       setCheckoutLoading(null);
     }
@@ -450,109 +506,328 @@ function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
   const current = MOMENTS[moment];
   const isDiscovering = moment === 0 && discover.isPending;
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-5 py-10 sm:px-8 sm:py-14">
-      <div className="mb-10 flex items-center justify-between gap-4">
-        <p className="text-sm font-medium text-foreground">Claudia setup</p>
-        <p className="text-sm text-muted tabular-nums">{moment + 1} of 3</p>
+    <div className="onboarding-canvas relative isolate min-h-dvh overflow-x-clip">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 pb-12 pt-6 sm:px-8 sm:pb-16 sm:pt-8 lg:px-10">
+        <OnboardingHeader
+          current={current}
+          moment={moment}
+          isFirstBrand={isFirstBrand}
+          showDashboardEscape={showDashboardEscape}
+          onExit={openExitDialog}
+        />
+
+        <main className="mt-10 grid flex-1 items-start gap-12 lg:mt-14 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-16">
+          <OnboardingStepPanel
+            current={current}
+            moment={moment}
+            fields={fields}
+            setFields={setFields}
+            providers={providers}
+            manualCompetitor={manualCompetitor}
+            setManualCompetitor={setManualCompetitor}
+            error={error}
+            isDiscovering={isDiscovering}
+            discoveryStage={discoveryStage}
+            subscribed={subscribed}
+            createPending={create.isPending}
+            checkoutLoading={checkoutLoading}
+            onBeginDiscovery={beginDiscovery}
+            onAddCompetitor={addCompetitor}
+            onContinueBrief={() => setMoment(2)}
+            onBack={() => setMoment((value) => value - 1)}
+            onSubmit={submitCreate}
+            onStartCheckout={startCheckout}
+          />
+
+          <OnboardingValueRail isFirstBrand={isFirstBrand} moment={moment} />
+        </main>
       </div>
-      <div className="mb-8 h-1 overflow-hidden rounded-full bg-surface-secondary" aria-hidden>
-        <div className="h-full rounded-full bg-accent transition-[width] duration-ui" style={{ width: `${((moment + 1) / 3) * 100}%` }} />
-      </div>
 
-      <main className="flex-1">
-        <div key={`${moment}-${isDiscovering ? "working" : "ready"}`} className="onboarding-step">
-          <p className="text-sm font-medium text-accent">Moment {moment + 1}</p>
-          <h1 className="mt-2 text-3xl text-foreground sm:text-4xl">
-            {isDiscovering ? "Claudia is building your brief" : current.title}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
-            {isDiscovering
-              ? "She is turning the website into a useful first-week plan. Watch the brief take shape while the research runs."
-              : current.description}
-          </p>
+      <OnboardingExitDialog
+        isOpen={isExitDialogOpen}
+        isFirstBrand={isFirstBrand}
+        remainingSteps={MOMENTS.length - moment}
+        onStay={stayInOnboarding}
+        onLeave={() => void leaveOnboarding()}
+      />
+    </div>
+  );
+}
 
-          <div className="mt-8">
-            {isDiscovering ? (
-              <OnboardingDiscovery
-                brandName={fields.name}
-                website={fields.website}
-                stage={discoveryStage}
-              />
-            ) : moment === 0 ? (
-              <SiteMoment fields={fields} setFields={setFields} />
-            ) : moment === 1 ? (
-              <BriefMoment
-                fields={fields}
-                setFields={setFields}
-                manualCompetitor={manualCompetitor}
-                setManualCompetitor={setManualCompetitor}
-                addCompetitor={addCompetitor}
-              />
-            ) : (
-              <AuthorityMoment fields={fields} setFields={setFields} providers={providers} />
-            )}
-          </div>
-
-          {error ? (
-            <p className="mt-6 rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger-soft-foreground">
-              {error}
-            </p>
+function OnboardingHeader({
+  current,
+  moment,
+  isFirstBrand,
+  showDashboardEscape,
+  onExit,
+}: {
+  current: (typeof MOMENTS)[number];
+  moment: number;
+  isFirstBrand: boolean;
+  showDashboardEscape: boolean;
+  onExit: () => void;
+}) {
+  return (
+    <>
+      <header className="flex items-center justify-between gap-4">
+        <SgaLogo className="flex items-center gap-2.5" iconClassName="size-8" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          {isFirstBrand ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-soft-foreground lg:hidden">
+              <SparklesIcon className="size-3.5" />
+              {SIGNUP_GRANT_CREDITS} free credits
+            </span>
+          ) : (
+            <span className="hidden items-center gap-1.5 text-xs font-medium text-muted sm:inline-flex">
+              <CheckIcon className="size-3.5" />
+              Draft saved
+            </span>
+          )}
+          {showDashboardEscape ? (
+            <Button size="sm" variant="ghost" onPress={onExit}>
+              Back to Claudia
+            </Button>
           ) : null}
+        </div>
+      </header>
 
-          {!isDiscovering ? (
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+      <div className="mt-8 sm:mt-10">
+        <ProgressBar
+          aria-label={`Onboarding progress: ${current.label}`}
+          value={((moment + 1) / MOMENTS.length) * 100}
+        >
+          <ProgressBar.Track className="h-1 bg-surface-secondary/80">
+            <ProgressBar.Fill className="bg-accent transition-transform duration-ui ease-out-strong" />
+          </ProgressBar.Track>
+        </ProgressBar>
+        <ol className="mt-3 grid grid-cols-3 gap-3" aria-label="Onboarding steps">
+          {MOMENTS.map((item, index) => (
+            <li
+              key={item.label}
+              aria-current={index === moment ? "step" : undefined}
+              className={`text-xs font-medium sm:text-sm ${
+                index <= moment ? "text-foreground" : "text-muted/65"
+              }`}
+            >
+              <span className="mr-1 tabular-nums text-muted">0{index + 1}</span>
+              {item.label}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </>
+  );
+}
+
+function OnboardingStepPanel({
+  current,
+  moment,
+  fields,
+  setFields,
+  providers,
+  manualCompetitor,
+  setManualCompetitor,
+  error,
+  isDiscovering,
+  discoveryStage,
+  subscribed,
+  createPending,
+  checkoutLoading,
+  onBeginDiscovery,
+  onAddCompetitor,
+  onContinueBrief,
+  onBack,
+  onSubmit,
+  onStartCheckout,
+}: {
+  current: (typeof MOMENTS)[number];
+  moment: number;
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  providers: ProviderOption[];
+  manualCompetitor: { name: string; url: string };
+  setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
+  error: string | null;
+  isDiscovering: boolean;
+  discoveryStage: DiscoveryStage;
+  subscribed: boolean;
+  createPending: boolean;
+  checkoutLoading: PlanId | null;
+  onBeginDiscovery: () => void;
+  onAddCompetitor: () => void;
+  onContinueBrief: () => void;
+  onBack: () => void;
+  onSubmit: () => void;
+  onStartCheckout: (planId: PlanId) => void;
+}) {
+  return (
+    <section className="min-w-0">
+      <div
+        key={`${moment}-${isDiscovering ? "working" : "ready"}`}
+        className="onboarding-step"
+      >
+        <p className="text-sm font-semibold text-accent">{current.label}</p>
+        <h1 className="type-display mt-2 max-w-3xl text-4xl text-foreground sm:text-5xl">
+          {isDiscovering ? "Claudia is building your brief" : current.title}
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">
+          {isDiscovering
+            ? "She is turning the site into a practical first-week plan. Watch the useful pieces come together while research runs."
+            : current.description}
+        </p>
+
+        <div className="mt-8 sm:mt-10">
+          {isDiscovering ? (
+            <OnboardingDiscovery
+              brandName={fields.name}
+              website={fields.website}
+              stage={discoveryStage}
+            />
+          ) : moment === 0 ? (
+            <SiteMoment fields={fields} setFields={setFields} onContinue={onBeginDiscovery} />
+          ) : moment === 1 ? (
+            <BriefMoment
+              fields={fields}
+              setFields={setFields}
+              manualCompetitor={manualCompetitor}
+              setManualCompetitor={setManualCompetitor}
+              addCompetitor={onAddCompetitor}
+            />
+          ) : (
+            <AuthorityMoment fields={fields} setFields={setFields} providers={providers} />
+          )}
+        </div>
+
+        {error ? (
+          <p
+            role="alert"
+            className="mt-6 rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger-soft-foreground"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        {!isDiscovering ? (
+          <div className="mt-8">
+            <div className="flex flex-wrap items-center gap-3">
               {moment === 0 ? (
-                <LoadingButton
-                  isPending={discover.isPending}
-                  pendingLabel="Reading the site…"
-                  onPress={beginDiscovery}
-                >
-                  Build the operating brief
-                </LoadingButton>
+                <Button onPress={onBeginDiscovery}>Build my brief</Button>
               ) : moment === 1 ? (
-                <Button onPress={() => setMoment(2)}>Accept brief</Button>
+                <Button onPress={onContinueBrief}>Looks right — continue</Button>
               ) : subscribed ? (
-                <LoadingButton isPending={create.isPending} pendingLabel="Starting…" onPress={submitCreate}>
+                <LoadingButton
+                  isPending={createPending}
+                  pendingLabel="Starting…"
+                  onPress={onSubmit}
+                >
                   Start Claudia&apos;s first day
                 </LoadingButton>
               ) : null}
               {moment > 0 ? (
-                <Button variant="ghost" isDisabled={create.isPending} onPress={() => setMoment((value) => value - 1)}>
+                <Button variant="ghost" isDisabled={createPending} onPress={onBack}>
                   Back
                 </Button>
               ) : null}
             </div>
-          ) : null}
+            {moment < 2 ? (
+              <p className="mt-3 text-xs leading-5 text-muted">
+                Saved automatically · Everything remains editable later
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
-          {moment === 2 && !subscribed ? (
-            <PlanChoices loading={checkoutLoading} onPick={startCheckout} />
-          ) : null}
-        </div>
-      </main>
-    </div>
+        {moment === 2 && !subscribed ? (
+          <PlanChoices loading={checkoutLoading} onPick={onStartCheckout} />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function OnboardingValueRail({
+  isFirstBrand,
+  moment,
+}: {
+  isFirstBrand: boolean;
+  moment: number;
+}) {
+  const details = [
+    "Your brief saves automatically",
+    "Every assumption stays editable",
+    moment === 2 ? "Cancel or change plans anytime" : "No technical setup required",
+  ];
+
+  return (
+    <aside className="hidden lg:sticky lg:top-8 lg:block" aria-label="Setup benefits">
+      <div className="material-panel rounded-[1.75rem] p-5">
+        {isFirstBrand ? (
+          <>
+            <span className="grid size-10 place-items-center rounded-2xl bg-accent-soft text-accent-soft-foreground">
+              <SparklesIcon className="size-5" />
+            </span>
+            <p className="mt-5 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
+              {SIGNUP_GRANT_CREDITS}
+            </p>
+            <p className="mt-1 text-sm font-medium text-foreground">free credits are ready</p>
+            <p className="mt-2 text-xs leading-5 text-muted">
+              Already added to your workspace—enough for your first complete article.
+            </p>
+          </>
+        ) : (
+          <>
+            <span className="grid size-10 place-items-center rounded-2xl bg-success-soft text-success-soft-foreground">
+              <CheckIcon className="size-5" />
+            </span>
+            <p className="mt-5 font-semibold text-foreground">A calm, reversible setup</p>
+            <p className="mt-2 text-xs leading-5 text-muted">
+              Add this brand without changing how your existing workspace runs.
+            </p>
+          </>
+        )}
+
+        <ul className="mt-6 space-y-3">
+          {details.map((detail) => (
+            <li key={detail} className="flex items-start gap-2.5 text-xs leading-5 text-muted">
+              <CheckIcon className="mt-0.5 size-4 shrink-0 text-accent" />
+              {detail}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="mt-4 text-center text-xs leading-5 text-muted">
+        Private by default · Built for your workspace
+      </p>
+    </aside>
   );
 }
 
 function SiteMoment({
   fields,
   setFields,
+  onContinue,
 }: {
   fields: Fields;
   setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  onContinue: () => void;
 }) {
   return (
-    <div className="max-w-xl space-y-5">
+    <div className="material-panel max-w-xl space-y-5 rounded-[1.75rem] p-5 sm:p-6">
       <div className="space-y-2">
         <Label htmlFor="onboarding-website">Website URL</Label>
         <Input
           id="onboarding-website"
           autoFocus
+          autoComplete="url"
           fullWidth
           type="url"
           variant="secondary"
           placeholder="https://example.com"
           value={fields.website}
           onChange={(event) => setFields((current) => ({ ...current, website: event.target.value }))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onContinue();
+          }}
         />
       </div>
       <div className="space-y-2">
@@ -564,8 +839,15 @@ function SiteMoment({
           placeholder="Derived from the site when left blank"
           value={fields.name}
           onChange={(event) => setFields((current) => ({ ...current, name: event.target.value }))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onContinue();
+          }}
         />
       </div>
+      <p className="text-xs leading-5 text-muted">
+        Claudia uses the public site to draft your positioning, buyer profiles, competitors, and
+        first-week plan. Press Enter to continue.
+      </p>
     </div>
   );
 }
@@ -815,16 +1097,17 @@ function PlanChoices({ loading, onPick }: { loading: PlanId | null; onPick: (pla
     <section className="mt-12 border-t border-separator pt-10" aria-labelledby="plan-choice-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-accent">One last choice</p>
-          <h2 id="plan-choice-title" className="mt-1 text-3xl text-foreground">Give Claudia room to get results</h2>
+          <p className="text-sm font-medium text-accent">Ready to launch</p>
+          <h2 id="plan-choice-title" className="mt-1 text-3xl text-foreground">Choose your starting pace</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-            Pick the pace that fits today. Every plan includes research, writing, publishing, and safe fixes.
+            Start where the workload fits today. Every plan includes research, writing, publishing,
+            and safe fixes.
           </p>
         </div>
-        <p className="shrink-0 text-xs font-medium text-muted">Change or cancel anytime</p>
+        <p className="shrink-0 text-xs font-medium text-muted">No long-term contract</p>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Object.values(plans).map((plan) => {
           const selected = plan.id === selectedPlanId;
           return (
@@ -858,6 +1141,9 @@ function PlanChoices({ loading, onPick }: { loading: PlanId | null; onPick: (pla
               </span>
               <span className="mt-3 block text-2xl font-semibold tracking-tight text-foreground tabular-nums">
                 ${plan.price}<span className="text-xs font-normal text-muted"> / month</span>
+              </span>
+              <span className="mt-1 block text-xs font-medium text-foreground tabular-nums">
+                {plan.monthlyCredits.toLocaleString()} credits / month
               </span>
               <span className="mt-2 block text-xs leading-5 text-muted">{PLAN_CHOICE_COPY[plan.id].fit}</span>
             </button>
@@ -897,9 +1183,11 @@ function PlanChoices({ loading, onPick }: { loading: PlanId | null; onPick: (pla
             pendingLabel="Opening secure checkout…"
             onPress={() => onPick(selectedPlanId)}
           >
-            Hire Claudia on {selectedPlan.name}
+            Start with {selectedPlan.name}
           </LoadingButton>
-          <p className="mt-3 text-center text-xs leading-5 text-muted">Secure checkout · Saved brief · Cancel anytime</p>
+          <p className="mt-3 text-center text-xs leading-5 text-muted">
+            Encrypted Stripe checkout · Setup saved · Change or cancel anytime
+          </p>
         </div>
       </div>
     </section>

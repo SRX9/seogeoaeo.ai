@@ -498,8 +498,42 @@ html[data-theme="glass-dark"] {
 }
 
 /*
- * Onboarding step enter — CSS fallback when Motion is not used.
- * Primary flow uses motion/react springs (critically damped, direction-aware).
+ * Onboarding canvas: static paint-only depth. No JavaScript, parallax, or
+ * continuously moving gradient, so the long brief and checkout stay cheap to
+ * scroll even on lower-power devices.
+ */
+.onboarding-canvas {
+  background:
+    radial-gradient(
+      circle at 8% 4%,
+      color-mix(in oklab, var(--accent) 8%, transparent),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 96% 38%,
+      color-mix(in oklab, var(--foreground) 5%, transparent),
+      transparent 32rem
+    );
+}
+
+.onboarding-canvas::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--border) 32%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--border) 32%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black, transparent 42%);
+  opacity: 0.22;
+  contain: paint;
+}
+
+/*
+ * Onboarding step enter — rare, explanatory state change. It uses only
+ * transform and opacity and is removed under reduced-motion preferences.
  */
 .onboarding-step {
   animation: onboarding-step-in var(--duration-soft) var(--ease-out-strong) both;
