@@ -1,6 +1,6 @@
 import { parseTags } from "@/lib/articles/format";
 import { recordAgentAction } from "@/lib/agent/events";
-import { listOwnerConstraints } from "@/lib/agent/memory";
+import { getAgentControlState } from "@/lib/agent/memory";
 import { authorizeAction } from "@/lib/agent/policy";
 import { getArticle } from "@/lib/articles/repository";
 import { getBrand, type BrandScope } from "@/lib/brand/repository";
@@ -12,6 +12,7 @@ import {
   readIntegrationSecrets,
 } from "@/lib/integrations/repository";
 import type { IntegrationProviderId } from "@/lib/integrations/providers";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { getPublishingAdapter } from "@/lib/publishing/adapters";
 import { getPublication, upsertPublication } from "@/lib/publishing/repository";
 import type { PublishArticle, PublishResult } from "@/lib/publishing/types";
@@ -67,6 +68,9 @@ async function publishToDestination(
     actor: "agent" | "owner";
     autonomyMode: "FULL_AUTO" | "REVIEW";
     ownerConstraints: string[];
+    grantedCapabilities: readonly import("@/lib/integrations/capabilities").ConnectorCapability[];
+    publishingPaused: boolean;
+    publishingPauseInstruction: string | null;
     taskId?: string | null;
     approvalId?: string | null;
   },
@@ -95,6 +99,15 @@ async function publishToDestination(
   }
 
   const existing = await getPublication(scope.brandId, article.id, provider);
+  if (authority.actor === "agent" && authority.publishingPaused) {
+    return {
+      provider,
+      result: {
+        ok: false,
+        error: authority.publishingPauseInstruction ?? "Publishing is paused by the owner.",
+      } satisfies PublishResult,
+    };
+  }
   const capability = existing?.externalId ? "article.update" : "article.create";
   const authorityResult = authorizeAction({
     mode: authority.autonomyMode,
@@ -103,6 +116,7 @@ async function publishToDestination(
     riskLevel: "low",
     resourceRef: `${provider}:article:${article.slug}`,
     ownerConstraints: authority.ownerConstraints,
+    grantedCapabilities: authority.grantedCapabilities,
   });
   if (
     authorityResult.decision === "deny" ||
@@ -238,10 +252,10 @@ export async function publishArticleToDestinations(
     approvalId?: string | null;
   } = {},
 ) {
-  const [article, brand, ownerConstraints] = await Promise.all([
+  const [article, brand, controls] = await Promise.all([
     getArticle(scope.brandId, articleId),
     getBrand(scope.workspaceId, scope.brandId),
-    listOwnerConstraints(scope.brandId),
+    getAgentControlState(scope.brandId),
   ]);
   if (!article) {
     throw new Error("Article not found");
@@ -254,7 +268,7 @@ export async function publishArticleToDestinations(
 
   const integrations = await listIntegrations(scope.brandId);
   const enabledProviders = integrations.flatMap((integration) => {
-    if (!integration.enabled || !integration.available || !integration.requirementsMet) {
+    if (!isIntegrationOperational(integration)) {
       return [];
     }
     return getPublishingAdapter(integration.provider) ? [integration.provider] : [];
@@ -272,7 +286,13 @@ export async function publishArticleToDestinations(
       publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint, {
         actor: options.actor ?? "owner",
         autonomyMode: brand.autonomyMode === "REVIEW" ? "REVIEW" : "FULL_AUTO",
-        ownerConstraints,
+        // A direct owner click is an explicit override of instructions previously
+        // given to the agent; connector capability checks still apply.
+        ownerConstraints: (options.actor ?? "owner") === "agent" ? controls.ownerConstraints : [],
+        grantedCapabilities: controls.grantedCapabilities,
+        publishingPaused: controls.paused || controls.publishingPaused,
+        publishingPauseInstruction:
+          controls.pauseInstruction ?? controls.publishingPauseInstruction,
         taskId: options.taskId,
         approvalId: options.approvalId,
       }),

@@ -1,9 +1,10 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { getBrandProfile } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { articles, articlePublications, setupRuns } from "@/lib/db/schema";
 import { auditFindings, audits } from "@/lib/db/schema/visibility";
 import { listIntegrations } from "@/lib/integrations/repository";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
 
 export type OnboardingStep = {
   id: string;
@@ -47,7 +48,7 @@ export async function getOnboardingSteps(brandId: string): Promise<OnboardingSte
         .where(
           and(
             eq(auditFindings.brandId, brandId),
-            eq(auditFindings.resolution, "user_applied"),
+            inArray(auditFindings.resolution, ["user_applied", "auto_applied", "completed"]),
           ),
         ),
     ]);
@@ -57,7 +58,7 @@ export async function getOnboardingSteps(brandId: string): Promise<OnboardingSte
   const setupComplete = setupStatus === "completed";
   // Setup run completed, or an owned audit already landed (e.g. manual path).
   const hasAudit = (auditCount[0]?.value ?? 0) > 0 || setupComplete;
-  const hasIntegration = integrations.some((integration) => integration.enabled);
+  const hasIntegration = integrations.some(isIntegrationOperational);
   const hasArticle = (articleCount[0]?.value ?? 0) > 0;
   const hasPublished = (publishedCount[0]?.value ?? 0) > 0;
   const hasInstalledFix = (installedFixCount[0]?.value ?? 0) > 0;

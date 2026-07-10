@@ -1,4 +1,8 @@
-import { canLiveApply, type AutonomyLevel } from "@/lib/jobs/visibility-agent";
+import {
+  canLiveApply,
+  canPrepareFix,
+  type AutonomyLevel,
+} from "@/lib/jobs/visibility-agent";
 
 /**
  * Pure fix policy (client-safe): install-ready capability + autonomy UI levels.
@@ -7,7 +11,7 @@ import { canLiveApply, type AutonomyLevel } from "@/lib/jobs/visibility-agent";
 
 /** Artifact-ready findings the owner can copy/download and mark installed. */
 export function isInstallReady(fixCapability: string | null | undefined): boolean {
-  return fixCapability === "auto" || fixCapability === "artifact";
+  return canPrepareFix(fixCapability);
 }
 
 /** Whether any live-apply channel is wired (gates Level 2 UI). */

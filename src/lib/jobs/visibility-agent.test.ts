@@ -53,8 +53,8 @@ describe("dispatchDecision", () => {
     expect(dispatchDecision(auto, "REVIEW", { schema: 2 })).toBe("propose");
   });
 
-  it("Level 2 on a guided category proposes — never applies", () => {
-    expect(dispatchDecision(guided, "FULL_AUTO", { brand_authority: 2 })).toBe("propose");
+  it("keeps guided findings queued because there is no prepared artifact", () => {
+    expect(dispatchDecision(guided, "FULL_AUTO", { brand_authority: 2 })).toBe("queue");
     expect(canAutoApply(2, "guided")).toBe(false);
   });
 

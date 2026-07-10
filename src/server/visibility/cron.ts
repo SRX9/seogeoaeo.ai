@@ -1,5 +1,6 @@
-import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { ACTIVE_SUBSCRIPTION_STATUSES, visibilityCapsForPlan } from "@/lib/billing/plans";
+import { getAgentControlState } from "@/lib/agent/memory";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
 import { auditFindings, audits } from "@/lib/db/schema/visibility";
@@ -65,6 +66,7 @@ export function shouldAlert(delta: DeltaReport, newCriticalCount: number): Alert
 export interface DueSite {
   id: string;
   workspaceId: string;
+  brandId: string | null;
   siteUrl: string;
   planId: string | null;
 }
@@ -128,11 +130,15 @@ async function verifyAppliedFixes(
 ): Promise<{ verified: FindingKey[]; regressed: FindingKey[] }> {
   const db = getDb();
   const stamps = await db
-    .select({ id: audits.id, createdAt: audits.createdAt })
+    .select({ id: audits.id, createdAt: audits.createdAt, brandId: audits.brandId })
     .from(audits)
     .where(inArray(audits.id, [baselineAuditId, currentAuditId]));
   const baselineAt = stamps.find((a) => a.id === baselineAuditId)?.createdAt ?? new Date(0);
-  const currentAt = stamps.find((a) => a.id === currentAuditId)?.createdAt ?? new Date();
+  const currentStamp = stamps.find((a) => a.id === currentAuditId);
+  const currentAt = currentStamp?.createdAt ?? new Date();
+  const brandCondition = currentStamp?.brandId
+    ? eq(auditFindings.brandId, currentStamp.brandId)
+    : isNull(auditFindings.brandId);
 
   const [held, reopened] = await Promise.all([
     db
@@ -145,6 +151,7 @@ async function verifyAppliedFixes(
       .where(
         and(
           eq(auditFindings.workspaceId, workspaceId),
+          brandCondition,
           eq(auditFindings.isResolved, true),
           inArray(auditFindings.resolution, [...APPLIED_RESOLUTIONS]),
           isNull(auditFindings.verifiedAt),
@@ -157,6 +164,7 @@ async function verifyAppliedFixes(
       .where(
         and(
           eq(auditFindings.workspaceId, workspaceId),
+          brandCondition,
           gte(auditFindings.regressedAt, baselineAt),
         ),
       ),
@@ -185,6 +193,7 @@ async function verifyAppliedFixes(
  */
 async function competitorGap(
   workspaceId: string,
+  brandId: string,
   delta: DeltaReport,
 ): Promise<{ competitorScore: number; gap: number | null; gapDelta: number | null } | null> {
   const [benchmark] = await getDb()
@@ -193,6 +202,7 @@ async function competitorGap(
     .where(
       and(
         eq(audits.workspaceId, workspaceId),
+        eq(audits.brandId, brandId),
         eq(audits.kind, "benchmark"),
         eq(audits.status, "complete"),
       ),
@@ -244,6 +254,7 @@ async function latestAuditPerSite() {
     .selectDistinctOn([audits.workspaceId, audits.siteUrl], {
       id: audits.id,
       workspaceId: audits.workspaceId,
+      brandId: audits.brandId,
       siteUrl: audits.siteUrl,
       createdAt: audits.createdAt,
       planId: subscriptions.planId,
@@ -272,11 +283,23 @@ async function latestAuditPerSite() {
  * firing frequency a no-op.
  */
 export async function listDueSites(): Promise<DueSite[]> {
-  return (await latestAuditPerSite())
+  const due = (await latestAuditPerSite())
     .filter((site) =>
       dueForReaudit(site.createdAt, visibilityCapsForPlan(site.planId).monitoringCadence),
     )
-    .map(({ id, workspaceId, siteUrl, planId }) => ({ id, workspaceId, siteUrl, planId }));
+    .map(({ id, workspaceId, brandId, siteUrl, planId }) => ({
+      id,
+      workspaceId,
+      brandId,
+      siteUrl,
+      planId,
+    }));
+  const controls = await Promise.all(
+    due.map((site) =>
+      site.brandId ? getAgentControlState(site.brandId) : Promise.resolve(null),
+    ),
+  );
+  return due.filter((_site, index) => !controls[index]?.paused);
 }
 
 /**
@@ -346,7 +369,7 @@ export async function finishReaudit(args: {
   // a failed log line never fails (or re-runs) the re-audit itself.
   if (brand) {
     try {
-      const competitor = await competitorGap(args.workspaceId, delta);
+      const competitor = await competitorGap(args.workspaceId, brand.brandId, delta);
       const job = await createAgentJob(
         { workspaceId: args.workspaceId, brandId: brand.brandId },
         "visibility_monitor",

@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/server";
 import { rememberAgentInstruction } from "@/lib/agent/memory";
 import { replanAgentWork } from "@/lib/agent/planner";
+import { isConnectorCapability } from "@/lib/integrations/capabilities";
 
 export async function GET() {
   return handleApi(async () => {
@@ -44,13 +45,18 @@ export async function PATCH(request: Request) {
   return handleApi(async () => {
     const { session, scope } = await requireApiBrand();
     const body = parseBody(decisionSchema, await readJson(request));
-    const approval = await decideAgentApproval(
+    const decision = await decideAgentApproval(
       scope,
       body.approvalId,
       body.decision,
       session.user.id,
     );
-    if (!approval) throw new HttpError(404, "Approval not found");
+    if (!decision) throw new HttpError(404, "Approval not found");
+    const { approval } = decision;
+    if (decision.expired) throw new HttpError(409, "Approval has expired");
+    if (!decision.changed && approval.status !== body.decision) {
+      throw new HttpError(409, `Approval was already ${approval.status}`);
+    }
     if (body.decision === "approved" && approval.actionType.startsWith("grant ")) {
       const after =
         typeof approval.afterState === "object" && approval.afterState !== null
@@ -58,18 +64,30 @@ export async function PATCH(request: Request) {
           : {};
       const capability = after.capability;
       const instruction = after.instruction;
-      if (typeof capability === "string" && typeof instruction === "string") {
+      const expiresAt =
+        typeof after.expiresAt === "string" ? new Date(after.expiresAt) : null;
+      if (isConnectorCapability(capability) && typeof instruction === "string") {
         await rememberAgentInstruction(scope, {
           kind: "permission",
           key: capability,
           value: { capability, instruction, granted: true },
           provenance: `approval:${approval.id}`,
+          expiresAt:
+            expiresAt && Number.isFinite(expiresAt.getTime()) ? expiresAt : null,
         });
-        await replanAgentWork(scope, `Owner approved ${capability} authority.`, {
-          source: "owner_approval",
-          approvalId: approval.id,
-          capability,
-        });
+        if (decision.changed) {
+          try {
+            await replanAgentWork(scope, `Owner approved ${capability} authority.`, {
+              source: "owner_approval",
+              approvalId: approval.id,
+              capability,
+            });
+          } catch (error) {
+            // The permission itself is durable and retry-safe; a plan-history
+            // annotation must not make the approved authority look unsaved.
+            console.error("[agent] approval replan failed", error);
+          }
+        }
       }
     }
     return jsonOk({ id: approval.id, status: approval.status });

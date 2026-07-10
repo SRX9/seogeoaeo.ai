@@ -45,6 +45,7 @@ function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.automation });
   void queryClient.invalidateQueries({ queryKey: queryKeys.activity });
   void queryClient.invalidateQueries({ queryKey: queryKeys.inboxSummary });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
 }
 
 function articleHasBody(article: Article): boolean {

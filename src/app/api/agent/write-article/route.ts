@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { logError } from "@/lib/logging/logger";
+import { progressDailyAgentTask } from "@/lib/agent/planner";
 import { InsufficientCreditsError } from "@/lib/usage/credits";
 
 type WriteBody = {
   workspaceId: string;
   brandId: string;
   topicId: string;
+  runDate?: string;
   origin?: string;
 };
 
@@ -32,15 +34,33 @@ export async function POST(request: Request) {
 
   try {
     const { article } = await generateArticleFromTopic(scope, body.topicId, {
+      actor: "agent",
       origin: body.origin ?? process.env.BETTER_AUTH_URL,
     });
+    if (body.runDate) {
+      try {
+        await progressDailyAgentTask(scope, body.runDate, article.id);
+      } catch (progressError) {
+        logError("agent.daily_task_progress_failed", {
+          workspaceId: body.workspaceId,
+          topicId: body.topicId,
+          error:
+            progressError instanceof Error ? progressError.message : "Unknown error",
+        });
+      }
+    }
     return NextResponse.json({ status: "written", articleId: article.id });
   } catch (error) {
     if (error instanceof InsufficientCreditsError) {
       return NextResponse.json({ status: "insufficient_credits" });
     }
     const message = error instanceof Error ? error.message : "Unknown error";
-    if (message === "Topic not found" || message === "Brand not found") {
+    if (
+      message === "Topic not found" ||
+      message === "Brand not found" ||
+      message === "Agent paused by owner" ||
+      message.startsWith("Agent blocked by owner constraint:")
+    ) {
       return NextResponse.json({ status: "skipped", reason: message });
     }
     logError("agent.write_article.failed", {

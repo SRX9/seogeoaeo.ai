@@ -50,25 +50,28 @@ export function getAgentPresence(input: AgentPresenceInput): AgentPresenceView |
   if ((input.inFlightTaskCount ?? 0) > 0 || input.activityInFlight) {
     return presence("working_now", "A recorded task is executing now.");
   }
-  if ((input.pendingApprovalCount ?? 0) > 0) {
-    return presence("waiting_for_you", "A useful task is waiting on an owner decision.");
-  }
 
   const automation = input.automation;
   if (!automation) return null;
-  if (!automation.enabled) {
-    return presence("paused", "Autonomous work is turned off.");
-  }
   if (
+    !automation.enabled ||
     automation.agentState === "paused_no_credits" ||
-    automation.agentState === "paused_no_subscription"
+    automation.agentState === "paused_no_subscription" ||
+    automation.agentState === "paused_by_owner"
   ) {
     return presence(
       "paused",
       automation.agentState === "paused_no_credits"
         ? "The credit budget is exhausted."
-        : "The current plan does not allow autonomous work.",
+        : automation.agentState === "paused_by_owner"
+          ? "The owner paused autonomous work."
+          : automation.enabled
+            ? "The current plan does not allow autonomous work."
+            : "Autonomous work is turned off.",
     );
+  }
+  if ((input.pendingApprovalCount ?? 0) > 0) {
+    return presence("waiting_for_you", "A useful task is waiting on an owner decision.");
   }
 
   const lastRun = automation.lastRun?.status;

@@ -1,4 +1,10 @@
 import { getBrand, getBrandProfile, type BrandScope } from "@/lib/brand/repository";
+import { getAgentControlState } from "@/lib/agent/memory";
+import { isArticleGenerationBlockedByOwnerConstraint } from "@/lib/agent/policy";
+import {
+  beginOwnerDirectedWritingTask,
+  completeOwnerDirectedWritingTask,
+} from "@/lib/agent/planner";
 import {
   createArticle,
   getArticleByTopic,
@@ -26,7 +32,6 @@ import {
 import { createAgentJob, finishAgentJob, incrementArticlesGenerated } from "@/lib/jobs/repository";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { assertHasCredits, spendCredits } from "@/lib/usage/credits";
-import { articleStatusForAutonomy } from "@/lib/workspace/settings";
 
 export type GenerationTrace = {
   summaryModel: string;
@@ -46,6 +51,8 @@ export type GateResult = { gate: string; passed: boolean; detail: string };
 const MAX_REWRITE_PASSES = 2;
 
 type GenerateOptions = {
+  /** Agent runs obey stored pauses/constraints; direct owner actions override them. */
+  actor?: "agent" | "owner";
   /** Credits to charge on success. Defaults to the article-generation cost. */
   creditCost?: number;
   /** Skip the credit assert/spend entirely (e.g. internal/admin reruns). */
@@ -80,7 +87,6 @@ export async function generateArticleFromTopic(
   if (!topic) {
     throw new Error("Topic not found");
   }
-
   const existing = await getArticleByTopic(brandId, topicId);
   if (existing) {
     // Retry after a partial success: article was inserted and topic flipped to
@@ -107,7 +113,9 @@ export async function generateArticleFromTopic(
       await updateTopicStatus(topicId, "completed");
       if (existing.status === "approved") {
         try {
-          await publishArticleToDestinations(scope, existing.id, options.origin, { actor: "agent" });
+          await publishArticleToDestinations(scope, existing.id, options.origin, {
+            actor: options.actor ?? "owner",
+          });
         } catch (error) {
           logWarn("publish.auto_skipped", {
             workspaceId,
@@ -117,7 +125,30 @@ export async function generateArticleFromTopic(
         }
       }
     }
+    try {
+      await completeOwnerDirectedWritingTask(scope, topicId, { articleId: existing.id });
+    } catch (error) {
+      logWarn("agent.owner_task_settle_skipped", {
+        workspaceId,
+        topicId,
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
     return { article: existing, trace: null };
+  }
+
+  const controls = await getAgentControlState(brandId);
+  if (options.actor === "agent" && controls.paused) {
+    throw new Error("Agent paused by owner");
+  }
+  const blockingConstraint =
+    options.actor === "agent"
+      ? controls.ownerConstraints.find((constraint) =>
+          isArticleGenerationBlockedByOwnerConstraint(constraint, topic.title),
+        )
+      : null;
+  if (blockingConstraint) {
+    throw new Error(`Agent blocked by owner constraint: ${blockingConstraint}`);
   }
 
   // Autonomy is per-brand: it decides whether this article auto-publishes or
@@ -137,6 +168,15 @@ export async function generateArticleFromTopic(
   await updateTopicStatus(topicId, "generating");
 
   try {
+    try {
+      await beginOwnerDirectedWritingTask(scope, topicId);
+    } catch (error) {
+      logWarn("agent.owner_task_start_skipped", {
+        workspaceId,
+        topicId,
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
     const profile = await getBrandProfile(brandId);
     const voice = parseVoiceDoc(profile?.voiceJson);
     const brandContext: BrandContext = {
@@ -252,7 +292,10 @@ export async function generateArticleFromTopic(
         status:
           options.forceDraft || flaggedForReview
             ? "draft"
-            : articleStatusForAutonomy(brand.autonomyMode),
+            : brand.autonomyMode === "FULL_AUTO" ||
+                controls.grantedCapabilities.includes("article.create")
+              ? "approved"
+              : "draft",
         shape,
         gateResultsJson: JSON.stringify(gateResults),
       });
@@ -344,7 +387,9 @@ export async function generateArticleFromTopic(
     // REVIEW leaves drafts that publish on manual approval.
     if (article.status === "approved") {
       try {
-        await publishArticleToDestinations(scope, article.id, options.origin, { actor: "agent" });
+        await publishArticleToDestinations(scope, article.id, options.origin, {
+          actor: options.actor ?? "owner",
+        });
       } catch (error) {
         logWarn("publish.auto_skipped", {
           workspaceId,
@@ -354,12 +399,31 @@ export async function generateArticleFromTopic(
       }
     }
 
+    try {
+      await completeOwnerDirectedWritingTask(scope, topicId, { articleId: article.id });
+    } catch (error) {
+      logWarn("agent.owner_task_settle_skipped", {
+        workspaceId,
+        topicId,
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
     return { article, trace };
   } catch (error) {
     await updateTopicStatus(topicId, "failed");
     // Store a user-friendly summary on the job (shown in the activity feed); keep
     // the raw error in the logs only.
     const detail = error instanceof Error ? error.message : "Unknown error";
+    try {
+      await completeOwnerDirectedWritingTask(scope, topicId, { failed: true, error: detail });
+    } catch (taskError) {
+      logWarn("agent.owner_task_failure_log_skipped", {
+        workspaceId,
+        topicId,
+        reason: taskError instanceof Error ? taskError.message : "Unknown error",
+      });
+    }
     await finishAgentJob(job.id, "failed", "Article generation failed — retry to try again.", {
       topicId,
     });

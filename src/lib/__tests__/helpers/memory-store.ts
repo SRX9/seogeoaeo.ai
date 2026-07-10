@@ -21,7 +21,10 @@ import {
   IntegrationProviderId,
   IntegrationView,
 } from "@/lib/integrations/providers";
-import { connectorCapabilities } from "@/lib/integrations/capabilities";
+import {
+  connectorCapabilities,
+  type ConnectorCapability,
+} from "@/lib/integrations/capabilities";
 import { slugify } from "@/lib/articles/format";
 
 export type WorkspaceRow = { id: string; name: string; autonomyMode: string };
@@ -177,6 +180,17 @@ export const research = {
   calls: 0,
 };
 
+/** Controls the owner instructions seen by the agent policy in workflow tests. */
+export const agentControls = {
+  paused: false,
+  pauseInstruction: null as string | null,
+  publishingPaused: false,
+  publishingPauseInstruction: null as string | null,
+  ownerConstraints: [] as string[],
+  priorityInstructions: [] as string[],
+  grantedCapabilities: [] as ConnectorCapability[],
+};
+
 /** Captures out-of-credits emails the daily agent tried to send. */
 export const email: { sent: Array<{ workspaceId: string; brandName?: string; pendingTopics: number }> } = {
   sent: [],
@@ -225,6 +239,13 @@ export function resetStore() {
   research.topicsCreated = 0;
   research.fail = false;
   research.calls = 0;
+  agentControls.paused = false;
+  agentControls.pauseInstruction = null;
+  agentControls.publishingPaused = false;
+  agentControls.publishingPauseInstruction = null;
+  agentControls.ownerConstraints = [];
+  agentControls.priorityInstructions = [];
+  agentControls.grantedCapabilities = [];
   email.sent = [];
 }
 
@@ -384,6 +405,9 @@ export const dbMock = {
 export const agentMemoryRepo = {
   async listOwnerConstraints() {
     return [] as string[];
+  },
+  async getAgentControlState() {
+    return { ...agentControls };
   },
 };
 

@@ -1,7 +1,12 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getAgentPresence } from "@/lib/agent/presence";
 import { listPendingAgentApprovals } from "@/lib/agent/events";
-import { ensureNextDailyTask, ensureWeeklyPlan } from "@/lib/agent/planner";
+import { getAgentControlState } from "@/lib/agent/memory";
+import {
+  ensureNextDailyTask,
+  ensureWeeklyPlan,
+  setFutureAgentTasksPaused,
+} from "@/lib/agent/planner";
 import type { AgentEventView, AgentState, AgentTaskView } from "@/lib/agent/types";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { isActiveSubscription } from "@/lib/billing/plans";
@@ -9,8 +14,9 @@ import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { agentEvents, agentTasks } from "@/lib/db/schema";
 import { articles } from "@/lib/db/schema/content";
-import { trafficSnapshots } from "@/lib/db/schema/visibility";
 import { listIntegrations } from "@/lib/integrations/repository";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
+import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { getSetupRun } from "@/lib/jobs/setup-run";
 import { getWeeklyPipelineStats } from "@/lib/jobs/repository";
 import { getCreditBalance } from "@/lib/usage/credits";
@@ -57,8 +63,10 @@ export async function getAgentState(
   input: { brandName: string; subscriptionStatus?: string | null },
 ): Promise<AgentState> {
   const active = isActiveSubscription(input.subscriptionStatus);
+  const controls = await getAgentControlState(scope.brandId);
   const { mission, plan } = await ensureWeeklyPlan(scope, { brandName: input.brandName });
-  if (active) {
+  if (active && !controls.paused) {
+    await setFutureAgentTasksPaused(scope, false);
     await ensureNextDailyTask(scope, input.brandName);
   }
 
@@ -67,7 +75,22 @@ export async function getAgentState(
     db
       .select()
       .from(agentTasks)
-      .where(eq(agentTasks.brandId, scope.brandId))
+      .where(
+        and(
+          eq(agentTasks.brandId, scope.brandId),
+          or(
+            inArray(agentTasks.status, [
+              ...ACTIVE_STATUSES,
+              ...NEXT_STATUSES,
+              "waiting",
+            ]),
+            and(
+              eq(agentTasks.status, "failed"),
+              eq(agentTasks.planVersionId, plan.id),
+            ),
+          ),
+        ),
+      )
       .orderBy(asc(agentTasks.scheduledFor), asc(agentTasks.createdAt)),
     db
       .select()
@@ -86,16 +109,7 @@ export async function getAgentState(
       .orderBy(desc(articles.updatedAt))
       .limit(1),
     getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
-    db
-      .select({ id: trafficSnapshots.id })
-      .from(trafficSnapshots)
-      .where(
-        and(
-          eq(trafficSnapshots.brandId, scope.brandId),
-          eq(trafficSnapshots.source, "gsc"),
-        ),
-      )
-      .limit(1),
+    listTrafficConnections(scope.brandId),
     listIntegrations(scope.brandId),
   ]);
 
@@ -105,8 +119,17 @@ export async function getAgentState(
     (task) => now - (task.updatedAt ?? task.startedAt ?? task.createdAt).getTime() < STALE_TASK_MS,
   );
   const staleTasks = inFlight.filter((task) => !liveTasks.includes(task));
+  const overdueTasks = tasks.filter(
+    (task) =>
+      task.status === "scheduled" &&
+      task.scheduledFor != null &&
+      task.scheduledFor.getTime() < now - STALE_TASK_MS,
+  );
+  const recoveryTasks = [...staleTasks, ...overdueTasks];
   const nextTasks = tasks
-    .filter((task) => NEXT_STATUSES.includes(task.status))
+    .filter(
+      (task) => NEXT_STATUSES.includes(task.status) && !overdueTasks.includes(task),
+    )
     .sort(
       (a, b) =>
         (a.scheduledFor?.getTime() ?? Number.MAX_SAFE_INTEGER) -
@@ -117,13 +140,17 @@ export async function getAgentState(
     (task) => task.status === "failed" && task.planVersionId === plan.id,
   );
   const installReady = findings
-    .filter((finding) => isInstallReady(finding.fixCapability))
+    .filter(
+      (finding) =>
+        isInstallReady(finding.fixCapability) && finding.proposedAt != null,
+    )
     .toSorted((left, right) => {
       const rank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
       return (rank[left.severity] ?? 9) - (rank[right.severity] ?? 9);
     });
-  const missingGsc = gscRows.length === 0;
-  const missingCms = integrations.length > 0 && !integrations.some((integration) => integration.enabled);
+  const missingGsc = !gscRows.some((connection) => connection.source === "gsc");
+  const missingCms =
+    integrations.length > 0 && !integrations.some(isIntegrationOperational);
   const ownerDependencyCount =
     approvals.length +
     (draftRows.length ? 1 : 0) +
@@ -134,6 +161,7 @@ export async function getAgentState(
   let agentState = "active";
   if (!active) agentState = "paused_no_subscription";
   else if (credits.total < CREDIT_COSTS.article_generation) agentState = "paused_no_credits";
+  else if (controls.paused) agentState = "paused_by_owner";
 
   const nextScheduledAt = nextTasks[0]?.scheduledFor?.toISOString() ?? null;
   const presence =
@@ -145,7 +173,7 @@ export async function getAgentState(
         lastRun: weekly.lastRun ? { status: weekly.lastRun.status } : null,
       },
       inFlightTaskCount: liveTasks.length,
-      staleInFlightTaskCount: staleTasks.length,
+      staleInFlightTaskCount: recoveryTasks.length,
       pendingApprovalCount: ownerDependencyCount,
       failedTaskCount: failedTasks.length,
       nextScheduledAt,
@@ -166,11 +194,11 @@ export async function getAgentState(
         href: "/inbox",
         kind: "approval" as const,
       }
-      : staleTasks[0]
+      : recoveryTasks[0]
       ? {
-          id: staleTasks[0].id,
+          id: recoveryTasks[0].id,
           title: "Recover a stalled task",
-          blockedValue: staleTasks[0].expectedImpact ?? staleTasks[0].reason,
+          blockedValue: recoveryTasks[0].expectedImpact ?? recoveryTasks[0].reason,
           actionLabel: "Open work log",
           href: "/activity",
           kind: "recovery" as const,

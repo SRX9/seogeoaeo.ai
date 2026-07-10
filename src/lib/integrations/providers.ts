@@ -92,6 +92,13 @@ export type IntegrationView = IntegrationProviderDefinition & {
   configurable: boolean;
 };
 
+/** True only when a connector can be used for live requests right now. */
+export function isIntegrationOperational(
+  integration: Pick<IntegrationView, "enabled" | "available" | "requirementsMet">,
+): boolean {
+  return integration.enabled && integration.available && integration.requirementsMet;
+}
+
 export class IntegrationValidationError extends Error {
   constructor(
     message: string,

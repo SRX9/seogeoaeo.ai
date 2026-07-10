@@ -29,4 +29,13 @@ describe("brandProfileSchema", () => {
     });
     expect(parsed.success).toBe(false);
   });
+
+  it("rejects non-web URL schemes", () => {
+    expect(brandProfileSchema.safeParse({ website: "javascript:alert(1)" }).success).toBe(
+      false,
+    );
+    expect(brandProfileSchema.safeParse({ website: "ftp://example.com" }).success).toBe(
+      false,
+    );
+  });
 });

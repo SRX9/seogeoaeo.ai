@@ -145,7 +145,13 @@ const subscribeToClient = () => () => undefined;
 function loadDraft(): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as Draft) : null;
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as Draft;
+    // Connector credentials must never be restored from script-readable storage.
+    return {
+      ...draft,
+      fields: { ...draft.fields, integrationSecrets: {} },
+    };
   } catch {
     return null;
   }
@@ -153,7 +159,13 @@ function loadDraft(): Draft | null {
 
 function saveDraft(draft: Draft) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        ...draft,
+        fields: { ...draft.fields, integrationSecrets: {} },
+      }),
+    );
   } catch {
     // A blocked storage layer only disables checkout-return resume.
   }
@@ -188,7 +200,8 @@ function readBootstrap(): Bootstrap {
 
 function isValidUrl(value: string) {
   try {
-    return new URL(value).protocol.startsWith("http");
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
   } catch {
     return false;
   }

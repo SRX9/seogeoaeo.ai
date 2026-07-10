@@ -12,7 +12,9 @@ export function slugifyTag(raw: string, maxLen?: number): string {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
-  if (maxLen != null && maxLen > 0) tag = tag.slice(0, maxLen);
+  if (maxLen != null && maxLen > 0) {
+    tag = tag.slice(0, maxLen).replace(/-+$/g, "");
+  }
   return tag;
 }
 

@@ -25,6 +25,7 @@ describe("dedupeFindings", () => {
     recommendation: "r",
     fixCapability: "artifact",
     fixPayload: null,
+    proposedAt: null,
     createdAt: new Date(),
     ...over,
   });

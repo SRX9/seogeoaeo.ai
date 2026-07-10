@@ -6,6 +6,7 @@ import type {
   VisibilityTraffic,
 } from "@/lib/api/queries";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
 
 /**
  * Pure inbox row builder — shared by ApprovalInbox, shell badge counts, and Ask.
@@ -101,7 +102,10 @@ export function buildInboxRows({
   }
 
   const installReady = findings
-    .filter((finding) => isInstallReady(finding.fixCapability))
+    .filter(
+      (finding) =>
+        isInstallReady(finding.fixCapability) && Boolean(finding.proposedAt),
+    )
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
   if (installReady.length > 0) {
     const lead = installReady[0]!;
@@ -132,7 +136,7 @@ export function buildInboxRows({
       cta: "Connect",
     });
   }
-  if (integrations.length > 0 && !integrations.some((integration) => integration.enabled)) {
+  if (integrations.length > 0 && !integrations.some(isIntegrationOperational)) {
     rows.push({
       key: "unlock-cms",
       kind: "unlock-cms",

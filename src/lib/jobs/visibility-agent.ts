@@ -37,7 +37,13 @@ export const AUTO_CAPABLE_CATEGORIES: ReadonlySet<string> = new Set(
  * a CMS/plugin channel is wired.
  */
 export function canLiveApply(_fixCapability: string | null): boolean {
+  void _fixCapability;
   return false;
+}
+
+/** A prepared fix must contain an installable payload, not only generic guidance. */
+export function canPrepareFix(fixCapability: string | null | undefined): boolean {
+  return fixCapability === "auto" || fixCapability === "artifact";
 }
 
 /**
@@ -64,7 +70,7 @@ export function dispatchDecision(
 ): DispatchAction {
   const level = overrides[finding.category] ?? defaultLevelFor(mode, finding.fixCapability);
   if (canAutoApply(level, finding.fixCapability)) return "apply";
-  if (level >= 1) return "propose";
+  if (level >= 1 && canPrepareFix(finding.fixCapability)) return "propose";
   return "queue";
 }
 

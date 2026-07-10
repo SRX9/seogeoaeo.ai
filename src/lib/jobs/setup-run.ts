@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import {
   beginSetupAgentTask,
@@ -135,7 +135,6 @@ export async function startSetupRun(scope: BrandScope) {
     const winner = await getSetupRun(scope.brandId);
     return { run: winner!, created: false };
   }
-  await beginSetupAgentTask(scope);
   return { run: { ...row, steps: parseSteps(row.stepsJson) }, created: true };
 }
 
@@ -358,6 +357,15 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
           eq(auditFindings.isResolved, false),
           isNull(auditFindings.proposedAt),
         ),
+      )
+      .orderBy(
+        sql`case ${auditFindings.severity}
+          when 'critical' then 0
+          when 'high' then 1
+          when 'medium' then 2
+          when 'low' then 3
+          else 4
+        end`,
       );
 
     const readyIds = findings
@@ -378,7 +386,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
       // Metered like any agent-written article: asserts up front, charges on success.
       // Real app origin so markdown export / webhooks get a valid absolute URL.
       const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || undefined;
-      await generateArticleFromTopic(scope, topic.id, { origin });
+      await generateArticleFromTopic(scope, topic.id, { actor: "agent", origin });
     } catch (error) {
       if (error instanceof InsufficientCreditsError) return { skip: NO_CREDITS_SKIP };
       throw error;
@@ -453,7 +461,20 @@ export async function executeSetupStep(
       step.note = result;
     }
     await saveRun(run.id, steps);
-    await progressSetupAgentTask(scope, SETUP_STEPS.find((item) => item.key === key)?.label ?? key, step.note);
+    try {
+      await progressSetupAgentTask(
+        scope,
+        SETUP_STEPS.find((item) => item.key === key)?.label ?? key,
+        step.note,
+      );
+    } catch (error) {
+      logError("setup_run.agent_task_progress_failed", {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        step: key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     return step;
   } catch (error) {
     step.status = "failed";
@@ -482,7 +503,15 @@ export async function finalizeSetupRun(scope: BrandScope) {
   const status = setupRunOutcome(steps);
   const materialDone = status === "completed";
   await saveRun(run.id, steps, { status });
-  await completeSetupAgentTask(scope, status);
+  try {
+    await completeSetupAgentTask(scope, status);
+  } catch (error) {
+    logError("setup_run.agent_task_settle_failed", {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   if (materialDone) {
     const job = await createAgentJob(scope, "setup_run", "Claudia's Setup Run");
     await finishAgentJob(job.id, "completed", "Setup Run complete — Claudia is on the job.", {
@@ -529,7 +558,15 @@ export async function triggerSetupRun(
   run: { id: string },
   opts: { resume?: boolean } = {},
 ): Promise<"workflow" | "inline"> {
-  await beginSetupAgentTask(scope);
+  try {
+    await beginSetupAgentTask(scope);
+  } catch (error) {
+    logError("setup_run.agent_task_start_failed", {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   const cf = getCloudflareRequestContext();
   const workflow = cf?.env?.SETUP_WORKFLOW;
   if (workflow) {

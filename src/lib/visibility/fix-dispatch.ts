@@ -124,7 +124,6 @@ export async function dispatchOpenFindings(args: {
         continue;
       }
       toPropose.push(finding.id);
-      summary.proposed += 1;
       remaining -= 1;
       continue;
     }
@@ -132,6 +131,6 @@ export async function dispatchOpenFindings(args: {
     summary.queued += 1;
   }
 
-  await stampProposedFindings(toPropose, now);
+  summary.proposed = await stampProposedFindings(toPropose, now);
   return summary;
 }

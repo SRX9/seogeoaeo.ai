@@ -8,6 +8,7 @@ import {
   type AskResult,
 } from "@/lib/agent/ask-shared";
 import { getStoredAgentBrief } from "@/lib/agent/brief";
+import { getAgentControlState } from "@/lib/agent/memory";
 import { getAgentPresence, type AgentPresenceLabel } from "@/lib/agent/presence";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import type { BrandScope } from "@/lib/brand/repository";
@@ -15,8 +16,10 @@ import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { articles } from "@/lib/db/schema/content";
-import { answerRuns, audits, trafficSnapshots } from "@/lib/db/schema/visibility";
+import { answerRuns, audits } from "@/lib/db/schema/visibility";
+import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { listIntegrations } from "@/lib/integrations/repository";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
 import { getCreditBalance } from "@/lib/usage/credits";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
@@ -51,7 +54,12 @@ type AskContext = {
   articlesThisWeek: number;
   publishedThisWeek: number;
   pendingTopics: Array<{ title: string; thesis: string | null }>;
-  openFindings: Array<{ title: string; severity: string; fixCapability: string | null }>;
+  openFindings: Array<{
+    title: string;
+    severity: string;
+    fixCapability: string | null;
+    proposed: boolean;
+  }>;
   score: number | null;
   scoreDelta: number | null;
   answersAppeared: number;
@@ -62,6 +70,7 @@ type AskContext = {
   needsGsc: boolean;
   needsCms: boolean;
   presence: AgentPresenceLabel;
+  pauseReason: string | null;
   lastRunStatus: string | null;
 };
 
@@ -83,6 +92,7 @@ async function loadAskContext(
     integrations,
     credits,
     weeklyStats,
+    controls,
   ] = await Promise.all([
     getUsageTotals(scope.brandId),
     listPendingTopicsForWriting(scope.brandId, 5),
@@ -113,29 +123,25 @@ async function loadAskContext(
       .select({ n: sql<number>`count(*)::int` })
       .from(articles)
       .where(and(eq(articles.brandId, scope.brandId), eq(articles.status, "draft"))),
-    db
-      .select({ id: trafficSnapshots.id })
-      .from(trafficSnapshots)
-      .where(
-        and(eq(trafficSnapshots.brandId, scope.brandId), eq(trafficSnapshots.source, "gsc")),
-      )
-      .limit(1),
+    listTrafficConnections(scope.brandId),
     listIntegrations(scope.brandId),
     getCreditBalance(scope.workspaceId),
     getWeeklyPipelineStats(scope.brandId),
+    getAgentControlState(scope.brandId),
   ]);
 
   const latest = brandAudits[0]?.overall ?? null;
   const previous = brandAudits[1]?.overall ?? null;
 
   const draftCount = Number(draftRow[0]?.n ?? 0);
-  const needsGsc = gscSnap.length === 0;
-  const needsCms = integrations.length > 0 && !integrations.some((i) => i.enabled);
+  const needsGsc = !gscSnap.some((connection) => connection.source === "gsc");
+  const needsCms = integrations.length > 0 && !integrations.some(isIntegrationOperational);
 
   const active = isActiveSubscription(subscriptionStatus);
   let agentState = "active";
   if (!active) agentState = "paused_no_subscription";
   else if (credits.total < CREDIT_COSTS.article_generation) agentState = "paused_no_credits";
+  else if (controls.paused) agentState = "paused_by_owner";
 
   const lastRunStatus = weeklyStats.lastRun?.status ?? null;
   const presence =
@@ -163,6 +169,7 @@ async function loadAskContext(
       title: f.title,
       severity: f.severity,
       fixCapability: f.fixCapability,
+      proposed: f.proposedAt != null,
     })),
     score: latest != null ? Math.round(latest) : null,
     scoreDelta:
@@ -175,6 +182,7 @@ async function loadAskContext(
     needsGsc,
     needsCms,
     presence,
+    pauseReason: controls.pauseInstruction,
     lastRunStatus,
   };
 }
@@ -225,7 +233,9 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       }
       const top = ctx.openFindings.slice(0, 5);
       const list = top.map((f, i) => `${i + 1}. [${f.severity}] ${f.title}`).join("\n");
-      const readyCount = top.filter((f) => isInstallReady(f.fixCapability)).length;
+      const readyCount = top.filter(
+        (finding) => finding.proposed && isInstallReady(finding.fixCapability),
+      ).length;
       return {
         intent,
         answer: `Here are the highest-impact open issues on my list:\n\n${list}\n\n${
@@ -293,7 +303,9 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       };
     }
     case "fixes_ready": {
-      const readyFixes = ctx.openFindings.filter((f) => isInstallReady(f.fixCapability)).length;
+      const readyFixes = ctx.openFindings.filter(
+        (finding) => finding.proposed && isInstallReady(finding.fixCapability),
+      ).length;
       const waiting =
         ctx.draftCount > 0 ||
         ctx.openFindings.length > 0 ||
@@ -351,7 +363,9 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
           answer = `Setup hit a wall on ${ctx.brandName} — open Home or Brand settings so we can retry.`;
           break;
         case "Paused":
-          answer = `I'm paused for ${ctx.brandName} (plan or credits). I won't run daily work until that's fixed under Brand → Billing / automation.`;
+          answer = ctx.pauseReason
+            ? `I'm paused for ${ctx.brandName} because you said: “${ctx.pauseReason}” I won't start new daily work until that instruction expires or you resume me.`
+            : `I'm paused for ${ctx.brandName} (plan or credits). I won't run daily work until that's fixed under Brand → Billing / automation.`;
           break;
         case "Waiting for you":
           answer = `I'm waiting on an owner decision for ${ctx.brandName}. Open Inbox to review the exact blocked action.`;

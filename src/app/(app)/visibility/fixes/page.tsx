@@ -128,8 +128,11 @@ function FixDetail({ finding, website }: { finding: VisibilityFinding; website: 
 function FindingCard({ finding, website }: { finding: VisibilityFinding; website: string | null }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.inboxSummary });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
+  };
 
   const resolve = useMutation({
     mutationFn: (action: "dismiss" | "complete") =>

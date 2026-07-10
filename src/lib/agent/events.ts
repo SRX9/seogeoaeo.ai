@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import {
@@ -63,41 +63,57 @@ export async function transitionAgentTask(
   },
 ) {
   const now = new Date();
-  const [task] = await getDb()
-    .update(agentTasks)
-    .set({
-      status: input.status,
-      attempt: input.eventType === "started" ? 1 : undefined,
-      startedAt: input.eventType === "started" ? now : undefined,
-      completedAt:
-        input.status === "completed" || input.status === "failed" ? now : undefined,
-      artifactRef: input.artifactRef,
-      outcomeRef: input.outcomeRef,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(agentTasks.id, taskId),
-        eq(agentTasks.brandId, scope.brandId),
-        ne(agentTasks.status, input.status),
-      ),
-    )
-    .returning();
+  return getDb().transaction(async (tx) => {
+    const [task] = await tx
+      .update(agentTasks)
+      .set({
+        status: input.status,
+        attempt:
+          input.eventType === "started" ? sql`${agentTasks.attempt} + 1` : undefined,
+        startedAt: input.eventType === "started" ? now : undefined,
+        completedAt:
+          input.eventType === "started"
+            ? null
+            : input.status === "completed" || input.status === "failed"
+              ? now
+              : undefined,
+        artifactRef: input.artifactRef,
+        outcomeRef: input.outcomeRef,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(agentTasks.id, taskId),
+          eq(agentTasks.brandId, scope.brandId),
+          ne(agentTasks.status, input.status),
+        ),
+      )
+      .returning();
 
-  if (!task) {
-    return getDb().query.agentTasks.findFirst({
-      where: and(eq(agentTasks.id, taskId), eq(agentTasks.brandId, scope.brandId)),
-    });
-  }
+    if (!task) {
+      const [existing] = await tx
+        .select()
+        .from(agentTasks)
+        .where(and(eq(agentTasks.id, taskId), eq(agentTasks.brandId, scope.brandId)))
+        .limit(1);
+      return existing;
+    }
 
-  await appendAgentEvent(scope, {
-    missionId: task.missionId,
-    taskId: task.id,
-    eventType: input.eventType,
-    summary: input.summary,
-    data: input.data,
+    const [event] = await tx
+      .insert(agentEvents)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        missionId: task.missionId,
+        taskId: task.id,
+        eventType: input.eventType,
+        summary: input.summary,
+        data: input.data ?? null,
+      })
+      .returning({ id: agentEvents.id });
+    if (!event) throw new Error("Agent task event could not be recorded");
+    return task;
   });
-  return task;
 }
 
 export async function recordTaskProgress(
@@ -106,21 +122,31 @@ export async function recordTaskProgress(
   summary: string,
   data?: Record<string, unknown>,
 ) {
-  const task = await getDb().query.agentTasks.findFirst({
-    where: and(eq(agentTasks.id, taskId), eq(agentTasks.brandId, scope.brandId)),
-    columns: { id: true, missionId: true },
-  });
-  if (!task) return null;
-  await getDb()
-    .update(agentTasks)
-    .set({ updatedAt: new Date() })
-    .where(eq(agentTasks.id, task.id));
-  return appendAgentEvent(scope, {
-    missionId: task.missionId,
-    taskId: task.id,
-    eventType: "progressed",
-    summary,
-    data,
+  return getDb().transaction(async (tx) => {
+    const [task] = await tx
+      .select({ id: agentTasks.id, missionId: agentTasks.missionId })
+      .from(agentTasks)
+      .where(and(eq(agentTasks.id, taskId), eq(agentTasks.brandId, scope.brandId)))
+      .limit(1);
+    if (!task) return null;
+    await tx
+      .update(agentTasks)
+      .set({ updatedAt: new Date() })
+      .where(eq(agentTasks.id, task.id));
+    const [event] = await tx
+      .insert(agentEvents)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        missionId: task.missionId,
+        taskId: task.id,
+        eventType: "progressed",
+        summary,
+        data: data ?? null,
+      })
+      .returning();
+    if (!event) throw new Error("Agent progress event could not be recorded");
+    return event;
   });
 }
 
@@ -137,29 +163,50 @@ export async function createAgentApproval(
     expiresAt?: Date | null;
   },
 ) {
-  const [approval] = await getDb()
-    .insert(agentApprovals)
-    .values({
-      workspaceId: scope.workspaceId,
-      brandId: scope.brandId,
-      taskId: input.taskId ?? null,
-      actionType: input.actionType,
-      resourceRef: input.resourceRef,
-      beforeState: input.beforeState,
-      afterState: input.afterState,
-      riskLevel: input.riskLevel,
-      expectedBenefit: input.expectedBenefit,
-      expiresAt: input.expiresAt ?? null,
-    })
-    .returning();
-  if (!approval) throw new Error("Approval could not be created");
-  await appendAgentEvent(scope, {
-    taskId: approval.taskId,
-    eventType: "approval_requested",
-    summary: `Owner approval requested for ${input.actionType}.`,
-    data: { approvalId: approval.id, resourceRef: input.resourceRef },
+  const now = new Date();
+  const existing = await getDb().query.agentApprovals.findFirst({
+    where: and(
+      eq(agentApprovals.brandId, scope.brandId),
+      eq(agentApprovals.actionType, input.actionType),
+      eq(agentApprovals.resourceRef, input.resourceRef),
+      eq(agentApprovals.status, "pending"),
+      or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
+    ),
+    orderBy: desc(agentApprovals.createdAt),
   });
-  return approval;
+  if (existing) return existing;
+
+  return getDb().transaction(async (tx) => {
+    const [approval] = await tx
+      .insert(agentApprovals)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        taskId: input.taskId ?? null,
+        actionType: input.actionType,
+        resourceRef: input.resourceRef,
+        beforeState: input.beforeState,
+        afterState: input.afterState,
+        riskLevel: input.riskLevel,
+        expectedBenefit: input.expectedBenefit,
+        expiresAt: input.expiresAt ?? null,
+      })
+      .returning();
+    if (!approval) throw new Error("Approval could not be created");
+    const [event] = await tx
+      .insert(agentEvents)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        taskId: approval.taskId,
+        eventType: "approval_requested",
+        summary: `Owner approval requested for ${input.actionType}.`,
+        data: { approvalId: approval.id, resourceRef: input.resourceRef },
+      })
+      .returning({ id: agentEvents.id });
+    if (!event) throw new Error("Approval event could not be recorded");
+    return approval;
+  });
 }
 
 export async function decideAgentApproval(
@@ -168,27 +215,64 @@ export async function decideAgentApproval(
   decision: "approved" | "rejected" | "deferred",
   actor: string,
 ) {
-  const [approval] = await getDb()
-    .update(agentApprovals)
-    .set({ status: decision, decidedBy: actor, decidedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(agentApprovals.id, approvalId), eq(agentApprovals.brandId, scope.brandId)))
-    .returning();
-  if (!approval) return null;
-  await appendAgentEvent(scope, {
-    taskId: approval.taskId,
-    eventType: decision === "approved" ? "progressed" : "blocked",
-    summary: `Owner ${decision} ${approval.actionType}.`,
-    data: { approvalId: approval.id, decision },
-    actor,
+  const now = new Date();
+  const approval = await getDb().transaction(async (tx) => {
+    const [updated] = await tx
+      .update(agentApprovals)
+      .set({ status: decision, decidedBy: actor, decidedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(agentApprovals.id, approvalId),
+          eq(agentApprovals.brandId, scope.brandId),
+          eq(agentApprovals.status, "pending"),
+          or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
+        ),
+      )
+      .returning();
+    if (!updated) return null;
+    const [event] = await tx
+      .insert(agentEvents)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        taskId: updated.taskId,
+        eventType: decision === "approved" ? "progressed" : "blocked",
+        summary: `Owner ${decision} ${updated.actionType}.`,
+        data: { approvalId: updated.id, decision },
+        actor,
+      })
+      .returning({ id: agentEvents.id });
+    if (!event) throw new Error("Approval decision event could not be recorded");
+    return updated;
   });
-  return approval;
+  if (!approval) {
+    const existing = await getDb().query.agentApprovals.findFirst({
+      where: and(
+        eq(agentApprovals.id, approvalId),
+        eq(agentApprovals.brandId, scope.brandId),
+      ),
+    });
+    if (!existing) return null;
+    return {
+      approval: existing,
+      changed: false,
+      expired: existing.expiresAt != null && existing.expiresAt.getTime() <= now.getTime(),
+    };
+  }
+  return { approval, changed: true, expired: false };
 }
 
-export async function listPendingAgentApprovals(brandId: string) {
+export async function listPendingAgentApprovals(brandId: string, now = new Date()) {
   return getDb()
     .select()
     .from(agentApprovals)
-    .where(and(eq(agentApprovals.brandId, brandId), eq(agentApprovals.status, "pending")))
+    .where(
+      and(
+        eq(agentApprovals.brandId, brandId),
+        eq(agentApprovals.status, "pending"),
+        or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
+      ),
+    )
     .orderBy(desc(agentApprovals.createdAt));
 }
 
@@ -211,48 +295,60 @@ export async function recordAgentAction(
 ) {
   const db = getDb();
   const verified = input.verificationStatus === "verified";
-  const [action] = await db
-    .insert(agentActionLedger)
-    .values({
-      workspaceId: scope.workspaceId,
-      brandId: scope.brandId,
-      taskId: input.taskId ?? null,
-      approvalId: input.approvalId ?? null,
-      actionType: input.actionType,
-      resourceRef: input.resourceRef,
-      capability: input.capability,
-      idempotencyKey: input.idempotencyKey,
-      beforeState: input.beforeState,
-      appliedChange: input.appliedChange,
-      remoteRef: input.remoteRef ?? null,
-      rollbackHandle: input.rollbackHandle ?? null,
-      verificationStatus: input.verificationStatus ?? "pending",
-      verificationResult: input.verificationResult ?? null,
-      verifiedAt: verified ? new Date() : null,
-    })
-    .onConflictDoNothing({
-      target: [agentActionLedger.brandId, agentActionLedger.idempotencyKey],
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [action] = await tx
+      .insert(agentActionLedger)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        taskId: input.taskId ?? null,
+        approvalId: input.approvalId ?? null,
+        actionType: input.actionType,
+        resourceRef: input.resourceRef,
+        capability: input.capability,
+        idempotencyKey: input.idempotencyKey,
+        beforeState: input.beforeState,
+        appliedChange: input.appliedChange,
+        remoteRef: input.remoteRef ?? null,
+        rollbackHandle: input.rollbackHandle ?? null,
+        verificationStatus: input.verificationStatus ?? "pending",
+        verificationResult: input.verificationResult ?? null,
+        verifiedAt: verified ? new Date() : null,
+      })
+      .onConflictDoNothing({
+        target: [agentActionLedger.brandId, agentActionLedger.idempotencyKey],
+      })
+      .returning();
 
-  if (!action) {
-    const existing = await db.query.agentActionLedger.findFirst({
-      where: and(
-        eq(agentActionLedger.brandId, scope.brandId),
-        eq(agentActionLedger.idempotencyKey, input.idempotencyKey),
-      ),
-    });
-    if (!existing) throw new Error("Action ledger entry could not be recorded");
-    return existing;
-  }
+    if (!action) {
+      const [existing] = await tx
+        .select()
+        .from(agentActionLedger)
+        .where(
+          and(
+            eq(agentActionLedger.brandId, scope.brandId),
+            eq(agentActionLedger.idempotencyKey, input.idempotencyKey),
+          ),
+        )
+        .limit(1);
+      if (!existing) throw new Error("Action ledger entry could not be recorded");
+      return existing;
+    }
 
-  await appendAgentEvent(scope, {
-    taskId: action.taskId,
-    eventType: verified ? "verified" : "applied",
-    summary: verified
-      ? `Verified ${input.actionType} on ${input.resourceRef}.`
-      : `Applied ${input.actionType} to ${input.resourceRef}.`,
-    data: { actionId: action.id, remoteRef: action.remoteRef },
+    const [event] = await tx
+      .insert(agentEvents)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        taskId: action.taskId,
+        eventType: verified ? "verified" : "applied",
+        summary: verified
+          ? `Verified ${input.actionType} on ${input.resourceRef}.`
+          : `Applied ${input.actionType} to ${input.resourceRef}.`,
+        data: { actionId: action.id, remoteRef: action.remoteRef },
+      })
+      .returning({ id: agentEvents.id });
+    if (!event) throw new Error("Action event could not be recorded");
+    return action;
   });
-  return action;
 }

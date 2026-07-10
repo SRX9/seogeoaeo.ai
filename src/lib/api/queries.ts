@@ -402,8 +402,16 @@ export function useAgentState() {
   return useQuery({
     ...agentStateQueryOptions(),
     enabled: useHasBrand(),
-    refetchInterval: (query) =>
-      query.state.data?.presence.id === "working_now" ? 8_000 : false,
+    refetchInterval: (query) => {
+      const presence = query.state.data?.presence.id;
+      if (presence === "working_now") return 8_000;
+      // Temporary owner pauses expire in durable memory; refresh without
+      // requiring a navigation or focus change to show the resumed schedule.
+      if (presence === "paused" || presence === "scheduled" || presence === "on_duty") {
+        return 60_000;
+      }
+      return false;
+    },
   });
 }
 
@@ -771,6 +779,7 @@ export type VisibilityFinding = {
   recommendation: string;
   fixCapability: "auto" | "artifact" | "guided" | null;
   fixPayload: unknown;
+  proposedAt?: string | null;
 };
 
 export function useVisibilityFindings() {

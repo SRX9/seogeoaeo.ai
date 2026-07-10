@@ -6,6 +6,12 @@ describe("slugifyTag", () => {
     expect(slugifyTag("Content Marketing")).toBe("content-marketing");
     expect(slugifyTag("  SEO Tips!! ")).toBe("seo-tips");
   });
+
+  it("does not leave a trailing separator after enforcing provider length", () => {
+    expect(slugifyTag("12345678901234567890123456789 long", 30)).toBe(
+      "12345678901234567890123456789",
+    );
+  });
 });
 
 describe("normalizeTagSlugs", () => {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveSteeringIntent } from "@/lib/agent/steer";
+import {
+  parseDirectedWritingTopic,
+  resolveSteeringIntent,
+} from "@/lib/agent/steer";
+import { rankTopicsForAgentPriorities } from "@/lib/jobs/daily";
 import {
   connectorCapabilities,
   connectorHasCapability,
@@ -10,7 +14,9 @@ describe("resolveSteeringIntent", () => {
     ["Focus on enterprise buyers this month", "priority"],
     ["Never publish competitor comparison pages", "constraint"],
     ["Pause publishing until Monday", "schedule"],
+    ["Do not publish until Monday", "schedule"],
     ["You may update article metadata automatically", "permission"],
+    ["You can publish until Monday", "permission"],
     ["Write about this product launch next", "direction"],
     ["Why are you doing this?", "explanation"],
     ["What changed this week?", "status"],
@@ -29,5 +35,33 @@ describe("connector capability discovery", () => {
   it("does not claim broad site or rollback control", () => {
     expect(connectorHasCapability("wordpress", "site.meta.update")).toBe(false);
     expect(connectorHasCapability("ghost", "rollback.supported")).toBe(false);
+  });
+
+  it("declares updates for providers whose adapters update existing posts", () => {
+    expect(connectorHasCapability("devto", "article.update")).toBe(true);
+    expect(connectorHasCapability("hashnode", "article.update")).toBe(true);
+  });
+});
+
+describe("owner-directed writing", () => {
+  it("extracts a usable topic only from supported article directions", () => {
+    expect(parseDirectedWritingTopic("Write an article about enterprise SEO next")).toBe(
+      "Enterprise SEO",
+    );
+    expect(parseDirectedWritingTopic("Publish the latest draft")).toBeNull();
+  });
+
+  it("moves owner-priority matches ahead of a higher-scored unrelated topic", () => {
+    const ranked = rankTopicsForAgentPriorities(
+      [
+        { title: "Consumer SEO", score: 95 },
+        { title: "Enterprise discovery", score: 70 },
+      ],
+      ["Focus on enterprise buyers this month"],
+    );
+    expect(ranked.map((topic) => topic.title)).toEqual([
+      "Enterprise discovery",
+      "Consumer SEO",
+    ]);
   });
 });

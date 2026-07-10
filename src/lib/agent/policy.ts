@@ -10,6 +10,7 @@ export type AuthorityRequest = {
   riskLevel: "low" | "medium" | "high" | "critical";
   resourceRef: string;
   ownerConstraints?: string[];
+  grantedCapabilities?: readonly ConnectorCapability[];
 };
 
 export type AuthorityResult = {
@@ -28,6 +29,136 @@ const LIVE_CAPABILITIES = new Set<ConnectorCapability>([
   "llms_txt.update",
 ]);
 
+const CONSTRAINT_STOP_WORDS = new Set([
+  "never",
+  "dont",
+  "must",
+  "avoid",
+  "publish",
+  "publishing",
+  "create",
+  "update",
+  "change",
+  "automatically",
+  "meta",
+  "metadata",
+  "schema",
+  "robots",
+  "llms",
+  "txt",
+  "article",
+  "articles",
+  "page",
+  "pages",
+  "anything",
+  "everything",
+]);
+
+export function isActionBlockedByOwnerConstraint(
+  instruction: string,
+  capability: ConnectorCapability,
+  resourceRef: string,
+): boolean {
+  const normalized = instruction.toLowerCase();
+  if (!/\b(?:never|avoid|must\s+not|do\s+not|don't|dont)\b/.test(normalized)) {
+    return false;
+  }
+
+  const mentionsPublish = /\bpublish(?:ing)?\b/.test(normalized);
+  const mentionsMetadata = /\bmeta(?:data)?\b/.test(normalized);
+  const mentionsSchema = /\bschema\b/.test(normalized);
+  const mentionsRobots = /\brobots(?:\.txt)?\b/.test(normalized);
+  const mentionsLlms = /\bllms(?:\.txt|\s+txt)?\b/.test(normalized);
+  const mentionsUpdate = /\bupdate\b/.test(normalized);
+  const hasActionScope =
+    mentionsPublish ||
+    mentionsMetadata ||
+    mentionsSchema ||
+    mentionsRobots ||
+    mentionsLlms ||
+    mentionsUpdate;
+
+  const appliesToCapability =
+    !hasActionScope ||
+    (mentionsPublish && capability.startsWith("article.")) ||
+    (mentionsMetadata && capability.includes("meta.update")) ||
+    (mentionsSchema && capability.includes("schema.update")) ||
+    (mentionsRobots && capability === "robots.update") ||
+    (mentionsLlms && capability === "llms_txt.update") ||
+    (mentionsUpdate && capability.endsWith(".update"));
+  if (!appliesToCapability) return false;
+
+  const resourceTerms = normalized
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(
+      (word) =>
+        word.length >= 3 &&
+        !CONSTRAINT_STOP_WORDS.has(word) &&
+        word !== "not" &&
+        word !== "the" &&
+        word !== "for" &&
+        word !== "with",
+    );
+  if (resourceTerms.length === 0) return true;
+
+  const target = resourceRef.toLowerCase();
+  const compactTarget = target.replace(/[^a-z0-9]+/g, "");
+  return resourceTerms.some(
+    (term) => target.includes(term) || compactTarget.includes(term.replace(/[^a-z0-9]+/g, "")),
+  );
+}
+
+/** Owner prohibitions that apply to drafting, without treating publish-only rules as write bans. */
+export function isArticleGenerationBlockedByOwnerConstraint(
+  instruction: string,
+  topic: string,
+): boolean {
+  const normalized = instruction.toLowerCase();
+  if (!/\b(?:never|avoid|must\s+not|do\s+not|don't|dont)\b/.test(normalized)) {
+    return false;
+  }
+
+  const mentionsWriting = /\b(?:write|writing|draft|drafting|create|creating)\b/.test(
+    normalized,
+  );
+  const mentionsPublishing = /\bpublish(?:ing)?\b/.test(normalized);
+  if (mentionsPublishing && !mentionsWriting) return false;
+
+  const resourceTerms = normalized
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(
+      (word) =>
+        word.length >= 3 &&
+        !CONSTRAINT_STOP_WORDS.has(word) &&
+        ![
+          "not",
+          "the",
+          "for",
+          "with",
+          "about",
+          "content",
+          "blog",
+          "post",
+          "posts",
+          "write",
+          "writing",
+          "draft",
+          "drafting",
+        ].includes(word),
+    );
+  if (resourceTerms.length === 0) return mentionsWriting;
+
+  const target = topic.toLowerCase();
+  const compactTarget = target.replace(/[^a-z0-9]+/g, "");
+  return resourceTerms.some(
+    (term) => target.includes(term) || compactTarget.includes(term.replace(/[^a-z0-9]+/g, "")),
+  );
+}
+
 /** Deterministic safety boundary. Model output never changes this result. */
 export function authorizeAction(request: AuthorityRequest): AuthorityResult {
   if (request.capability === "observe" || request.capability === "prepare") {
@@ -44,15 +175,11 @@ export function authorizeAction(request: AuthorityRequest): AuthorityResult {
     };
   }
 
-  const target = request.resourceRef.toLowerCase();
   const blocked = request.ownerConstraints?.find((constraint) => {
-    const normalized = constraint.toLowerCase();
-    return (
-      (normalized.includes("never") || normalized.includes("do not")) &&
-      normalized
-        .split(/\W+/)
-        .filter((word) => word.length > 4)
-        .some((word) => target.includes(word))
+    return isActionBlockedByOwnerConstraint(
+      constraint,
+      request.capability as ConnectorCapability,
+      request.resourceRef,
     );
   });
   if (blocked) {
@@ -63,15 +190,21 @@ export function authorizeAction(request: AuthorityRequest): AuthorityResult {
     return { decision: "require_approval", reason: "High-risk live changes require an owner." };
   }
 
-  if (request.mode === "REVIEW") {
-    return { decision: "require_approval", reason: "Copilot mode requires review before acting." };
-  }
-
   if (request.capability.startsWith("site.")) {
     return {
       decision: "require_approval",
       reason: "Broad site changes remain owner-approved even when a connector supports them.",
     };
+  }
+
+  if (request.mode === "REVIEW") {
+    if (request.grantedCapabilities?.includes(request.capability)) {
+      return {
+        decision: "allow",
+        reason: `The owner explicitly granted ${request.capability}.`,
+      };
+    }
+    return { decision: "require_approval", reason: "Copilot mode requires review before acting." };
   }
 
   return {

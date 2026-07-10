@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { handleApi, jsonOk, requireApiBrand } from "@/lib/api/server";
 import { getDb } from "@/lib/db";
 import { audits, trafficSnapshots } from "@/lib/db/schema/visibility";
+import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { AI_ENGINES } from "@/lib/visibility/ai-referrers";
 
 /**
@@ -16,11 +17,25 @@ export async function GET() {
     const { workspace, brand } = await requireApiBrand();
     const db = getDb();
 
-    const snapshots = await db
-      .select()
-      .from(trafficSnapshots)
-      .where(eq(trafficSnapshots.brandId, brand.id))
-      .orderBy(asc(trafficSnapshots.date));
+    const [snapshots, connections, auditRows] = await Promise.all([
+      db
+        .select()
+        .from(trafficSnapshots)
+        .where(eq(trafficSnapshots.brandId, brand.id))
+        .orderBy(asc(trafficSnapshots.date)),
+      listTrafficConnections(brand.id),
+      db
+        .select({ id: audits.id, date: audits.completedAt, overall: audits.overallScore })
+        .from(audits)
+        .where(
+          and(
+            eq(audits.workspaceId, workspace.id),
+            eq(audits.brandId, brand.id),
+            eq(audits.kind, "owned"),
+          ),
+        )
+        .orderBy(asc(audits.createdAt)),
+    ]);
 
     const gsc = snapshots
       .filter((s) => s.source === "gsc")
@@ -32,17 +47,15 @@ export async function GET() {
 
     // Owned audits only — a competitor benchmark's score is not a causal marker
     // for the owner's traffic.
-    const auditRows = await db
-      .select({ id: audits.id, date: audits.completedAt, overall: audits.overallScore })
-      .from(audits)
-      .where(and(eq(audits.workspaceId, workspace.id), eq(audits.kind, "owned")))
-      .orderBy(asc(audits.createdAt));
     const markers = auditRows
       .filter((a) => a.date)
       .map((a) => ({ date: a.date!.toISOString().slice(0, 10), overall: a.overall }));
 
     return jsonOk({
-      connected: { gsc: gsc.length > 0, ga4: aiReferrals.length > 0 },
+      connected: {
+        gsc: connections.some((connection) => connection.source === "gsc"),
+        ga4: connections.some((connection) => connection.source === "ga4"),
+      },
       engines: AI_ENGINES,
       gsc,
       aiReferrals,

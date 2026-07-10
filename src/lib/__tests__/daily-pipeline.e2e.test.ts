@@ -31,6 +31,9 @@ vi.mock("@/lib/agent/planner", () => ({
   completeDailyAgentTask: vi.fn(async () => null),
   ensureNextDailyTask: vi.fn(async () => null),
   replanAgentWork: vi.fn(async () => null),
+  setFutureAgentTasksPaused: vi.fn(async () => []),
+  beginOwnerDirectedWritingTask: vi.fn(async () => null),
+  completeOwnerDirectedWritingTask: vi.fn(async () => null),
 }));
 // Traffic proof is a best-effort, unmetered side effect of settle; stub it so the
 // content-run assertions aren't coupled to the GSC/GA4 sync (which hits its own seam).
@@ -81,7 +84,7 @@ async function runDaily(planId: string) {
   let outOfCredits = false;
   for (const topicId of writeTargets) {
     try {
-      await generateArticleFromTopic(scope, topicId, {});
+      await generateArticleFromTopic(scope, topicId, { actor: "agent" });
       generated += 1;
     } catch (error) {
       if (error instanceof InsufficientCreditsError) {
@@ -205,12 +208,12 @@ describe("daily content agent", () => {
     const topic = seedTopic({ workspaceId: "ws-1", status: "pending", score: 80, title: "Retry me" });
     const scope = { workspaceId: "ws-1", brandId: BRAND.id };
 
-    await generateArticleFromTopic(scope, topic.id, {});
+    await generateArticleFromTopic(scope, topic.id, { actor: "agent" });
     const balanceAfterFirst = store.usage.get("ws-1");
     expect(store.articles.size).toBe(1);
 
     // Simulate a Workflow step retry: same topic again.
-    await generateArticleFromTopic(scope, topic.id, {});
+    await generateArticleFromTopic(scope, topic.id, { actor: "agent" });
     expect(store.articles.size).toBe(1); // guarded by getArticleByTopic
     expect(store.usage.get("ws-1")).toBe(balanceAfterFirst); // not charged twice
   });

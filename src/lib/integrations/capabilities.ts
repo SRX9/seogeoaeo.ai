@@ -11,11 +11,23 @@ export type ConnectorCapability =
   | "llms_txt.update"
   | "rollback.supported";
 
+const CONNECTOR_CAPABILITIES: ReadonlySet<string> = new Set<ConnectorCapability>([
+  "article.create",
+  "article.update",
+  "article.meta.update",
+  "article.schema.update",
+  "site.meta.update",
+  "site.schema.update",
+  "robots.update",
+  "llms_txt.update",
+  "rollback.supported",
+]);
+
 const CAPABILITIES: Record<IntegrationProviderId, readonly ConnectorCapability[]> = {
   markdown_export: ["article.create"],
   webhook: ["article.create"],
-  devto: ["article.create"],
-  hashnode: ["article.create"],
+  devto: ["article.create", "article.update"],
+  hashnode: ["article.create", "article.update"],
   wordpress: ["article.create", "article.update", "article.meta.update"],
   ghost: ["article.create", "article.update", "article.meta.update"],
   medium: [],
@@ -37,4 +49,8 @@ export function connectorHasCapability(
   capability: ConnectorCapability,
 ): boolean {
   return CAPABILITIES[provider].includes(capability);
+}
+
+export function isConnectorCapability(value: unknown): value is ConnectorCapability {
+  return typeof value === "string" && CONNECTOR_CAPABILITIES.has(value);
 }

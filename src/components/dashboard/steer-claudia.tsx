@@ -27,6 +27,7 @@ export function SteerClaudia() {
       setResult(data);
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.inboxSummary });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.topics });
     },
     onError: (error) =>
       toast.danger(getErrorMessage(error, "I couldn't apply that direction.")),
