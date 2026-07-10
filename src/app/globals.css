@@ -385,8 +385,23 @@ body {
   .claudia__core,
   .claudia__ring,
   .competitor-radar__sweep,
-  .competitor-radar__placeholder {
+  .competitor-radar__placeholder,
+  .onboarding-discovery__ambient,
+  .onboarding-discovery__core,
+  .onboarding-discovery__ring,
+  .onboarding-discovery__signal,
+  .onboarding-discovery__connector,
+  .onboarding-discovery__live-dot,
+  .onboarding-discovery__task-pulse {
     animation: none !important;
+  }
+
+  .onboarding-discovery__core {
+    transform: translate(-50%, -50%);
+  }
+
+  .onboarding-discovery__ring {
+    display: none;
   }
 }
 
@@ -498,6 +513,180 @@ html[data-theme="glass-dark"] {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/*
+ * Layered onboarding research state. The loops communicate ongoing work;
+ * transforms and opacity keep them smooth while the network request is busy.
+ */
+.onboarding-discovery__ambient {
+  position: absolute;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--accent) 9%, transparent);
+  filter: blur(48px);
+  opacity: 0.65;
+  pointer-events: none;
+  animation: onboarding-ambient-drift 7s ease-in-out infinite alternate;
+}
+
+.onboarding-discovery__ambient--one {
+  top: -9rem;
+  left: -5rem;
+}
+
+.onboarding-discovery__ambient--two {
+  right: -7rem;
+  bottom: -11rem;
+  animation-delay: -3.5s;
+}
+
+.onboarding-discovery__grid {
+  opacity: 0.45;
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--border) 42%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--border) 42%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(circle at center, black 16%, transparent 72%);
+  mask-image: radial-gradient(circle at center, black 16%, transparent 72%);
+}
+
+.onboarding-discovery__core {
+  transform: translate(-50%, -50%);
+  animation: onboarding-core-breathe 2.8s ease-in-out infinite;
+}
+
+.onboarding-discovery__ring {
+  width: 7rem;
+  height: 7rem;
+  transform: translate(-50%, -50%) scale(0.88);
+  opacity: 0;
+  animation: onboarding-signal-ring 2.6s var(--ease-out-strong) infinite;
+}
+
+.onboarding-discovery__ring--two {
+  animation-delay: 1.3s;
+}
+
+.onboarding-discovery__signal {
+  animation: onboarding-signal-float 3.2s ease-in-out infinite;
+}
+
+.onboarding-discovery__signal--offer {
+  top: 12%;
+  left: 5%;
+}
+
+.onboarding-discovery__signal--market {
+  top: 15%;
+  right: 4%;
+  animation-delay: -1.1s;
+}
+
+.onboarding-discovery__signal--buyers {
+  right: 10%;
+  bottom: 10%;
+  animation-delay: -2.2s;
+}
+
+.onboarding-discovery__connector {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35%;
+  height: 1px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 42%, transparent), transparent);
+  opacity: 0.35;
+  animation: onboarding-connector-pulse 1.8s ease-in-out infinite;
+}
+
+.onboarding-discovery__connector--offer {
+  transform: rotate(211deg);
+}
+
+.onboarding-discovery__connector--market {
+  transform: rotate(326deg);
+  animation-delay: -0.6s;
+}
+
+.onboarding-discovery__connector--buyers {
+  transform: rotate(37deg);
+  animation-delay: -1.2s;
+}
+
+.onboarding-discovery__live-dot,
+.onboarding-discovery__task-pulse {
+  animation: onboarding-live-pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes onboarding-ambient-drift {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(0.96);
+    opacity: 0.45;
+  }
+  to {
+    transform: translate3d(5%, 4%, 0) scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+@keyframes onboarding-core-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.025);
+  }
+}
+
+@keyframes onboarding-signal-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.88);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.65;
+  }
+  75%,
+  100% {
+    transform: translate(-50%, -50%) scale(1.72);
+    opacity: 0;
+  }
+}
+
+@keyframes onboarding-signal-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes onboarding-connector-pulse {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes onboarding-live-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
   }
 }
 
