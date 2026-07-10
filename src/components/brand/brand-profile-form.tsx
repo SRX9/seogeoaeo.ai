@@ -47,7 +47,7 @@ export function BrandProfileForm({ initial }: BrandProfileFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="productDescription">Product description</Label>
         <TextArea
@@ -59,7 +59,7 @@ export function BrandProfileForm({ initial }: BrandProfileFormProps) {
           variant="secondary"
           fullWidth
           rows={6}
-          className=" resize-none "
+          className="resize-none"
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2">

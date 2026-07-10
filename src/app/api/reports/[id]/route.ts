@@ -29,6 +29,12 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
         createdAt: row.createdAt,
       },
       lines: renderReportLines(data),
+      story: {
+        proof: data.proof,
+        fixes: data.fixes,
+        content: data.content,
+        planChanges: data.planChanges ?? [],
+      },
       ask: data.ask ?? null,
     });
   });

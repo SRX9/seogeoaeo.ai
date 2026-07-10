@@ -55,10 +55,10 @@ export function BadgePanel({ brandId, initialEnabled }: BadgePanelProps) {
     : null;
 
   return (
-    <Card>
+    <Card className="material-panel">
       <Card.Header>
-        <Card.Title>Public score badge</Card.Title>
-        <Card.Description>
+        <Card.Title className="tracking-tight">Public score badge</Card.Title>
+        <Card.Description className="leading-relaxed">
           An embeddable SVG badge showing your latest visibility score. Your score stays private
           until you turn this on.
         </Card.Description>
@@ -67,8 +67,10 @@ export function BadgePanel({ brandId, initialEnabled }: BadgePanelProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="font-medium text-foreground">Make my score embeddable</p>
-              <p className="mt-1 text-sm text-muted">
+              <p className="font-medium tracking-tight text-foreground">
+                Make my score embeddable
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
                 {enabled
                   ? "Anyone with the badge URL can see your latest score."
                   : "The badge endpoint returns nothing for your domain."}
@@ -92,9 +94,11 @@ export function BadgePanel({ brandId, initialEnabled }: BadgePanelProps) {
           </div>
 
           {enabled && embed ? (
-            <div className="space-y-2 rounded-lg border border-border bg-surface p-3">
-              <p className="text-xs font-medium text-muted">Paste this into your site</p>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs text-foreground">
+            <div className="space-y-2 rounded-2xl border border-border/50 bg-surface/70 p-3.5">
+              <p className="text-xs font-medium tracking-[0.01em] text-muted">
+                Paste this into your site
+              </p>
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs leading-relaxed text-foreground">
                 {embed}
               </pre>
               <Button
@@ -110,7 +114,7 @@ export function BadgePanel({ brandId, initialEnabled }: BadgePanelProps) {
             </div>
           ) : null}
           {enabled && !embed ? (
-            <p className="text-sm text-muted">
+            <p className="text-sm leading-relaxed text-muted">
               Add your website in brand settings to get the embed code.
             </p>
           ) : null}

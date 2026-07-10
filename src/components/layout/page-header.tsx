@@ -65,15 +65,11 @@ function createStickyHeaderStore() {
 }
 
 /**
- * Consistent page title block used across every app view: a Title-Case heading,
- * muted one-line description, optional meta row, and end-aligned actions. Keeps
- * spacing and hierarchy uniform per DESIGN.md (general-to-specific, no decoration).
+ * Consistent page title block used across every app view.
  *
- * Sticks to the top of the scroll area and smoothly morphs into a compact bar
- * (shrunk title, frosted background, collapsed description) once the page is
- * scrolled. "Pinned" is detected by observing the header against a 1px-inset top
- * edge, so it works whether the window or an inner column owns the scroll, and
- * the header stays a single, first-in-flow element (no sentinel to disturb `space-y`).
+ * Sticks to the top of the scroll area and morphs into compact frosted chrome
+ * once scrolled — materialize (blur + fill), not a plain opacity fade
+ * (Apple materials §12). Symmetric spring-like easing for expand/collapse.
  */
 export function PageHeader({ title, description, actions, meta, className }: PageHeaderProps) {
   const storeRef = useRef<ReturnType<typeof createStickyHeaderStore> | null>(null);
@@ -92,10 +88,10 @@ export function PageHeader({ title, description, actions, meta, className }: Pag
     <div
       ref={headerRef}
       className={cn(
-        "sticky top-0 z-30 flex flex-col gap-4 border-b transition-[padding,background-color,border-color,box-shadow] duration-300 ease-out motion-reduce:transition-none",
+        "sticky top-0 z-30 flex flex-col gap-4 transition-[padding,background-color,border-color,box-shadow,backdrop-filter] duration-ui ease-out-strong motion-reduce:transition-none",
         stuck
-          ? "border-border bg-surface/70 py-3 pl-10 pr-4 shadow-sm backdrop-blur-md md:px-6"
-          : "border-transparent py-0",
+          ? "material-chrome scroll-edge relative -mx-4 border-transparent py-3 pl-10 pr-4 md:-mx-8 md:px-8"
+          : "border-b border-transparent py-0",
         className,
       )}
     >
@@ -103,8 +99,10 @@ export function PageHeader({ title, description, actions, meta, className }: Pag
         <div className="min-w-0 space-y-1">
           <h1
             className={cn(
-              "font-semibold tracking-tight text-foreground transition-[font-size,line-height] duration-300 ease-out motion-reduce:transition-none",
-              stuck ? "text-lg" : "text-2xl",
+              "font-semibold text-foreground transition-[font-size,line-height,letter-spacing] duration-ui ease-out-strong motion-reduce:transition-none",
+              stuck
+                ? "text-lg tracking-tight leading-snug"
+                : "type-title text-2xl",
             )}
           >
             {title}
@@ -112,11 +110,12 @@ export function PageHeader({ title, description, actions, meta, className }: Pag
           {description ? (
             <div
               className={cn(
-                "grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
-                stuck ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+                /* Opacity only — no grid-template-rows layout thrash */
+                "overflow-hidden transition-opacity duration-snappy ease-out-strong motion-reduce:transition-none",
+                stuck ? "pointer-events-none h-0 opacity-0" : "opacity-100",
               )}
             >
-              <p className="max-w-2xl overflow-hidden text-pretty text-sm leading-relaxed text-muted">
+              <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted">
                 {description}
               </p>
             </div>

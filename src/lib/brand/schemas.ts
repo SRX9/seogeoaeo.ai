@@ -1,11 +1,27 @@
 import { z } from "zod";
 import { INTEGRATION_PROVIDER_IDS } from "@/lib/integrations/providers";
 
+function isHttpUrl(value: string) {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export const httpUrlSchema = z
+  .string()
+  .url()
+  .refine(isHttpUrl, "URL must use http or https");
+
+export const optionalHttpUrlSchema = httpUrlSchema.optional().or(z.literal(""));
+
 export const brandProfileSchema = z.object({
   productDescription: z.string().max(4000).optional().default(""),
   audience: z.string().max(500).optional().default(""),
   tone: z.string().max(200).optional().default(""),
-  website: z.string().url().optional().or(z.literal("")),
+  website: optionalHttpUrlSchema,
   seedKeywords: z.string().max(1000).optional().default(""),
 });
 
@@ -14,9 +30,9 @@ export const MAX_COMPETITORS = 10;
 
 export const competitorSchema = z.object({
   name: z.string().min(1).max(200),
-  url: z.string().url(),
-  rssUrl: z.string().url().optional().or(z.literal("")),
-  sitemapUrl: z.string().url().optional().or(z.literal("")),
+  url: httpUrlSchema,
+  rssUrl: optionalHttpUrlSchema,
+  sitemapUrl: optionalHttpUrlSchema,
 });
 
 /** "Add selected" bulk insert from the AI competitor-discovery checklist. */
@@ -27,7 +43,7 @@ export const competitorBulkSchema = z.object({
 /** Body for the AI prefill endpoint — runs on the entered name + website, no row yet. */
 export const brandPrefillSchema = z.object({
   name: z.string().min(1).max(120),
-  website: z.string().url().optional().or(z.literal("")),
+  website: optionalHttpUrlSchema,
 });
 
 export const brandNameSchema = z.string().min(1, "Brand name is required").max(120);
@@ -35,7 +51,7 @@ export const brandNameSchema = z.string().min(1, "Brand name is required").max(1
 /** A competitor picked from onboarding's AI discovery checklist. */
 export const onboardingCompetitorSchema = z.object({
   name: z.string().min(1).max(200),
-  url: z.string().url(),
+  url: httpUrlSchema,
 });
 
 /** A customer/user profile confirmed on onboarding's autofill step. */
@@ -50,7 +66,7 @@ export const onboardingUseCaseSchema = z.object({
 
 export const brandOnboardingSchema = z.object({
   name: brandNameSchema,
-  website: z.string().url().optional().or(z.literal("")),
+  website: optionalHttpUrlSchema,
   productDescription: z.string().max(4000).optional().default(""),
   audience: z.string().max(500).optional().default(""),
   tone: z.string().max(200).optional().default(""),
@@ -58,14 +74,15 @@ export const brandOnboardingSchema = z.object({
   // Legacy single-competitor fields — kept for back-compat; the form now sends
   // the `competitors` array from AI discovery.
   competitorName: z.string().max(200).optional().or(z.literal("")),
-  competitorUrl: z.string().url().optional().or(z.literal("")),
+  competitorUrl: optionalHttpUrlSchema,
   competitors: z.array(onboardingCompetitorSchema).max(MAX_COMPETITORS).optional().default([]),
   useCases: z.array(onboardingUseCaseSchema).max(24).optional().default([]),
   integrationProvider: z.enum(INTEGRATION_PROVIDER_IDS).optional().or(z.literal("")),
   integrationConfig: z.record(z.string().max(500)).optional().default({}),
   integrationSecrets: z.record(z.string().max(1000)).optional().default({}),
-  // AP2 — the one autonomy question: Autopilot (FULL_AUTO) publishes and applies
-  // safe fixes herself; Copilot (REVIEW) prepares everything and asks first.
+  // The one autonomy question: Autopilot publishes approved articles and prepares site fixes;
+  // Copilot prepares the same work and asks before publishing. Live site changes remain
+  // gated by exact connector capabilities and deterministic authority policy.
   autonomyMode: z.enum(["FULL_AUTO", "REVIEW"]).optional().default("FULL_AUTO"),
 });
 

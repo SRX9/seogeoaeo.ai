@@ -49,9 +49,9 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
 
   if (!summary.hasAudit) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-lg font-medium">No audit yet</p>
-        <p className="mx-auto mt-2 max-w-md text-sm text-default-500">
+      <Card className="material-panel p-8 text-center">
+        <p className="type-title text-lg">No audit yet</p>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-default-500">
           Run your first audit to get one 0–100 score for how easily people and AI assistants can
           find and cite your site — plus a prioritized fix list.
         </p>
@@ -61,17 +61,17 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
 
   return (
     <>
-      <Card className="p-6 sm:p-8">
+      <Card className="material-panel p-6 sm:p-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
           <ScoreGauge value={latest?.overall} size={148} barSize={10}>
-            <span className="text-3xl font-semibold leading-none text-foreground tabular-nums">
+            <span className="text-3xl font-semibold leading-none tracking-tight text-foreground tabular-nums">
               {fmt(latest?.overall)}
             </span>
-            <span className="mt-1 text-xs text-muted">/ 100</span>
+            <span className="mt-1 text-xs tracking-[0.01em] text-muted">/ 100</span>
           </ScoreGauge>
           <div className="text-center sm:text-left">
-            <p className="text-sm text-default-500">Overall visibility</p>
-            <p className="text-2xl font-semibold">{latest?.band ?? "—"}</p>
+            <p className="text-sm tracking-[0.01em] text-default-500">Overall visibility</p>
+            <p className="type-title text-2xl">{latest?.band ?? "—"}</p>
             <div className="mt-1 space-y-0.5 text-sm">
               {delta != null ? (
                 <p
@@ -176,7 +176,7 @@ export default function VisibilityPage() {
         : "Failed";
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-9">
       <PageHeader
         title="Visibility scorecard"
         description="Full score breakdown — day-to-day proof still lives on Claudia's home."
@@ -192,15 +192,17 @@ export default function VisibilityPage() {
         }
       />
       {settingUp && (
-        <p className="text-sm text-muted">
+        <p className="text-sm leading-relaxed text-muted">
           Claudia is setting up your brand — her first audit is already running as part of it.
         </p>
       )}
-      {errorMessage && <p className="text-sm text-danger">{errorMessage}</p>}
+      {errorMessage && (
+        <p className="text-sm leading-relaxed text-danger">{errorMessage}</p>
+      )}
       {needsWebsite && (
-        <p className="text-sm text-warning">
+        <p className="text-sm leading-relaxed text-warning">
           Your brand has no website yet —{" "}
-          <Link className="underline" href="/settings">
+          <Link className="pressable underline" href="/settings">
             add it in brand settings
           </Link>{" "}
           and Claudia will take it from there.

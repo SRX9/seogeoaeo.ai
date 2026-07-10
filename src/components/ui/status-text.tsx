@@ -33,7 +33,7 @@ export function StatusText({ status, className }: StatusTextProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-sm font-medium capitalize",
+        "inline-flex items-center gap-1.5 text-sm font-medium capitalize tracking-[0.01em]",
         TEXT[color] ?? "text-muted",
         className,
       )}

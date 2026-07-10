@@ -57,7 +57,7 @@ function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNo
   }
   if (depth >= MAX_DEPTH) {
     return (
-      <pre className="max-h-48 overflow-auto rounded bg-default-100 p-2 text-xs">
+      <pre className="max-h-48 overflow-auto rounded-xl bg-default-100 p-2.5 text-xs">
         {JSON.stringify(value, null, 2)}
       </pre>
     );
@@ -70,7 +70,7 @@ function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNo
     return (
       <div className="space-y-2">
         {value.map((item, i) => (
-          <div key={i} className="rounded-lg border border-border p-2">
+          <div key={i} className="rounded-xl border border-border/50 bg-surface/40 p-2.5">
             <DataValue value={item} depth={depth + 1} />
           </div>
         ))}
@@ -81,7 +81,13 @@ function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNo
     const entries = Object.entries(value).filter(([, v]) => v !== undefined);
     if (entries.length === 0) return <span className="text-default-400">—</span>;
     return (
-      <div className={depth > 0 ? "space-y-1.5 border-l border-border pl-3" : "space-y-1.5"}>
+      <div
+        className={
+          depth > 0
+            ? "space-y-1.5 border-l border-border/50 pl-3"
+            : "space-y-1.5"
+        }
+      >
         {entries.map(([k, v]) => (
           <div key={k} className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
             <span className="w-full shrink-0 text-default-500 sm:w-52">{humanizeKey(k)}</span>
@@ -111,35 +117,41 @@ export function ToolResultCard({
   freshRun: boolean;
 }) {
   return (
-    <Card className="space-y-5 p-5">
+    <Card className="material-panel space-y-5 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           {score != null ? (
-            <p className="text-3xl font-semibold tabular-nums">
+            <p className="text-3xl font-semibold tracking-tight tabular-nums">
               {Math.round(score)}
-              <span className="text-base font-normal text-default-400"> / 100 · {scoreBand(score)}</span>
+              <span className="text-base font-normal text-default-400">
+                {" "}
+                / 100 · {scoreBand(score)}
+              </span>
             </p>
           ) : (
-            <p className="text-lg font-medium">Result</p>
+            <p className="type-title text-lg">Result</p>
           )}
         </div>
-        <p className="text-xs text-default-400">
+        <p className="text-xs tracking-[0.01em] text-default-400">
           {freshRun ? "Just now" : ranAt ? `Last run ${new Date(ranAt).toLocaleString()}` : null}
         </p>
       </div>
 
       {findings.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-default-600">
+          <p className="text-sm font-semibold tracking-tight text-default-600">
             What to fix ({findings.length})
           </p>
           {findings.map((f, i) => (
-            <div key={i} className="rounded-lg border border-border p-3">
-              <p className="flex items-center gap-2 text-sm font-medium">
+            <div
+              key={i}
+              className="rounded-2xl border border-border/50 bg-surface/50 p-3.5"
+            >
+              <p className="flex items-center gap-2 text-sm font-medium tracking-tight">
                 <span className={`size-2 rounded-full ${SEVERITY_DOT[f.severity]}`} aria-hidden />
                 {f.title}
               </p>
-              <p className="mt-1 text-sm text-default-500">{f.recommendation}</p>
+              <p className="mt-1 text-sm leading-relaxed text-default-500">{f.recommendation}</p>
             </div>
           ))}
           <Link
@@ -153,13 +165,15 @@ export function ToolResultCard({
 
       {data != null && (
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-default-600">Details</p>
-          <div className="text-sm">
+          <p className="text-sm font-semibold tracking-tight text-default-600">Details</p>
+          <div className="text-sm leading-relaxed">
             <DataValue value={data} depth={0} />
           </div>
           <details className="text-xs text-default-400">
-            <summary className="cursor-pointer select-none">Raw JSON</summary>
-            <pre className="mt-2 max-h-80 overflow-auto rounded bg-default-100 p-3 text-xs text-foreground">
+            <summary className="pressable cursor-pointer select-none tracking-[0.01em]">
+              Raw JSON
+            </summary>
+            <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-default-100 p-3 text-xs text-foreground">
               {JSON.stringify(data, null, 2)}
             </pre>
           </details>

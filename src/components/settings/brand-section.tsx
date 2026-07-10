@@ -40,16 +40,17 @@ export function BrandSection() {
           meData.brands.find((brand) => brand.id === meData.activeBrandId)?.name ?? "your brand";
 
         return (
-          <div className="space-y-8">
-            <p className="text-sm text-muted">
-              Editing <span className="font-medium text-foreground">{brandName}</span> — product,
-              audience, tone, and seed keywords for content generation.
+          <div className="space-y-9">
+            <p className="text-sm leading-relaxed text-muted">
+              Editing{" "}
+              <span className="font-medium tracking-tight text-foreground">{brandName}</span> —
+              product, audience, tone, and seed keywords for content generation.
             </p>
 
-            <Card>
+            <Card className="material-panel">
               <Card.Header>
-                <Card.Title>Brand context</Card.Title>
-                <Card.Description>
+                <Card.Title className="tracking-tight">Brand context</Card.Title>
+                <Card.Description className="leading-relaxed">
                   seogeoaeo.ai uses this to research topics and write in your voice.
                 </Card.Description>
               </Card.Header>

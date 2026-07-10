@@ -7,7 +7,7 @@ export function PageLoader({ label = "Loading..." }: { label?: string }) {
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-muted">
       <Spinner size="lg" />
-      <p className="text-sm">{label}</p>
+      <p className="text-sm tracking-[0.01em]">{label}</p>
     </div>
   );
 }

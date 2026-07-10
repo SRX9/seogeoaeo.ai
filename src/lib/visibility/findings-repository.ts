@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
 import type { Finding, FixCapability, Pillar, Severity } from "./types";
@@ -22,6 +22,7 @@ export interface OpenFinding {
   recommendation: string;
   fixCapability: FixCapability | null;
   fixPayload: unknown;
+  proposedAt: Date | null;
   createdAt: Date;
 }
 
@@ -79,7 +80,7 @@ export async function persistNewFindings(
   const byKey = new Map(existing.map((f) => [`${f.category}::${f.title.toLowerCase()}`, f]));
 
   const fresh: Finding[] = [];
-  const regressed: string[] = [];
+  const regressed: Array<{ id: string; finding: Finding }> = [];
   const seen = new Set<string>(); // dedupe within this batch
   for (const f of findings) {
     const key = `${f.category}::${f.title.toLowerCase()}`;
@@ -89,16 +90,36 @@ export async function persistNewFindings(
     if (!row) {
       fresh.push(f);
     } else if (row.isResolved && row.resolution !== "dismissed") {
-      regressed.push(row.id);
+      regressed.push({ id: row.id, finding: f });
     }
     // open or dismissed → skip
   }
 
   if (regressed.length > 0) {
-    await db
-      .update(auditFindings)
-      .set({ isResolved: false, regressedAt: new Date(), verifiedAt: null })
-      .where(inArray(auditFindings.id, regressed));
+    const regressedAt = new Date();
+    await db.transaction(async (tx) => {
+      for (const { id, finding } of regressed) {
+        await tx
+          .update(auditFindings)
+          .set({
+            auditId: ref.auditId,
+            toolRunId: ref.toolRunId,
+            brandId: ref.brandId,
+            pillar: finding.pillar,
+            severity: finding.severity,
+            recommendation: finding.recommendation,
+            fixCapability: finding.fix_capability ?? null,
+            fixPayload: finding.fix_payload ?? null,
+            isResolved: false,
+            resolvedAt: null,
+            resolution: null,
+            regressedAt,
+            proposedAt: null,
+            verifiedAt: null,
+          })
+          .where(eq(auditFindings.id, id));
+      }
+    });
   }
 
   if (fresh.length === 0) return 0;
@@ -143,6 +164,7 @@ export async function getOpenFindings(workspaceId: string, filters: FindingFilte
       recommendation: auditFindings.recommendation,
       fixCapability: auditFindings.fixCapability,
       fixPayload: auditFindings.fixPayload,
+      proposedAt: auditFindings.proposedAt,
       createdAt: auditFindings.createdAt,
     })
     .from(auditFindings)
@@ -173,7 +195,13 @@ export async function setFindingResolved(
     .set(
       resolved
         ? { isResolved: true, resolvedAt: new Date(), resolution }
-        : { isResolved: false, resolvedAt: null, resolution: null },
+        : {
+            isResolved: false,
+            resolvedAt: null,
+            resolution: null,
+            proposedAt: null,
+            verifiedAt: null,
+          },
     )
     .where(eq(auditFindings.id, id));
 }

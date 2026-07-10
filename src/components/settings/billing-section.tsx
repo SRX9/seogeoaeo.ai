@@ -90,28 +90,28 @@ export function BillingSection() {
         return (
           <div className="space-y-10">
       {!active && upgrade ? (
-        <p className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground">
+        <p className="rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm leading-relaxed text-warning-soft-foreground">
           You need a plan or more credits to continue. Pick a plan or grab a top-up pack below.
         </p>
       ) : null}
 
       {/* Credit balance */}
-      <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
+      <div className="material-panel space-y-4 rounded-2xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span
-              className={`text-sm font-medium capitalize ${active ? "text-success" : "text-muted"}`}
+              className={`text-sm font-medium capitalize tracking-[0.01em] ${active ? "text-success" : "text-muted"}`}
             >
               {active ? (subscription?.status ?? "active") : "Free"}
             </span>
             {plan ? (
-              <span className="text-sm text-foreground">
+              <span className="text-sm tracking-tight text-foreground">
                 {plan.name} · {plan.monthlyCredits.toLocaleString()} credits/mo
               </span>
             ) : null}
           </div>
           <div className="text-right">
-            <span className="text-2xl font-semibold text-foreground tabular-nums">
+            <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
               {balance.total.toLocaleString()}
             </span>
             <span className="ml-1 text-sm text-muted">credits</span>
@@ -146,15 +146,15 @@ export function BillingSection() {
           </div>
         ) : null}
 
-        <p className="text-sm text-muted">
+        <p className="text-sm leading-relaxed text-muted">
           {balance.purchased.toLocaleString()} top-up credits (never expire)
           {active ? "" : " · subscribe for a monthly allowance and auto-publishing"}
         </p>
       </div>
 
       {/* What credits buy */}
-      <div className="rounded-xl ">
-        <h3 className="text-sm font-semibold text-foreground">What credits buy</h3>
+      <div>
+        <h3 className="text-sm font-semibold tracking-tight text-foreground">What credits buy</h3>
         <Table className="mt-3">
           <Table.Content aria-label="Credit costs">
             <Table.Header>
@@ -179,8 +179,10 @@ export function BillingSection() {
 
       {/* Recent activity */}
       {ledger.length > 0 ? (
-        <div className="rounded-xl ">
-          <h3 className="text-sm font-semibold text-foreground">Recent credit activity</h3>
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            Recent credit activity
+          </h3>
           <Table className="mt-3">
             <Table.ScrollContainer>
               <Table.Content aria-label="Credit history" className="min-w-[420px]">

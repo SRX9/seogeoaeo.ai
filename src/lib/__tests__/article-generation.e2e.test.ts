@@ -19,10 +19,17 @@ vi.mock("@/lib/llm/client", async () => (await import("./helpers/memory-store"))
 vi.mock("@/lib/integrations/repository", async () => (await import("./helpers/memory-store")).integrationsRepo);
 vi.mock("@/lib/publishing/repository", async () => (await import("./helpers/memory-store")).publishingRepo);
 vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-store")).billingAccess);
+vi.mock("@/lib/agent/memory", async () => (await import("./helpers/memory-store")).agentMemoryRepo);
+vi.mock("@/lib/agent/events", async () => (await import("./helpers/memory-store")).agentEventsRepo);
+vi.mock("@/lib/agent/planner", () => ({
+  beginOwnerDirectedWritingTask: vi.fn(async () => null),
+  completeOwnerDirectedWritingTask: vi.fn(async () => null),
+}));
 
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { publishArticleToDestinations } from "@/lib/publishing/publish";
 import {
+  agentControls,
   jobsFor,
   llm,
   publicationsFor,
@@ -77,6 +84,42 @@ describe("article generation workflow", () => {
     });
   });
 
+  it("lets a direct owner generation override an automation pause", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
+    agentControls.paused = true;
+    const topic = seedTopic({ workspaceId: "ws-1" });
+
+    const { article } = await generateArticleFromTopic(scope, topic.id);
+
+    expect(article.status).toBe("draft");
+    expect(store.topics.get(topic.id)?.status).toBe("completed");
+  });
+
+  it("stops an agent generation before spending credits when the owner paused work", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    agentControls.paused = true;
+    const topic = seedTopic({ workspaceId: "ws-1" });
+
+    await expect(
+      generateArticleFromTopic(scope, topic.id, { actor: "agent" }),
+    ).rejects.toThrow("Agent paused by owner");
+
+    expect(store.topics.get(topic.id)?.status).toBe("pending");
+    expect(store.usage.get("ws-1")).toBe(1000);
+    expect(llm.textCalls).toBe(0);
+  });
+
+  it("stops an agent generation that matches an owner writing constraint", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    agentControls.ownerConstraints = ["Never write about gambling"];
+    const topic = seedTopic({ workspaceId: "ws-1", title: "Gambling affiliate SEO" });
+
+    await expect(
+      generateArticleFromTopic(scope, topic.id, { actor: "agent" }),
+    ).rejects.toThrow("Agent blocked by owner constraint");
+    expect(llm.textCalls).toBe(0);
+  });
+
   it("FULL_AUTO mode generates an approved article and auto-publishes to enabled destinations", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
     seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
@@ -97,6 +140,20 @@ describe("article generation workflow", () => {
       attemptCount: 1,
     });
     expect(publications[0].publishedAt).toBeInstanceOf(Date);
+  });
+
+  it("honors an explicit article-create grant in REVIEW mode", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
+    agentControls.grantedCapabilities = ["article.create"];
+    const topic = seedTopic({ workspaceId: "ws-1" });
+
+    const { article } = await generateArticleFromTopic(scope, topic.id, {
+      origin: "https://app.test",
+    });
+
+    expect(article.status).toBe("approved");
+    expect(publicationsFor("ws-1", article.id)).toHaveLength(1);
   });
 
   it("FULL_AUTO succeeds even when there are no enabled destinations (publish error is swallowed)", async () => {

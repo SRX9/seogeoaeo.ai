@@ -62,14 +62,12 @@ export function ResearchPanel() {
   });
 
   return (
-    <Card className="gap-0 p-7 sm:p-9">
+    <Card className="material-panel gap-0 p-7 sm:p-9">
       {/* Header */}
       <div className="flex items-start gap-3.5">
         <SearchIcon className="mt-1 size-5 shrink-0 text-foreground" />
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
-            Topic research
-          </h3>
+          <h3 className="type-title text-lg text-foreground">Topic research</h3>
           <p className="max-w-prose text-sm leading-relaxed text-muted">
             Scan the web, your competitors, and trending queries — then get a ranked backlog
             of topics worth writing.
@@ -84,10 +82,12 @@ export function ResearchPanel() {
           return (
             <div
               key={source.title}
-              className="rounded-2xl border border-border bg-surface-secondary p-5 transition-colors hover:border-accent/40"
+              className="surface-interactive rounded-2xl border border-border/50 bg-surface-secondary/80 p-5"
             >
               <Icon className="size-5 text-foreground" />
-              <p className="mt-4 text-sm font-medium text-foreground">{source.title}</p>
+              <p className="mt-4 text-sm font-medium tracking-tight text-foreground">
+                {source.title}
+              </p>
               <p className="mt-2 text-xs leading-relaxed text-muted">{source.description}</p>
             </div>
           );
@@ -95,7 +95,7 @@ export function ResearchPanel() {
       </div>
 
       {/* Action */}
-      <div className="mt-8 flex flex-col gap-3 border-t border-border pt-7">
+      <div className="mt-8 flex flex-col gap-3 border-t border-border/50 pt-7">
         <LoadingButton
           className="w-fit"
           isPending={run.isPending}
@@ -115,7 +115,7 @@ export function ResearchPanel() {
 
       {/* Last run */}
       {latest ? (
-        <div className="mt-6 flex items-start gap-3.5 rounded-2xl border border-border bg-surface-secondary p-5">
+        <div className="mt-6 flex items-start gap-3.5 rounded-2xl border border-border/50 bg-surface-secondary/80 p-5">
           <CircleCheckIcon className="mt-0.5 size-5 shrink-0 text-success" />
           <div className="min-w-0 flex-1 space-y-2">
             <p className="text-sm text-foreground">

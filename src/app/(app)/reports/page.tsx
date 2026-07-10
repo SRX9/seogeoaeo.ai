@@ -17,7 +17,7 @@ export default function ReportsPage() {
   const reports = useReports();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-3xl space-y-9">
       <PageHeader
         title="Weekly reports"
         description="Claudia's Monday report — what moved, what she did, and what's next."
@@ -25,7 +25,7 @@ export default function ReportsPage() {
       <Section query={reports} skeleton={reportsSkeleton} errorLabel="Couldn't load your reports.">
         {(data) =>
           data.reports.length === 0 ? (
-            <EmptyState className="rounded-xl border border-dashed border-border">
+            <EmptyState className="material-panel rounded-2xl border-dashed">
               <EmptyState.Header>
                 <EmptyState.Media variant="icon">
                   <ChartBarIcon />
@@ -38,18 +38,20 @@ export default function ReportsPage() {
               </EmptyState.Header>
             </EmptyState>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {data.reports.map((report) => (
                 <Link key={report.id} href={`/reports/${report.id}`} className="block">
-                  <Card className="group cursor-pointer transition-colors hover:border-accent/50">
+                  <Card className="material-panel surface-interactive group cursor-pointer border-border/50">
                     <div className="flex items-center justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="font-medium text-foreground transition-colors group-hover:text-accent">
+                        <p className="font-medium tracking-tight text-foreground transition-colors group-hover-fine:text-accent">
                           {weekLabel(report.weekStart)}
                         </p>
-                        <p className="mt-0.5 truncate text-sm text-muted">{report.subject}</p>
+                        <p className="mt-0.5 truncate text-sm leading-relaxed text-muted">
+                          {report.subject}
+                        </p>
                       </div>
-                      <ChevronRightIcon className="size-4 shrink-0 text-muted/60 transition-all group-hover:translate-x-0.5 group-hover:text-accent" />
+                      <ChevronRightIcon className="size-4 shrink-0 text-muted/60 transition-[transform,color] duration-snappy ease-out-strong group-hover-fine:translate-x-0.5 group-hover-fine:text-accent" />
                     </div>
                   </Card>
                 </Link>

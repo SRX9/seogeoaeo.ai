@@ -295,20 +295,26 @@ export async function POST(request: Request) {
     }
 
     if (integrationSetup) {
-      if (
-        integrationSetup.enable ||
-        Object.keys(integrationSetup.config).length > 0 ||
-        hasValues(data.integrationConfig)
-      ) {
-        await updateIntegrationConfig(scope, integrationSetup.provider, integrationSetup.config);
-      }
-      for (const [secretKey, secretValue] of Object.entries(integrationSetup.secrets)) {
-        if (secretValue) {
-          await saveIntegrationSecret(scope, integrationSetup.provider, secretKey, secretValue);
+      try {
+        if (
+          integrationSetup.enable ||
+          Object.keys(integrationSetup.config).length > 0 ||
+          hasValues(data.integrationConfig)
+        ) {
+          await updateIntegrationConfig(scope, integrationSetup.provider, integrationSetup.config);
         }
-      }
-      if (integrationSetup.enable) {
-        await setIntegrationEnabled(scope, integrationSetup.provider, true);
+        for (const [secretKey, secretValue] of Object.entries(integrationSetup.secrets)) {
+          if (secretValue) {
+            await saveIntegrationSecret(scope, integrationSetup.provider, secretKey, secretValue);
+          }
+        }
+        if (integrationSetup.enable) {
+          await setIntegrationEnabled(scope, integrationSetup.provider, true);
+        }
+      } catch (error) {
+        // Brand creation is the durable outcome. A connector can be completed
+        // from Settings without making a successful brand submit unretryable.
+        console.error("[brands] onboarding integration setup failed", error);
       }
     }
 
@@ -317,9 +323,16 @@ export async function POST(request: Request) {
     // we just created/selected. This avoids a second client-side request that
     // can race the active-brand cookie after Stripe redirects.
     const canIgnite = isActiveSubscription(ctx.subscription?.status);
-    const setupRun = canIgnite
-      ? await igniteSetupRunForBrand(scope, ctx.subscription?.planId)
-      : null;
+    let setupRun: Awaited<ReturnType<typeof igniteSetupRunForBrand>> | null = null;
+    if (canIgnite) {
+      try {
+        setupRun = await igniteSetupRunForBrand(scope, ctx.subscription?.planId);
+      } catch (error) {
+        // The dashboard exposes a retry/resume control; do not turn a completed
+        // brand creation into a duplicate-name trap because ignition hiccupped.
+        console.error("[brands] setup ignition failed", error);
+      }
+    }
     return jsonOk(
       {
         brand: { id: brand.id, name: brand.name },

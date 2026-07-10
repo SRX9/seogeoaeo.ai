@@ -24,10 +24,10 @@ export default function ArticlePage() {
   const canPublish = isActiveSubscription(me.data?.subscription?.status);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-7">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Edit article</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="type-title text-2xl text-foreground">Edit article</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted">
           Edit the content and SEO fields, then save as a draft or approve &amp; publish.
         </p>
       </div>

@@ -28,7 +28,8 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         kind: "schema",
         mode: "snippet",
         content: `<script type="application/ld+json">\n${JSON.stringify(p.jsonLd ?? p, null, 2).replace(/</g, "\\u003c")}\n</script>`,
-        instructions: "Paste this into your page <head>. On connected sites we insert it for you.",
+        instructions:
+          "Copy and paste this into your page <head> (or CMS custom-code field). When it's live, mark the finding done — Claudia re-checks on the next audit.",
       };
     case "llms_txt":
       return {
@@ -36,7 +37,8 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         mode: "file",
         filename: "llms.txt",
         content: String(p.llms_txt ?? p.content ?? ""),
-        instructions: "Upload this file to the root of your site (/llms.txt).",
+        instructions:
+          "Download and upload this file to your site root as /llms.txt. Mark the finding done once it's reachable.",
       };
     case "robots_txt":
       return {
@@ -44,14 +46,16 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         mode: "file",
         filename: "robots.txt",
         content: String(p.content ?? ""),
-        instructions: "Replace your /robots.txt with this to allow AI crawlers.",
+        instructions:
+          "Replace your live /robots.txt with this file (hosting panel, repo, or CMS). Mark done when it's deployed.",
       };
     case "answer_block":
       return {
         kind: "answer_block",
         mode: "apply",
         content: String(p.rewrite ?? ""),
-        instructions: "Swap this rewritten, more-citable answer into the section.",
+        instructions:
+          "Replace the page section with this rewritten, more-citable answer in your CMS or codebase. Mark done when published.",
       };
     case "meta_tag":
     case "meta_tags":
@@ -59,7 +63,8 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         kind: "meta",
         mode: "snippet",
         content: metaSnippet(p),
-        instructions: "Add these tags to your page <head>.",
+        instructions:
+          "Add these tags to your page <head> (or SEO plugin fields). Mark the finding done when live.",
       };
     case "psi_perf":
       return {
@@ -67,14 +72,15 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         mode: "snippet",
         content: psiOpportunityList(p),
         instructions:
-          "These are the Lighthouse-measured issues on your page, biggest savings first — fix them in order.",
+          "Lighthouse opportunities on this page, biggest savings first — implement in your codebase in order, then mark done.",
       };
     default:
       return {
         kind: String(p.kind ?? "guided"),
         mode: "snippet",
         content: "",
-        instructions: "Follow the recommendation on the finding — no automatic artifact for this fix.",
+        instructions:
+          "Follow the recommendation on the finding — no ready-made snippet for this one. Mark done after you've fixed it on the site.",
       };
   }
 }

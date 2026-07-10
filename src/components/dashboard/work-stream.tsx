@@ -22,9 +22,11 @@ import {
   type StreamFilter,
 } from "@/lib/activity/items";
 import { useAgentIsLive } from "@/lib/api/queries";
+import type { AgentEventView } from "@/lib/agent/types";
 import { cn } from "@/lib/cn";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const EMPTY_ACTIVITY_ITEMS: ActivityFeedItem[] = [];
 
 const FILTERS: { id: StreamFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -64,7 +66,8 @@ function eventIcon(item: ActivityFeedItem) {
 }
 
 type WorkStreamProps = {
-  items: ActivityFeedItem[];
+  items?: ActivityFeedItem[];
+  events?: AgentEventView[];
   /** Cap rows on the home surface; omit for full list. */
   limit?: number;
   /** Show category / status chips (work log page). */
@@ -76,7 +79,13 @@ type WorkStreamProps = {
  * Agent OS live work stream — Claudia's first-person timeline.
  * Polls while jobs are in flight (via useActivity); optional filters on /activity.
  */
-export function WorkStream({ items, limit, filterable = false, className }: WorkStreamProps) {
+export function WorkStream({
+  items = EMPTY_ACTIVITY_ITEMS,
+  events,
+  limit,
+  filterable = false,
+  className,
+}: WorkStreamProps) {
   const live = useAgentIsLive();
   const [filter, setFilter] = useState<StreamFilter>("all");
 
@@ -88,11 +97,22 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
   const hasMore = typeof limit === "number" && filtered.length > limit;
   const activeCount = items.filter(isItemLive).length;
 
+  if (events) {
+    return (
+      <AgentEventTimeline
+        events={typeof limit === "number" ? events.slice(0, limit) : events}
+        hasMore={typeof limit === "number" && events.length > limit}
+        live={live}
+        className={className}
+      />
+    );
+  }
+
   if (items.length === 0) {
     return (
       <section className={cn("space-y-3", className)}>
         <StreamHeader live={live} activeCount={0} />
-        <EmptyState className="rounded-xl border border-dashed border-border">
+        <EmptyState className="material-panel rounded-2xl border-dashed">
           <EmptyState.Header>
             <EmptyState.Media variant="icon">
               <ActivityIcon />
@@ -115,7 +135,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
         {hasMore ? (
           <Link
             href="/activity"
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 text-sm text-muted transition-colors hover-fine:text-foreground"
           >
             Full log
             <ChevronRightIcon className="size-3.5" />
@@ -138,10 +158,10 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
                 type="button"
                 onClick={() => setFilter(chip.id)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  "chip",
                   selected
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-surface-secondary text-muted hover:text-foreground",
+                    ? "bg-accent text-accent-foreground shadow-sm"
+                    : "bg-surface-secondary text-muted hover-fine:bg-default/60 hover-fine:text-foreground",
                 )}
               >
                 {chip.label}
@@ -153,16 +173,16 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
       ) : null}
 
       {visible.length === 0 ? (
-        <Card className="p-5">
-          <p className="text-sm text-muted">Nothing in this filter right now.</p>
+        <Card className="material-panel p-5">
+          <p className="text-sm leading-relaxed text-muted">Nothing in this filter right now.</p>
         </Card>
       ) : (
-        <Card className="divide-y divide-border p-0">
+        <Card className="material-panel divide-y divide-border/50 p-0">
           {visible.map((item) => {
             const Icon = eventIcon(item);
             const itemLive = isItemLive(item);
             const body = (
-              <div className="flex items-start gap-3 p-4">
+              <div className="surface-interactive flex items-start gap-3 rounded-none p-4">
                 <span
                   className={cn(
                     "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl",
@@ -176,7 +196,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
                   <Icon className={cn("size-4", itemLive && "animate-pulse")} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-snug text-foreground">
+                  <p className="text-sm font-medium leading-snug tracking-tight text-foreground">
                     {item.narrative}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
@@ -204,7 +224,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
                 <Link
                   key={`${item.type}-${item.id}`}
                   href={item.href}
-                  className="block transition-colors hover:bg-overlay/40"
+                  className="block"
                 >
                   {body}
                 </Link>
@@ -227,20 +247,105 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
   );
 }
 
+function AgentEventTimeline({
+  events,
+  hasMore,
+  live,
+  className,
+}: {
+  events: AgentEventView[];
+  hasMore: boolean;
+  live: boolean;
+  className?: string;
+}) {
+  return (
+    <section className={cn("space-y-4", className)}>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 className="text-xl text-foreground">Recent work</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Created artifacts, applied changes, and verified outcomes from the event record.
+          </p>
+        </div>
+        {hasMore ? (
+          <Link href="/activity" className="shrink-0 text-sm text-muted hover-fine:text-foreground">
+            Full log
+          </Link>
+        ) : null}
+      </div>
+
+      {events.length ? (
+        <ol className="relative space-y-0 before:absolute before:bottom-5 before:left-[0.6875rem] before:top-5 before:w-px before:bg-separator">
+          {events.map((event) => {
+            const Icon =
+              event.type === "artifact_created"
+                ? PenIcon
+                : event.type === "applied" || event.type === "verified"
+                  ? GaugeIcon
+                  : event.type === "planned" || event.type === "replanned"
+                    ? SearchIcon
+                    : ActivityIcon;
+            const content = (
+              <div className="relative flex min-h-16 items-start gap-4 py-3">
+                <span
+                  className={cn(
+                    "relative z-10 flex size-[1.375rem] shrink-0 items-center justify-center rounded-full bg-surface ring-4 ring-background",
+                    event.type === "failed" || event.type === "regressed"
+                      ? "text-danger"
+                      : event.type === "verified"
+                        ? "text-success"
+                        : "text-accent",
+                  )}
+                >
+                  <Icon className={cn("size-3", live && event.type === "started" && "animate-pulse")} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-6 text-foreground">{event.summary}</p>
+                  <time
+                    dateTime={event.createdAt}
+                    className="mt-0.5 block text-xs text-muted"
+                    suppressHydrationWarning
+                  >
+                    {relativeLabel(event.createdAt)}
+                  </time>
+                </div>
+                {event.artifactRef ? <ChevronRightIcon className="mt-1 size-4 text-muted" /> : null}
+              </div>
+            );
+            return (
+              <li key={event.id}>
+                {event.artifactRef?.startsWith("/") ? (
+                  <Link href={event.artifactRef} className="block rounded-xl hover-fine:bg-surface-secondary/60">
+                    {content}
+                  </Link>
+                ) : (
+                  content
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="text-sm leading-6 text-muted">No durable work events yet.</p>
+      )}
+    </section>
+  );
+}
+
 function StreamHeader({ live, activeCount }: { live: boolean; activeCount: number }) {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold text-foreground">What I&apos;ve been doing</h2>
+        <h2 className="type-title text-lg text-foreground">What I&apos;ve been doing</h2>
         {live ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-soft-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-medium tracking-[0.01em] text-success-soft-foreground">
             <span className="size-1.5 animate-pulse rounded-full bg-success" aria-hidden />
             Live
             {activeCount > 0 ? ` · ${activeCount}` : ""}
           </span>
         ) : null}
       </div>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm leading-relaxed text-muted">
         {live
           ? "Updating as I work — newest first."
           : "Newest first — tap a row for the related artifact."}

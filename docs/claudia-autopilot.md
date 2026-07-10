@@ -58,8 +58,9 @@ website; asking for it reads as the product not knowing who it works for.
    prefill and shown for a 30-second review, not typed. (The onboarding form keeps its
    steps but they become *confirm* screens, pre-filled and skippable.)
 2. **One question: "How should Claudia work?"**
-   - **Autopilot (recommended, default):** she publishes articles herself and applies safe
-     fixes herself. Everything logged, everything reversible.
+   - **Autopilot (recommended, default):** she publishes approved articles herself and
+     prepares site fixes. Live changes require an exact connector capability; every live
+     action is logged, and rollback is shown only when the connector supports it.
    - **Copilot:** she prepares everything and asks before publishing or changing anything.
    That's the whole autonomy question at onboarding. Per-category fine-tuning lives in
    settings for the 5% who want it.
@@ -82,7 +83,7 @@ One-time orchestrated pipeline, per brand, idempotent, all from the brand profil
 | 3. First answer check | Runs the prompts across ChatGPT/Perplexity/Gemini | ✅ V5.5 `answers.ts` |
 | 4. Competitor baseline | Benchmarks the onboarding competitor; if none given, discovers one | ✅ benchmark + discovery exist |
 | 5. Topic research | First research run; topics carry traffic theses (C1) | ✅ `runResearch` |
-| 6. Quick-win fixes | Prepares llms.txt, schema, meta fixes from audit findings — applies the safe ones on Autopilot, queues them on Copilot | ✅ `apply-fix.ts` + fix queue |
+| 6. Quick-win fixes | Prepares llms.txt, schema, and meta artifacts from audit findings. The owner installs them until an exact live-site connector capability is proven. | ✅ `apply-fix.ts` + fix queue |
 | 7. First article | Writes article #1 the same day (within plan cap) | ✅ daily pipeline, invoked once |
 | 8. Day-0 brief | "Here's where you stand, here's my plan for the week" — in-app + email | 🆕 report step |
 
@@ -173,11 +174,12 @@ making her idle-by-default reads as the product stalling. New defaults:
 
 | Onboarding choice | Writer | Fixes (`auto`-capable categories) | Everything else |
 |---|---|---|---|
-| **Autopilot** (default) | Publishes | Applies + logs + reversible | Proposes in inbox |
+| **Autopilot** (default) | Publishes approved articles | Proposes in inbox until an exact live-site capability exists | Proposes in inbox |
 | **Copilot** | Drafts for review | Proposes in inbox | Proposes in inbox |
 
-Unchanged guardrails: only `fix_capability: auto` categories can ever auto-apply; every
-action is an Activity row with a stored before-state and a working revert; she never touches
+Unchanged guardrails: only actions with an exact connector capability can ever auto-apply; every
+live action has a stored authority decision and before-state; rollback is offered only when the
+connector declares it; she never touches
 off-site surfaces; credits remain the hard budget and she degrades gracefully (skip + log +
 one throttled email) when they run out.
 

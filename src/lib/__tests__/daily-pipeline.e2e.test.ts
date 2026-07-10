@@ -24,6 +24,17 @@ vi.mock("@/lib/publishing/repository", async () => (await import("./helpers/memo
 vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-store")).billingAccess);
 vi.mock("@/lib/research/run", async () => (await import("./helpers/memory-store")).researchRun);
 vi.mock("@/lib/email/notify", async () => (await import("./helpers/memory-store")).emailNotify);
+vi.mock("@/lib/agent/memory", async () => (await import("./helpers/memory-store")).agentMemoryRepo);
+vi.mock("@/lib/agent/events", async () => (await import("./helpers/memory-store")).agentEventsRepo);
+vi.mock("@/lib/agent/planner", () => ({
+  beginDailyAgentTask: vi.fn(async () => ({ id: "daily-task", missionId: "mission" })),
+  completeDailyAgentTask: vi.fn(async () => null),
+  ensureNextDailyTask: vi.fn(async () => null),
+  replanAgentWork: vi.fn(async () => null),
+  setFutureAgentTasksPaused: vi.fn(async () => []),
+  beginOwnerDirectedWritingTask: vi.fn(async () => null),
+  completeOwnerDirectedWritingTask: vi.fn(async () => null),
+}));
 // Traffic proof is a best-effort, unmetered side effect of settle; stub it so the
 // content-run assertions aren't coupled to the GSC/GA4 sync (which hits its own seam).
 vi.mock("@/lib/integrations/google-traffic", () => ({ syncTrafficForBrand: vi.fn(async () => []) }));
@@ -73,7 +84,7 @@ async function runDaily(planId: string) {
   let outOfCredits = false;
   for (const topicId of writeTargets) {
     try {
-      await generateArticleFromTopic(scope, topicId, {});
+      await generateArticleFromTopic(scope, topicId, { actor: "agent" });
       generated += 1;
     } catch (error) {
       if (error instanceof InsufficientCreditsError) {
@@ -197,12 +208,12 @@ describe("daily content agent", () => {
     const topic = seedTopic({ workspaceId: "ws-1", status: "pending", score: 80, title: "Retry me" });
     const scope = { workspaceId: "ws-1", brandId: BRAND.id };
 
-    await generateArticleFromTopic(scope, topic.id, {});
+    await generateArticleFromTopic(scope, topic.id, { actor: "agent" });
     const balanceAfterFirst = store.usage.get("ws-1");
     expect(store.articles.size).toBe(1);
 
     // Simulate a Workflow step retry: same topic again.
-    await generateArticleFromTopic(scope, topic.id, {});
+    await generateArticleFromTopic(scope, topic.id, { actor: "agent" });
     expect(store.articles.size).toBe(1); // guarded by getArticleByTopic
     expect(store.usage.get("ws-1")).toBe(balanceAfterFirst); // not charged twice
   });

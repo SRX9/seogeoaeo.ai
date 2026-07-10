@@ -64,7 +64,7 @@ export function ArticlesList({ articles }: ArticlesListProps) {
 
   if (articles.length === 0) {
     return (
-      <EmptyState className="rounded-xl border border-dashed border-border">
+      <EmptyState className="material-panel rounded-2xl border-dashed">
         <EmptyState.Header>
           <EmptyState.Media variant="icon">
             <ArticlesIcon />
@@ -118,10 +118,12 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                 >
                   <Table.Cell>
                     <div className="flex flex-col">
-                      <span className="font-medium text-foreground transition-colors group-hover:text-accent">
+                      <span className="font-medium tracking-tight text-foreground transition-colors group-hover-fine:text-accent">
                         {article.title}
                       </span>
-                      <span className="text-xs text-muted">/{article.slug}</span>
+                      <span className="text-xs tracking-[0.01em] text-muted">
+                        /{article.slug}
+                      </span>
                       {article.performance ? (
                         <span
                           className={`text-xs ${article.performance.verdict === "winner" ? "text-success" : "text-muted"}`}
@@ -140,13 +142,13 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                         {tags.slice(0, 2).map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-lg bg-surface-secondary px-2 py-0.5 text-xs text-foreground"
+                            className="rounded-full bg-surface-secondary px-2.5 py-0.5 text-xs tracking-[0.01em] text-foreground"
                           >
                             {tag}
                           </span>
                         ))}
                         {tags.length > 2 ? (
-                          <span className="rounded-lg bg-surface-secondary px-2 py-0.5 text-xs text-muted">
+                          <span className="rounded-full bg-surface-secondary px-2.5 py-0.5 text-xs tracking-[0.01em] text-muted">
                             +{tags.length - 2}
                           </span>
                         ) : null}
@@ -162,7 +164,7 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                   </Table.Cell>
                   <Table.Cell>
                     <ChevronRightIcon
-                      className="size-4 text-muted/60 transition-all group-hover:translate-x-0.5 group-hover:text-accent"
+                      className="size-4 text-muted/60 transition-[transform,color] duration-snappy ease-out-strong group-hover-fine:translate-x-0.5 group-hover-fine:text-accent"
                     />
                   </Table.Cell>
                 </Table.Row>

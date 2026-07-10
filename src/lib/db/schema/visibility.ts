@@ -114,20 +114,19 @@ export const auditFindings = pgTable(
     recommendation: text("recommendation").notNull(),
     /** auto | artifact | guided — drives the fix-queue action button (V8.2). */
     fixCapability: text("fix_capability"),
-    /** Machine-applicable payload for V7.2 auto-apply. */
+    /** Ready-to-install payload for V7.2 (artifact / future live-apply channel). */
     fixPayload: jsonb("fix_payload"),
     isResolved: boolean("is_resolved").notNull().default(false),
     /** When the finding was resolved (fix applied / dismissed) — null while open. */
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     /** HOW it was resolved: auto_applied | user_applied | completed | dismissed.
-     * Distinguishes agent applies (the monthly auto-fix cap counts these), user
-     * applies/completions (verified next cycle), and dismissals (never resurrected,
-     * never claimed as a fix). Null on rows resolved before the column existed. */
+     * `auto_applied` = live channel pushed the fix (counts toward monthly cap with
+     * prepares). `user_applied` = owner marked installed. Dismissals never resurrect. */
     resolution: text("resolution"),
     /** AP4: an applied fix re-detected by a later audit — the row is reopened and
      * this stamp marks the regression for the monitor/weekly report. */
     regressedAt: timestamp("regressed_at", { withTimezone: true }),
-    /** AP4 Level 1: Claudia prepared this fix and is waiting for one-click approval. */
+    /** Claudia prepared a ready-to-install artifact; owner installs and marks done. */
     proposedAt: timestamp("proposed_at", { withTimezone: true }),
     /** AP4 verification: an applied fix confirmed gone on a later scheduled re-audit. */
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
@@ -266,7 +265,7 @@ export const toolRuns = pgTable(
   (table) => [index("tool_runs_workspace_id_idx").on(table.workspaceId)],
 );
 
-/** V8.5 — Claudia's per-category visibility autonomy (0 monitor · 1 propose · 2 auto-apply). */
+/** V8.5 — Claudia's per-category visibility autonomy (0 monitor · 1 propose · 2 live-apply when canLiveApply). */
 export const agentAutonomy = pgTable(
   "agent_autonomy",
   {

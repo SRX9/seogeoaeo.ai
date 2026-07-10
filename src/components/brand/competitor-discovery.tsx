@@ -112,16 +112,16 @@ export function CompetitorDiscovery() {
   const picked = suggestions.filter((s) => selected.has(s.url));
 
   return (
-    <Card>
+    <Card className="material-panel">
       <Card.Header>
-        <Card.Title>Find competitors with AI</Card.Title>
-        <Card.Description>
+        <Card.Title className="tracking-tight">Find competitors with AI</Card.Title>
+        <Card.Description className="leading-relaxed">
           Let the agent search the web and suggest competitors for you to review.
         </Card.Description>
       </Card.Header>
       <Card.Content className="space-y-4">
         {atLimit ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm leading-relaxed text-muted">
             You&apos;ve reached the limit of {MAX_COMPETITORS} competitors.
           </p>
         ) : (
@@ -141,13 +141,13 @@ export function CompetitorDiscovery() {
             </LoadingButton>
 
             {settingUp ? (
-              <p className="text-sm text-muted">
+              <p className="text-sm leading-relaxed text-muted">
                 Claudia is setting up your brand — competitor discovery runs as part of it.
               </p>
             ) : null}
 
             {showUpgrade ? (
-              <p className="rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent-soft-foreground">
+              <p className="rounded-2xl border border-accent/30 bg-accent-soft px-3.5 py-2.5 text-sm leading-relaxed text-accent-soft-foreground">
                 You&apos;re out of credits.{" "}
                 <Link href="/account?tab=billing" className="font-medium underline">
                   Get more credits

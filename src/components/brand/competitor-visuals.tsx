@@ -61,7 +61,7 @@ export function CompetitorLogo({
       <span
         aria-hidden
         className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-surface-muted text-xs font-semibold text-foreground tabular-nums",
+          "grid size-9 shrink-0 place-items-center rounded-xl border border-border/50 bg-surface-muted text-xs font-semibold tracking-tight text-foreground tabular-nums",
           className,
         )}
       >
@@ -74,7 +74,7 @@ export function CompetitorLogo({
     <span
       aria-hidden
       className={cn(
-        "grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-surface p-1",
+        "grid size-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/50 bg-surface p-1",
         className,
       )}
     >
@@ -107,11 +107,11 @@ export function CompetitorRadar({
   const placeholders = Array.from({ length: 5 });
 
   return (
-    <div className="rounded-lg border border-border bg-surface-muted px-4 py-4">
+    <div className="material-panel rounded-2xl px-4 py-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div
           aria-hidden
-          className="competitor-radar relative grid size-36 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-surface"
+          className="competitor-radar relative grid size-36 shrink-0 place-items-center overflow-hidden rounded-full border border-border/50 bg-surface/80"
         >
           <span className="competitor-radar__sweep absolute inset-0 rounded-full" />
           <span className="relative z-10 grid size-7 place-items-center rounded-full border border-accent/30 bg-surface shadow-sm">
@@ -141,21 +141,23 @@ export function CompetitorRadar({
         </div>
 
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="mt-1 text-sm text-muted">{subtitle}</p>
+          <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">{subtitle}</p>
           {visible.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {visible.slice(0, 4).map((competitor) => (
                 <span
                   key={competitor.url}
-                  className="max-w-full truncate rounded-md bg-surface px-2 py-1 text-xs text-muted"
+                  className="max-w-full truncate rounded-full bg-surface/80 px-2.5 py-1 text-xs tracking-[0.01em] text-muted"
                 >
                   {competitor.name}
                 </span>
               ))}
             </div>
           ) : scanning ? (
-            <p className="mt-3 text-xs text-muted">Search, comparisons, and AI answers are being checked.</p>
+            <p className="mt-3 text-xs leading-relaxed text-muted">
+              Search, comparisons, and AI answers are being checked.
+            </p>
           ) : null}
         </div>
       </div>
@@ -177,8 +179,10 @@ export function CompetitorSuggestionCard({
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
-        checked ? "border-accent/50 bg-accent-soft/60" : "border-border bg-surface",
+        "pressable flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-[border-color,background-color,box-shadow] duration-ui ease-out-strong",
+        checked
+          ? "border-accent/45 bg-accent-soft/50 shadow-sm"
+          : "border-border/50 bg-surface/70 hover-fine:border-accent/30",
       )}
     >
       <input
@@ -189,10 +193,14 @@ export function CompetitorSuggestionCard({
       />
       <CompetitorLogo name={suggestion.name} url={suggestion.url} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-foreground">{suggestion.name}</span>
-        <span className="block truncate text-sm text-muted">{host}</span>
+        <span className="block truncate font-medium tracking-tight text-foreground">
+          {suggestion.name}
+        </span>
+        <span className="block truncate text-sm tracking-[0.01em] text-muted">{host}</span>
         {suggestion.reason ? (
-          <span className="mt-1 block text-sm text-muted">{suggestion.reason}</span>
+          <span className="mt-1 block text-sm leading-relaxed text-muted">
+            {suggestion.reason}
+          </span>
         ) : null}
       </span>
     </label>

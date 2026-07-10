@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { discoverCompetitors } from "@/lib/brand/enrich";
-import { MAX_COMPETITORS } from "@/lib/brand/schemas";
+import { MAX_COMPETITORS, optionalHttpUrlSchema } from "@/lib/brand/schemas";
 import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -11,7 +11,7 @@ const PREVIEW_LIMIT = 6;
 
 const previewSchema = z.object({
   name: z.string().min(1).max(120),
-  website: z.string().url().optional().or(z.literal("")),
+  website: optionalHttpUrlSchema,
   productDescription: z.string().max(4000).optional().default(""),
   seedKeywords: z.string().max(1000).optional().default(""),
 });

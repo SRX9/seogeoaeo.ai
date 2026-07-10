@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray, isNotNull, isNull } from "drizzle-o
 import { ACTIVE_SUBSCRIPTION_STATUSES } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
+import { agentEvents } from "@/lib/db/schema/agent-os";
 import { brands } from "@/lib/db/schema/brand";
 import { articles, performanceCheckpoints, topics } from "@/lib/db/schema/content";
 import { articlePublications } from "@/lib/db/schema/publications";
@@ -62,6 +63,7 @@ export interface WeeklyReportData {
     nextWeek: Array<{ title: string; thesis: string | null }>;
     draftsAwaitingReview: number;
   };
+  planChanges?: string[];
   ask: { what: string; href: string } | null;
 }
 
@@ -150,6 +152,10 @@ export function renderReportLines(data: WeeklyReportData): string[] {
     );
   }
 
+  for (const change of data.planChanges ?? []) {
+    lines.push(change);
+  }
+
   return lines;
 }
 
@@ -213,10 +219,24 @@ export async function assembleWeeklyReport(
   // brand-scoped ones (answer share, traffic, monitor attribution, content)
   // resolve empty when no brand profile matches the site: the report still
   // goes out with the site-scoped score half.
-  const [brandRows, recent, awaiting, runs, gscConnRows, monitor, published, checkpoints, nextWeek, drafts] =
+  const [brandRows, planEvents, recent, awaiting, runs, gscConnRows, monitor, published, checkpoints, nextWeek, drafts] =
     await Promise.all([
       brandId
         ? db.select({ name: brands.name }).from(brands).where(eq(brands.id, brandId)).limit(1)
+        : Promise.resolve([]),
+      brandId
+        ? db
+            .select({ summary: agentEvents.summary })
+            .from(agentEvents)
+            .where(
+              and(
+                eq(agentEvents.brandId, brandId),
+                eq(agentEvents.eventType, "replanned"),
+                gte(agentEvents.createdAt, since),
+              ),
+            )
+            .orderBy(desc(agentEvents.createdAt))
+            .limit(3)
         : Promise.resolve([]),
       // Score: latest two completed owned audits FOR THIS SITE.
       db
@@ -406,6 +426,7 @@ export async function assembleWeeklyReport(
       nextWeek,
       draftsAwaitingReview: drafts[0]?.n ?? 0,
     },
+    planChanges: planEvents.map((event) => event.summary),
   };
   return { ...base, ask: pickTheAsk(base, Boolean(gscConn)) };
 }

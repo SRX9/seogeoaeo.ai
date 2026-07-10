@@ -1,8 +1,9 @@
-import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter } from "@/lib/publishing/types";
+import { publishFetch } from "@/lib/publishing/fetch";
 import { markdownToHtml } from "@/lib/publishing/markdown-html";
+import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter } from "@/lib/publishing/types";
 
 function normalizeSiteUrl(siteUrl: string) {
-  return siteUrl.replace(/\/$/, "");
+  return siteUrl.replace(/\/$/, "").replace(/\/wp-json\/?.*$/i, "");
 }
 
 export const wordpressAdapter: PublishingAdapter = {
@@ -10,7 +11,12 @@ export const wordpressAdapter: PublishingAdapter = {
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
     const siteUrl = context.config.siteUrl?.trim();
     const username = context.config.username?.trim();
-    const appPassword = context.secrets.wordpress_application_password ?? context.secrets.api_key;
+    // WordPress application passwords are often copied with spaces between groups.
+    const appPassword = (
+      context.secrets.wordpress_application_password ?? context.secrets.api_key
+    )
+      ?.replace(/\s+/g, "")
+      .trim();
 
     if (!siteUrl) {
       return { ok: false, error: "WordPress site URL is not configured" };
@@ -29,21 +35,22 @@ export const wordpressAdapter: PublishingAdapter = {
       excerpt: article.metaDescription ?? undefined,
     };
 
-    // Update an existing post when we have its remote id; otherwise create.
     const isUpdate = Boolean(context.externalId);
     const endpoint = isUpdate
       ? `${base}/wp-json/wp/v2/posts/${encodeURIComponent(context.externalId!)}`
       : `${base}/wp-json/wp/v2/posts`;
 
-    const response = await fetch(endpoint, {
-      method: isUpdate ? "POST" : "POST", // WP REST uses POST for both create and update
+    const fetched = await publishFetch("WordPress", endpoint, {
+      method: "POST", // WP REST uses POST for both create and update
       headers: {
         "content-type": "application/json",
         authorization: `Basic ${auth}`,
       },
       body: JSON.stringify(body),
     });
+    if (!fetched.ok) return fetched;
 
+    const response = fetched.response;
     if (!response.ok) {
       const text = await response.text();
       return {

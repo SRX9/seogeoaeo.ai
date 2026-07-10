@@ -80,6 +80,7 @@ export type IntegrationSecretStates = Partial<Record<IntegrationSecretKey, boole
 
 export type IntegrationView = IntegrationProviderDefinition & {
   provider: IntegrationProviderId;
+  capabilities: readonly import("@/lib/integrations/capabilities").ConnectorCapability[];
   enabled: boolean;
   config: IntegrationConfig;
   secretStates: IntegrationSecretStates;
@@ -90,6 +91,13 @@ export type IntegrationView = IntegrationProviderDefinition & {
   available: boolean;
   configurable: boolean;
 };
+
+/** True only when a connector can be used for live requests right now. */
+export function isIntegrationOperational(
+  integration: Pick<IntegrationView, "enabled" | "available" | "requirementsMet">,
+): boolean {
+  return integration.enabled && integration.available && integration.requirementsMet;
+}
 
 export class IntegrationValidationError extends Error {
   constructor(

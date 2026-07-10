@@ -79,12 +79,12 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
 
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Monthly plans</h3>
-          <p className="text-xs text-muted">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Monthly plans</h3>
+          <p className="text-xs leading-relaxed text-muted">
             Credits refresh each billing cycle. Unused monthly credits don&apos;t roll over.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           {Object.values(plans).map((plan) => {
             const isCurrent = currentPlanId === plan.id;
             // A user with a plan changes it through the Stripe portal so proration
@@ -99,28 +99,37 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
             return (
               <Card
                 key={plan.id}
-                className={cn("flex flex-col", isCurrent && "border-success/40")}
+                className={cn(
+                  "material-panel flex flex-col",
+                  isCurrent && "border-success/40 ring-1 ring-success/30",
+                )}
               >
                 <Card.Header>
                   <div className="flex items-start justify-between gap-2">
-                    <Card.Title>{plan.name}</Card.Title>
+                    <Card.Title className="tracking-tight">{plan.name}</Card.Title>
                     {isCurrent ? (
-                      <span className="text-xs font-medium text-success">Current</span>
+                      <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-success">
+                        Current
+                      </span>
                     ) : plan.id === POPULAR_PLAN && !hasPlan ? (
-                      <span className="text-xs font-medium text-accent">Popular</span>
+                      <span className="rounded-full bg-accent-soft/50 px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-accent">
+                        Popular
+                      </span>
                     ) : null}
                   </div>
-                  <Card.Description>{planTaglines[plan.id]}</Card.Description>
+                  <Card.Description className="leading-relaxed">
+                    {planTaglines[plan.id]}
+                  </Card.Description>
                 </Card.Header>
                 <Card.Content className="flex-1">
-                  <p className="text-xl font-semibold text-foreground tabular-nums">
+                  <p className="text-xl font-semibold tracking-tight text-foreground tabular-nums">
                     ${plan.price}
                     <span className="text-sm font-normal text-muted">/mo</span>
                   </p>
-                  <p className="mt-1 text-xs text-muted tabular-nums">
+                  <p className="mt-1 text-xs tracking-[0.01em] text-muted tabular-nums">
                     {plan.monthlyCredits.toLocaleString()} credits/mo
                   </p>
-                  <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
+                  <ul className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
                     {planFeatureList(plan.id).map((feature) => (
                       <li key={feature} className="flex items-start gap-2 text-xs text-muted">
                         <CheckIcon aria-hidden className="mt-px size-3.5 shrink-0 text-accent" />
@@ -149,20 +158,24 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
 
       <div className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Top-up packs</h3>
-          <p className="text-xs text-muted">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Top-up packs</h3>
+          <p className="text-xs leading-relaxed text-muted">
             One-time purchase. Top-up credits never expire and stack on your monthly balance.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-3.5 sm:grid-cols-3">
           {Object.values(creditPacks).map((pack) => (
-            <Card key={pack.id}>
+            <Card key={pack.id} className="material-panel">
               <Card.Header>
-                <Card.Title>{pack.name}</Card.Title>
-                <Card.Description>{pack.credits.toLocaleString()} credits</Card.Description>
+                <Card.Title className="tracking-tight">{pack.name}</Card.Title>
+                <Card.Description>
+                  {pack.credits.toLocaleString()} credits
+                </Card.Description>
               </Card.Header>
               <Card.Content>
-                <p className="text-xl font-semibold text-foreground tabular-nums">${pack.price}</p>
+                <p className="text-xl font-semibold tracking-tight text-foreground tabular-nums">
+                  ${pack.price}
+                </p>
               </Card.Content>
               <Card.Footer>
                 <LoadingButton

@@ -21,7 +21,7 @@ export default function ActivityPage() {
   const [showJobs, setShowJobs] = useState(false);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-3xl space-y-9">
       <PageHeader
         title="Work log"
         description={
@@ -38,7 +38,7 @@ export default function ActivityPage() {
         {(data) => {
           const items = toActivityFeedItems(data);
           return (
-            <div className="space-y-8">
+            <div className="space-y-9">
               <WorkStream items={items} filterable />
 
               <div className="space-y-3">
@@ -46,15 +46,15 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => setShowJobs((v) => !v)}
                   className={cn(
-                    "text-sm font-medium transition-colors",
-                    showJobs ? "text-foreground" : "text-muted hover:text-foreground",
+                    "pressable rounded-md text-sm font-medium",
+                    showJobs ? "text-foreground" : "text-muted hover-fine:text-foreground",
                   )}
                 >
                   {showJobs ? "Hide job detail" : "Show job detail & retries"}
                 </button>
                 {showJobs ? (
                   <>
-                    <p className="text-sm text-muted">
+                    <p className="text-sm leading-relaxed text-muted">
                       Credits, status chips, and one-click retries for failed runs.
                     </p>
                     <ActivityPanel items={items} />

@@ -70,12 +70,12 @@ function CheckRow({ check, website }: { check: HealthCheck; website: string | nu
   const expandable = check.status !== "pass" && finding != null;
 
   return (
-    <div className="border-t border-border first:border-t-0">
+    <div className="border-t border-border/50 first:border-t-0">
       <div className="flex items-start gap-3 py-3">
         <span className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[check.status]}`} aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{check.label}</p>
-          <p className="truncate text-sm text-default-500">{check.detail}</p>
+          <p className="text-sm font-medium tracking-tight">{check.label}</p>
+          <p className="truncate text-sm leading-relaxed text-default-500">{check.detail}</p>
         </div>
         {expandable && (
           <Button size="sm" variant="outline" onPress={() => setOpen(!open)}>
@@ -84,8 +84,8 @@ function CheckRow({ check, website }: { check: HealthCheck; website: string | nu
         )}
       </div>
       {open && finding && (
-        <div className="mb-3 ml-5 space-y-2 rounded-lg border border-border bg-surface-muted p-3">
-          <p className="text-sm text-default-600">{finding.recommendation}</p>
+        <div className="mb-3 ml-5 space-y-2 rounded-2xl border border-border/50 bg-surface-muted/80 p-3.5">
+          <p className="text-sm leading-relaxed text-default-600">{finding.recommendation}</p>
           <div className="flex flex-wrap items-center gap-2">
             <CopyPromptButton
               text={buildFixPrompt(
@@ -107,7 +107,7 @@ function CheckRow({ check, website }: { check: HealthCheck; website: string | nu
               Open fix queue
             </Link>
           </div>
-          <p className="text-xs text-default-400">
+          <p className="text-xs leading-relaxed tracking-[0.01em] text-default-400">
             Paste the prompt into Cursor, Claude Code, or Copilot inside your website&apos;s
             project — it includes everything the assistant needs.
           </p>
@@ -156,13 +156,15 @@ function SummaryHeader({
   }
 
   return (
-    <Card className="p-5">
+    <Card className="material-panel p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-3">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-lg bg-default-100 px-3 py-2">
-              <p className="text-lg font-semibold leading-tight">{s.value}</p>
-              <p className="text-xs text-default-500">{s.label}</p>
+            <div key={s.label} className="rounded-xl bg-default-100 px-3.5 py-2">
+              <p className="text-lg font-semibold leading-tight tracking-tight tabular-nums">
+                {s.value}
+              </p>
+              <p className="text-xs tracking-[0.01em] text-default-500">{s.label}</p>
             </div>
           ))}
         </div>
@@ -206,7 +208,7 @@ function Checklist({ data, website }: { data: SiteHealthResponse; website: strin
   const snapshot = data.snapshot;
   if (!data.hasData || !snapshot) {
     return (
-      <EmptyState className="rounded-xl border border-dashed border-border">
+      <EmptyState className="material-panel rounded-2xl border-dashed">
         <EmptyState.Header>
           <EmptyState.Media variant="icon">
             <CircleCheckIcon />
@@ -238,10 +240,10 @@ function Checklist({ data, website }: { data: SiteHealthResponse; website: strin
         if (checks.length === 0) return null;
         const failing = checks.filter((c) => c.status !== "pass").length;
         return (
-          <Card key={group} className="p-5">
-            <div className="mb-2 flex items-baseline justify-between gap-2">
-              <h2 className="text-sm font-semibold">{HEALTH_GROUP_LABELS[group]}</h2>
-              <p className="text-xs text-default-400">
+          <Card key={group} className="material-panel p-5">
+            <div className="mb-2.5 flex items-baseline justify-between gap-2">
+              <h2 className="type-title text-sm">{HEALTH_GROUP_LABELS[group]}</h2>
+              <p className="text-xs tracking-[0.01em] text-default-400">
                 {failing === 0 ? "All good" : `${failing} to fix`}
               </p>
             </div>

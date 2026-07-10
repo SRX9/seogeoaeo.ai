@@ -11,8 +11,11 @@ import { NotificationsSection } from "@/components/settings/notifications-sectio
 // Suspense boundary.
 function AccountContent() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <PageHeader title="Billing" description="Your plan, credits, and payment details." />
+    <div className="mx-auto max-w-3xl space-y-9">
+      <PageHeader
+        title="Billing"
+        description="Your plan, credits, and payment details."
+      />
       <Suspense fallback={null}>
         <BillingSection />
       </Suspense>

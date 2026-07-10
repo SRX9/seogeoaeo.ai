@@ -120,6 +120,7 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<Env, Params> {
                 workspaceId: p.workspaceId,
                 brandId: p.brandId,
                 topicId,
+                runDate: p.runDate,
               }),
           );
         } catch {

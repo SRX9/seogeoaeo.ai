@@ -3,6 +3,7 @@
 import { Button } from "@heroui/react";
 import { useSyncExternalStore } from "react";
 import { MoonIcon, SunIcon } from "@/components/icons";
+import { cn } from "@/lib/cn";
 
 type Theme = "light" | "dark";
 const THEME_CHANGE_EVENT = "sga-theme-change";
@@ -64,7 +65,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       size="sm"
       isIconOnly
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className={className}
+      className={cn("rounded-full", className)}
       onPress={toggle}
     >
       {isDark ? (

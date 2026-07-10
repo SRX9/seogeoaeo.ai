@@ -82,19 +82,19 @@ export function TagInput({
   return (
     <div
       data-tag-input
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-2 transition focus-within:border-accent"
+      className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-surface/80 p-2 backdrop-blur-sm transition duration-ui ease-out-strong focus-within:border-accent"
     >
       {tags.map((tag, index) => (
         <span
           key={`${tag}-${index}`}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-2.5 py-1 text-sm text-foreground"
+          className="flex items-center gap-1.5 rounded-full border border-border/50 bg-surface-muted px-2.5 py-1 text-sm tracking-[0.01em] text-foreground"
         >
           {tag}
           <button
             type="button"
             aria-label={`Remove ${tag}`}
             onClick={() => removeAt(index)}
-            className="text-muted transition hover:text-foreground"
+            className="pressable rounded-sm text-muted hover-fine:text-foreground"
           >
             ×
           </button>

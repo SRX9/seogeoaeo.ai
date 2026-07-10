@@ -1,4 +1,13 @@
 import { refreshAgentBrief } from "@/lib/agent/brief";
+import { getAgentControlState } from "@/lib/agent/memory";
+import { isArticleGenerationBlockedByOwnerConstraint } from "@/lib/agent/policy";
+import {
+  beginDailyAgentTask,
+  completeDailyAgentTask,
+  ensureNextDailyTask,
+  replanAgentWork,
+  setFutureAgentTasksPaused,
+} from "@/lib/agent/planner";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
@@ -41,6 +50,67 @@ export type DailyPlan = {
   needsResearch: boolean;
 };
 
+const PRIORITY_STOP_WORDS = new Set([
+  "focus",
+  "prioritize",
+  "priority",
+  "emphasize",
+  "concentrate",
+  "this",
+  "that",
+  "with",
+  "from",
+  "month",
+  "week",
+  "buyers",
+]);
+
+function priorityTerms(instructions: string[]): string[] {
+  return [...new Set(
+    instructions.flatMap((instruction) =>
+      instruction
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((word) => word.length > 2 && !PRIORITY_STOP_WORDS.has(word)),
+    ),
+  )];
+}
+
+/** Stable ranking: owner-priority matches first, existing evidence score within each group. */
+export function rankTopicsForAgentPriorities<
+  T extends {
+    title: string;
+    angle?: string | null;
+    keywords?: string | null;
+    score?: number | null;
+    source?: string | null;
+  },
+>(topics: T[], instructions: string[]): T[] {
+  const terms = priorityTerms(instructions);
+  const matches = (topic: T) => {
+    const text = `${topic.title} ${topic.angle ?? ""} ${topic.keywords ?? ""}`.toLowerCase();
+    return terms.reduce((count, term) => count + (text.includes(term) ? 1 : 0), 0);
+  };
+  return topics.toSorted(
+    (left, right) =>
+      Number(right.source === "owner_direction") - Number(left.source === "owner_direction") ||
+      matches(right) - matches(left) ||
+      (right.score ?? Number.NEGATIVE_INFINITY) -
+        (left.score ?? Number.NEGATIVE_INFINITY),
+  );
+}
+
+function excludeOwnerBlockedTopics<
+  T extends { title: string },
+>(topics: T[], constraints: string[]): T[] {
+  return topics.filter(
+    (topic) =>
+      !constraints.some((constraint) =>
+        isArticleGenerationBlockedByOwnerConstraint(constraint, topic.title),
+      ),
+  );
+}
+
 /**
  * Decide a brand's work for the day. Pure reads plus an idempotent upsert when
  * the cap is already met — safe to call repeatedly.
@@ -65,6 +135,29 @@ export async function planDailyForBrand(
       needsResearch: false,
     };
   }
+
+
+  const controls = await getAgentControlState(scope.brandId);
+  if (controls.paused) {
+    const existing = await getDailyRun(scope.brandId, runDate);
+    await upsertDailyRun(scope, runDate, {
+      articlesWritten: existing?.articlesWritten ?? 0,
+      topicsResearched: existing?.topicsResearched ?? 0,
+      status: "paused_by_owner",
+      note: controls.pauseInstruction ?? "Paused by owner instruction.",
+    });
+    return {
+      skip: true,
+      skipStatus: "paused_by_owner",
+      cap,
+      budget: 0,
+      writtenToday: existing?.articlesWritten ?? 0,
+      priorResearched: existing?.topicsResearched ?? 0,
+      topicIds: [],
+      needsResearch: false,
+    };
+  }
+  await setFutureAgentTasksPaused(scope, false);
 
   // The agent's articles-written-today live on the daily-run row, so the cap
   // bounds the AGENT's output (manual generation never eats into it) and a
@@ -94,7 +187,18 @@ export async function planDailyForBrand(
     };
   }
 
-  const pending = await listPendingTopicsForWriting(scope.brandId, budget);
+  const pending = excludeOwnerBlockedTopics(
+    rankTopicsForAgentPriorities(
+      await listPendingTopicsForWriting(scope.brandId, Math.max(50, budget * 10)),
+      controls.priorityInstructions,
+    ),
+    controls.ownerConstraints,
+  ).slice(0, budget);
+  try {
+    await beginDailyAgentTask(scope, runDate);
+  } catch (error) {
+    console.error("[daily] agent task start failed", error);
+  }
   return {
     skip: false,
     skipStatus: null,
@@ -119,6 +223,8 @@ export async function researchForDaily(
   budget: number,
   idempotencyKey: string,
 ): Promise<{ researchTopics: number; topicIds: string[] }> {
+  const controls = await getAgentControlState(scope.brandId);
+  if (controls.paused) return { researchTopics: 0, topicIds: [] };
   let researchTopics = 0;
   try {
     await assertHasCredits(scope.workspaceId, CREDIT_COSTS.research_run);
@@ -138,7 +244,13 @@ export async function researchForDaily(
     }
   }
 
-  const pending = await listPendingTopicsForWriting(scope.brandId, budget);
+  const pending = excludeOwnerBlockedTopics(
+    rankTopicsForAgentPriorities(
+      await listPendingTopicsForWriting(scope.brandId, Math.max(50, budget * 10)),
+      controls.priorityInstructions,
+    ),
+    controls.ownerConstraints,
+  ).slice(0, budget);
   return { researchTopics, topicIds: pending.map((topic) => topic.id) };
 }
 
@@ -168,8 +280,11 @@ export async function settleDailyForBrand(
   input: SettleInput,
 ): Promise<DailyRunStatus> {
   const finalWritten = input.writtenToday + input.generated;
+  const controls = await getAgentControlState(scope.brandId);
   let status: DailyRunStatus;
-  if (input.outOfCredits) {
+  if (controls.paused) {
+    status = "paused_by_owner";
+  } else if (input.outOfCredits) {
     status = "paused_no_credits";
   } else if (!input.hadTargets && input.generated === 0) {
     status = "no_topics";
@@ -182,6 +297,19 @@ export async function settleDailyForBrand(
     topicsResearched: input.priorResearched + input.researchTopics,
     status,
   });
+
+  try {
+    await completeDailyAgentTask(scope, runDate, {
+      generated: input.generated,
+      researched: input.researchTopics,
+      status,
+    });
+    if (status !== "paused_by_owner") {
+      await ensureNextDailyTask(scope, input.brandName, new Date(`${runDate}T23:59:59.999Z`));
+    }
+  } catch (error) {
+    console.error("[daily] agent task settlement failed", error);
+  }
 
   // A single completed job per brand-day powers the overview stats; the research
   // and writing sub-jobs already record their own activity-feed entries.
@@ -201,6 +329,10 @@ export async function settleDailyForBrand(
     console.error("[daily] overview job log failed", error);
   }
 
+  // A pause issued while the Workflow was already in flight is honored at the
+  // settle boundary: persist what finished, then stop every follow-on activity.
+  if (status === "paused_by_owner") return status;
+
   // Pull traffic proof for any connected source (GSC/GA4) once per brand-day.
   // Best-effort and unmetered — a missing grant or API hiccup never affects the
   // content run's status.
@@ -213,7 +345,15 @@ export async function settleDailyForBrand(
   // C4: read any published articles whose day-7/28/90 checkpoint came due
   // (cheap reads of the C2 query report) and act on the verdicts. Best-effort.
   try {
-    await runDueCheckpoints(scope);
+    const checkpoints = await runDueCheckpoints(scope);
+    const outcomes = checkpoints.byVerdict;
+    if (checkpoints.checked > 0 && outcomes.winner + outcomes.stalling + outcomes.dead > 0) {
+      await replanAgentWork(
+        scope,
+        `Performance evidence changed the queue: ${outcomes.winner} winning, ${outcomes.stalling} stalling, ${outcomes.dead} stopped.`,
+        { source: "performance_checkpoints", ...checkpoints },
+      );
+    }
   } catch (error) {
     console.error("[daily] performance checkpoints failed", error);
   }

@@ -1,3 +1,4 @@
+import { publishFetch } from "@/lib/publishing/fetch";
 import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter } from "@/lib/publishing/types";
 
 function buildPayload(article: PublishArticle) {
@@ -46,17 +47,19 @@ export const webhookAdapter: PublishingAdapter = {
       headers["x-seo-ai-signature"] = `sha256=${await hmacSignature(signingSecret, body)}`;
     }
 
-    const response = await fetch(webhookUrl, {
+    const fetched = await publishFetch("Webhook", webhookUrl, {
       method: "POST",
       headers,
       body,
     });
+    if (!fetched.ok) return fetched;
 
+    const response = fetched.response;
     if (!response.ok) {
-      const body = await response.text();
+      const text = await response.text();
       return {
         ok: false,
-        error: `Webhook returned ${response.status}: ${body.slice(0, 200)}`,
+        error: `Webhook returned ${response.status}: ${text.slice(0, 200)}`,
       };
     }
 

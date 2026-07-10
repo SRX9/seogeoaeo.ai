@@ -3,6 +3,7 @@
 import { AutonomyCategories } from "@/components/settings/autonomy-categories";
 import { AutonomyPanel } from "@/components/settings/autonomy-panel";
 import { BadgePanel } from "@/components/settings/badge-panel";
+import { ActionHistory } from "@/components/settings/action-history";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { useMe } from "@/lib/api/queries";
@@ -46,6 +47,7 @@ export function AutomationSection() {
               brandId={activeBrand.id}
               initialEnabled={activeBrand.badgePublic}
             />
+            <ActionHistory />
           </div>
         );
       }}

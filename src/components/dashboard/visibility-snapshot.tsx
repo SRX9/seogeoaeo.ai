@@ -36,26 +36,26 @@ export function VisibilitySnapshot({ summary }: { summary: VisibilitySummary }) 
   const reportHref = latest ? `/visibility/${latest.id}` : "/visibility";
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3.5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Visibility</h2>
+        <h2 className="type-title text-lg text-foreground">Visibility</h2>
         <Link
           href={reportHref}
-          className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+          className="pressable inline-flex items-center gap-1 rounded-md text-sm text-muted hover-fine:text-foreground"
         >
           {summary.hasAudit ? "Full report" : "Open visibility"}
           <ChevronRightIcon className="size-3.5" />
         </Link>
       </div>
 
-      <Card className="p-5 sm:p-6">
+      <Card className="material-panel p-5 sm:p-6">
         {summary.hasAudit ? (
           <div className="space-y-6">
             <div className="flex flex-col gap-8 lg:flex-row lg:items-center">
               {/* Overall score */}
               <div className="flex flex-col items-center gap-2 lg:w-56 lg:shrink-0">
                 <ScoreGauge value={overall} size={188} barSize={12}>
-                  <span className="text-4xl font-semibold leading-none text-foreground tabular-nums">
+                  <span className="text-4xl font-semibold leading-none tracking-tight text-foreground tabular-nums">
                     {fmt(overall)}
                   </span>
                   <span className="mt-1 text-xs text-muted">
@@ -127,8 +127,10 @@ export function VisibilitySnapshot({ summary }: { summary: VisibilitySummary }) 
             </ScoreGauge>
             <div className="space-y-3">
               <div>
-                <p className="text-base font-medium text-foreground">No visibility reading yet</p>
-                <p className="mt-1 max-w-md text-sm text-muted">
+                <p className="text-base font-medium tracking-tight text-foreground">
+                  No visibility reading yet
+                </p>
+                <p className="mt-1 max-w-md text-sm leading-relaxed text-muted">
                   Claudia runs your first audit during setup — one 0–100 score for how easily
                   people and AI assistants can find and cite your site, plus a prioritized fix list.
                 </p>

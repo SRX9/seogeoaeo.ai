@@ -18,7 +18,7 @@ function brandInitial(name: string) {
 
 function BrandGlyph({ name }: { name: string }) {
   return (
-    <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent-soft text-xs font-semibold text-accent-soft-foreground">
+    <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-xs font-semibold tracking-tight text-accent-soft-foreground surface-interactive">
       {brandInitial(name)}
     </span>
   );
@@ -72,13 +72,13 @@ export function BrandSwitcher({
     return (
       <Button
         variant="secondary"
-        className="w-full justify-start gap-2"
+        className="w-full justify-start gap-2 rounded-xl"
         onPress={() => router.push("/onboarding")}
       >
-        <span className="flex size-6 items-center justify-center rounded-md border border-dashed border-border text-muted">
+        <span className="flex size-6 items-center justify-center rounded-lg border border-dashed border-border text-muted">
           +
         </span>
-        <span className="text-sm font-medium">Add your first brand</span>
+        <span className="text-sm font-medium tracking-tight">Add your first brand</span>
       </Button>
     );
   }
@@ -89,10 +89,10 @@ export function BrandSwitcher({
         variant="ghost"
         aria-label="Switch brand"
         isDisabled={switchBrand.isPending}
-        className="h-auto w-full justify-start gap-2 px-2 py-2"
+        className="h-auto w-full justify-start gap-2 rounded-xl px-2 py-2"
       >
         <BrandGlyph name={active.name} />
-        <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-foreground">
+        <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold tracking-tight text-foreground">
           {active.name}
         </span>
         {switchBrand.isPending ? (
@@ -102,7 +102,9 @@ export function BrandSwitcher({
         )}
       </Button>
       <Dropdown.Popover className="min-w-[240px]" placement="bottom start">
-        <div className="px-3 pb-1 pt-2 text-xs font-medium text-muted">Brands</div>
+        <div className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
+          Brands
+        </div>
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>
           {brands.map((brand) => (
             <Dropdown.Item key={brand.id} id={brand.id} textValue={brand.name}>

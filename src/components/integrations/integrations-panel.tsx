@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Input, Label, Switch, toast } from "@heroui/react";
+import { Card, Chip, Input, Label, Switch, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
@@ -39,10 +39,10 @@ type IntegrationsPanelProps = {
 export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted px-4 py-3">
+      <div className="material-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Need setup help?</p>
-          <p className="mt-1 text-sm text-muted">
+          <p className="text-sm font-medium tracking-tight text-foreground">Need setup help?</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
             Follow the integration guide for required fields, saved secrets, and
             troubleshooting.
           </p>
@@ -56,25 +56,48 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
       </div>
 
       {integrations.map((integration) => (
-        <Card key={integration.provider}>
+        <Card key={integration.provider} className="material-panel">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <Card.Title>{integration.name}</Card.Title>
-              <Card.Description>{integration.description}</Card.Description>
+              <Card.Title className="tracking-tight">{integration.name}</Card.Title>
+              <Card.Description className="leading-relaxed">
+                {integration.description}
+              </Card.Description>
             </div>
-            <div className="flex items-center gap-3 text-xs font-medium">
+            <div className="flex items-center gap-3 text-xs font-medium tracking-[0.01em]">
               <StatusText integration={integration} />
               {integration.enabled ? <span className="text-success">Enabled</span> : null}
             </div>
           </div>
 
-          <p className="mt-3 text-sm text-muted">{integration.requirements.summary}</p>
-          <p className="mt-1 text-xs text-muted">{integration.requirements.helpText}</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            {integration.requirements.summary}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            {integration.requirements.helpText}
+          </p>
+
+          <div className="mt-3">
+            <p className="text-xs font-medium text-muted">Declared live capabilities</p>
+            {integration.capabilities.length ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {integration.capabilities.map((capability) => (
+                  <Chip key={capability} size="sm" variant="soft">
+                    {capability}
+                  </Chip>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs leading-5 text-muted">
+                No live action capability. Claudia will not offer Live-apply for this connection.
+              </p>
+            )}
+          </div>
 
           {integration.status === "available" ? (
             <IntegrationForm integration={integration} />
           ) : (
-            <div className="mt-4 rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+            <div className="mt-4 rounded-xl border border-border/50 bg-surface-muted/80 px-3 py-2 text-sm leading-relaxed text-muted">
               This destination is not configurable yet. No credentials are needed here.
             </div>
           )}
@@ -97,12 +120,12 @@ function EnableSwitch({
   onToggle: (next: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-muted px-3 py-2.5">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-surface-muted/80 px-3 py-2.5">
       <div>
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-sm font-medium tracking-tight text-foreground">
           {enabled ? "Enabled" : "Disabled"}
         </p>
-        <p className="text-xs text-muted">
+        <p className="text-xs leading-relaxed text-muted">
           {enabled
             ? `Claudia publishes to ${name}.`
             : `Turn on to let Claudia publish to ${name}.`}

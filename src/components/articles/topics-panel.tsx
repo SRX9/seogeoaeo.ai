@@ -118,14 +118,12 @@ export function ManualTopicForm() {
   }
 
   return (
-    <Card className="gap-0 p-7 sm:p-9">
+    <Card className="material-panel gap-0 p-7 sm:p-9">
       {/* Header */}
       <div className="flex items-start gap-3.5">
         <PenIcon className="mt-1 size-5 shrink-0 text-foreground" />
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
-            Create a manual topic
-          </h3>
+          <h3 className="type-title text-lg text-foreground">Create a manual topic</h3>
           <p className="max-w-prose text-sm leading-relaxed text-muted">
             Already know what you want to write? Drop it straight into the queue and generate
             when you&apos;re ready.
@@ -135,7 +133,7 @@ export function ManualTopicForm() {
 
       <form onSubmit={handleCreate} className="mt-8">
         <div className="space-y-2">
-          <Label htmlFor="title" >Topic title</Label>
+          <Label htmlFor="title">Topic title</Label>
           <Input id="title" name="title" value={fields.title} onChange={set("title")} required placeholder="How to automate SEO blog production" variant="secondary" fullWidth />
           <p className="text-xs leading-relaxed text-muted">The headline idea — what the article is about.</p>
         </div>
@@ -153,7 +151,7 @@ export function ManualTopicForm() {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 border-t border-border pt-7">
+        <div className="mt-8 flex flex-col gap-3 border-t border-border/50 pt-7">
           <LoadingButton className="w-fit" type="submit" isPending={createTopic.isPending} pendingLabel="Adding…">
             <PlusIcon className="size-4" />
             Add to queue
@@ -179,9 +177,11 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Topic queue</h2>
+        <h2 className="type-title text-lg text-foreground">Topic queue</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted tabular-nums">{visibleTopics.length} topics</span>
+          <span className="text-sm tracking-[0.01em] text-muted tabular-nums">
+            {visibleTopics.length} topics
+          </span>
           <Segment
             aria-label="Filter topics by source"
             size="sm"
@@ -201,7 +201,7 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
       {isLoading ? (
         <InlineLoader label="Loading topics…" />
       ) : visibleTopics.length === 0 ? (
-        <EmptyState size="sm" className="rounded-xl border border-dashed border-border">
+        <EmptyState size="sm" className="material-panel rounded-2xl border-dashed">
           <EmptyState.Header>
             <EmptyState.Media variant="icon">
               <TopicsIcon />
@@ -289,18 +289,20 @@ function TopicList({
   });
 
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+    <ul className="material-panel divide-y divide-border/50 overflow-hidden rounded-2xl">
       {topics.map((topic) => {
         const isGenerating = generate.isPending && generate.variables === topic.id;
         return (
           <li
             key={topic.id}
-            className="flex items-start justify-between gap-3 p-4 transition-colors hover:bg-surface-secondary/40"
+            className="surface-interactive flex items-start justify-between gap-3 rounded-none p-4"
           >
             {/* Title, subtitle, and details — stacked so the row never needs horizontal scroll */}
             <div className="min-w-0 flex-1 space-y-2">
               <div className="space-y-1">
-                <p className="font-medium leading-snug text-foreground">{topic.title}</p>
+                <p className="font-medium leading-snug tracking-tight text-foreground">
+                  {topic.title}
+                </p>
                 {/* The thesis is the one line that says why this will drive
                     traffic — always preferred over the generic rationale. */}
                 {topic.thesis || topic.rationale ? (

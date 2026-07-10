@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalHttpUrlSchema } from "@/lib/brand/schemas";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { previewUseCases } from "@/lib/brand/use-cases";
 import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
@@ -7,7 +8,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const previewSchema = z.object({
   name: z.string().min(1).max(120),
-  website: z.string().url().optional().or(z.literal("")),
+  website: optionalHttpUrlSchema,
   productDescription: z.string().max(4000).optional().default(""),
   audience: z.string().max(500).optional().default(""),
   seedKeywords: z.string().max(1000).optional().default(""),

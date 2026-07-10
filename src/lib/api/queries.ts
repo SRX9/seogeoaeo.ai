@@ -3,7 +3,9 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { getAgentPresence, isAgentLive } from "@/lib/agent/presence";
+import type { AgentState as AgentOperatingState } from "@/lib/agent/types";
 import { apiGet } from "@/lib/api/fetcher";
+import type { ConnectorCapability } from "@/lib/integrations/capabilities";
 import type {
   IntegrationConfig,
   IntegrationFieldDefinition,
@@ -20,6 +22,9 @@ export const queryKeys = {
   me: ["me"] as const,
   automation: ["dashboard", "automation"] as const,
   agentBrief: ["dashboard", "brief"] as const,
+  agentState: ["agent", "state"] as const,
+  agentApprovals: ["agent", "approvals"] as const,
+  agentActions: ["agent", "actions"] as const,
   onboarding: ["onboarding"] as const,
   brands: ["brands"] as const,
   brandProfile: ["brand", "profile"] as const,
@@ -254,6 +259,7 @@ export type IntegrationView = {
   fields: IntegrationFieldDefinition[];
   secrets: IntegrationSecretDefinition[];
   requirements: IntegrationRequirements;
+  capabilities: readonly ConnectorCapability[];
   enabled: boolean;
   available: boolean;
   configurable: boolean;
@@ -294,6 +300,10 @@ const activityQueryOptions = () => ({
 const agentBriefQueryOptions = () => ({
   queryKey: queryKeys.agentBrief,
   queryFn: () => apiGet<{ brief: AgentBrief }>("/api/dashboard/brief"),
+});
+const agentStateQueryOptions = () => ({
+  queryKey: queryKeys.agentState,
+  queryFn: () => apiGet<AgentOperatingState>("/api/agent/state"),
 });
 const visibilitySummaryQueryOptions = () => ({
   queryKey: queryKeys.visibilitySummary,
@@ -388,6 +398,68 @@ export function useAgentBrief() {
   return useQuery({ ...agentBriefQueryOptions(), enabled: useHasBrand() });
 }
 
+export function useAgentState() {
+  return useQuery({
+    ...agentStateQueryOptions(),
+    enabled: useHasBrand(),
+    refetchInterval: (query) => {
+      const presence = query.state.data?.presence.id;
+      if (presence === "working_now") return 8_000;
+      // Temporary owner pauses expire in durable memory; refresh without
+      // requiring a navigation or focus change to show the resumed schedule.
+      if (presence === "paused" || presence === "scheduled" || presence === "on_duty") {
+        return 60_000;
+      }
+      return false;
+    },
+  });
+}
+
+export type AgentApprovalView = {
+  id: string;
+  taskId: string | null;
+  actionType: string;
+  resourceRef: string;
+  beforeState: unknown;
+  afterState: unknown;
+  riskLevel: string;
+  expectedBenefit: string;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+export function useAgentApprovals() {
+  return useQuery({
+    queryKey: queryKeys.agentApprovals,
+    queryFn: () => apiGet<{ approvals: AgentApprovalView[] }>("/api/agent/approvals"),
+    enabled: useHasBrand(),
+  });
+}
+
+export type AgentActionView = {
+  id: string;
+  actionType: string;
+  resourceRef: string;
+  capability: string;
+  beforeState: unknown;
+  appliedChange: unknown;
+  remoteRef: string | null;
+  rollbackSupported: boolean;
+  status: string;
+  verificationStatus: string;
+  verificationResult: unknown;
+  createdAt: string;
+  verifiedAt: string | null;
+};
+
+export function useAgentActions() {
+  return useQuery({
+    queryKey: queryKeys.agentActions,
+    queryFn: () => apiGet<{ actions: AgentActionView[] }>("/api/agent/actions"),
+    enabled: useHasBrand(),
+  });
+}
+
 export function useOnboarding() {
   return useQuery({ ...onboardingQueryOptions(), enabled: useHasBrand() });
 }
@@ -470,7 +542,6 @@ export function useAgentIsLive(): boolean {
       ? {
           enabled: automation.data.enabled,
           agentState: automation.data.agentState,
-          writtenToday: automation.data.writtenToday,
           lastRun: automation.data.lastRun,
         }
       : null,
@@ -519,13 +590,12 @@ export function useAgentStatusLabel(): string | null {
       ? {
           enabled: automation.data.enabled,
           agentState: automation.data.agentState,
-          writtenToday: automation.data.writtenToday,
           lastRun: automation.data.lastRun,
         }
       : null,
     // lastRun running/pending is enough for shell; avoid activity poll site-wide.
     activityInFlight: false,
-  });
+  })?.label ?? null;
 }
 
 /**
@@ -540,6 +610,7 @@ export function usePrefetchAppData(enabled: boolean) {
     queryClient.prefetchQuery(creditsQueryOptions());
     queryClient.prefetchQuery(automationQueryOptions());
     queryClient.prefetchQuery(agentBriefQueryOptions());
+    queryClient.prefetchQuery(agentStateQueryOptions());
     queryClient.prefetchQuery(onboardingQueryOptions());
     queryClient.prefetchQuery(researchQueryOptions());
     queryClient.prefetchQuery(visibilitySummaryQueryOptions());
@@ -639,6 +710,22 @@ export function useReport(id: string) {
       apiGet<{
         report: WeeklyReportRow;
         lines: string[];
+        story: {
+          proof: {
+            score: { current: number | null; baseline: number | null; delta: number } | null;
+            firstWeek: boolean;
+            answerShare: Array<{ engine: string; appeared: number; prompts: number }>;
+            traffic: { clicks: number; prevClicks: number; aiReferrals: number } | null;
+          };
+          fixes: { applied: number; proposed: number; verified: number; awaiting: number; examples: string[] };
+          content: {
+            published: Array<{ title: string; externalUrl: string | null; thesis: string | null }>;
+            performance: string[];
+            nextWeek: Array<{ title: string; thesis: string | null }>;
+            draftsAwaitingReview: number;
+          };
+          planChanges: string[];
+        };
         ask: { what: string; href: string } | null;
       }>(`/api/reports/${id}`),
     enabled: useHasBrand() && Boolean(id),
@@ -692,6 +779,7 @@ export type VisibilityFinding = {
   recommendation: string;
   fixCapability: "auto" | "artifact" | "guided" | null;
   fixPayload: unknown;
+  proposedAt?: string | null;
 };
 
 export function useVisibilityFindings() {

@@ -4,7 +4,12 @@ import { getDb } from "@/lib/db";
 import { agentDailyRuns } from "@/lib/db/schema";
 
 /** The state the daily agent recorded for a brand on a given UTC day. */
-export type DailyRunStatus = "active" | "paused_no_credits" | "idle" | "no_topics";
+export type DailyRunStatus =
+  | "active"
+  | "paused_no_credits"
+  | "paused_by_owner"
+  | "idle"
+  | "no_topics";
 
 export type DailyRunInput = {
   articlesWritten: number;

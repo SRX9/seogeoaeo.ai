@@ -40,15 +40,15 @@ export function SubScoreTile({
 }) {
   const IconComponent = SUBSCORE_ICONS[subScoreKey] ?? SparklesIcon;
   return (
-    <Card className="p-4" title={explainer}>
+    <Card className="material-panel p-4" title={explainer}>
       <div className="flex items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted">
           <IconComponent className="size-4.5" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs text-muted">{label}</p>
+          <p className="truncate text-xs tracking-[0.01em] text-muted">{label}</p>
           <p
-            className="text-xl font-semibold leading-tight tabular-nums"
+            className="text-xl font-semibold leading-tight tracking-tight tabular-nums"
             style={{ color: scoreColor(score) }}
           >
             {fmt(score)}

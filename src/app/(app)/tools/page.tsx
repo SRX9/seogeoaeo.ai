@@ -76,7 +76,7 @@ export default function ToolboxPage() {
   const latest = useToolLatestRuns().data?.latest ?? {};
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-9">
       <PageHeader
         title="Extra tools"
         description="One-off analyzers on the same engine as full audits. Secondary surface — Claudia runs these on cadence for you."
@@ -87,34 +87,36 @@ export default function ToolboxPage() {
         return (
           <section key={pillar.key} className="space-y-4">
             <div className="space-y-1">
-              <h2 className="text-base font-semibold text-foreground">{pillar.label}</h2>
-              <p className="max-w-2xl text-pretty text-sm text-muted">{pillar.blurb}</p>
+              <h2 className="type-title text-base text-foreground">{pillar.label}</h2>
+              <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted">
+                {pillar.blurb}
+              </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3.5 sm:grid-cols-2">
               {tools.map((t) => {
                 const run = latest[t.slug];
                 const display = TOOL_DISPLAY[t.slug];
                 const Icon = display?.icon ?? GaugeIcon;
                 return (
                   <Link key={t.slug} href={`/tools/${t.slug}`} className="group block h-full">
-                    <Card className="flex h-full flex-col gap-3 p-5 transition hover:border-primary">
+                    <Card className="material-panel surface-interactive flex h-full flex-col gap-3 p-5">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-default-100 text-default-600">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-default-100 text-default-600">
                           <Icon className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-foreground">
+                          <p className="truncate font-medium tracking-tight text-foreground">
                             {display?.title ?? t.name}
                           </p>
-                          <p className="text-xs text-default-400">
+                          <p className="text-xs tracking-[0.01em] text-default-400">
                             {creditLabel(CREDIT_COSTS[t.costKey])} per run
                           </p>
                         </div>
-                        <ArrowRightIcon className="size-4 shrink-0 text-default-300 transition group-hover:translate-x-0.5 group-hover:text-default-600" />
+                        <ArrowRightIcon className="size-4 shrink-0 text-default-300 transition-[transform,color] duration-snappy ease-out-strong group-hover-fine:translate-x-0.5 group-hover-fine:text-default-600" />
                       </div>
                       <p className="text-sm leading-relaxed text-default-500">{t.description}</p>
                       <p
-                        className={`mt-auto border-t border-default-100 pt-3 text-xs ${
+                        className={`mt-auto border-t border-default-100/80 pt-3 text-xs tracking-[0.01em] ${
                           run ? "text-default-600" : "text-default-400"
                         }`}
                       >

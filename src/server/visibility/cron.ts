@@ -1,5 +1,6 @@
-import { and, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { ACTIVE_SUBSCRIPTION_STATUSES, visibilityCapsForPlan } from "@/lib/billing/plans";
+import { getAgentControlState } from "@/lib/agent/memory";
 import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
 import { auditFindings, audits } from "@/lib/db/schema/visibility";
@@ -11,11 +12,7 @@ import {
   finishAgentJob,
   type VisibilityMonitorMeta,
 } from "@/lib/jobs/repository";
-import {
-  dispatchDecision,
-  dueForReaudit,
-  type FindingKey,
-} from "@/lib/jobs/visibility-agent";
+import { dueForReaudit, type FindingKey } from "@/lib/jobs/visibility-agent";
 import { logInfo } from "@/lib/logging/logger";
 import { SITE_URL } from "@/lib/site";
 import {
@@ -24,9 +21,12 @@ import {
   spendForVisibilityJob,
 } from "@/lib/usage/credits";
 import { runAnswerCheck } from "@/lib/visibility/answers";
-import { applyFix } from "@/lib/visibility/apply-fix";
 import { compareAudits, type DeltaReport } from "@/lib/visibility/compare";
 import { persistNewFindings } from "@/lib/visibility/findings-repository";
+import {
+  dispatchOpenFindings,
+  type FixDispatchSummary,
+} from "@/lib/visibility/fix-dispatch";
 import { getAutonomyOverrides, resolveBrandForSite } from "./autonomy";
 import { createAudit, executeAudit } from "./run-audit";
 
@@ -66,60 +66,26 @@ export function shouldAlert(delta: DeltaReport, newCriticalCount: number): Alert
 export interface DueSite {
   id: string;
   workspaceId: string;
+  brandId: string | null;
   siteUrl: string;
   planId: string | null;
 }
 
-export interface DispatchSummary {
-  applied: number;
-  proposed: number;
-  queued: number;
-}
+export type DispatchSummary = FixDispatchSummary;
 
 /**
- * AP4 — per-category autonomy dispatch. After a scheduled re-audit, every OPEN
- * finding in the workspace's fix queue — the new audit's, the standing backlog's
- * (dedup keeps re-detections on their original row), and the C2/C4 prepared
- * fixes that carry no audit id — gets one of three fates decided by the brand's
- * Autopilot/Copilot dial + its per-category overrides (`agent_autonomy`):
- * `apply` (Level 2, `auto`-capable, within the plan's *monthly* autoFixCap),
- * `propose` (Level 1 — stamped `proposedAt` for the approval inbox), or `queue`
- * (Level 0 — watch only). Best-effort per finding; retry-safe: applies only
- * touch `isResolved = false`, proposes only stamp where `proposedAt IS NULL`.
+ * AP4 — per-category autonomy dispatch after a scheduled re-audit. Shared
+ * policy in `dispatchOpenFindings`: monthly `autoFixCap` covers new prepares
+ * and live-applies; Level 0 queues; no brand → no-op.
  */
 async function dispatchFixes(
   workspaceId: string,
   autoFixCap: number,
   brand: { brandId: string; autonomyMode: "FULL_AUTO" | "REVIEW" } | null,
 ): Promise<DispatchSummary> {
-  const summary: DispatchSummary = { applied: 0, proposed: 0, queued: 0 };
-  const db = getDb();
-
-  // No resolvable brand → nothing to decide with; leave everything queued.
-  if (!brand) return summary;
+  if (!brand) return { applied: 0, proposed: 0, queued: 0 };
   const overrides = await getAutonomyOverrides(brand.brandId);
-
-  // The cap is *per month* (that's what the plan copy promises), not per
-  // re-audit — on a weekly cadence an uncounted cap would quietly be 4× the
-  // advertised number. Count only what the AGENT auto-applied this calendar
-  // month (`resolution = auto_applied`, stamped by applyFix(…, "agent")) —
-  // user dismissals and one-click applies must never eat the agent's budget.
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const [used] = await db
-    .select({ n: count() })
-    .from(auditFindings)
-    .where(
-      and(
-        eq(auditFindings.workspaceId, workspaceId),
-        eq(auditFindings.resolution, "auto_applied"),
-        gte(auditFindings.resolvedAt, monthStart),
-      ),
-    );
-  let remaining = Math.max(0, autoFixCap - (used?.n ?? 0));
-
-  // Scope to this brand so multi-brand workspaces don't auto-apply each other's findings.
-  const findings = await db
+  const findings = await getDb()
     .select({
       id: auditFindings.id,
       category: auditFindings.category,
@@ -135,38 +101,14 @@ async function dispatchFixes(
       ),
     );
 
-  const toPropose: string[] = [];
-  for (const finding of findings) {
-    let action = dispatchDecision(finding, brand.autonomyMode, overrides);
-    // Cap exhausted: she still prepares the fix, just can't apply it herself.
-    if (action === "apply" && remaining <= 0) action = "propose";
-    if (action === "apply") {
-      try {
-        await applyFix(finding.id, workspaceId, "agent");
-        summary.applied += 1;
-        remaining -= 1;
-      } catch (error) {
-        console.error(`[visibility] auto-fix failed for finding ${finding.id}`, error);
-      }
-    } else if (action === "propose") {
-      // Count only NEWLY prepared fixes — the whole backlog is re-scanned each
-      // cycle, and "prepared N" must mean this cycle's work, not the queue size.
-      if (!finding.proposedAt) {
-        summary.proposed += 1;
-        toPropose.push(finding.id);
-      }
-    } else {
-      summary.queued += 1;
-    }
-  }
-
-  if (toPropose.length > 0) {
-    await db
-      .update(auditFindings)
-      .set({ proposedAt: now })
-      .where(and(inArray(auditFindings.id, toPropose), isNull(auditFindings.proposedAt)));
-  }
-  return summary;
+  return dispatchOpenFindings({
+    workspaceId,
+    brandId: brand.brandId,
+    autonomyMode: brand.autonomyMode,
+    overrides,
+    autoFixCap,
+    findings,
+  });
 }
 
 const APPLIED_RESOLUTIONS = ["auto_applied", "user_applied", "completed"] as const;
@@ -188,11 +130,15 @@ async function verifyAppliedFixes(
 ): Promise<{ verified: FindingKey[]; regressed: FindingKey[] }> {
   const db = getDb();
   const stamps = await db
-    .select({ id: audits.id, createdAt: audits.createdAt })
+    .select({ id: audits.id, createdAt: audits.createdAt, brandId: audits.brandId })
     .from(audits)
     .where(inArray(audits.id, [baselineAuditId, currentAuditId]));
   const baselineAt = stamps.find((a) => a.id === baselineAuditId)?.createdAt ?? new Date(0);
-  const currentAt = stamps.find((a) => a.id === currentAuditId)?.createdAt ?? new Date();
+  const currentStamp = stamps.find((a) => a.id === currentAuditId);
+  const currentAt = currentStamp?.createdAt ?? new Date();
+  const brandCondition = currentStamp?.brandId
+    ? eq(auditFindings.brandId, currentStamp.brandId)
+    : isNull(auditFindings.brandId);
 
   const [held, reopened] = await Promise.all([
     db
@@ -205,6 +151,7 @@ async function verifyAppliedFixes(
       .where(
         and(
           eq(auditFindings.workspaceId, workspaceId),
+          brandCondition,
           eq(auditFindings.isResolved, true),
           inArray(auditFindings.resolution, [...APPLIED_RESOLUTIONS]),
           isNull(auditFindings.verifiedAt),
@@ -217,6 +164,7 @@ async function verifyAppliedFixes(
       .where(
         and(
           eq(auditFindings.workspaceId, workspaceId),
+          brandCondition,
           gte(auditFindings.regressedAt, baselineAt),
         ),
       ),
@@ -245,6 +193,7 @@ async function verifyAppliedFixes(
  */
 async function competitorGap(
   workspaceId: string,
+  brandId: string,
   delta: DeltaReport,
 ): Promise<{ competitorScore: number; gap: number | null; gapDelta: number | null } | null> {
   const [benchmark] = await getDb()
@@ -253,6 +202,7 @@ async function competitorGap(
     .where(
       and(
         eq(audits.workspaceId, workspaceId),
+        eq(audits.brandId, brandId),
         eq(audits.kind, "benchmark"),
         eq(audits.status, "complete"),
       ),
@@ -304,6 +254,7 @@ async function latestAuditPerSite() {
     .selectDistinctOn([audits.workspaceId, audits.siteUrl], {
       id: audits.id,
       workspaceId: audits.workspaceId,
+      brandId: audits.brandId,
       siteUrl: audits.siteUrl,
       createdAt: audits.createdAt,
       planId: subscriptions.planId,
@@ -332,11 +283,23 @@ async function latestAuditPerSite() {
  * firing frequency a no-op.
  */
 export async function listDueSites(): Promise<DueSite[]> {
-  return (await latestAuditPerSite())
+  const due = (await latestAuditPerSite())
     .filter((site) =>
       dueForReaudit(site.createdAt, visibilityCapsForPlan(site.planId).monitoringCadence),
     )
-    .map(({ id, workspaceId, siteUrl, planId }) => ({ id, workspaceId, siteUrl, planId }));
+    .map(({ id, workspaceId, brandId, siteUrl, planId }) => ({
+      id,
+      workspaceId,
+      brandId,
+      siteUrl,
+      planId,
+    }));
+  const controls = await Promise.all(
+    due.map((site) =>
+      site.brandId ? getAgentControlState(site.brandId) : Promise.resolve(null),
+    ),
+  );
+  return due.filter((_site, index) => !controls[index]?.paused);
 }
 
 /**
@@ -406,7 +369,7 @@ export async function finishReaudit(args: {
   // a failed log line never fails (or re-runs) the re-audit itself.
   if (brand) {
     try {
-      const competitor = await competitorGap(args.workspaceId, delta);
+      const competitor = await competitorGap(args.workspaceId, brand.brandId, delta);
       const job = await createAgentJob(
         { workspaceId: args.workspaceId, brandId: brand.brandId },
         "visibility_monitor",
@@ -429,7 +392,7 @@ export async function finishReaudit(args: {
       await finishAgentJob(
         job.id,
         "completed",
-        `Re-audit complete: applied ${dispatch.applied}, prepared ${dispatch.proposed}, verified ${outcomes.verified.length} fix(es)${outcomes.regressed.length > 0 ? `, ${outcomes.regressed.length} regressed` : ""}; score ${gain >= 0 ? "+" : ""}${gain}.`,
+        `Re-audit complete: live-applied ${dispatch.applied}, prepared ${dispatch.proposed}, verified ${outcomes.verified.length} fix(es)${outcomes.regressed.length > 0 ? `, ${outcomes.regressed.length} regressed` : ""}; score ${gain >= 0 ? "+" : ""}${gain}.`,
         meta,
       );
     } catch (error) {

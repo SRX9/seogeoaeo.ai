@@ -109,8 +109,8 @@ export default function IntegrationsHelpPage() {
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-24 sm:pt-32">
         <section className="max-w-3xl">
-          <p className="text-sm font-medium uppercase tracking-wider text-muted">Help</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Help</p>
+          <h1 className="type-display mt-3 text-4xl text-foreground sm:text-5xl">
             Publishing integration setup guide
           </h1>
           <p className="mt-5 text-pretty text-lg leading-relaxed text-muted">
@@ -131,8 +131,8 @@ export default function IntegrationsHelpPage() {
         </section>
 
         <section className="mt-12 grid gap-4 md:grid-cols-2">
-          <Card className="border-border/70">
-            <h2 className="text-xl font-semibold text-foreground">Quick setup</h2>
+          <Card className="material-panel border-border/50">
+            <h2 className="type-title text-xl text-foreground">Quick setup</h2>
             <ol className="mt-4 space-y-3 text-sm leading-relaxed text-muted">
               {quickSteps.map((step, index) => (
                 <li key={step} className="flex gap-3">
@@ -145,8 +145,8 @@ export default function IntegrationsHelpPage() {
             </ol>
           </Card>
 
-          <Card className="border-border/70">
-            <h2 className="text-xl font-semibold text-foreground">Secret safety</h2>
+          <Card className="material-panel border-border/50">
+            <h2 className="type-title text-xl text-foreground">Secret safety</h2>
             <p className="mt-4 text-sm leading-relaxed text-muted">
               API keys, application passwords, and tokens are encrypted at rest and are
               never shown again after saving. Settings shows whether a secret is saved,
@@ -160,29 +160,29 @@ export default function IntegrationsHelpPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-            Available destinations
-          </h2>
-          <div className="mt-6 overflow-hidden rounded-lg border border-border/70">
-            <div className="grid grid-cols-1 divide-y divide-border/70 md:grid-cols-[1fr_1.4fr_1fr] md:divide-x md:divide-y-0">
-              <div className="bg-surface-muted px-4 py-3 text-sm font-semibold text-foreground">
+          <h2 className="type-title text-2xl text-foreground">Available destinations</h2>
+          <div className="material-panel mt-6 overflow-hidden rounded-2xl">
+            <div className="grid grid-cols-1 divide-y divide-border/50 md:grid-cols-[1fr_1.4fr_1fr] md:divide-x md:divide-y-0">
+              <div className="bg-surface-muted/80 px-4 py-3 text-sm font-semibold tracking-tight text-foreground">
                 Destination
               </div>
-              <div className="bg-surface-muted px-4 py-3 text-sm font-semibold text-foreground">
+              <div className="bg-surface-muted/80 px-4 py-3 text-sm font-semibold tracking-tight text-foreground">
                 Required setup
               </div>
-              <div className="bg-surface-muted px-4 py-3 text-sm font-semibold text-foreground">
+              <div className="bg-surface-muted/80 px-4 py-3 text-sm font-semibold tracking-tight text-foreground">
                 Optional setup
               </div>
             </div>
             {availableProviders.map((provider) => (
               <div
                 key={provider.id}
-                className="grid grid-cols-1 divide-y divide-border/70 border-t border-border/70 md:grid-cols-[1fr_1.4fr_1fr] md:divide-x md:divide-y-0"
+                className="grid grid-cols-1 divide-y divide-border/50 border-t border-border/50 md:grid-cols-[1fr_1.4fr_1fr] md:divide-x md:divide-y-0"
               >
                 <div className="px-4 py-4">
-                  <p className="font-medium text-foreground">{provider.name}</p>
-                  <p className="mt-1 text-sm text-muted">{provider.description}</p>
+                  <p className="font-medium tracking-tight text-foreground">{provider.name}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">
+                    {provider.description}
+                  </p>
                 </div>
                 <div className="px-4 py-4 text-sm leading-relaxed text-muted">
                   {requiredSetup(provider)}
@@ -196,13 +196,11 @@ export default function IntegrationsHelpPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-            Provider notes
-          </h2>
+          <h2 className="type-title text-2xl text-foreground">Provider notes</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {availableProviders.map((provider) => (
-              <Card key={provider.id} className="border-border/70">
-                <h3 className="font-semibold text-foreground">{provider.name}</h3>
+              <Card key={provider.id} className="material-panel border-border/50">
+                <h3 className="font-semibold tracking-tight text-foreground">{provider.name}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                   {provider.requirements.summary}
                 </p>
@@ -215,9 +213,7 @@ export default function IntegrationsHelpPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-            Gated destinations
-          </h2>
+          <h2 className="type-title text-2xl text-foreground">Gated destinations</h2>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
             These destinations are listed in Settings so users know what is planned, but
             generic API keys are not collected for them. They require OAuth, approved app
@@ -225,8 +221,8 @@ export default function IntegrationsHelpPage() {
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {gatedProviders.map((provider) => (
-              <Card key={provider.id} className="border-border/70">
-                <h3 className="font-semibold text-foreground">{provider.name}</h3>
+              <Card key={provider.id} className="material-panel border-border/50">
+                <h3 className="font-semibold tracking-tight text-foreground">{provider.name}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                   {provider.requirements.summary}
                 </p>
@@ -239,15 +235,13 @@ export default function IntegrationsHelpPage() {
         </section>
 
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-            Troubleshooting
-          </h2>
-          <div className="mt-6 divide-y divide-border/70 border-y border-border/70">
+          <h2 className="type-title text-2xl text-foreground">Troubleshooting</h2>
+          <div className="mt-6 divide-y divide-border/40 border-y border-border/40">
             {troubleshootingItems.map((item) => (
               <details key={item.title} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-base font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                <summary className="pressable flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg text-left text-base font-medium tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
                   {item.title}
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted transition-transform duration-200 group-open:rotate-45">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 text-muted transition-transform duration-ui ease-out-strong group-open:rotate-45">
                     <svg
                       viewBox="0 0 24 24"
                       className="size-3.5"
@@ -269,8 +263,8 @@ export default function IntegrationsHelpPage() {
           </div>
         </section>
 
-        <section className="mt-16 rounded-lg border border-border/70 bg-surface-muted px-5 py-5">
-          <h2 className="text-xl font-semibold text-foreground">When contacting support</h2>
+        <section className="material-panel mt-16 rounded-2xl px-5 py-6">
+          <h2 className="type-title text-xl text-foreground">When contacting support</h2>
           <p className="mt-3 text-sm leading-relaxed text-muted">
             Include these details so support can investigate without asking for secrets:
           </p>
@@ -278,7 +272,7 @@ export default function IntegrationsHelpPage() {
             {supportChecklist.map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-                <span>{item}</span>
+                <span className="leading-relaxed">{item}</span>
               </li>
             ))}
           </ul>

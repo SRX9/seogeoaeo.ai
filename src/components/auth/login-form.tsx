@@ -70,22 +70,22 @@ export function LoginForm() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* Brand / value panel — hidden on small screens */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border/60 bg-surface/40 p-12 lg:flex">
-        <Link href="/" aria-label="seogeoaeo.ai home">
+      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border/40 bg-surface/50 p-12 backdrop-blur-md lg:flex">
+        <Link href="/" aria-label="seogeoaeo.ai home" className="pressable w-fit rounded-lg">
           <SgaLogo />
         </Link>
 
         <div className="max-w-md">
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+          <h2 className="type-display text-3xl text-foreground sm:text-4xl">
             Get found across search and AI.
           </h2>
-          <p className="mt-3 text-muted">
+          <p className="mt-4 text-base leading-relaxed text-muted">
             Set up your brand once, and your content employee handles the rest — measuring,
             writing, and publishing on autopilot.
           </p>
-          <ul className="mt-8 space-y-3">
+          <ul className="mt-8 space-y-3.5">
             {valueProps.map((prop) => (
-              <li key={prop} className="flex items-start gap-3 text-sm text-foreground/90">
+              <li key={prop} className="flex items-start gap-3 text-sm leading-snug text-foreground/90">
                 <CircleCheckIcon className="mt-0.5 size-5 shrink-0 text-accent" />
                 {prop}
               </li>
@@ -93,7 +93,7 @@ export function LoginForm() {
           </ul>
         </div>
 
-        <p className="text-xs text-muted" suppressHydrationWarning>
+        <p className="text-xs tracking-[0.02em] text-muted" suppressHydrationWarning>
           © {new Date().getFullYear()} seogeoaeo.ai
         </p>
       </aside>
@@ -102,15 +102,15 @@ export function LoginForm() {
       <div className="flex min-h-screen items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="mb-8 flex justify-center lg:hidden">
-            <Link href="/" aria-label="seogeoaeo.ai home">
+            <Link href="/" aria-label="seogeoaeo.ai home" className="pressable rounded-lg">
               <SgaLogo />
             </Link>
           </div>
 
-          <Card className="w-full">
+          <Card className="material-panel w-full">
             <Card.Header>
-              <Card.Title>Sign in to seogeoaeo.ai</Card.Title>
-              <Card.Description>
+              <Card.Title className="tracking-tight">Sign in to seogeoaeo.ai</Card.Title>
+              <Card.Description className="leading-relaxed">
                 Use Google or GitHub to create your workspace and set up your first brand.
               </Card.Description>
             </Card.Header>
@@ -134,20 +134,20 @@ export function LoginForm() {
               </LoadingButton>
             </Card.Content>
             <Card.Footer className="flex-col items-center gap-3">
-              <p className="text-center text-xs text-muted">
+              <p className="text-center text-xs leading-relaxed text-muted">
                 By continuing you agree to our{" "}
-                <Link href="/terms" className="text-foreground/80 hover:text-foreground">
+                <Link href="/terms" className="text-foreground/80 hover-fine:text-foreground">
                   Terms
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy" className="text-foreground/80 hover:text-foreground">
+                <Link href="/privacy" className="text-foreground/80 hover-fine:text-foreground">
                   Privacy Policy
                 </Link>
                 .
               </p>
               <Link
                 href="/"
-                className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+                className="pressable inline-flex items-center gap-1 rounded-md text-sm text-muted hover-fine:text-foreground"
               >
                 <ArrowLeftIcon className="size-3.5" />
                 Back to home
