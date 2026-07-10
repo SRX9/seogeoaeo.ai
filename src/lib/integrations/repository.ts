@@ -3,6 +3,7 @@ import type { BrandScope } from "@/lib/brand/repository";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { getDb } from "@/lib/db";
 import { integrationSecrets, integrations } from "@/lib/db/schema";
+import { connectorCapabilities } from "@/lib/integrations/capabilities";
 import {
   INTEGRATION_PROVIDERS,
   emptySecretStates,
@@ -76,6 +77,7 @@ export async function listIntegrations(brandId: string): Promise<IntegrationView
       return {
         ...provider,
         provider: provider.id,
+        capabilities: connectorCapabilities(provider.id),
         enabled: row?.enabled ?? false,
         config,
         secretStates,

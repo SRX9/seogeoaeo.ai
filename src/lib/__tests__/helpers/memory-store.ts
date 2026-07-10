@@ -21,6 +21,7 @@ import {
   IntegrationProviderId,
   IntegrationView,
 } from "@/lib/integrations/providers";
+import { connectorCapabilities } from "@/lib/integrations/capabilities";
 import { slugify } from "@/lib/articles/format";
 
 export type WorkspaceRow = { id: string; name: string; autonomyMode: string };
@@ -325,6 +326,7 @@ export function seedIntegration(
   const view: IntegrationView = {
     ...provider,
     provider: seed.provider,
+    capabilities: connectorCapabilities(seed.provider),
     enabled: seed.enabled,
     config: seed.config ?? {},
     secretStates,
@@ -377,6 +379,18 @@ export const dbMock = {
     throw new Error("createDb() must not be called in e2e tests");
   },
   schema: {},
+};
+
+export const agentMemoryRepo = {
+  async listOwnerConstraints() {
+    return [] as string[];
+  },
+};
+
+export const agentEventsRepo = {
+  async recordAgentAction() {
+    return { id: nextId("agent-action") };
+  },
 };
 
 export const articlesRepo = {

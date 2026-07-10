@@ -1,262 +1,213 @@
 "use client";
 
-import { Button } from "@heroui/react/button";
-import { TextShimmer } from "@heroui-pro/react";
+import { Button, Chip } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ClaudiaAvatar } from "@/components/dashboard/claudia-avatar";
+import { SteerClaudia } from "@/components/dashboard/steer-claudia";
 import { CheckIcon, MinusIcon, XIcon } from "@/components/icons";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { apiPost } from "@/lib/api/fetcher";
 import {
   queryKeys,
-  useAgentBrief,
-  useAutomation,
+  useAgentState,
   useMe,
   useSetupRun,
-  type AutomationStats,
   type SetupStep,
 } from "@/lib/api/queries";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { cn } from "@/lib/cn";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** "in 6 hours" / "3 days ago" relative to now, matching the agent card. */
-function relativeLabel(iso: string): string {
-  const diffMs = new Date(iso).getTime() - Date.now();
-  const past = diffMs < 0;
-  const abs = Math.abs(diffMs);
-  const days = Math.round(abs / DAY_MS);
-  const hours = Math.round(abs / (60 * 60 * 1000));
-  const value =
-    days >= 1
-      ? `${days} day${days === 1 ? "" : "s"}`
-      : `${Math.max(hours, 1)} hour${Math.max(hours, 1) === 1 ? "" : "s"}`;
-  return past ? `${value} ago` : `in ${value}`;
-}
-
-function firstName(name: string | undefined): string {
-  return name?.trim().split(/\s+/)[0] ?? "";
-}
-
-/** Her first-person status once setup is done, from durable agent stats. */
-function derivedBrief(a: AutomationStats): string {
-  if (!a.enabled) {
-    return "I'm paused right now — resubscribe and I'll get back to researching and writing for your brand every day.";
-  }
-  const parts: string[] = [];
-  parts.push(
-    a.articlesWritten > 0
-      ? `I've written ${a.articlesWritten} article${a.articlesWritten === 1 ? "" : "s"} for you so far`
-      : "I'm lining up your first articles",
-  );
-  if (a.pendingTopics > 0) {
-    parts.push(
-      `${a.pendingTopics} topic${a.pendingTopics === 1 ? "" : "s"} queued to write next`,
-    );
-  }
-  return `${parts.join(", ")}.`;
-}
-
-function StepIcon({ status }: { status: SetupStep["status"] }) {
+function SetupStepIcon({ status }: { status: SetupStep["status"] }) {
   if (status === "done") return <CheckIcon className="size-3.5 text-success" />;
-  if (status === "skipped") return <MinusIcon className="size-3.5 text-default-400" />;
+  if (status === "skipped") return <MinusIcon className="size-3.5 text-muted" />;
   if (status === "failed") return <XIcon className="size-3.5 text-danger" />;
-  if (status === "running")
-    return (
-      <span
-        className="inline-block size-2 animate-pulse rounded-full bg-accent"
-        aria-label="running"
-      />
-    );
-  return <span className="inline-block size-2 rounded-full border border-default-300" />;
+  if (status === "running") {
+    return <span className="size-2 rounded-full bg-accent" aria-label="Running" />;
+  }
+  return <span className="size-2 rounded-full border border-border" aria-hidden />;
 }
 
 function HeroShell({ children }: { children: React.ReactNode }) {
   return (
-    <section className="material-panel overflow-hidden rounded-2xl p-6 sm:p-8">
+    <section className="relative overflow-hidden rounded-[1.75rem] bg-surface p-6 shadow-surface sm:p-9">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">{children}</div>
     </section>
   );
 }
 
-/**
- * The Overview hero — Claudia at her desk. On a brand-new brand this is her live
- * Setup Run (steps checking off, current one shimmering) so the first thing an
- * owner sees is her working, not an empty dashboard. Once she's set up it becomes
- * her first-person brief plus the next-run schedule. Also owns Ignition when a
- * subscribed brand has no run yet.
- */
+function StateChip({ id, label }: { id: string; label: string }) {
+  const color =
+    id === "needs_attention"
+      ? "danger"
+      : id === "waiting_for_you"
+        ? "warning"
+        : id === "working_now" || id === "on_duty"
+          ? "success"
+          : "default";
+  return (
+    <Chip size="sm" color={color} variant="soft">
+      <span className="size-1.5 rounded-full bg-current" aria-hidden />
+      <Chip.Label>{label}</Chip.Label>
+    </Chip>
+  );
+}
+
 export function ClaudiaHero() {
   const queryClient = useQueryClient();
   const me = useMe();
   const setup = useSetupRun();
-  const automation = useAutomation();
-  // The standing daily brief — progressive: the hero never waits on it (the
-  // Day-0 brief / derived stats cover the gap until it loads).
-  const agentBrief = useAgentBrief();
-
+  const agent = useAgentState();
   const start = useMutation({
     mutationFn: () => apiPost("/api/setup-run", {}),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.setupRun }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.setupRun });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
+    },
   });
 
-  // Wait for all three so the hero swaps in as one piece (no header flash).
-  if (me.isLoading || setup.isLoading || automation.isLoading) {
-    return <CardSkeleton lines={4} className="rounded-2xl" />;
+  if (me.isLoading || setup.isLoading || agent.isLoading) {
+    return <CardSkeleton lines={5} className="rounded-[1.75rem]" />;
   }
 
-  const subscribed = isActiveSubscription(me.data?.subscription?.status);
-  const name = firstName(me.data?.user.name);
   const run = setup.data?.run ?? null;
   const labels = setup.data?.labels ?? {};
-  const stats = automation.data;
+  const state = agent.data;
+  const subscribed = isActiveSubscription(me.data?.subscription?.status);
 
-  // ── Live setup: her steps, checking off. The Day-0 "first time" moment. ──
-  if (run && run.status !== "completed") {
-    const failed = run.status === "failed";
-    const runningStep = run.steps.find((s) => s.status === "running");
-    const doneCount = run.steps.filter(
-      (s) => s.status === "done" || s.status === "skipped",
-    ).length;
-    return (
-      <HeroShell>
-        <ClaudiaAvatar working={!failed} />
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="type-title text-xl text-foreground">
-                {failed ? "Claudia paused mid-setup" : "Claudia is setting up your brand"}
-              </h2>
-              <div className="mt-1.5 text-sm leading-relaxed text-muted">
-                {failed ? (
-                  "She hit a snag. Pick up where she left off."
-                ) : runningStep ? (
-                  <TextShimmer className="text-muted">
-                    {labels[runningStep.key] ?? "Working…"}
-                  </TextShimmer>
-                ) : (
-                  "You can leave — she'll finish without you and post her Day-0 brief here."
-                )}
-              </div>
-            </div>
-            {failed ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                isDisabled={start.isPending}
-                onPress={() => start.mutate()}
-              >
-                {start.isPending ? "Resuming…" : "Resume setup"}
-              </Button>
-            ) : (
-              <span className="shrink-0 text-sm text-muted tabular-nums">
-                {doneCount}/{run.steps.length} done
-              </span>
-            )}
-          </div>
-
-          <ul className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-            {run.steps.map((step) => (
-              <li key={step.key} className="flex items-start gap-2 text-sm">
-                <span className="mt-0.5 flex h-5 w-4 shrink-0 items-center justify-center">
-                  <StepIcon status={step.status} />
-                </span>
-                <span
-                  className={cn(
-                    step.status === "pending"
-                      ? "text-default-400"
-                      : step.status === "failed"
-                        ? "text-danger"
-                        : "text-foreground",
-                  )}
-                >
-                  {step.status === "running" ? (
-                    <TextShimmer>{labels[step.key] ?? step.key}</TextShimmer>
-                  ) : (
-                    (labels[step.key] ?? step.key)
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </HeroShell>
-    );
-  }
-
-  // ── No run yet: Ignition (subscribed) or a plan nudge (not subscribed). ──
   if (!run) {
     return (
       <HeroShell>
         <ClaudiaAvatar working={start.isPending} />
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
-            <h2 className="type-title text-xl text-foreground">
-              {subscribed
-                ? `${name ? `${name}, ` : ""}Claudia is ready to set herself up`
-                : "Claudia is ready when you are"}
-            </h2>
-            <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted">
-              First audit, the questions buyers ask AI, a competitor baseline, topic research,
-              and your first article — all included, no steps for you.
-            </p>
+        <div className="min-w-0 flex-1">
+          <Chip size="sm" variant="soft">Ready to begin</Chip>
+          <h1 className="mt-4 max-w-2xl text-2xl text-foreground sm:text-3xl">
+            Build the evidence Claudia needs to run the brand
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
+            She will audit the site, map buyer questions, establish competitor context, research
+            the first opportunities, and prepare the first week of work.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {subscribed ? (
+              <Button isPending={start.isPending} onPress={() => start.mutate()}>
+                {start.isPending ? "Starting…" : "Put Claudia to work"}
+              </Button>
+            ) : (
+              <Link href="/account?tab=billing">
+                <Button>Choose a plan</Button>
+              </Link>
+            )}
           </div>
-          {subscribed ? (
-            <Button isDisabled={start.isPending} onPress={() => start.mutate()}>
-              {start.isPending ? "Starting…" : "Put Claudia to work"}
-            </Button>
-          ) : (
-            <Link href="/account?tab=billing" className="inline-block">
-              <Button>Choose a plan</Button>
-            </Link>
-          )}
         </div>
       </HeroShell>
     );
   }
 
-  // ── Settled: her brief + next run. ──
-  const working =
-    !!stats &&
-    stats.enabled &&
-    stats.agentState !== "paused_no_subscription" &&
-    stats.agentState !== "paused_no_credits";
-  // Freshest first: the daily brief (regenerated after every run), then the
-  // one-time Day-0 brief, then a deterministic line from durable stats.
-  const dailyBrief = agentBrief.data?.brief?.text?.trim();
-  const brief = dailyBrief || run.briefText?.trim() || (stats ? derivedBrief(stats) : "");
-  const briefLabel = dailyBrief
-    ? "Claudia's brief"
-    : run.briefText?.trim()
-      ? "Claudia's Day-0 brief"
-      : "On the job";
+  if (run.status !== "completed") {
+    const failed = run.status === "failed";
+    const current = run.steps.find((step) => step.status === "running");
+    const done = run.steps.filter(
+      (step) => step.status === "done" || step.status === "skipped",
+    ).length;
+    return (
+      <HeroShell>
+        <ClaudiaAvatar working={!failed} />
+        <div className="min-w-0 flex-1">
+          <StateChip
+            id={failed ? "needs_attention" : "working_now"}
+            label={failed ? "Needs attention" : "Working now"}
+          />
+          <h1 className="mt-4 text-2xl text-foreground sm:text-3xl">
+            {failed
+              ? "Setup stopped before the operating baseline was ready"
+              : current
+                ? labels[current.key] ?? "Building the brand operating baseline"
+                : "Building the brand operating baseline"}
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
+            {failed
+              ? "Resume from the first unfinished step. Completed evidence will not be repeated."
+              : "This is real setup work. You can leave and the durable workflow will continue."}
+          </p>
+          <div className="mt-6 grid gap-x-8 gap-y-2 sm:grid-cols-2" aria-live="polite">
+            {run.steps.map((step) => (
+              <div key={step.key} className="flex min-h-8 items-start gap-2 text-sm">
+                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
+                  <SetupStepIcon status={step.status} />
+                </span>
+                <span
+                  className={cn(
+                    step.status === "pending" ? "text-muted" : "text-foreground",
+                    step.status === "failed" && "text-danger",
+                  )}
+                >
+                  {labels[step.key] ?? step.key}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <span className="text-sm text-muted tabular-nums">
+              {done} of {run.steps.length} steps complete
+            </span>
+            {failed ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                isPending={start.isPending}
+                onPress={() => start.mutate()}
+              >
+                Resume setup
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </HeroShell>
+    );
+  }
+
+  if (!state) return <CardSkeleton lines={5} className="rounded-[1.75rem]" />;
+  const headline = state.now
+    ? state.now.title
+    : state.waiting
+      ? state.waiting.title
+      : state.next[0]
+        ? `Next: ${state.next[0].title}`
+        : state.mission.objective;
+  const context = state.now?.reason ?? state.waiting?.blockedValue ?? state.plan.rationale;
 
   return (
     <HeroShell>
-      <ClaudiaAvatar working={working} />
-      <div className="min-w-0 flex-1 space-y-3">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
-            {briefLabel}
-          </p>
-          <h2 className="type-title mt-1.5 text-xl text-foreground">
-            {name ? `Hi ${name} — ` : ""}here&apos;s where things stand
-          </h2>
+      <ClaudiaAvatar working={state.presence.isWorking} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <StateChip id={state.presence.id} label={state.presence.label} />
+          <span className="text-xs text-muted tabular-nums">Plan v{state.plan.version}</span>
         </div>
-        {brief ? (
-          <p className="max-w-prose text-sm leading-relaxed text-foreground">{brief}</p>
-        ) : null}
-        {stats?.nextRunAt ? (
-          <p className="text-sm text-muted">
-            Next run{" "}
-            <span className="font-medium text-foreground">
-              {relativeLabel(stats.nextRunAt)}
-            </span>{" "}
-            · {stats.schedule}
+        <p className="mt-4 text-sm font-medium text-muted">{state.mission.objective}</p>
+        <h1 className="mt-2 max-w-3xl text-2xl text-foreground sm:text-3xl">{headline}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">{context}</p>
+        {state.next[0]?.scheduledFor && !state.now ? (
+          <p className="mt-3 text-sm text-muted">
+            Scheduled for{" "}
+            <time dateTime={state.next[0].scheduledFor} suppressHydrationWarning>
+              {new Date(state.next[0].scheduledFor).toLocaleString([], {
+                weekday: "short",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </time>
           </p>
         ) : null}
+        <div className="mt-6 flex flex-wrap gap-2">
+          <SteerClaudia />
+          {state.waiting ? (
+            <Link href={state.waiting.href}>
+              <Button variant="ghost">{state.waiting.actionLabel}</Button>
+            </Link>
+          ) : null}
+        </div>
       </div>
     </HeroShell>
   );

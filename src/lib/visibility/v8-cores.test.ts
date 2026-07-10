@@ -68,8 +68,8 @@ describe("visibility agent cadence", () => {
     expect(dueForReaudit(new Date("2026-01-01"), "none", now)).toBe(false);
   });
 
-  it("only auto-applies auto-capable categories at Level 2", () => {
-    expect(canAutoApply(2, "auto")).toBe(true);
+  it("does not claim auto-apply until a live connector can perform the fix", () => {
+    expect(canAutoApply(2, "auto")).toBe(false);
     expect(canAutoApply(2, "artifact")).toBe(false);
     expect(canAutoApply(1, "auto")).toBe(false);
   });

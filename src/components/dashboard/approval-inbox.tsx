@@ -389,11 +389,7 @@ export function ApprovalInbox({
       ) : null}
 
       {rows.length === 0 ? (
-        <Card className="material-panel p-5">
-          <p className="text-sm leading-relaxed text-foreground">
-            Nothing — I&apos;ve got it. Check back after my next run.
-          </p>
-        </Card>
+        <p className="text-sm leading-relaxed text-muted">Nothing needed from you.</p>
       ) : (
         <Card className="material-panel divide-y divide-border/50 p-0">
           {visible.map((row) => {

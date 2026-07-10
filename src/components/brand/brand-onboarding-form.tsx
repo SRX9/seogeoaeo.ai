@@ -1,36 +1,25 @@
 "use client";
 
-import { Button } from "@heroui/react/button";
-import { Input } from "@heroui/react/input";
-import { Label } from "@heroui/react/label";
-import { TextArea } from "@heroui/react/textarea";
-import { Select } from "@heroui/react/select";
-import { ListBox } from "@heroui/react/list-box";
+import {
+  Button,
+  Input,
+  Label,
+  ListBox,
+  Select,
+  TextArea,
+} from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ChangeEventHandler,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
 } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { CheckIcon } from "@/components/icons";
-import {
-  CompetitorRadar,
-  CompetitorSuggestionCard,
-} from "@/components/brand/competitor-visuals";
-import {
-  onboardingStepSpring,
-  onboardingStepVariants,
-} from "@/components/brand/onboarding-step-motion";
 import { LoadingButton } from "@/components/ui/loading-button";
-import { TagInput } from "@/components/ui/tag-input";
-import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
-import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe } from "@/lib/api/queries";
 import {
@@ -41,6 +30,8 @@ import {
   type PlanId,
 } from "@/lib/billing/plans";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
+import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
+import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
 import type {
   IntegrationConfigKey,
   IntegrationProviderDefinition,
@@ -49,69 +40,8 @@ import type {
 } from "@/lib/integrations/providers";
 
 type ProviderOption = IntegrationProviderDefinition;
-
-/*
- * Fullscreen, one-question-at-a-time onboarding. Deliberately no step list,
- * numbers, or counters — a thin progress bar is the only pacing cue, so the
- * flow never reads as "homework". Each screen is a conversation beat where
- * Claudia does the work (prefill, competitor scan, customer-profile search) and
- * the user just confirms. The final screen is the paywall: paid-first, no idle state.
- */
-const STEPS = [
-  {
-    question: "What's your brand called?",
-    hint: "Day one: she only needs a name and site — she reads the rest herself.",
-    optional: false,
-  },
-  {
-    question: "Here's how she understood you",
-    hint: "Confirm or tweak — correction is cheaper than a blank form.",
-    optional: false,
-  },
-  {
-    question: "Any topics you already know matter?",
-    hint: "Optional seeds for her first research. She'll find plenty more on her own.",
-    optional: true,
-  },
-  {
-    question: "Here are your closest rivals",
-    hint: "She scanned the market — untick anyone who isn't a real competitor.",
-    optional: true,
-  },
-  {
-    question: "Who are you trying to reach?",
-    hint: "She studied what you offer and drafted customer profiles. Toggle what fits.",
-    optional: true,
-  },
-  {
-    question: "Where should she publish?",
-    hint: "Connect a CMS now or later under Brand → Connections. Drafts still pile up either way.",
-    optional: true,
-  },
-  {
-    question: "How should Claudia work for you?",
-    hint: "One dial — you can change it anytime under Brand → How I work.",
-    optional: false,
-  },
-  {
-    question: "Hire Claudia",
-    hint: "",
-    optional: false,
-  },
-] as const;
-
-// Step indices — named so the flow reads clearly and reorders safely.
-const STEP_BASICS = 0;
-const STEP_POSITIONING = 1;
-const STEP_KEYWORDS = 2;
-const STEP_COMPETITORS = 3;
-const STEP_USE_CASES = 4;
-const STEP_PUBLISHING = 5;
-const STEP_AUTONOMY = 6;
-const STEP_LAUNCH = 7;
-
-type DiscoveredCompetitor = { name: string; url: string; reason?: string };
-type DraftUseCase = { job: string; persona: string; industry: string; enabled: boolean };
+type Competitor = { name: string; url: string; reason?: string };
+type UseCase = { job: string; persona: string; industry: string; enabled: boolean };
 
 type Fields = {
   name: string;
@@ -120,30 +50,17 @@ type Fields = {
   audience: string;
   tone: string;
   seedKeywords: string;
-  competitors: DiscoveredCompetitor[];
-  useCases: DraftUseCase[];
+  competitors: Competitor[];
+  useCases: UseCase[];
   integrationProvider: "" | IntegrationProviderId;
   integrationConfig: Record<string, string>;
   integrationSecrets: Record<string, string>;
   autonomyMode: "FULL_AUTO" | "REVIEW";
 };
 
-// The scalar text fields the `set` helper drives.
-type TextFieldKey = "name" | "website" | "productDescription" | "audience" | "tone" | "seedKeywords";
-
-type BrandCreatePayload = {
-  name: string;
-  website: string;
-  productDescription: string;
-  audience: string;
-  tone: string;
-  seedKeywords: string;
-  competitors: { name: string; url: string }[];
-  useCases: { job: string; persona: string; industry: string }[];
-  integrationProvider: "" | IntegrationProviderId;
-  integrationConfig: Record<string, string>;
-  integrationSecrets: Record<string, string>;
-  autonomyMode: "FULL_AUTO" | "REVIEW";
+type BrandCreatePayload = Omit<Fields, "competitors" | "useCases"> & {
+  competitors: Array<{ name: string; url: string }>;
+  useCases: Array<{ job: string; persona: string; industry: string }>;
   resumeExisting?: boolean;
   checkoutSessionId?: string;
 };
@@ -163,62 +80,42 @@ const INITIAL_FIELDS: Fields = {
   autonomyMode: "FULL_AUTO",
 };
 
-// AP2 — the one autonomy question at onboarding. Per-category fine-tuning
-// lives in settings for the few who want it.
-const AUTONOMY_OPTIONS = [
-  {
-    value: "FULL_AUTO" as const,
-    title: "Autopilot",
-    recommended: true,
-    description:
-      "She publishes articles to your CMS herself and prepares ready site fixes in your inbox. You install site artifacts; she re-checks next audit.",
-  },
-  {
-    value: "REVIEW" as const,
-    title: "Copilot",
-    recommended: false,
-    description:
-      "Same work, but article drafts wait in your Inbox until you approve. Site fixes stay ready-to-install either way.",
-  },
-];
-
-const POPULAR_PLAN: PlanId = "startup";
-
-// Sentinel key for the "skip" option in the publishing Select. The Select works
-// in terms of keys, so we map this back to an empty `integrationProvider`.
-const SKIP_PROVIDER_KEY = "__skip__";
-
-// Fields the AI prefill can populate. Kept in sync with the prefill API response.
-const PREFILL_KEYS = ["productDescription", "audience", "tone", "seedKeywords"] as const;
-
-// Cycled under the prefill overlay so it reads as active work, not a dead spinner.
-const PREFILL_MESSAGES = [
-  "Reading your website…",
-  "Understanding what your brand does…",
-  "Identifying your audience and tone…",
-  "Picking seed keywords to research…",
+const MOMENTS = [
+  { title: "Give Claudia the site", description: "One required input. She reads the rest." },
+  { title: "Review the operating brief", description: "Correct assumptions in one place." },
+  { title: "Set authority and start", description: "Choose how she acts, then leave." },
 ] as const;
 
-// The onboarding draft survives the Stripe redirect (checkout happens before the
-// brand exists) and a mid-flow refresh. Cleared once the brand is created.
-const DRAFT_KEY = "claudia:onboarding-draft";
+const DRAFT_KEY = "claudia:onboarding-v2-draft";
+const SKIP_PROVIDER_KEY = "__skip__";
+const POPULAR_PLAN: PlanId = "startup";
 
-type OnboardingDraft = { fields: Fields; step: number; checkoutSessionId?: string | null };
+type Draft = { fields: Fields; moment: number; checkoutSessionId?: string | null };
+type Bootstrap = {
+  fields: Fields;
+  moment: number;
+  phase: "form" | "finalizing";
+  checkoutSessionId: string | null;
+  error: string | null;
+  cleanUrl: boolean;
+};
 
-function loadDraft(): OnboardingDraft | null {
+const subscribeToClient = () => () => undefined;
+
+function loadDraft(): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as OnboardingDraft) : null;
+    return raw ? (JSON.parse(raw) as Draft) : null;
   } catch {
     return null;
   }
 }
 
-function saveDraft(draft: OnboardingDraft) {
+function saveDraft(draft: Draft) {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch {
-    // Ignore — a full/blocked localStorage just means no resume across redirect.
+    // A blocked storage layer only disables checkout-return resume.
   }
 }
 
@@ -230,19 +127,44 @@ function clearDraft() {
   }
 }
 
+function readBootstrap(): Bootstrap {
+  const draft = loadDraft();
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get("checkout");
+  const sessionId = params.get("session_id");
+  const checkoutSessionId = sessionId ?? draft?.checkoutSessionId ?? null;
+  const finalizing = checkout === "success" || (!checkout && Boolean(checkoutSessionId));
+  const canceled = checkout === "canceled";
+
+  return {
+    fields: draft?.fields ?? INITIAL_FIELDS,
+    moment: canceled ? 2 : Math.min(2, draft?.moment ?? 0),
+    phase: finalizing ? "finalizing" : "form",
+    checkoutSessionId,
+    error: canceled ? "Checkout canceled. Your operating brief is saved." : null,
+    cleanUrl: checkout === "success" || canceled,
+  };
+}
+
 function isValidUrl(value: string) {
   try {
-    new URL(value);
-    return true;
+    return new URL(value).protocol.startsWith("http");
   } catch {
     return false;
   }
 }
 
-function trimRecord(record: Record<string, string>) {
-  return Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [key, value.trim()]),
-  );
+function inferredName(website: string) {
+  try {
+    const label = new URL(website).hostname.replace(/^www\./, "").split(".")[0] ?? "";
+    return label
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  } catch {
+    return "";
+  }
 }
 
 function buildPayload(fields: Fields): BrandCreatePayload {
@@ -253,1211 +175,591 @@ function buildPayload(fields: Fields): BrandCreatePayload {
     audience: fields.audience.trim(),
     tone: fields.tone.trim(),
     seedKeywords: fields.seedKeywords.trim(),
-    competitors: fields.competitors.map((competitor) => ({
-      name: competitor.name,
-      url: competitor.url,
-    })),
-    useCases: fields.useCases
-      .filter((useCase) => useCase.enabled && useCase.job.trim() && useCase.persona.trim())
-      .map((useCase) => ({
-        job: useCase.job,
-        persona: useCase.persona,
-        industry: useCase.industry,
-      })),
+    competitors: fields.competitors.map(({ name, url }) => ({ name, url })),
+    useCases: fields.useCases.reduce<BrandCreatePayload["useCases"]>((result, item) => {
+      if (item.enabled && item.job.trim() && item.persona.trim()) {
+        result.push({ job: item.job, persona: item.persona, industry: item.industry });
+      }
+      return result;
+    }, []),
     integrationProvider: fields.integrationProvider,
-    integrationConfig: trimRecord(fields.integrationConfig),
-    integrationSecrets: trimRecord(fields.integrationSecrets),
+    integrationConfig: Object.fromEntries(
+      Object.entries(fields.integrationConfig).map(([key, value]) => [key, value.trim()]),
+    ),
+    integrationSecrets: Object.fromEntries(
+      Object.entries(fields.integrationSecrets).map(([key, value]) => [key, value.trim()]),
+    ),
     autonomyMode: fields.autonomyMode,
   };
 }
 
+async function discoverOperatingBrief(name: string, website: string) {
+  let profile = { productDescription: "", audience: "", tone: "", seedKeywords: "" };
+  try {
+    const result = await apiPost<{ profile: typeof profile }>("/api/brand/prefill", {
+      name,
+      website,
+    });
+    profile = result.profile;
+  } catch {
+    // The brief remains editable when enrichment is unavailable.
+  }
+
+  const [competitors, useCases] = await Promise.all([
+    apiPost<{ suggestions: Competitor[] }>("/api/brand/competitors/preview", {
+      name,
+      website,
+      productDescription: profile.productDescription,
+      seedKeywords: profile.seedKeywords,
+    }).catch(() => ({ suggestions: [] })),
+    apiPost<{ useCases: Array<{ job: string; persona: string; industry: string | null }> }>(
+      "/api/brand/use-cases/preview",
+      {
+        name,
+        website,
+        productDescription: profile.productDescription,
+        audience: profile.audience,
+        seedKeywords: profile.seedKeywords,
+      },
+    ).catch(() => ({ useCases: [] })),
+  ]);
+
+  return {
+    profile,
+    competitors: competitors.suggestions.slice(0, MAX_COMPETITORS),
+    useCases: useCases.useCases.map((item) => ({
+      job: item.job,
+      persona: item.persona,
+      industry: item.industry ?? "",
+      enabled: true,
+    })),
+  };
+}
+
 export function BrandOnboardingForm({ providers }: { providers: ProviderOption[] }) {
+  const isClient = useSyncExternalStore(subscribeToClient, () => true, () => false);
+  if (!isClient) {
+    return (
+      <CenteredFrame>
+        <p className="text-sm text-muted">Preparing Claudia setup…</p>
+      </CenteredFrame>
+    );
+  }
+  return <BrandOnboardingClient providers={providers} />;
+}
+
+function BrandOnboardingClient({ providers }: { providers: ProviderOption[] }) {
+  const [bootstrap] = useState(readBootstrap);
   const router = useRouter();
   const queryClient = useQueryClient();
   const me = useMe();
-  const isSubscribed = isActiveSubscription(me.data?.subscription?.status);
-
-  const [step, setStep] = useState(0);
-  /** +1 = forward, −1 = back — drives symmetric enter/exit paths. */
-  const [stepDirection, setStepDirection] = useState(1);
-  const prefersReducedMotion = useReducedMotion();
-  // Controlled fields — HeroUI/react-aria inputs do not reliably surface their
-  // value through native FormData when used bare, so we own the state here.
-  const [fields, setFields] = useState<Fields>(INITIAL_FIELDS);
-  const [error, setError] = useState<string | null>(null);
-  const [prefillState, setPrefillState] = useState({ prefilled: false, messageIndex: 0 });
-  const [competitorSuggestions, setCompetitorSuggestions] = useState<DiscoveredCompetitor[]>([]);
+  const subscribed = isActiveSubscription(me.data?.subscription?.status);
+  const [moment, setMoment] = useState(bootstrap.moment);
+  const [fields, setFields] = useState<Fields>(bootstrap.fields);
   const [manualCompetitor, setManualCompetitor] = useState({ name: "", url: "" });
+  const [error, setError] = useState<string | null>(bootstrap.error);
+  const [phase, setPhase] = useState<"form" | "finalizing">(bootstrap.phase);
+  const checkoutSessionId = bootstrap.checkoutSessionId;
   const [checkoutLoading, setCheckoutLoading] = useState<PlanId | null>(null);
-  // "finalizing" = returned from Stripe; restore draft, confirm the checkout
-  // session server-side (webhook stays as backup), then create the brand.
-  const [phase, setPhase] = useState<"form" | "finalizing">("form");
   const [finalizeTimedOut, setFinalizeTimedOut] = useState(false);
-  // Bumped on "Try again" so the poll effect re-arms its timers; effects keyed
-  // only on phase/isSubscribed never re-run when a retry leaves both unchanged.
-  const [finalizeAttempt, setFinalizeAttempt] = useState(0);
-  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
-  // Persistence is gated until bootstrap has read localStorage, so the empty
-  // initial state never clobbers a saved draft (e.g. across the Stripe redirect).
-  const [ready, setReady] = useState(false);
+  const finalizeStarted = useRef(false);
 
-  // The name+website we last sent to prefill / discovery, so re-entering a step
-  // only re-runs the work when the inputs actually changed.
-  const lastPrefillKey = useRef("");
-  const competitorKeyRef = useRef("");
-  const useCaseKeyRef = useRef("");
-  const bootstrappedRef = useRef(false);
-  const finalizeStartedRef = useRef(false);
-  const fieldsRef = useRef(fields);
-  const stepRef = useRef<HTMLDivElement>(null);
-  const lastStep = STEPS.length - 1;
-
-  useEffect(() => {
-    fieldsRef.current = fields;
-  }, [fields]);
-
-  // Coming Back from Stripe can restore this page from bfcache with the
-  // "Redirecting…" state frozen on the plan buttons — clear it.
   useBfcacheReset(() => setCheckoutLoading(null));
 
-  // Autofocus the first field of each screen so Enter-to-continue flows
-  // without reaching for the mouse.
-  useEffect(() => {
-    const el = stepRef.current?.querySelector<HTMLElement>("input, textarea");
-    el?.focus();
-  }, [step]);
-
-  const setField = (key: TextFieldKey, value: string) =>
-    setFields((prev) => ({ ...prev, [key]: value }));
-
-  const set =
-    (key: TextFieldKey) =>
-    (event: { target: { value: string } }) =>
-      setField(key, event.target.value);
-
-  const setIntegrationConfig =
-    (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) =>
-      setFields((prev) => ({
-        ...prev,
-        integrationConfig: { ...prev.integrationConfig, [key]: event.target.value },
+  const discover = useMutation({
+    mutationFn: ({ name, website }: { name: string; website: string }) =>
+      discoverOperatingBrief(name, website),
+    onSuccess: (result) => {
+      setFields((current) => ({
+        ...current,
+        productDescription: result.profile.productDescription,
+        audience: result.profile.audience,
+        tone: result.profile.tone,
+        seedKeywords: result.profile.seedKeywords,
+        competitors: result.competitors,
+        useCases: result.useCases,
       }));
-
-  const setIntegrationSecret =
-    (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) =>
-      setFields((prev) => ({
-        ...prev,
-        integrationSecrets: { ...prev.integrationSecrets, [key]: event.target.value },
-      }));
-
-  // AI prefill — best-effort, runs on the entered name + website without saving
-  // anything. Only fills fields the user hasn't touched, and a failure is silent
-  // so the user can always continue filling the form manually.
-  const prefill = useMutation({
-    mutationFn: (payload: { name: string; website: string }) =>
-      apiPost<{ profile: Record<(typeof PREFILL_KEYS)[number], string> }>(
-        "/api/brand/prefill",
-        payload,
-      ),
-    onSuccess: ({ profile }) => {
-      setFields((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        for (const key of PREFILL_KEYS) {
-          if (!prev[key].trim() && profile[key]?.trim()) {
-            next[key] = profile[key];
-            changed = true;
-          }
-        }
-        if (changed) {
-          setPrefillState((state) => ({ ...state, prefilled: true }));
-        }
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
+      setMoment(1);
+    },
+    onError: () => {
+      setError("I couldn't read the site yet. Add the brief manually and continue.");
+      setMoment(1);
     },
   });
 
-  // Competitor autofill — free during onboarding (no brand row, no credits),
-  // rate-limited server-side. Pre-selects everything it finds; the user unticks.
-  const competitorsPreview = useMutation({
-    mutationFn: (payload: {
-      name: string;
-      website: string;
-      productDescription: string;
-      seedKeywords: string;
-    }) => apiPost<{ suggestions: DiscoveredCompetitor[] }>("/api/brand/competitors/preview", payload),
-    onSuccess: ({ suggestions }) => {
-      setCompetitorSuggestions(suggestions);
-      setFields((prev) => ({ ...prev, competitors: suggestions.slice(0, MAX_COMPETITORS) }));
-    },
-  });
-
-  // Target-profile autofill — same free/preview treatment. Finds the customer
-  // and user profiles worth targeting from the prefilled product profile.
-  const useCasesPreview = useMutation({
-    mutationFn: (payload: {
-      name: string;
-      website: string;
-      productDescription: string;
-      audience: string;
-      seedKeywords: string;
-    }) =>
-      apiPost<{ useCases: { job: string; persona: string; industry: string | null }[] }>(
-        "/api/brand/use-cases/preview",
-        payload,
-      ),
-    onSuccess: ({ useCases }) => {
-      setFields((prev) => ({
-        ...prev,
-        useCases: useCases.map((useCase) => ({
-          job: useCase.job,
-          persona: useCase.persona,
-          industry: useCase.industry ?? "",
-          enabled: true,
-        })),
-      }));
-    },
-  });
-
-  function runCompetitorPreview(force: boolean) {
-    const current = fieldsRef.current;
-    const name = current.name.trim();
-    if (!name) return;
-    const key = `${name}|${current.website.trim()}`;
-    if (!force && (competitorKeyRef.current === key || competitorsPreview.isPending)) return;
-    competitorKeyRef.current = key;
-    competitorsPreview.mutate({
-      name,
-      website: current.website.trim(),
-      productDescription: current.productDescription.trim(),
-      seedKeywords: current.seedKeywords.trim(),
-    });
-  }
-
-  function runUseCasePreview(force: boolean) {
-    const current = fieldsRef.current;
-    const name = current.name.trim();
-    if (!name) return;
-    const key = `${name}|${current.productDescription.trim().slice(0, 80)}`;
-    if (!force && (useCaseKeyRef.current === key || useCasesPreview.isPending)) return;
-    useCaseKeyRef.current = key;
-    useCasesPreview.mutate({
-      name,
-      website: current.website.trim(),
-      productDescription: current.productDescription.trim(),
-      audience: current.audience.trim(),
-      seedKeywords: current.seedKeywords.trim(),
-    });
-  }
-
-  // Kick off the auto-discovery when the user reaches each step. Guarded by a key
-  // ref so navigating back and forth doesn't re-run identical work.
-  useEffect(() => {
-    if (phase !== "form") return;
-    if (step === STEP_COMPETITORS) runCompetitorPreview(false);
-    if (step === STEP_USE_CASES) runUseCasePreview(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, phase]);
-
-  // Cycle the overlay copy while prefill runs so it feels alive, not stuck.
-  useEffect(() => {
-    if (!prefill.isPending) {
-      setPrefillState((state) => ({ ...state, messageIndex: 0 }));
-      return;
-    }
-    const id = setInterval(
-      () =>
-        setPrefillState((state) => ({
-          ...state,
-          messageIndex: (state.messageIndex + 1) % PREFILL_MESSAGES.length,
-        })),
-      1500,
-    );
-    return () => clearInterval(id);
-  }, [prefill.isPending]);
-
-  // Create the brand, its profile, competitors, target profiles, and an optional
-  // publishing integration in one request, then start Claudia's Setup Run.
   const create = useMutation({
-    mutationFn: (data: BrandCreatePayload) =>
-      apiPost<{ brand: { id: string; name: string }; canIgnite?: boolean }>("/api/brands", data),
+    mutationFn: (payload: BrandCreatePayload) =>
+      apiPost<{ brand: { id: string }; canIgnite: boolean }>("/api/brands", payload),
     onSuccess: async ({ canIgnite }) => {
       clearDraft();
-      // The API starts Claudia's Setup Run with the new brand id before it
-      // responds, so this client only has to refresh caches and navigate.
-      // Await the `me` refetch: the app layout decides "needs onboarding" from its
-      // brand count, so we must not navigate until `me` reflects the new brand.
       await queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      queryClient.invalidateQueries({ queryKey: queryKeys.brands });
-      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
-      queryClient.invalidateQueries({ queryKey: queryKeys.brandProfile });
-      queryClient.invalidateQueries({ queryKey: queryKeys.competitors });
-      queryClient.invalidateQueries({ queryKey: queryKeys.useCases });
-      queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
       router.push(canIgnite ? "/dashboard" : "/account?tab=billing&next=ignition");
     },
-    onError: (err) => {
-      setError(getErrorMessage(err, "Could not create brand. Please try again."));
-    },
+    onError: (failure) => setError(getErrorMessage(failure, "Could not create this brand.")),
   });
 
-  function submitCreate() {
-    const current = fieldsRef.current;
-    if (!current.name.trim()) {
-      setError("Brand name is required.");
+  const submitCreate = useCallback(() => {
+    if (!fields.name.trim()) {
+      setError("Add a brand name before starting.");
       setPhase("form");
-      setStep(STEP_BASICS);
+      setMoment(1);
       return;
     }
     setError(null);
     create.mutate({
-      ...buildPayload(current),
+      ...buildPayload(fields),
       resumeExisting: phase === "finalizing",
       checkoutSessionId: phase === "finalizing" ? checkoutSessionId ?? undefined : undefined,
     });
-  }
+  }, [checkoutSessionId, create, fields, phase]);
 
-  // Persist the draft on every change so a Stripe redirect (or refresh) can
-  // resume exactly where the user left off. Gated on `ready` so it never runs
-  // before bootstrap has restored (and thus can't clobber the saved draft), and
-  // skipped while finalizing.
   useEffect(() => {
-    if (!ready || phase === "finalizing") return;
-    saveDraft({ fields, step });
-  }, [ready, fields, step, phase]);
+    if (bootstrap.cleanUrl) {
+      window.history.replaceState(null, "", "/onboarding");
+    }
+  }, [bootstrap.cleanUrl]);
 
-  // Bootstrap: restore any draft and react to the checkout return params. Runs
-  // once on mount before anything else touches state.
   useEffect(() => {
-    if (bootstrappedRef.current) return;
-    bootstrappedRef.current = true;
+    if (phase === "form") saveDraft({ fields, moment });
+  }, [fields, moment, phase]);
 
-    const params = new URLSearchParams(window.location.search);
-    const checkout = params.get("checkout");
-    const sessionId = params.get("session_id");
-    const draft = loadDraft();
-
-    if (draft) {
-      setFields(draft.fields);
-      setCompetitorSuggestions(draft.fields.competitors ?? []);
-      // Preserve restored picks — seed the dedupe keys so resuming on the
-      // competitor/profile step doesn't re-run discovery and re-select all.
-      const signature = `${draft.fields.name?.trim() ?? ""}|${draft.fields.website?.trim() ?? ""}`;
-      if (draft.fields.competitors?.length) competitorKeyRef.current = signature;
-      if (draft.fields.useCases?.length) {
-        useCaseKeyRef.current = `${draft.fields.name?.trim() ?? ""}|${(draft.fields.productDescription ?? "").trim().slice(0, 80)}`;
-      }
-    }
-
-    if (checkout === "success") {
-      const resumeSessionId = sessionId ?? draft?.checkoutSessionId ?? null;
-      if (resumeSessionId) {
-        setCheckoutSessionId(resumeSessionId);
-        if (draft) {
-          saveDraft({ ...draft, checkoutSessionId: resumeSessionId });
-        }
-      }
-      setPhase("finalizing");
-      window.history.replaceState(null, "", "/onboarding");
-    } else if (checkout === "canceled") {
-      if (draft?.checkoutSessionId) {
-        saveDraft({ ...draft, checkoutSessionId: null });
-      }
-      setStep(STEP_LAUNCH);
-      setError("Checkout canceled — pick a plan when you're ready. Your setup is saved.");
-      window.history.replaceState(null, "", "/onboarding");
-    } else if (draft?.checkoutSessionId) {
-      setCheckoutSessionId(draft.checkoutSessionId);
-      setPhase("finalizing");
-    } else if (draft) {
-      setStep(Math.min(draft.step ?? 0, lastStep));
-    }
-
-    setReady(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Confirm the checkout session server-side the moment we're back from Stripe.
-  // This activates the subscription synchronously (idempotent with the webhook),
-  // so the poll below is only a fallback for the rare confirm failure.
   const refetchMe = me.refetch;
-  const checkoutConfirm = useCheckoutConfirm({
+  useCheckoutConfirm({
     sessionId: checkoutSessionId,
-    enabled: phase === "finalizing" && !isSubscribed,
+    enabled: phase === "finalizing" && !subscribed,
     onSettled: () => void refetchMe(),
   });
 
-  // While finalizing, poll the subscription until it flips active — normally the
-  // confirm call above settles this immediately; the poll covers webhook-only
-  // races and transient confirm failures. After 45s we surface "Still
-  // activating…" with a retry; after 2 minutes we stop waiting and hand off to
-  // the app — the Stripe webhook remains the activation path, and the saved
-  // draft brings the user straight back to the launch step.
   useEffect(() => {
-    if (phase !== "finalizing" || isSubscribed) return;
-    const poll = setInterval(() => {
-      void refetchMe();
-    }, 2500);
-    const timeout = setTimeout(() => setFinalizeTimedOut(true), 45000);
-    const deadline = setTimeout(() => router.push("/dashboard"), 120000);
+    if (phase !== "finalizing" || subscribed) return;
+    const poll = setInterval(() => void refetchMe(), 2_500);
+    const timeout = setTimeout(() => setFinalizeTimedOut(true), 45_000);
     return () => {
       clearInterval(poll);
       clearTimeout(timeout);
-      clearTimeout(deadline);
     };
-  }, [phase, isSubscribed, refetchMe, router, finalizeAttempt]);
+  }, [phase, refetchMe, subscribed]);
 
-  // Once the subscription is active, create the brand exactly once.
   useEffect(() => {
-    if (phase === "finalizing" && isSubscribed && !finalizeStartedRef.current) {
-      finalizeStartedRef.current = true;
+    if (phase === "finalizing" && subscribed && !finalizeStarted.current) {
+      finalizeStarted.current = true;
       submitCreate();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, isSubscribed]);
+  }, [phase, submitCreate, subscribed]);
+
+  function beginDiscovery() {
+    const website = fields.website.trim();
+    if (!isValidUrl(website)) {
+      setError("Enter a full website URL, including https://");
+      return;
+    }
+    const name = fields.name.trim() || inferredName(website);
+    if (!name) {
+      setError("Add a brand name so Claudia knows what to look for.");
+      return;
+    }
+    setError(null);
+    setFields((current) => ({ ...current, name }));
+    discover.mutate({ name, website });
+  }
 
   async function startCheckout(planId: PlanId) {
     setError(null);
     setCheckoutLoading(planId);
-    // Force-save so the draft is on disk before we leave the page.
-    saveDraft({ fields, step: STEP_LAUNCH, checkoutSessionId: null });
+    saveDraft({ fields, moment: 2, checkoutSessionId: null });
     try {
-      const data = await apiPost<{ url: string }>("/api/billing/checkout", {
+      const result = await apiPost<{ url: string }>("/api/billing/checkout", {
         planId,
         returnTo: "onboarding",
       });
-      window.location.href = data.url;
-    } catch (err) {
-      setError(getErrorMessage(err, "Could not start checkout. Please try again."));
+      window.location.href = result.url;
+    } catch (failure) {
+      setError(getErrorMessage(failure, "Could not start checkout."));
       setCheckoutLoading(null);
     }
   }
 
-  function toggleCompetitor(url: string) {
-    setFields((prev) => {
-      const has = prev.competitors.some((competitor) => competitor.url === url);
-      if (has) {
-        return { ...prev, competitors: prev.competitors.filter((c) => c.url !== url) };
-      }
-      if (prev.competitors.length >= MAX_COMPETITORS) {
-        return prev;
-      }
-      const suggestion = competitorSuggestions.find((s) => s.url === url);
-      return suggestion ? { ...prev, competitors: [...prev.competitors, suggestion] } : prev;
-    });
-  }
-
-  function addManualCompetitor() {
+  function addCompetitor() {
     const name = manualCompetitor.name.trim();
     const url = manualCompetitor.url.trim();
     if (!name || !isValidUrl(url)) {
-      setError("Enter a competitor name and a valid URL, including https://");
+      setError("Add a competitor name and full URL.");
       return;
     }
     setError(null);
-    const suggestion: DiscoveredCompetitor = { name, url };
-    setCompetitorSuggestions((prev) =>
-      prev.some((s) => s.url === url) ? prev : [...prev, suggestion],
-    );
-    setFields((prev) =>
-      prev.competitors.some((c) => c.url === url) || prev.competitors.length >= MAX_COMPETITORS
-        ? prev
-        : { ...prev, competitors: [...prev.competitors, suggestion] },
-    );
-    setManualCompetitor({ name: "", url: "" });
-  }
-
-  function toggleUseCase(index: number) {
-    setFields((prev) => ({
-      ...prev,
-      useCases: prev.useCases.map((useCase, i) =>
-        i === index ? { ...useCase, enabled: !useCase.enabled } : useCase,
-      ),
+    setFields((current) => ({
+      ...current,
+      competitors: current.competitors.some((item) => item.url === url)
+        ? current.competitors
+        : [...current.competitors, { name, url }].slice(0, MAX_COMPETITORS),
     }));
-  }
-
-  function advance() {
-    setError(null);
-
-    if (step === STEP_BASICS) {
-      const name = fields.name.trim();
-      const website = fields.website.trim();
-      if (!name) {
-        setError("Brand name is required.");
-        return;
-      }
-      if (website && !isValidUrl(website)) {
-        setError("Enter a valid website URL, including https://");
-        return;
-      }
-      // Kick off prefill in the background (only when the inputs changed) and
-      // move on — the overlay on the positioning screen shows it working.
-      const key = `${name}|${website}`;
-      if (key !== lastPrefillKey.current) {
-        lastPrefillKey.current = key;
-        setPrefillState((state) => ({ ...state, prefilled: false }));
-        prefill.mutate({ name, website });
-      }
-    }
-
-    setStepDirection(1);
-    setStep((value) => Math.min(lastStep, value + 1));
-  }
-
-  function goBack() {
-    setError(null);
-    setStepDirection(-1);
-    setStep((value) => Math.max(0, value - 1));
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    // Only the subscribed path submits here; free users go through the plan
-    // cards (which drive checkout, not this form).
-    if (step !== STEP_LAUNCH || !isSubscribed) return;
-    submitCreate();
-  }
-
-  // Enter advances (except in textareas, listboxes, tag inputs mid-entry, and on
-  // the no-advance discovery screens, where the primary action isn't "next").
-  function handleKeyDown(event: KeyboardEvent<HTMLFormElement>) {
-    if (event.key !== "Enter" || step === lastStep) return;
-    const target = event.target as HTMLElement;
-    if (
-      target.tagName === "TEXTAREA" ||
-      target.closest("[role=listbox]") ||
-      target.closest("[data-no-advance]")
-    ) {
-      return;
-    }
-    event.preventDefault();
-    advance();
+    setManualCompetitor({ name: "", url: "" });
   }
 
   if (phase === "finalizing") {
     return (
-      <FinalizeScreen
-        timedOut={finalizeTimedOut}
-        creating={create.isPending}
-        error={error}
-        onRetry={() => {
-          setError(null);
-          setFinalizeTimedOut(false);
-          if (isSubscribed) {
-            // The subscription is already active, so the failure was the brand
-            // create — re-run it directly; the phase/isSubscribed effect that
-            // normally triggers it won't fire again (its deps haven't changed).
-            finalizeStartedRef.current = true;
-            submitCreate();
-          } else {
-            finalizeStartedRef.current = false;
-            checkoutConfirm.reset();
-            setFinalizeAttempt((value) => value + 1);
-            void refetchMe();
-          }
-        }}
-      />
+      <CenteredFrame>
+        <p className="text-sm font-medium text-muted">Activating Claudia</p>
+        <h1 className="mt-3 text-3xl text-foreground">
+          {create.isPending ? "Starting the first day…" : finalizeTimedOut ? "Still activating…" : "Confirming your plan…"}
+        </h1>
+        <p className="mt-3 max-w-lg text-sm leading-7 text-muted">
+          {finalizeTimedOut
+            ? "Payment is safe. Refresh the activation check and the saved brief will resume."
+            : "The operating brief is saved. Claudia starts Setup Run as soon as the plan is active."}
+        </p>
+        {finalizeTimedOut && !create.isPending ? (
+          <Button className="mt-6" onPress={() => void refetchMe()}>Check again</Button>
+        ) : null}
+      </CenteredFrame>
     );
   }
 
-  const current = STEPS[step];
-  const progress = ((step + 1) / STEPS.length) * 100;
-  const launchHint = isSubscribed
-    ? "Offer letter signed. Start her first day — Setup Run begins immediately."
-    : "Pick her capacity plan. Your answers are saved — you'll land right back here after checkout.";
-
+  const current = MOMENTS[moment];
   return (
-    <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex min-h-dvh flex-col">
-      {/* Hairline progress — material strip, no step numbers (Apple simplicity). */}
-      <div className="fixed inset-x-0 top-0 z-20 h-1 bg-border/40 backdrop-blur-md">
-        <motion.div
-          className="h-full w-full origin-left bg-accent"
-          initial={false}
-          animate={{ scaleX: progress / 100 }}
-          transition={
-            prefersReducedMotion
-              ? { duration: 0.15 }
-              : { type: "spring", bounce: 0, duration: 0.35 }
-          }
+    <div className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-5 py-10 sm:px-8 sm:py-14">
+      <div className="mb-10 flex items-center justify-between gap-4">
+        <p className="text-sm font-medium text-foreground">Claudia setup</p>
+        <p className="text-sm text-muted tabular-nums">{moment + 1} of 3</p>
+      </div>
+      <div className="mb-8 h-1 overflow-hidden rounded-full bg-surface-secondary" aria-hidden>
+        <div className="h-full rounded-full bg-accent transition-[width] duration-ui" style={{ width: `${((moment + 1) / 3) * 100}%` }} />
+      </div>
+
+      <main className="flex-1">
+        <p className="text-sm font-medium text-accent">Moment {moment + 1}</p>
+        <h1 className="mt-2 text-3xl text-foreground sm:text-4xl">{current.title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">{current.description}</p>
+
+        <div className="mt-8">
+          {moment === 0 ? (
+            <SiteMoment fields={fields} setFields={setFields} />
+          ) : moment === 1 ? (
+            <BriefMoment
+              fields={fields}
+              setFields={setFields}
+              manualCompetitor={manualCompetitor}
+              setManualCompetitor={setManualCompetitor}
+              addCompetitor={addCompetitor}
+            />
+          ) : (
+            <AuthorityMoment fields={fields} setFields={setFields} providers={providers} />
+          )}
+        </div>
+
+        {error ? (
+          <p className="mt-6 rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger-soft-foreground">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          {moment === 0 ? (
+            <LoadingButton
+              isPending={discover.isPending}
+              pendingLabel="Reading the site…"
+              onPress={beginDiscovery}
+            >
+              Build the operating brief
+            </LoadingButton>
+          ) : moment === 1 ? (
+            <Button onPress={() => setMoment(2)}>Accept brief</Button>
+          ) : subscribed ? (
+            <LoadingButton isPending={create.isPending} pendingLabel="Starting…" onPress={submitCreate}>
+              Start Claudia&apos;s first day
+            </LoadingButton>
+          ) : null}
+          {moment > 0 ? (
+            <Button variant="ghost" isDisabled={create.isPending} onPress={() => setMoment((value) => value - 1)}>
+              Back
+            </Button>
+          ) : null}
+        </div>
+
+        {moment === 2 && !subscribed ? (
+          <PlanChoices loading={checkoutLoading} onPick={startCheckout} />
+        ) : null}
+      </main>
+    </div>
+  );
+}
+
+function SiteMoment({
+  fields,
+  setFields,
+}: {
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+}) {
+  return (
+    <div className="max-w-xl space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="onboarding-website">Website URL</Label>
+        <Input
+          id="onboarding-website"
+          autoFocus
+          fullWidth
+          type="url"
+          variant="secondary"
+          placeholder="https://example.com"
+          value={fields.website}
+          onChange={(event) => setFields((current) => ({ ...current, website: event.target.value }))}
         />
       </div>
-
-      <div className="flex flex-1 items-center justify-center px-5 py-16 sm:px-6">
-        <div className="relative w-full max-w-xl">
-          <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
-            <motion.div
-              key={step}
-              ref={stepRef}
-              custom={stepDirection}
-              variants={prefersReducedMotion ? undefined : onboardingStepVariants}
-              initial={prefersReducedMotion ? { opacity: 0 } : "enter"}
-              animate={prefersReducedMotion ? { opacity: 1 } : "center"}
-              exit={prefersReducedMotion ? { opacity: 0 } : "exit"}
-              transition={
-                prefersReducedMotion ? { duration: 0.15 } : onboardingStepSpring
-              }
-              className="w-full"
-            >
-          <h1 className="type-display text-2xl text-foreground sm:text-3xl sm:leading-[1.1]">
-            {current.question}
-          </h1>
-          <p className="mt-2.5 text-sm leading-relaxed text-muted sm:text-base">
-            {step === STEP_LAUNCH ? launchHint : current.hint}
-          </p>
-
-          <div className="mt-8">
-            {/* Screen 1 — basics */}
-            {step === STEP_BASICS ? (
-              <div className="flex flex-col gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Brand name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={fields.name}
-                    onChange={set("name")}
-                    placeholder="Acme Analytics"
-                    variant="secondary"
-                    fullWidth
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    name="website"
-                    type="url"
-                    value={fields.website}
-                    onChange={set("website")}
-                    placeholder="https://acme.com"
-                    variant="secondary"
-                    fullWidth
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {/* Screen 2 — positioning (AI-prefilled) */}
-            {step === STEP_POSITIONING ? (
-              <div className="relative">
-                <div
-                  className={`flex flex-col gap-4 transition ${
-                    prefill.isPending ? "pointer-events-none select-none opacity-40 blur-sm" : ""
-                  }`}
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="productDescription">Product description</Label>
-                    <TextArea
-                      id="productDescription"
-                      name="productDescription"
-                      value={fields.productDescription}
-                      onChange={set("productDescription")}
-                      placeholder="What does this brand sell, and who is it for?"
-                      variant="secondary"
-                      rows={6}
-                      className="min-h-37.5 resize-none"
-                      fullWidth
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="audience">Target audience</Label>
-                    <TagInput
-                      id="audience"
-                      ariaLabel="Target audience"
-                      value={fields.audience}
-                      onChange={(value) => setField("audience", value)}
-                      placeholder="Founders, developers, SEO consultants…"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tone">Tone of voice</Label>
-                    <Input
-                      id="tone"
-                      name="tone"
-                      value={fields.tone}
-                      onChange={set("tone")}
-                      placeholder="Clear, expert, friendly…"
-                      variant="secondary"
-                      fullWidth
-                    />
-                  </div>
-                </div>
-
-                {prefill.isPending ? (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-center">
-                    <div className="material-panel rounded-2xl px-6 py-5">
-                      <LoadingDots />
-                      <div className="mt-3">
-                        <p className="text-sm font-semibold tracking-tight text-foreground">
-                          Understanding your brand
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted">
-                          {PREFILL_MESSAGES[prefillState.messageIndex]}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* Screen 3 — keywords */}
-            {step === STEP_KEYWORDS ? (
-              <div className="space-y-2">
-                <Label htmlFor="seedKeywords">Seed keywords</Label>
-                <TagInput
-                  id="seedKeywords"
-                  ariaLabel="Seed keywords"
-                  value={fields.seedKeywords}
-                  onChange={(value) => setField("seedKeywords", value)}
-                  placeholder="content marketing automation, seo blog agent…"
-                />
-                <p className="text-xs leading-relaxed tracking-[0.01em] text-muted">
-                  Type a keyword and press Enter. Leave empty to skip.
-                </p>
-              </div>
-            ) : null}
-
-            {/* Screen 4 — competitors (auto-discovered) */}
-            {step === STEP_COMPETITORS ? (
-              <div data-no-advance className="flex flex-col gap-4">
-                {competitorsPreview.isPending ? (
-                  <CompetitorRadar
-                    scanning
-                    title="Scanning the market"
-                    subtitle="Finding the rivals buyers compare you against."
-                  />
-                ) : (
-                  <>
-                    {competitorSuggestions.length > 0 ? (
-                      <div className="space-y-3">
-                        <CompetitorRadar
-                          competitors={competitorSuggestions}
-                          title={`${competitorSuggestions.length} likely rival${competitorSuggestions.length === 1 ? "" : "s"} found`}
-                          subtitle="Review the logos and untick anything that does not belong."
-                        />
-                        <ul className="space-y-2">
-                          {competitorSuggestions.map((suggestion, index) => {
-                            const checked = fields.competitors.some((c) => c.url === suggestion.url);
-                            return (
-                              <li
-                                key={suggestion.url}
-                                className="competitor-result-card"
-                                style={{ animationDelay: `${index * 45}ms` }}
-                              >
-                                <CompetitorSuggestionCard
-                                  suggestion={suggestion}
-                                  checked={checked}
-                                  onToggle={() => toggleCompetitor(suggestion.url)}
-                                />
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ) : (
-                      <p className="material-panel rounded-2xl px-3.5 py-3 text-sm leading-relaxed text-muted">
-                        Claudia didn&apos;t surface clear rivals yet — add one below, or skip and she
-                        keeps looking after setup.
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        isDisabled={competitorsPreview.isPending}
-                        onPress={() => runCompetitorPreview(true)}
-                      >
-                        Search again
-                      </Button>
-                      <span className="text-xs tracking-[0.01em] text-muted">
-                        {fields.competitors.length}/{MAX_COMPETITORS} selected
-                      </span>
-                    </div>
-
-                    <div className="grid gap-2 border-t border-border/50 pt-4 sm:grid-cols-[1fr_1fr_auto]">
-                      <Input
-                        aria-label="Competitor name"
-                        value={manualCompetitor.name}
-                        onChange={(event) =>
-                          setManualCompetitor((prev) => ({ ...prev, name: event.target.value }))
-                        }
-                        placeholder="Rival Co"
-                        variant="secondary"
-                        fullWidth
-                      />
-                      <Input
-                        aria-label="Competitor URL"
-                        type="url"
-                        value={manualCompetitor.url}
-                        onChange={(event) =>
-                          setManualCompetitor((prev) => ({ ...prev, url: event.target.value }))
-                        }
-                        placeholder="https://rival.com"
-                        variant="secondary"
-                        fullWidth
-                      />
-                      <Button type="button" variant="secondary" onPress={addManualCompetitor}>
-                        Add
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
-
-            {/* Screen 5 — target customers and users (auto-searched) */}
-            {step === STEP_USE_CASES ? (
-              <div data-no-advance className="flex flex-col gap-4">
-                {useCasesPreview.isPending ? (
-                  <DiscoveryLoading
-                    title="Finding target profiles"
-                    subtitle="Searching for the customers and users most likely to need your product..."
-                  />
-                ) : fields.useCases.length > 0 ? (
-                  <>
-                    <ul className="space-y-2">
-                      {fields.useCases.map((useCase, index) => (
-                        <li
-                          key={`${useCase.job}-${index}`}
-                          className={`surface-interactive flex items-start justify-between gap-3 rounded-2xl border border-border/50 bg-surface/80 p-3.5 ${
-                            useCase.enabled ? "" : "opacity-55"
-                          }`}
-                        >
-                          <div>
-                            <p className="font-medium tracking-tight text-foreground">
-                              {useCase.persona}
-                            </p>
-                            <p className="mt-0.5 text-sm leading-relaxed text-muted">
-                              {useCase.job}
-                              {useCase.industry ? ` · ${useCase.industry}` : ""}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onPress={() => toggleUseCase(index)}
-                          >
-                            {useCase.enabled ? "Remove" : "Keep"}
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      isDisabled={useCasesPreview.isPending}
-                      onPress={() => runUseCasePreview(true)}
-                    >
-                      Search again
-                    </Button>
-                  </>
-                ) : (
-                  <p className="material-panel rounded-2xl px-3.5 py-3 text-sm leading-relaxed text-muted">
-                    Claudia needs a bit more to find target profiles. She&apos;ll search again once
-                    your profile is saved, and you can review or edit customer profiles in Brand
-                    settings.
-                  </p>
-                )}
-              </div>
-            ) : null}
-
-            {/* Screen 6 — publishing */}
-            {step === STEP_PUBLISHING ? (
-              <div className="flex flex-col gap-4">
-                <div className="space-y-2">
-                  <Label>Publishing destination</Label>
-                  <Select
-                    aria-label="Publishing destination"
-                    name="integrationProvider"
-                    variant="secondary"
-                    fullWidth
-                    placeholder="Skip for now"
-                    value={fields.integrationProvider || null}
-                    onChange={(value) =>
-                      setFields((prev) => ({
-                        ...prev,
-                        integrationProvider:
-                          value && value !== SKIP_PROVIDER_KEY
-                            ? (String(value) as IntegrationProviderId)
-                            : "",
-                        integrationConfig: {},
-                        integrationSecrets: {},
-                      }))
-                    }
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        <ListBox.Item id={SKIP_PROVIDER_KEY} textValue="Skip for now">
-                          Skip for now
-                          <ListBox.ItemIndicator />
-                        </ListBox.Item>
-                        {providers.map((item) => (
-                          <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
-                            <span className="flex flex-col">
-                              <span>{item.name}</span>
-                              {item.status !== "available" ? (
-                                <span className="text-xs text-muted">Finish in Settings</span>
-                              ) : null}
-                            </span>
-                            <ListBox.ItemIndicator />
-                          </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                  {fields.integrationProvider ? (
-                    <p className="text-xs text-muted">
-                      {providers.find((item) => item.id === fields.integrationProvider)?.description}
-                    </p>
-                  ) : null}
-                </div>
-                <OnboardingIntegrationFields
-                  provider={providers.find((item) => item.id === fields.integrationProvider) ?? null}
-                  config={fields.integrationConfig}
-                  secrets={fields.integrationSecrets}
-                  onConfigChange={setIntegrationConfig}
-                  onSecretChange={setIntegrationSecret}
-                />
-                <p className="text-sm leading-relaxed text-muted">
-                  Tip: after setup, connect Google Search Console in Settings → Integrations so
-                  Claudia can see what Google already almost-ranks you for and prove her gains with
-                  real traffic.
-                </p>
-              </div>
-            ) : null}
-
-            {/* Screen 7 — how Claudia works */}
-            {step === STEP_AUTONOMY ? (
-              <div className="flex flex-col gap-3">
-                {AUTONOMY_OPTIONS.map((option) => {
-                  const selected = fields.autonomyMode === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setFields((prev) => ({ ...prev, autonomyMode: option.value }))}
-                      aria-pressed={selected}
-                      className={`pressable rounded-2xl border p-4 text-left transition-[border-color,background-color,box-shadow] duration-ui ease-out-strong ${
-                        selected
-                          ? "border-accent bg-accent-soft shadow-sm"
-                          : "border-border/60 bg-surface/50 hover-fine:border-accent/40"
-                      }`}
-                    >
-                      <span className="font-semibold tracking-tight text-foreground">
-                        {option.title}
-                        {option.recommended ? (
-                          <span className="ml-2 rounded-full bg-accent-soft/60 px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-accent">
-                            Recommended
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-1.5 block text-sm leading-relaxed text-muted">
-                        {option.description}
-                      </span>
-                    </button>
-                  );
-                })}
-                <p className="text-xs leading-relaxed text-muted">
-                  The moment your plan is live, she starts Setup Run on her own: first audit, AI
-                  answer check, competitors, topics, quick wins, first article, Day-0 brief. You can
-                  watch or leave.
-                </p>
-              </div>
-            ) : null}
-
-            {/* Screen 8 — launch / paywall */}
-            {step === STEP_LAUNCH ? (
-              isSubscribed ? (
-                <LaunchSummary fields={fields} />
-              ) : (
-                <PlanPaywall
-                  loadingPlan={checkoutLoading}
-                  onPick={startCheckout}
-                />
-              )
-            ) : null}
-          </div>
-
-          {error ? (
-            <p className="mt-4 rounded-2xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm leading-relaxed text-danger-soft-foreground">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="mt-9 flex items-center gap-3">
-            {step === STEP_LAUNCH ? (
-              isSubscribed ? (
-                <LoadingButton type="submit" isPending={create.isPending} pendingLabel="Starting her…">
-                  Start her first day
-                </LoadingButton>
-              ) : null
-            ) : (
-              <Button type="button" onPress={advance}>
-                Continue
-              </Button>
-            )}
-            {step > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                isDisabled={create.isPending}
-                onPress={goBack}
-              >
-                Back
-              </Button>
-            ) : null}
-            {step < lastStep ? (
-              <span className="ml-auto hidden text-xs tracking-[0.01em] text-muted sm:block">
-                press{" "}
-                <kbd className="rounded-md border border-border/60 bg-surface/80 px-1.5 py-0.5 font-sans text-[11px] font-medium text-foreground">
-                  Enter ↵
-                </kbd>
-                {current.optional ? " — or leave blank to skip" : ""}
-              </span>
-            ) : null}
-          </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-    </form>
-  );
-}
-
-function LoadingDots() {
-  return (
-    <div className="flex justify-center gap-1.5" aria-hidden>
-      <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.3s]" />
-      <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.15s]" />
-      <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-    </div>
-  );
-}
-
-function DiscoveryLoading({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="material-panel flex flex-col items-center justify-center gap-4 rounded-2xl py-12 text-center">
-      <LoadingDots />
-      <div>
-        <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
-        <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted">{subtitle}</p>
+      <div className="space-y-2">
+        <Label htmlFor="onboarding-name">Brand name <span className="text-muted">(optional)</span></Label>
+        <Input
+          id="onboarding-name"
+          fullWidth
+          variant="secondary"
+          placeholder="Derived from the site when left blank"
+          value={fields.name}
+          onChange={(event) => setFields((current) => ({ ...current, name: event.target.value }))}
+        />
       </div>
     </div>
   );
 }
 
-function LaunchSummary({ fields }: { fields: Fields }) {
-  const enabledProfiles = fields.useCases.filter((useCase) => useCase.enabled).length;
-  const rows: { label: string; value: string }[] = [
-    { label: "Brand", value: fields.name.trim() || "—" },
-    { label: "Competitors tracked", value: String(fields.competitors.length) },
-    { label: "Target profiles", value: String(enabledProfiles) },
-    {
-      label: "Autonomy",
-      value: fields.autonomyMode === "FULL_AUTO" ? "Autopilot" : "Copilot",
-    },
-  ];
-  return (
-    <div className="material-panel space-y-3 rounded-2xl p-4">
-      {rows.map((row) => (
-        <div key={row.label} className="flex items-center justify-between text-sm">
-          <span className="tracking-[0.01em] text-muted">{row.label}</span>
-          <span className="font-medium tracking-tight text-foreground">{row.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function PlanPaywall({
-  loadingPlan,
-  onPick,
+function BriefMoment({
+  fields,
+  setFields,
+  manualCompetitor,
+  setManualCompetitor,
+  addCompetitor,
 }: {
-  loadingPlan: PlanId | null;
-  onPick: (planId: PlanId) => void;
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  manualCompetitor: { name: string; url: string };
+  setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
+  addCompetitor: () => void;
 }) {
-  const busy = loadingPlan !== null;
+  const set =
+    (key: keyof Pick<Fields, "name" | "productDescription" | "audience" | "tone" | "seedKeywords">) =>
+    (event: { target: { value: string } }) =>
+      setFields((current) => ({ ...current, [key]: event.target.value }));
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-8">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="brief-name">Brand</Label>
+          <Input id="brief-name" fullWidth variant="secondary" value={fields.name} onChange={set("name")} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="brief-product">What the brand sells</Label>
+          <TextArea id="brief-product" fullWidth rows={4} variant="secondary" value={fields.productDescription} onChange={set("productDescription")} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="brief-audience">Who it serves</Label>
+          <TextArea id="brief-audience" fullWidth rows={3} variant="secondary" value={fields.audience} onChange={set("audience")} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="brief-tone">How it should sound</Label>
+          <TextArea id="brief-tone" fullWidth rows={3} variant="secondary" value={fields.tone} onChange={set("tone")} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="brief-keywords">Initial query themes</Label>
+          <Input id="brief-keywords" fullWidth variant="secondary" value={fields.seedKeywords} onChange={set("seedKeywords")} />
+        </div>
+      </div>
+
+      <section>
+        <h2 className="text-xl text-foreground">Main competitors</h2>
+        <div className="mt-3 space-y-2">
+          {fields.competitors.map((competitor) => (
+            <div key={competitor.url} className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-surface-secondary px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">{competitor.name}</p>
+                <p className="truncate text-xs text-muted">{competitor.url}</p>
+              </div>
+              <Button size="sm" variant="ghost" onPress={() => setFields((current) => ({ ...current, competitors: current.competitors.filter((item) => item.url !== competitor.url) }))}>
+                Remove
+              </Button>
+            </div>
+          ))}
+          {!fields.competitors.length ? <p className="text-sm text-muted">No confident competitor matches yet.</p> : null}
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+          <Input aria-label="Competitor name" variant="secondary" placeholder="Competitor" value={manualCompetitor.name} onChange={(event) => setManualCompetitor((current) => ({ ...current, name: event.target.value }))} />
+          <Input aria-label="Competitor URL" type="url" variant="secondary" placeholder="https://competitor.com" value={manualCompetitor.url} onChange={(event) => setManualCompetitor((current) => ({ ...current, url: event.target.value }))} />
+          <Button variant="secondary" onPress={addCompetitor}>Add</Button>
+        </div>
+      </section>
+
+      {fields.useCases.length ? (
+        <section>
+          <h2 className="text-xl text-foreground">Buyer profiles</h2>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {fields.useCases.map((useCase, index) => (
+              <button
+                key={`${useCase.job}-${useCase.persona}`}
+                type="button"
+                aria-pressed={useCase.enabled}
+                onClick={() => setFields((current) => ({ ...current, useCases: current.useCases.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: !item.enabled } : item) }))}
+                className={`pressable min-h-20 rounded-xl p-3 text-left ${useCase.enabled ? "bg-accent-soft text-accent-soft-foreground" : "bg-surface-secondary text-muted"}`}
+              >
+                <span className="block text-sm font-medium">{useCase.persona}</span>
+                <span className="mt-1 block text-xs leading-5 opacity-80">{useCase.job}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-2xl bg-surface-secondary p-5">
+        <h2 className="text-xl text-foreground">First-week plan</h2>
+        <ol className="mt-4 grid gap-3 sm:grid-cols-2">
+          {["Establish the visibility baseline", "Track the questions buyers ask AI", "Research the strongest content opportunity", "Prepare and write the first useful asset"].map((item, index) => (
+            <li key={item} className="flex items-start gap-3 text-sm leading-6 text-foreground">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface text-xs tabular-nums">{index + 1}</span>
+              {item}
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
+  );
+}
+
+function AuthorityMoment({
+  fields,
+  setFields,
+  providers,
+}: {
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  providers: ProviderOption[];
+}) {
+  const provider = providers.find((item) => item.id === fields.integrationProvider) ?? null;
+  const setConfig =
+    (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
+    (event) => setFields((current) => ({ ...current, integrationConfig: { ...current.integrationConfig, [key]: event.target.value } }));
+  const setSecret =
+    (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
+    (event) => setFields((current) => ({ ...current, integrationSecrets: { ...current.integrationSecrets, [key]: event.target.value } }));
+  return (
+    <div className="space-y-8">
+      <section>
+        <h2 className="text-xl text-foreground">Authority</h2>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {([
+            { value: "FULL_AUTO" as const, title: "Autopilot", description: "Publish approved Claudia-created articles automatically. Site fixes remain prepared unless a proven capability exists." },
+            { value: "REVIEW" as const, title: "Copilot", description: "Prepare the same work, but wait for owner approval before publishing articles." },
+          ]).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={fields.autonomyMode === option.value}
+              onClick={() => setFields((current) => ({ ...current, autonomyMode: option.value }))}
+              className={`pressable min-h-32 rounded-2xl p-4 text-left ${fields.autonomyMode === option.value ? "bg-accent-soft text-accent-soft-foreground" : "bg-surface-secondary text-foreground"}`}
+            >
+              <span className="font-semibold">{option.title}</span>
+              <span className="mt-2 block text-sm leading-6 opacity-80">{option.description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl text-foreground">Publishing connection</h2>
+        <p className="mt-1 text-sm leading-6 text-muted">Connect now, or skip and Claudia will place it in Waiting only when it unlocks useful work.</p>
+        <div className="mt-4 max-w-xl space-y-4">
+          <Select
+            aria-label="Publishing destination"
+            fullWidth
+            variant="secondary"
+            placeholder="Connect later"
+            value={fields.integrationProvider || null}
+            onChange={(value) => setFields((current) => ({ ...current, integrationProvider: value && value !== SKIP_PROVIDER_KEY ? (String(value) as IntegrationProviderId) : "", integrationConfig: {}, integrationSecrets: {} }))}
+          >
+            <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id={SKIP_PROVIDER_KEY} textValue="Connect later">Connect later<ListBox.ItemIndicator /></ListBox.Item>
+                {providers.map((item) =>
+                  item.status === "available" ? (
+                    <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
+                      {item.name}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ) : null,
+                )}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          {provider ? <ConnectionFields provider={provider} config={fields.integrationConfig} secrets={fields.integrationSecrets} onConfig={setConfig} onSecret={setSecret} /> : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-surface-secondary p-5">
+        <p className="font-medium text-foreground">Analytics can connect after start</p>
+        <p className="mt-1 text-sm leading-6 text-muted">Search Console needs the saved brand context. Claudia will request it only when real traffic proof can improve the next decision.</p>
+      </section>
+    </div>
+  );
+}
+
+function ConnectionFields({
+  provider,
+  config,
+  secrets,
+  onConfig,
+  onSecret,
+}: {
+  provider: ProviderOption;
+  config: Record<string, string>;
+  secrets: Record<string, string>;
+  onConfig: (key: IntegrationConfigKey) => ChangeEventHandler<HTMLInputElement>;
+  onSecret: (key: IntegrationSecretKey) => ChangeEventHandler<HTMLInputElement>;
+}) {
+  return (
+    <div className="space-y-3">
+      {provider.fields.map((field) =>
+        field.required ? (
+          <div key={field.key} className="space-y-2">
+            <Label htmlFor={`connection-${field.key}`}>{field.label}</Label>
+            <Input id={`connection-${field.key}`} fullWidth type={field.validation === "url" ? "url" : "text"} variant="secondary" placeholder={field.placeholder} value={config[field.key] ?? ""} onChange={onConfig(field.key)} />
+          </div>
+        ) : null,
+      )}
+      {provider.secrets.map((secret) =>
+        secret.required ? (
+          <div key={secret.key} className="space-y-2">
+            <Label htmlFor={`connection-${secret.key}`}>{secret.label}</Label>
+            <Input id={`connection-${secret.key}`} fullWidth type="password" autoComplete="new-password" variant="secondary" placeholder={secret.placeholder} value={secrets[secret.key] ?? ""} onChange={onSecret(secret.key)} />
+          </div>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+function PlanChoices({ loading, onPick }: { loading: PlanId | null; onPick: (planId: PlanId) => void }) {
+  return (
+    <section className="mt-10 border-t border-separator pt-8">
+      <h2 className="text-2xl text-foreground">Choose the operating plan</h2>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {Object.values(plans).map((plan) => {
           const popular = plan.id === POPULAR_PLAN;
           return (
-            <div
-              key={plan.id}
-              className={`material-panel flex flex-col rounded-2xl p-4 ${
-                popular ? "border-accent/40 ring-2 ring-accent/40" : "border-border/50"
-              }`}
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-semibold tracking-tight text-foreground">{plan.name}</span>
-                {popular ? (
-                  <span className="rounded-full bg-accent-soft/50 px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-accent">
-                    Most popular
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                ${plan.price}
-                <span className="text-sm font-normal text-muted">/mo</span>
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-muted">{planTaglines[plan.id]}</p>
-              <ul className="mt-3 flex-1 space-y-1.5 border-t border-border/50 pt-3">
-                {planFeatureList(plan.id).map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-xs leading-snug text-muted">
-                    <CheckIcon aria-hidden className="mt-px size-3.5 shrink-0 text-accent" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
+            <div key={plan.id} className={`rounded-2xl bg-surface p-5 shadow-surface ${popular ? "ring-2 ring-accent/40" : ""}`}>
+              <div className="flex items-center justify-between gap-3"><p className="font-semibold text-foreground">{plan.name}</p>{popular ? <span className="text-xs text-accent">Recommended</span> : null}</div>
+              <p className="mt-2 text-3xl font-semibold text-foreground tabular-nums">${plan.price}<span className="text-sm font-normal text-muted">/mo</span></p>
+              <p className="mt-2 text-sm leading-6 text-muted">{planTaglines[plan.id]}</p>
+              <ul className="mt-4 space-y-2">
+                {planFeatureList(plan.id).map((feature) => <li key={feature} className="flex items-start gap-2 text-xs leading-5 text-muted"><CheckIcon className="mt-0.5 size-3.5 shrink-0 text-accent" />{feature}</li>)}
               </ul>
-              <div className="mt-4">
-                <LoadingButton
-                  fullWidth
-                  variant={popular ? "primary" : "secondary"}
-                  isPending={loadingPlan === plan.id}
-                  pendingLabel="Redirecting…"
-                  isDisabled={busy}
-                  onPress={() => onPick(plan.id)}
-                >
-                  Hire on {plan.name}
-                </LoadingButton>
-              </div>
+              <LoadingButton fullWidth className="mt-5" variant={popular ? "primary" : "secondary"} isPending={loading === plan.id} isDisabled={loading !== null} pendingLabel="Redirecting…" onPress={() => onPick(plan.id)}>Start on {plan.name}</LoadingButton>
             </div>
           );
         })}
       </div>
-      <p className="text-xs leading-relaxed text-muted">
-        Secure checkout via Stripe — coupon codes work there. You&apos;ll return here and she starts
-        Setup Run; your answers are already saved.
-      </p>
-    </div>
+    </section>
   );
 }
 
-function FinalizeScreen({
-  timedOut,
-  creating,
-  error,
-  onRetry,
-}: {
-  timedOut: boolean;
-  creating: boolean;
-  error: string | null;
-  onRetry: () => void;
-}) {
-  const heading = error
-    ? "Something went wrong"
-    : creating
-      ? "Setting Claudia up…"
-      : timedOut
-        ? "Still activating…"
-        : "Confirming your plan…";
-  const subtitle = error
-    ? error
-    : creating
-      ? "Creating your brand and starting her Setup Run."
-      : timedOut
-        ? "Your payment went through, but activation is taking longer than usual. Try again — nothing is lost."
-        : "Payment received — activating your subscription. This only takes a moment.";
-
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
-      <div className="material-panel w-full max-w-md space-y-5 rounded-2xl p-8">
-        {!error ? <LoadingDots /> : null}
-        <div>
-          <h1 className="type-title text-2xl text-foreground">{heading}</h1>
-          <p className="mx-auto mt-2.5 max-w-md text-sm leading-relaxed text-muted">{subtitle}</p>
-        </div>
-        {(timedOut || error) && !creating ? (
-          <Button type="button" onPress={onRetry}>
-            Try again
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function OnboardingIntegrationFields({
-  provider,
-  config,
-  secrets,
-  onConfigChange,
-  onSecretChange,
-}: {
-  provider: ProviderOption | null;
-  config: Record<string, string>;
-  secrets: Record<string, string>;
-  onConfigChange: (key: IntegrationConfigKey) => ChangeEventHandler<HTMLInputElement>;
-  onSecretChange: (key: IntegrationSecretKey) => ChangeEventHandler<HTMLInputElement>;
-}): ReactNode {
-  if (!provider) {
-    return null;
-  }
-
-  if (provider.status !== "available") {
-    return (
-      <div className="material-panel rounded-xl px-3.5 py-2.5 text-sm leading-relaxed text-muted">
-        {provider.requirements.summary} Finish setup in Settings when this connector is available.
-      </div>
-    );
-  }
-
-  const requiredFields = provider.fields.filter((field) => field.required);
-  const requiredSecrets = provider.secrets.filter((secret) => secret.required);
-
-  if (requiredFields.length === 0 && requiredSecrets.length === 0) {
-    return (
-      <p className="material-panel rounded-xl px-3.5 py-2.5 text-sm leading-relaxed text-muted">
-        {provider.requirements.summary}
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {requiredFields.map((field) => (
-        <div key={field.key} className="space-y-2">
-          <Label htmlFor={`onboarding-${field.key}`}>{field.label}</Label>
-          <Input
-            id={`onboarding-${field.key}`}
-            name={`integrationConfig.${field.key}`}
-            type={field.validation === "url" ? "url" : "text"}
-            value={config[field.key] ?? ""}
-            onChange={onConfigChange(field.key)}
-            placeholder={field.placeholder}
-            variant="secondary"
-            fullWidth
-          />
-        </div>
-      ))}
-      {requiredSecrets.map((secret) => (
-        <div key={secret.key} className="space-y-2">
-          <Label htmlFor={`onboarding-${secret.key}`}>{secret.label}</Label>
-          <Input
-            id={`onboarding-${secret.key}`}
-            name={`integrationSecrets.${secret.key}`}
-            type="password"
-            value={secrets[secret.key] ?? ""}
-            onChange={onSecretChange(secret.key)}
-            placeholder={secret.placeholder ?? "Required"}
-            autoComplete="new-password"
-            variant="secondary"
-            fullWidth
-          />
-        </div>
-      ))}
-    </div>
-  );
+function CenteredFrame({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">{children}</div>;
 }

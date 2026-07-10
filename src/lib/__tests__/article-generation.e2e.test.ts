@@ -19,6 +19,8 @@ vi.mock("@/lib/llm/client", async () => (await import("./helpers/memory-store"))
 vi.mock("@/lib/integrations/repository", async () => (await import("./helpers/memory-store")).integrationsRepo);
 vi.mock("@/lib/publishing/repository", async () => (await import("./helpers/memory-store")).publishingRepo);
 vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-store")).billingAccess);
+vi.mock("@/lib/agent/memory", async () => (await import("./helpers/memory-store")).agentMemoryRepo);
+vi.mock("@/lib/agent/events", async () => (await import("./helpers/memory-store")).agentEventsRepo);
 
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { publishArticleToDestinations } from "@/lib/publishing/publish";

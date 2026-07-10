@@ -2,7 +2,7 @@
 
 ## Product, UX, and autonomy plan
 
-**Status:** Proposed  
+**Status:** Implemented (2026-07-10); broader live-site capabilities remain capability-gated
 **North star:** A business owner hires an autonomous employee who continuously improves the
 brand's visibility in Google, answer engines, and AI assistants, while researching, writing,
 publishing, measuring, and improving content with very little owner input.
@@ -877,4 +877,3 @@ leave confident that the work will continue without them.
 The floating dock makes the product easy to navigate. The visual home makes the employee legible.
 The mission and event spine makes the employee real. The site-control plane makes autonomy useful.
 Outcome-driven replanning makes the system improve rather than merely repeat.
-

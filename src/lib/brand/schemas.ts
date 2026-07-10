@@ -64,8 +64,9 @@ export const brandOnboardingSchema = z.object({
   integrationProvider: z.enum(INTEGRATION_PROVIDER_IDS).optional().or(z.literal("")),
   integrationConfig: z.record(z.string().max(500)).optional().default({}),
   integrationSecrets: z.record(z.string().max(1000)).optional().default({}),
-  // AP2 — the one autonomy question: Autopilot (FULL_AUTO) publishes articles and prepares
-  // safe fixes herself; Copilot (REVIEW) prepares everything and asks first.
+  // The one autonomy question: Autopilot publishes approved articles and prepares site fixes;
+  // Copilot prepares the same work and asks before publishing. Live site changes remain
+  // gated by exact connector capabilities and deterministic authority policy.
   autonomyMode: z.enum(["FULL_AUTO", "REVIEW"]).optional().default("FULL_AUTO"),
 });
 

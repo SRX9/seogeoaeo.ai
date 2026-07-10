@@ -107,7 +107,7 @@ export async function generateArticleFromTopic(
       await updateTopicStatus(topicId, "completed");
       if (existing.status === "approved") {
         try {
-          await publishArticleToDestinations(scope, existing.id, options.origin);
+          await publishArticleToDestinations(scope, existing.id, options.origin, { actor: "agent" });
         } catch (error) {
           logWarn("publish.auto_skipped", {
             workspaceId,
@@ -344,7 +344,7 @@ export async function generateArticleFromTopic(
     // REVIEW leaves drafts that publish on manual approval.
     if (article.status === "approved") {
       try {
-        await publishArticleToDestinations(scope, article.id, options.origin);
+        await publishArticleToDestinations(scope, article.id, options.origin, { actor: "agent" });
       } catch (error) {
         logWarn("publish.auto_skipped", {
           workspaceId,

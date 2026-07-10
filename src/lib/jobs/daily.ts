@@ -1,4 +1,10 @@
 import { refreshAgentBrief } from "@/lib/agent/brief";
+import {
+  beginDailyAgentTask,
+  completeDailyAgentTask,
+  ensureNextDailyTask,
+  replanAgentWork,
+} from "@/lib/agent/planner";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
@@ -95,6 +101,7 @@ export async function planDailyForBrand(
   }
 
   const pending = await listPendingTopicsForWriting(scope.brandId, budget);
+  await beginDailyAgentTask(scope, runDate);
   return {
     skip: false,
     skipStatus: null,
@@ -183,6 +190,13 @@ export async function settleDailyForBrand(
     status,
   });
 
+  await completeDailyAgentTask(scope, runDate, {
+    generated: input.generated,
+    researched: input.researchTopics,
+    status,
+  });
+  await ensureNextDailyTask(scope, input.brandName, new Date(`${runDate}T23:59:59.999Z`));
+
   // A single completed job per brand-day powers the overview stats; the research
   // and writing sub-jobs already record their own activity-feed entries.
   // Best-effort, after the upsert: agent jobs are NOT idempotent, so if a failed
@@ -213,7 +227,15 @@ export async function settleDailyForBrand(
   // C4: read any published articles whose day-7/28/90 checkpoint came due
   // (cheap reads of the C2 query report) and act on the verdicts. Best-effort.
   try {
-    await runDueCheckpoints(scope);
+    const checkpoints = await runDueCheckpoints(scope);
+    const outcomes = checkpoints.byVerdict;
+    if (checkpoints.checked > 0 && outcomes.winner + outcomes.stalling + outcomes.dead > 0) {
+      await replanAgentWork(
+        scope,
+        `Performance evidence changed the queue: ${outcomes.winner} winning, ${outcomes.stalling} stalling, ${outcomes.dead} stopped.`,
+        { source: "performance_checkpoints", ...checkpoints },
+      );
+    }
   } catch (error) {
     console.error("[daily] performance checkpoints failed", error);
   }

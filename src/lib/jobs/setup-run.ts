@@ -1,5 +1,10 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
+import {
+  beginSetupAgentTask,
+  completeSetupAgentTask,
+  progressSetupAgentTask,
+} from "@/lib/agent/planner";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { visibilityCapsForPlan, dailyArticleCapForPlan, isActiveSubscription } from "@/lib/billing/plans";
 import { discoverCompetitors } from "@/lib/brand/enrich";
@@ -130,6 +135,7 @@ export async function startSetupRun(scope: BrandScope) {
     const winner = await getSetupRun(scope.brandId);
     return { run: winner!, created: false };
   }
+  await beginSetupAgentTask(scope);
   return { run: { ...row, steps: parseSteps(row.stepsJson) }, created: true };
 }
 
@@ -447,6 +453,7 @@ export async function executeSetupStep(
       step.note = result;
     }
     await saveRun(run.id, steps);
+    await progressSetupAgentTask(scope, SETUP_STEPS.find((item) => item.key === key)?.label ?? key, step.note);
     return step;
   } catch (error) {
     step.status = "failed";
@@ -475,6 +482,7 @@ export async function finalizeSetupRun(scope: BrandScope) {
   const status = setupRunOutcome(steps);
   const materialDone = status === "completed";
   await saveRun(run.id, steps, { status });
+  await completeSetupAgentTask(scope, status);
   if (materialDone) {
     const job = await createAgentJob(scope, "setup_run", "Claudia's Setup Run");
     await finishAgentJob(job.id, "completed", "Setup Run complete — Claudia is on the job.", {
@@ -521,6 +529,7 @@ export async function triggerSetupRun(
   run: { id: string },
   opts: { resume?: boolean } = {},
 ): Promise<"workflow" | "inline"> {
+  await beginSetupAgentTask(scope);
   const cf = getCloudflareRequestContext();
   const workflow = cf?.env?.SETUP_WORKFLOW;
   if (workflow) {

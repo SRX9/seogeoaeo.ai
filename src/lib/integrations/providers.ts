@@ -80,6 +80,7 @@ export type IntegrationSecretStates = Partial<Record<IntegrationSecretKey, boole
 
 export type IntegrationView = IntegrationProviderDefinition & {
   provider: IntegrationProviderId;
+  capabilities: readonly import("@/lib/integrations/capabilities").ConnectorCapability[];
   enabled: boolean;
   config: IntegrationConfig;
   secretStates: IntegrationSecretStates;

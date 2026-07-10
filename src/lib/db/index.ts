@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import * as appSchema from "./schema/app";
+import * as agentOsSchema from "./schema/agent-os";
 import * as authSchema from "./schema/auth";
 import * as brandSchema from "./schema/brand";
 import * as contentSchema from "./schema/content";
@@ -12,6 +13,7 @@ import * as rateLimitSchema from "./schema/rate-limits";
 import * as visibilitySchema from "./schema/visibility";
 
 const schema = {
+  ...agentOsSchema,
   ...authSchema,
   ...appSchema,
   ...brandSchema,

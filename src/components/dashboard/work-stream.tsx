@@ -22,9 +22,11 @@ import {
   type StreamFilter,
 } from "@/lib/activity/items";
 import { useAgentIsLive } from "@/lib/api/queries";
+import type { AgentEventView } from "@/lib/agent/types";
 import { cn } from "@/lib/cn";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const EMPTY_ACTIVITY_ITEMS: ActivityFeedItem[] = [];
 
 const FILTERS: { id: StreamFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -64,7 +66,8 @@ function eventIcon(item: ActivityFeedItem) {
 }
 
 type WorkStreamProps = {
-  items: ActivityFeedItem[];
+  items?: ActivityFeedItem[];
+  events?: AgentEventView[];
   /** Cap rows on the home surface; omit for full list. */
   limit?: number;
   /** Show category / status chips (work log page). */
@@ -76,7 +79,13 @@ type WorkStreamProps = {
  * Agent OS live work stream — Claudia's first-person timeline.
  * Polls while jobs are in flight (via useActivity); optional filters on /activity.
  */
-export function WorkStream({ items, limit, filterable = false, className }: WorkStreamProps) {
+export function WorkStream({
+  items = EMPTY_ACTIVITY_ITEMS,
+  events,
+  limit,
+  filterable = false,
+  className,
+}: WorkStreamProps) {
   const live = useAgentIsLive();
   const [filter, setFilter] = useState<StreamFilter>("all");
 
@@ -87,6 +96,17 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
   const visible = typeof limit === "number" ? filtered.slice(0, limit) : filtered;
   const hasMore = typeof limit === "number" && filtered.length > limit;
   const activeCount = items.filter(isItemLive).length;
+
+  if (events) {
+    return (
+      <AgentEventTimeline
+        events={typeof limit === "number" ? events.slice(0, limit) : events}
+        hasMore={typeof limit === "number" && events.length > limit}
+        live={live}
+        className={className}
+      />
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -223,6 +243,91 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
           </Link>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function AgentEventTimeline({
+  events,
+  hasMore,
+  live,
+  className,
+}: {
+  events: AgentEventView[];
+  hasMore: boolean;
+  live: boolean;
+  className?: string;
+}) {
+  return (
+    <section className={cn("space-y-4", className)}>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 className="text-xl text-foreground">Recent work</h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Created artifacts, applied changes, and verified outcomes from the event record.
+          </p>
+        </div>
+        {hasMore ? (
+          <Link href="/activity" className="shrink-0 text-sm text-muted hover-fine:text-foreground">
+            Full log
+          </Link>
+        ) : null}
+      </div>
+
+      {events.length ? (
+        <ol className="relative space-y-0 before:absolute before:bottom-5 before:left-[0.6875rem] before:top-5 before:w-px before:bg-separator">
+          {events.map((event) => {
+            const Icon =
+              event.type === "artifact_created"
+                ? PenIcon
+                : event.type === "applied" || event.type === "verified"
+                  ? GaugeIcon
+                  : event.type === "planned" || event.type === "replanned"
+                    ? SearchIcon
+                    : ActivityIcon;
+            const content = (
+              <div className="relative flex min-h-16 items-start gap-4 py-3">
+                <span
+                  className={cn(
+                    "relative z-10 flex size-[1.375rem] shrink-0 items-center justify-center rounded-full bg-surface ring-4 ring-background",
+                    event.type === "failed" || event.type === "regressed"
+                      ? "text-danger"
+                      : event.type === "verified"
+                        ? "text-success"
+                        : "text-accent",
+                  )}
+                >
+                  <Icon className={cn("size-3", live && event.type === "started" && "animate-pulse")} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-6 text-foreground">{event.summary}</p>
+                  <time
+                    dateTime={event.createdAt}
+                    className="mt-0.5 block text-xs text-muted"
+                    suppressHydrationWarning
+                  >
+                    {relativeLabel(event.createdAt)}
+                  </time>
+                </div>
+                {event.artifactRef ? <ChevronRightIcon className="mt-1 size-4 text-muted" /> : null}
+              </div>
+            );
+            return (
+              <li key={event.id}>
+                {event.artifactRef?.startsWith("/") ? (
+                  <Link href={event.artifactRef} className="block rounded-xl hover-fine:bg-surface-secondary/60">
+                    {content}
+                  </Link>
+                ) : (
+                  content
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="text-sm leading-6 text-muted">No durable work events yet.</p>
+      )}
     </section>
   );
 }

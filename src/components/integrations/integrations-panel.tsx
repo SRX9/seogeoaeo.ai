@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Input, Label, Switch, toast } from "@heroui/react";
+import { Card, Chip, Input, Label, Switch, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
@@ -76,6 +76,23 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
           <p className="mt-1 text-xs leading-relaxed text-muted">
             {integration.requirements.helpText}
           </p>
+
+          <div className="mt-3">
+            <p className="text-xs font-medium text-muted">Declared live capabilities</p>
+            {integration.capabilities.length ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {integration.capabilities.map((capability) => (
+                  <Chip key={capability} size="sm" variant="soft">
+                    {capability}
+                  </Chip>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs leading-5 text-muted">
+                No live action capability. Claudia will not offer Live-apply for this connection.
+              </p>
+            )}
+          </div>
 
           {integration.status === "available" ? (
             <IntegrationForm integration={integration} />

@@ -224,12 +224,40 @@ Stale-run takeover: `isSetupRunStale` (15 min silent) + GET poller CAS + resume.
 | Retried settle step | `daily_runs` upsert first; job logging best-effort after |
 | Re-audit cadence | `dueForReaudit` gate; `monitorFinishedAt` for unfinished finish |
 | Benchmark audits | `kind=benchmark` never writes fix-queue findings as owned work |
-| Live fix apply | `canLiveApply` gate (currently always false) |
+| Visibility-finding live apply | `canLiveApply` remains false until an exact site connector exists |
+| Owned article publish/update | Connector capability + authority policy + idempotent action ledger |
 | Ephemeral cache | KV (`CACHE`), never Postgres |
 
 ---
 
-## 6. Review findings & resolutions
+## 6. Agent OS V2 coordination layer
+
+The existing Setup, daily, audit, research, writing, publishing, and reporting workflows remain
+executors. The coordination layer adds the durable reason and evidence above them:
+
+```
+agent_missions → agent_plan_versions → agent_tasks → agent_events
+                         ↘ agent_memory / agent_approvals / agent_action_ledger
+```
+
+- `/api/agent/state` materializes the active mission/weekly plan and returns only presence,
+  Now/Next/Waiting, and recent events. Proof stays on its granular visibility endpoints.
+- `/api/agent/steer` maps brand-scoped owner direction into priority memory, constraints,
+  permissions, plan revisions, or owner-directed tasks. Unsupported general chat is rejected.
+- `/api/agent/approvals` records exact before/after authority decisions.
+- Daily and Setup workflows transition durable tasks and append events; stale in-flight tasks are
+  treated as Needs attention, never as live work.
+- Publishing discovers connector capabilities, applies deterministic authority policy, and writes
+  an idempotent action-ledger record with the policy decision and verification result.
+- Performance checkpoints create an explained plan revision when winners, stalled assets, or dead
+  strategies change the future queue. Weekly reports include those plan-change events.
+
+The authenticated shell has no Sidebar or mobile menu. Four bottom-dock destinations remain
+visible at every viewport; Workshop routes stay reachable from Brand and `Ctrl/Cmd+K`.
+
+---
+
+## 7. Review findings & resolutions
 
 Gaps found while tracing these flows, and what was done:
 

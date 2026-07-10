@@ -102,8 +102,8 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
               <p>
                 Claudia will publish new articles to every enabled destination without a review
                 step, and prepare ready-to-install site fixes (robots, schema, meta) in your
-                inbox for you to deploy. Article actions are logged and reversible; you can
-                switch back to Copilot anytime.
+                inbox for you to deploy. Article actions are logged and idempotent; rollback is
+                shown only when the connector supports it. You can switch back to Copilot anytime.
               </p>
             </AlertDialog.Body>
             <AlertDialog.Footer>

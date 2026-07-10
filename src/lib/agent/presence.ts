@@ -1,64 +1,86 @@
-/**
- * Single source of truth for Claudia's presence (shell pill, Live badge, Ask status).
- * Pure — pass structured inputs from queries / server loaders.
- */
+/** Truthful presence derived only from durable execution and blocking state. */
+import type {
+  AgentPresenceId,
+  AgentPresenceLabel,
+  AgentPresenceView,
+} from "@/lib/agent/types";
 
-export type AgentPresenceLabel =
-  | "Setting up"
-  | "Needs attention"
-  | "Paused"
-  | "Working"
-  | "On duty";
+export type { AgentPresenceId, AgentPresenceLabel, AgentPresenceView } from "@/lib/agent/types";
 
 export type AgentPresenceInput = {
-  /** Setup run status when known. */
   setupStatus?: string | null;
   automation?: {
     enabled: boolean;
     agentState: string;
-    writtenToday: number;
     lastRun?: { status: string } | null;
   } | null;
-  /** True when activity feed has pending/running jobs, runs, or competitor scans. */
   activityInFlight?: boolean;
+  inFlightTaskCount?: number;
+  staleInFlightTaskCount?: number;
+  pendingApprovalCount?: number;
+  failedTaskCount?: number;
+  nextScheduledAt?: string | null;
 };
 
-export function getAgentPresence(input: AgentPresenceInput): AgentPresenceLabel | null {
-  const setup = input.setupStatus;
-  if (setup && setup !== "completed" && setup !== "failed") {
-    return "Setting up";
-  }
-  if (setup === "failed") return "Needs attention";
+const LABELS: Record<AgentPresenceId, AgentPresenceLabel> = {
+  working_now: "Working now",
+  on_duty: "On duty",
+  waiting_for_you: "Waiting for you",
+  scheduled: "Scheduled",
+  paused: "Paused",
+  needs_attention: "Needs attention",
+};
 
-  const stats = input.automation;
-  if (!stats) return null;
-
-  if (!stats.enabled) return "Paused";
-  if (
-    stats.agentState === "paused_no_credits" ||
-    stats.agentState === "paused_no_subscription"
-  ) {
-    return "Paused";
-  }
-
-  const last = stats.lastRun?.status;
-  if (
-    input.activityInFlight ||
-    last === "running" ||
-    last === "pending" ||
-    stats.writtenToday > 0
-  ) {
-    return "Working";
-  }
-
-  return "On duty";
+function presence(id: AgentPresenceId, reason: string): AgentPresenceView {
+  return { id, label: LABELS[id], reason, isWorking: id === "working_now" };
 }
 
-/** Live chrome (work stream badge) — true only when work is actually in flight. */
-export function isAgentLive(input: AgentPresenceInput): boolean {
+export function getAgentPresence(input: AgentPresenceInput): AgentPresenceView | null {
   const setup = input.setupStatus;
-  if (setup === "running" || setup === "pending") return true;
-  if (input.activityInFlight) return true;
-  const last = input.automation?.lastRun?.status;
-  return last === "running" || last === "pending";
+  if (setup && setup !== "completed" && setup !== "failed") {
+    return presence("working_now", "Claudia is actively setting up this brand.");
+  }
+  if (setup === "failed") {
+    return presence("needs_attention", "Setup stopped and needs a recovery action.");
+  }
+
+  if ((input.staleInFlightTaskCount ?? 0) > 0 || (input.failedTaskCount ?? 0) > 0) {
+    return presence("needs_attention", "A task stopped without recovering on its own.");
+  }
+  if ((input.inFlightTaskCount ?? 0) > 0 || input.activityInFlight) {
+    return presence("working_now", "A recorded task is executing now.");
+  }
+  if ((input.pendingApprovalCount ?? 0) > 0) {
+    return presence("waiting_for_you", "A useful task is waiting on an owner decision.");
+  }
+
+  const automation = input.automation;
+  if (!automation) return null;
+  if (!automation.enabled) {
+    return presence("paused", "Autonomous work is turned off.");
+  }
+  if (
+    automation.agentState === "paused_no_credits" ||
+    automation.agentState === "paused_no_subscription"
+  ) {
+    return presence(
+      "paused",
+      automation.agentState === "paused_no_credits"
+        ? "The credit budget is exhausted."
+        : "The current plan does not allow autonomous work.",
+    );
+  }
+
+  const lastRun = automation.lastRun?.status;
+  if (lastRun === "running" || lastRun === "pending") {
+    return presence("working_now", "A recorded workflow is executing now.");
+  }
+  if (input.nextScheduledAt) {
+    return presence("scheduled", `The next task is planned for ${input.nextScheduledAt}.`);
+  }
+  return presence("on_duty", "Autonomy is enabled and Claudia is ready for the next useful task.");
+}
+
+export function isAgentLive(input: AgentPresenceInput): boolean {
+  return getAgentPresence(input)?.isWorking ?? false;
 }

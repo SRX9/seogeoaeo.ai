@@ -1,9 +1,12 @@
 import { parseTags } from "@/lib/articles/format";
+import { recordAgentAction } from "@/lib/agent/events";
+import { listOwnerConstraints } from "@/lib/agent/memory";
+import { authorizeAction } from "@/lib/agent/policy";
 import { getArticle } from "@/lib/articles/repository";
-import type { BrandScope } from "@/lib/brand/repository";
+import { getBrand, type BrandScope } from "@/lib/brand/repository";
 import { getRequestOrigin } from "@/lib/billing/access";
 import { incrementArticlesPublished } from "@/lib/jobs/repository";
-import { logWarn } from "@/lib/logging/logger";
+import { logError, logWarn } from "@/lib/logging/logger";
 import {
   listIntegrations,
   readIntegrationSecrets,
@@ -60,6 +63,13 @@ async function publishToDestination(
   provider: IntegrationProviderId,
   origin: string,
   fingerprint: string,
+  authority: {
+    actor: "agent" | "owner";
+    autonomyMode: "FULL_AUTO" | "REVIEW";
+    ownerConstraints: string[];
+    taskId?: string | null;
+    approvalId?: string | null;
+  },
 ) {
   const adapter = getPublishingAdapter(provider);
   if (!adapter) {
@@ -85,11 +95,78 @@ async function publishToDestination(
   }
 
   const existing = await getPublication(scope.brandId, article.id, provider);
+  const capability = existing?.externalId ? "article.update" : "article.create";
+  const authorityResult = authorizeAction({
+    mode: authority.autonomyMode,
+    capability,
+    availableCapabilities: integration.capabilities,
+    riskLevel: "low",
+    resourceRef: `${provider}:article:${article.slug}`,
+    ownerConstraints: authority.ownerConstraints,
+  });
+  if (
+    authorityResult.decision === "deny" ||
+    (authority.actor === "agent" && authorityResult.decision === "require_approval")
+  ) {
+    return {
+      provider,
+      result: { ok: false, error: authorityResult.reason } satisfies PublishResult,
+    };
+  }
+
+  async function recordPublicationAction(remoteRef?: string | null) {
+    try {
+      await recordAgentAction(scope, {
+        taskId: authority.taskId,
+        approvalId: authority.approvalId,
+        actionType: existing?.externalId ? "update article" : "publish article",
+        resourceRef: `${provider}:article:${article.id}`,
+        capability,
+        idempotencyKey: `publish:${provider}:${article.id}:${fingerprint}`,
+        beforeState: existing
+          ? {
+              externalId: existing.externalId,
+              externalUrl: existing.externalUrl,
+              publishedHash: existing.publishedHash,
+            }
+          : null,
+        appliedChange: {
+          title: article.title,
+          slug: article.slug,
+          metaDescription: article.metaDescription,
+          contentFingerprint: fingerprint,
+          authority: {
+            actor: authority.actor,
+            mode: authority.autonomyMode,
+            decision: authorityResult.decision,
+            reason: authorityResult.reason,
+            satisfiedBy:
+              authority.actor === "owner" && authorityResult.decision === "require_approval"
+                ? "owner_initiated_action"
+                : "policy",
+          },
+        },
+        remoteRef: remoteRef ?? null,
+        verificationStatus: "verified",
+        verificationResult: { providerAccepted: true },
+      });
+    } catch (error) {
+      // The provider write and publication row remain the source of truth. The
+      // next retry reconciles this idempotent ledger key without a second event.
+      logError("agent.action_ledger.record_failed", {
+        brandId: scope.brandId,
+        articleId: article.id,
+        provider,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   // Nothing changed since the last successful publish to this destination — skip
   // it so we don't re-send identical content (which providers like dev.to reject
   // as a duplicate). Failed destinations always retry.
   if (existing?.status === "published" && existing.publishedHash === fingerprint) {
+    await recordPublicationAction(existing.externalUrl ?? existing.externalId);
     return {
       provider,
       result: {
@@ -132,6 +209,7 @@ async function publishToDestination(
       publishedAt: new Date(),
       publishedHash: fingerprint,
     });
+    await recordPublicationAction(result.externalUrl ?? result.externalId);
   } else {
     // Never wipe a previously successful publish: the remote post is still live.
     // Only stamp the error + attempt count so the UI can show retry context.
@@ -154,8 +232,17 @@ export async function publishArticleToDestinations(
   scope: BrandScope,
   articleId: string,
   origin?: string,
+  options: {
+    actor?: "agent" | "owner";
+    taskId?: string | null;
+    approvalId?: string | null;
+  } = {},
 ) {
-  const article = await getArticle(scope.brandId, articleId);
+  const [article, brand, ownerConstraints] = await Promise.all([
+    getArticle(scope.brandId, articleId),
+    getBrand(scope.workspaceId, scope.brandId),
+    listOwnerConstraints(scope.brandId),
+  ]);
   if (!article) {
     throw new Error("Article not found");
   }
@@ -163,6 +250,7 @@ export async function publishArticleToDestinations(
   if (article.status !== "approved") {
     throw new Error("Only approved articles can be published");
   }
+  if (!brand) throw new Error("Brand not found");
 
   const integrations = await listIntegrations(scope.brandId);
   const enabledProviders = integrations.flatMap((integration) => {
@@ -181,7 +269,13 @@ export async function publishArticleToDestinations(
   const fingerprint = await contentFingerprint(publishArticle);
   const results: DestinationPublishResult[] = await Promise.all(
     enabledProviders.map((provider) =>
-      publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint),
+      publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint, {
+        actor: options.actor ?? "owner",
+        autonomyMode: brand.autonomyMode === "REVIEW" ? "REVIEW" : "FULL_AUTO",
+        ownerConstraints,
+        taskId: options.taskId,
+        approvalId: options.approvalId,
+      }),
     ),
   );
 

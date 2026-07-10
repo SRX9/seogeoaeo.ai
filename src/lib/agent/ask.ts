@@ -17,7 +17,6 @@ import { getDb } from "@/lib/db";
 import { articles } from "@/lib/db/schema/content";
 import { answerRuns, audits, trafficSnapshots } from "@/lib/db/schema/visibility";
 import { listIntegrations } from "@/lib/integrations/repository";
-import { getDailyRun } from "@/lib/jobs/daily-repository";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
 import { getCreditBalance } from "@/lib/usage/credits";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
@@ -25,7 +24,6 @@ import { isInstallReady } from "@/lib/visibility/fix-policy";
 import {
   DAILY_RUN_SCHEDULE_LABEL,
   getNextDailyRun,
-  getUtcDayKey,
 } from "@/lib/workspace/settings";
 
 export {
@@ -84,7 +82,6 @@ async function loadAskContext(
     gscSnap,
     integrations,
     credits,
-    todayRun,
     weeklyStats,
   ] = await Promise.all([
     getUsageTotals(scope.brandId),
@@ -125,7 +122,6 @@ async function loadAskContext(
       .limit(1),
     listIntegrations(scope.brandId),
     getCreditBalance(scope.workspaceId),
-    getDailyRun(scope.brandId, getUtcDayKey()),
     getWeeklyPipelineStats(scope.brandId),
   ]);
 
@@ -147,11 +143,10 @@ async function loadAskContext(
       automation: {
         enabled: active,
         agentState,
-        writtenToday: todayRun?.articlesWritten ?? 0,
         lastRun: lastRunStatus ? { status: lastRunStatus } : null,
       },
       activityInFlight: lastRunStatus === "running",
-    }) ?? "On duty";
+    })?.label ?? "On duty";
 
   const rank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
   const sortedFindings = [...openFindings].sort(
@@ -347,19 +342,22 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
 
       let answer: string;
       switch (ctx.presence) {
-        case "Working":
+        case "Working now":
           answer = `Yes — I'm working for ${ctx.brandName} right now${
             ctx.lastRunStatus ? ` (latest job: ${ctx.lastRunStatus})` : ""
           }. Cadence is ${ctx.schedule}; next planned daily pass around ${when}.`;
-          break;
-        case "Setting up":
-          answer = `I'm still setting myself up on ${ctx.brandName}. Once setup finishes I'll run on cadence (${ctx.schedule}).`;
           break;
         case "Needs attention":
           answer = `Setup hit a wall on ${ctx.brandName} — open Home or Brand settings so we can retry.`;
           break;
         case "Paused":
           answer = `I'm paused for ${ctx.brandName} (plan or credits). I won't run daily work until that's fixed under Brand → Billing / automation.`;
+          break;
+        case "Waiting for you":
+          answer = `I'm waiting on an owner decision for ${ctx.brandName}. Open Inbox to review the exact blocked action.`;
+          break;
+        case "Scheduled":
+          answer = `My next planned work for ${ctx.brandName} is scheduled around ${when}. Cadence: ${ctx.schedule}.`;
           break;
         default:
           answer = `I'm on duty for ${ctx.brandName}, not mid-job right now. Cadence: ${ctx.schedule}. Next planned daily pass around ${when}.`;
