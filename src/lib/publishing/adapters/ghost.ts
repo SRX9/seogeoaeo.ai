@@ -1,9 +1,14 @@
 import { createHmac } from "node:crypto";
-import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter } from "@/lib/publishing/types";
+import { publishFetch } from "@/lib/publishing/fetch";
 import { markdownToHtml } from "@/lib/publishing/markdown-html";
+import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter } from "@/lib/publishing/types";
 
 function normalizeAdminUrl(adminApiUrl: string) {
-  return adminApiUrl.replace(/\/$/, "");
+  // Accept base site, /ghost, or full /ghost/api/admin URLs.
+  return adminApiUrl
+    .replace(/\/$/, "")
+    .replace(/\/ghost\/api\/admin\/?$/i, "")
+    .replace(/\/ghost\/?$/i, "");
 }
 
 function ghostAdminToken(adminApiKey: string) {
@@ -26,11 +31,20 @@ function ghostAdminToken(adminApiKey: string) {
   return `${header}.${payload}.${signature}`;
 }
 
+function ghostHeaders(token: string): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    authorization: `Ghost ${token}`,
+    // Required by Ghost 5+ for version negotiation on the unversioned admin path.
+    "accept-version": "v5.0",
+  };
+}
+
 export const ghostAdapter: PublishingAdapter = {
   id: "ghost",
   async publish(article: PublishArticle, context: PublishContext): Promise<PublishResult> {
     const adminApiUrl = context.config.adminApiUrl?.trim();
-    const adminApiKey = context.secrets.ghost_admin_api_key ?? context.secrets.api_key;
+    const adminApiKey = (context.secrets.ghost_admin_api_key ?? context.secrets.api_key)?.trim();
 
     if (!adminApiUrl) {
       return { ok: false, error: "Ghost admin API URL is not configured" };
@@ -65,11 +79,13 @@ export const ghostAdapter: PublishingAdapter = {
     let postsBody: Record<string, unknown> = postPayload;
 
     if (context.externalId) {
-      const getRes = await fetch(`${base}/ghost/api/admin/posts/${encodeURIComponent(context.externalId)}/`, {
-        headers: { authorization: `Ghost ${token}` },
-      });
-      if (getRes.ok) {
-        const existing = (await getRes.json()) as {
+      const getFetched = await publishFetch(
+        "Ghost",
+        `${base}/ghost/api/admin/posts/${encodeURIComponent(context.externalId)}/`,
+        { headers: ghostHeaders(token) },
+      );
+      if (getFetched.ok && getFetched.response.ok) {
+        const existing = (await getFetched.response.json()) as {
           posts?: { id?: string; updated_at?: string; url?: string }[];
         };
         const current = existing.posts?.[0];
@@ -81,15 +97,14 @@ export const ghostAdapter: PublishingAdapter = {
       }
     }
 
-    const response = await fetch(endpoint, {
+    const fetched = await publishFetch("Ghost", endpoint, {
       method,
-      headers: {
-        "content-type": "application/json",
-        authorization: `Ghost ${token}`,
-      },
+      headers: ghostHeaders(token),
       body: JSON.stringify({ posts: [postsBody] }),
     });
+    if (!fetched.ok) return fetched;
 
+    const response = fetched.response;
     if (!response.ok) {
       const body = await response.text();
       return {

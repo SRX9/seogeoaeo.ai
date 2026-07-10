@@ -21,6 +21,7 @@ import { getDailyRun } from "@/lib/jobs/daily-repository";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
 import { getCreditBalance } from "@/lib/usage/credits";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
+import { isInstallReady } from "@/lib/visibility/fix-policy";
 import {
   DAILY_RUN_SCHEDULE_LABEL,
   getNextDailyRun,
@@ -229,13 +230,13 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       }
       const top = ctx.openFindings.slice(0, 5);
       const list = top.map((f, i) => `${i + 1}. [${f.severity}] ${f.title}`).join("\n");
-      const autoCount = top.filter((f) => f.fixCapability === "auto").length;
+      const readyCount = top.filter((f) => isInstallReady(f.fixCapability)).length;
       return {
         intent,
         answer: `Here are the highest-impact open issues on my list:\n\n${list}\n\n${
-          autoCount > 0
-            ? `${autoCount} of these I can apply for you from Inbox (logged and reversible).`
-            : "Most of these need a copy-paste artifact or a guided step — open Inbox or the fix queue."
+          readyCount > 0
+            ? `${readyCount} of these have a ready-to-install fix (copy from Inbox or the fix queue, install on your site, mark done).`
+            : "Most of these need a guided step — open Inbox or the fix queue for details."
         }${
           ctx.score != null
             ? `\n\nCurrent visibility score: ${ctx.score}${
@@ -297,8 +298,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       };
     }
     case "fixes_ready": {
-      const auto = ctx.openFindings.filter((f) => f.fixCapability === "auto").length;
-      const artifact = ctx.openFindings.filter((f) => f.fixCapability === "artifact").length;
+      const readyFixes = ctx.openFindings.filter((f) => isInstallReady(f.fixCapability)).length;
       const waiting =
         ctx.draftCount > 0 ||
         ctx.openFindings.length > 0 ||
@@ -322,14 +322,14 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       }
       if (ctx.openFindings.length > 0) {
         bits.push(
-          `${ctx.openFindings.length} open finding${ctx.openFindings.length === 1 ? "" : "s"} (${auto} I can auto-apply, ${artifact} with a copy-ready fix)`,
+          `${ctx.openFindings.length} open finding${ctx.openFindings.length === 1 ? "" : "s"} (${readyFixes} with a ready-to-install fix)`,
         );
       }
       if (ctx.needsGsc) bits.push("Search Console still disconnected");
       if (ctx.needsCms) bits.push("no CMS connected for publish");
       return {
         intent,
-        answer: `${bits.join("; ")}. Open Inbox to approve drafts, apply fixes, or connect GSC/CMS.`,
+        answer: `${bits.join("; ")}. Open Inbox to approve drafts, install site fixes, or connect GSC/CMS.`,
         sources: [
           { label: "Inbox", href: "/inbox" },
           { label: "Fix queue", href: "/visibility/fixes" },

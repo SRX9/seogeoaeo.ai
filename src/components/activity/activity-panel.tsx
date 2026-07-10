@@ -74,7 +74,7 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
 
   if (items.length === 0) {
     return (
-      <EmptyState className="rounded-xl border border-dashed border-border">
+      <EmptyState className="material-panel rounded-2xl border-dashed">
         <EmptyState.Header>
           <EmptyState.Media variant="icon">
             <ActivityIcon />

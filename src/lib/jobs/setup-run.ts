@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { visibilityCapsForPlan, dailyArticleCapForPlan, isActiveSubscription } from "@/lib/billing/plans";
@@ -26,8 +26,14 @@ import {
 import { CREDIT_COSTS, type BillableAction } from "@/lib/billing/credits";
 import { runResearch } from "@/lib/research/run";
 import { recentAnswerExcerpts, runAnswerCheck } from "@/lib/visibility/answers";
-import { applyFix } from "@/lib/visibility/apply-fix";
+import { setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
+import type { SetupStep, SetupStepKey } from "@/lib/jobs/setup-run-types";
+import { monthlyFixBudgetUsed, stampProposedFindings } from "@/lib/visibility/fix-dispatch";
+import { isInstallReady } from "@/lib/visibility/fix-policy";
 import { runAudit } from "@/server/visibility/run-audit";
+
+export type { SetupStep, SetupStepKey, SetupStepStatus } from "@/lib/jobs/setup-run-types";
+export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
 
 /**
  * AP2 — Claudia's Setup Run: the one-time ignition pipeline that onboards a new
@@ -60,14 +66,10 @@ export const SETUP_STEPS = [
   { key: "answer_check", label: "Asking ChatGPT, Perplexity, and Gemini about your category" },
   { key: "competitor_baseline", label: "Sizing up your competitor" },
   { key: "topic_research", label: "Researching what to write first" },
-  { key: "quick_win_fixes", label: "Applying quick-win fixes" },
+  { key: "quick_win_fixes", label: "Preparing quick-win fixes" },
   { key: "first_article", label: "Writing your first article" },
   { key: "day0_brief", label: "Writing your Day-0 brief" },
-] as const;
-
-export type SetupStepKey = (typeof SETUP_STEPS)[number]["key"];
-export type SetupStepStatus = "pending" | "running" | "done" | "skipped" | "failed";
-export type SetupStep = { key: SetupStepKey; status: SetupStepStatus; note?: string };
+] as const satisfies ReadonlyArray<{ key: SetupStepKey; label: string }>;
 
 function initialSteps(): SetupStep[] {
   return SETUP_STEPS.map((s) => ({ key: s.key, status: "pending" }));
@@ -328,27 +330,38 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     return `Queued ${research.topicsCreated} article topics.`;
   },
 
-  quick_win_fixes: async ({ scope, brand, website, caps }) => {
+  quick_win_fixes: async ({ scope, website, caps }) => {
     if (!website) return { skip: "No website to fix." };
-    if (brand.autonomyMode !== "FULL_AUTO") return { skip: "Copilot mode — fixes queued for your approval." };
+    // Same prepare path as the standing loop — never auto_applied without canLiveApply.
     const auditId = await latestOwnAuditId(scope.workspaceId, website);
     if (!auditId) return { skip: "No completed audit to fix from." };
+    const used = await monthlyFixBudgetUsed(scope.workspaceId, scope.brandId);
+    const remaining = Math.max(0, (caps.autoFixCap || 0) - used);
+    const limit = Math.min(remaining, MAX_SETUP_FIXES);
+    if (limit <= 0) return { skip: "Plan has no remaining fix preparation allowance this month." };
+
     const findings = await getDb()
-      .select({ id: auditFindings.id })
+      .select({
+        id: auditFindings.id,
+        fixCapability: auditFindings.fixCapability,
+      })
       .from(auditFindings)
       .where(
         and(
           eq(auditFindings.auditId, auditId),
-          eq(auditFindings.fixCapability, "auto"),
           eq(auditFindings.isResolved, false),
+          isNull(auditFindings.proposedAt),
         ),
-      )
-      .limit(Math.min(caps.autoFixCap || 0, MAX_SETUP_FIXES));
-    if (findings.length === 0) return { skip: "No auto-applicable fixes found." };
-    for (const finding of findings) {
-      await applyFix(finding.id, scope.workspaceId, "agent");
-    }
-    return `Applied ${findings.length} quick-win fix${findings.length === 1 ? "" : "es"}.`;
+      );
+
+    const readyIds = findings
+      .filter((f) => isInstallReady(f.fixCapability))
+      .slice(0, limit)
+      .map((f) => f.id);
+    if (readyIds.length === 0) return { skip: "No ready-to-install fixes found." };
+
+    const stamped = await stampProposedFindings(readyIds);
+    return `Prepared ${stamped} ready-to-install fix${stamped === 1 ? "" : "es"} in your inbox.`;
   },
 
   first_article: async ({ scope, planId }) => {
@@ -450,19 +463,19 @@ export async function executeSetupStep(
 }
 
 /**
- * Settle the run once every step has been attempted. Failed steps don't block
- * completion (they're visible in the step list); only a run where *nothing*
- * succeeded is marked failed, which surfaces the Resume button in the hero.
+ * Settle the run once every step has been attempted. Failed/skipped steps don't
+ * block completion when at least one material step is `done`. An all-skip /
+ * all-fail run is `failed` so the owner can resume after fixing credits/site.
  */
 export async function finalizeSetupRun(scope: BrandScope) {
   const run = await getSetupRun(scope.brandId);
   if (!run) throw new Error("Setup run not found");
   if (run.status === "completed") return run;
   const steps = run.steps;
-  const anySucceeded = steps.some((s) => s.status === "done" || s.status === "skipped");
-  const status = anySucceeded ? "completed" : "failed";
+  const status = setupRunOutcome(steps);
+  const materialDone = status === "completed";
   await saveRun(run.id, steps, { status });
-  if (anySucceeded) {
+  if (materialDone) {
     const job = await createAgentJob(scope, "setup_run", "Claudia's Setup Run");
     await finishAgentJob(job.id, "completed", "Setup Run complete — Claudia is on the job.", {
       steps: steps.map((s) => ({ key: s.key, status: s.status })),
@@ -472,7 +485,7 @@ export async function finalizeSetupRun(scope: BrandScope) {
     logError("setup_run.failed", {
       workspaceId: scope.workspaceId,
       brandId: scope.brandId,
-      error: "All setup steps failed",
+      error: "No material setup steps completed",
     });
   }
   return getSetupRun(scope.brandId);

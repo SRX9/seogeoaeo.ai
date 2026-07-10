@@ -16,7 +16,7 @@ export default function InboxPage() {
   const { combined: inbox } = useInboxData();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-3xl space-y-9">
       <PageHeader
         title="Inbox"
         description="Everything Claudia needs from you — approve, connect, or leave it to her."

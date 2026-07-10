@@ -28,7 +28,7 @@ const includedEverywhere = [
 const pricingFaqs = [
   {
     q: "Is this a taxi meter for SEO tools?",
-    a: "No. Plans are closer to a salary: she works on a cadence. Heavy AI jobs use credits so volume stays fair, but safe fixes are plan-included — we never charge you at the moment she delivers the core promise.",
+    a: "No. Plans are closer to a salary: she works on a cadence. Heavy AI jobs use credits so volume stays fair. Preparing site fixes (robots, schema, meta) is plan-included — never metered per fix. You install ready artifacts on your site; Claudia re-checks on the next audit.",
   },
   {
     q: "How do credits work?",
@@ -50,14 +50,14 @@ export default function PricingPage() {
       <SiteHeader />
       <main>
         <section className="mx-auto max-w-6xl px-4 pb-12 pt-24 text-center sm:pt-32">
-          <span className="inline-flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
+          <span className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft/35 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-accent-soft-foreground">
             <span className="size-1.5 rounded-full bg-accent" aria-hidden />
             Plans
           </span>
-          <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+          <h1 className="type-display mt-6 text-4xl text-foreground sm:text-5xl sm:leading-[1.05]">
             Capacity for the employee you hired
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg text-muted">
+          <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg leading-relaxed text-muted">
             Preview free. Hire Claudia on a plan so she can write, fix, and report —
             more capacity as you scale, not more dashboards.
           </p>
@@ -71,16 +71,17 @@ export default function PricingPage() {
 
         <section className="px-4 py-16">
           <div className="mx-auto max-w-4xl">
-            <Card className="border-border/70">
-              <h2 className="text-xl font-semibold text-foreground">
-                Every paid hire includes
-              </h2>
-              <p className="mt-1 text-sm text-muted">
+            <Card className="material-panel border-border/50">
+              <h2 className="type-title text-xl text-foreground">Every paid hire includes</h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted">
                 Same employee, different capacity — credits, cadence, and fix volume.
               </p>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2">
                 {includedEverywhere.map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-foreground/90">
+                  <li
+                    key={item}
+                    className="flex items-start gap-2.5 text-sm leading-snug text-foreground/90"
+                  >
                     <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-accent" />
                     {item}
                   </li>
@@ -90,18 +91,24 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="border-t border-border/60 px-4 py-20">
+        <section className="border-t border-border/40 px-4 py-20">
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-center text-3xl font-semibold tracking-tight text-foreground">
-              Plan questions
-            </h2>
-            <div className="mt-10 divide-y divide-border/60 border-y border-border/60">
+            <h2 className="type-title text-center text-3xl text-foreground">Plan questions</h2>
+            <div className="mt-10 divide-y divide-border/40 border-y border-border/40">
               {pricingFaqs.map((faq) => (
                 <details key={faq.q} className="group py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-base font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                  <summary className="pressable flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg text-left text-base font-medium tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
                     {faq.q}
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted transition-transform duration-200 group-open:rotate-45">
-                      <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 text-muted transition-transform duration-ui ease-out-strong group-open:rotate-45">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="size-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        aria-hidden
+                      >
                         <path d="M12 5v14M5 12h14" />
                       </svg>
                     </span>

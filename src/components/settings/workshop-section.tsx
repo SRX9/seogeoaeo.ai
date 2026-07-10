@@ -43,9 +43,11 @@ export function WorkshopSection() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-xl border border-dashed border-border bg-surface-secondary/40 p-4">
-        <p className="text-sm text-foreground">
-          <span className="font-medium">Advanced — you don&apos;t need this for me to work.</span>{" "}
+      <div className="material-panel rounded-2xl border-dashed p-4">
+        <p className="text-sm leading-relaxed text-foreground">
+          <span className="font-medium tracking-tight">
+            Advanced — you don&apos;t need this for me to work.
+          </span>{" "}
           <span className="text-muted">
             These are my workshop tools for technical founders. Most brand owners only use
             Claudia, Inbox, and Reports. Engine contracts are unchanged — same audits, same
@@ -62,19 +64,23 @@ export function WorkshopSection() {
 
       {groups.map(({ group, label, links }) => (
         <div key={group} className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">{label}</h3>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+            {label}
+          </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             {links.map((link) => {
               const Icon = ICONS[link.icon] ?? WorkshopIcon;
               return (
-                <Card key={link.href} className="flex flex-col gap-3 p-4">
+                <Card key={link.href} className="material-panel flex flex-col gap-3 p-4">
                   <div className="flex items-start gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-muted">
                       <Icon className="size-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground">{link.title}</p>
-                      <p className="mt-0.5 text-sm text-muted">{link.description}</p>
+                      <p className="font-medium tracking-tight text-foreground">{link.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-muted">
+                        {link.description}
+                      </p>
                     </div>
                   </div>
                   <div>

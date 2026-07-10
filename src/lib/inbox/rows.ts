@@ -5,6 +5,7 @@ import type {
   VisibilityFinding,
   VisibilityTraffic,
 } from "@/lib/api/queries";
+import { isInstallReady } from "@/lib/visibility/fix-policy";
 
 /**
  * Pure inbox row builder — shared by ApprovalInbox, shell badge counts, and Ask.
@@ -99,28 +100,25 @@ export function buildInboxRows({
     });
   }
 
-  const approvable = findings
-    .filter(
-      (finding) =>
-        finding.fixCapability === "auto" || finding.fixCapability === "artifact",
-    )
+  const installReady = findings
+    .filter((finding) => isInstallReady(finding.fixCapability))
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
-  if (approvable.length > 0) {
-    const lead = approvable[0]!;
+  if (installReady.length > 0) {
+    const lead = installReady[0]!;
     rows.push({
       key: "fixes",
       kind: "fixes",
       what:
-        approvable.length === 1
-          ? `Approve a fix: ${lead.title}`
-          : `Approve ${approvable.length} prepared fixes`,
+        installReady.length === 1
+          ? `Install a fix: ${lead.title}`
+          : `Install ${installReady.length} prepared fixes`,
       why:
-        approvable.length === 1
-          ? "It's prepared — one click and it's applied, logged, and reversible."
-          : `Starting with "${lead.title}" — each one applied, logged, and reversible.`,
+        installReady.length === 1
+          ? "Ready to copy onto your site — mark done when it's live; Claudia re-checks next audit."
+          : `Starting with "${lead.title}" — copy each fix, install on your site, then mark done.`,
       href: "/visibility/fixes",
       cta: "Review fixes",
-      findings: approvable,
+      findings: installReady,
     });
   }
 
@@ -139,7 +137,7 @@ export function buildInboxRows({
       key: "unlock-cms",
       kind: "unlock-cms",
       what: "Connect your site or CMS",
-      why: "Then I publish articles and apply fixes on your real site — no copy-pasting.",
+      why: "Then I can publish articles to your real site without a manual export.",
       href: "/settings?tab=integrations",
       cta: "Connect",
     });

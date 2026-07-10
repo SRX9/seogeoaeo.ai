@@ -13,7 +13,7 @@ export function IntegrationsSection() {
   const googleTraffic = useGoogleTraffic();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Section
         query={googleTraffic}
         skeleton={<CardSkeleton lines={3} />}

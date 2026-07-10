@@ -4,15 +4,17 @@ import { auditFindings } from "@/lib/db/schema/visibility";
 import { buildFixArtifact, type FixArtifact } from "@/lib/visibility/fix-artifact";
 
 /**
- * V7.2 — auto-apply fixes. Consumes the `fix_payload`s produced by V1.1 (robots),
- * V1.3 (llms.txt), V3.3 (JSON-LD), V6.5 (answer blocks). Content we control is
- * applied directly (drafts + connector-published articles); for surfaces we can't
- * reach we emit a copy-paste snippet or a downloadable file. Applying marks the
- * finding resolved (revertible); no new scoring algorithm — re-scores with the
- * same modules to verify the lift.
+ * V7.2 — resolve a finding after its fix is installed (or claimed installed).
  *
- * The artifact builder itself lives in `fix-artifact.ts` (client-safe) so the
- * fix queue renders the same artifact the server applies.
+ * Reality check: we cannot write robots.txt / llms.txt / JSON-LD / meta onto the
+ * customer's origin without a host or CMS channel. Until that exists:
+ * - The agent standing loop **proposes** ready-to-install artifacts (see
+ *   `canLiveApply` in visibility-agent) — it does not call this for site fixes.
+ * - Owner "apply" means "I installed this on my site; mark the finding done"
+ *   (`user_applied`). Next re-audit verifies; re-detection reopens the finding.
+ *
+ * The artifact builder lives in `fix-artifact.ts` (client-safe) so the fix
+ * queue shows the same payload the owner copies/downloads.
  */
 
 export { buildFixArtifact, type FixArtifact, type FixMode } from "@/lib/visibility/fix-artifact";
@@ -31,10 +33,13 @@ async function loadOwnedFinding(findingId: string, workspaceId: string) {
 }
 
 /**
- * Apply a finding's fix and mark it resolved (revertible). `source` records who
- * applied it: the agent's standing loop ("agent" → `auto_applied`, counted
- * against the plan's monthly auto-fix cap) or a user click ("user" →
- * `user_applied`). Both are verified on the next scheduled re-audit.
+ * Mark a finding resolved after the fix is installed. `source`:
+ * - `"user"` → owner confirmed they installed the artifact (`user_applied`)
+ * - `"agent"` → live channel pushed the fix (`auto_applied`, counts against
+ *   monthly autoFixCap). Callers must only use `"agent"` when
+ *   `canLiveApply` is true — otherwise the standing loop proposes instead.
+ *
+ * Verified on the next scheduled re-audit; re-detection reopens the row.
  */
 export async function applyFix(
   findingId: string,

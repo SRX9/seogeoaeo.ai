@@ -37,7 +37,7 @@ export default function TopicsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-3xl space-y-9">
       <PageHeader
         title="Topic queue"
         description="What Claudia is planning to write next — evidence-backed theses first."
@@ -67,7 +67,7 @@ export default function TopicsPage() {
 
       {showGscNudge ? (
         <p className="text-sm text-muted">
-          <Link href="/settings?tab=integrations" className="font-medium text-accent underline-offset-2 hover:underline">
+          <Link href="/settings?tab=integrations" className="font-medium text-accent underline-offset-2 hover-fine:underline">
             Connect Search Console
           </Link>{" "}
           and Claudia will find the queries you already almost rank for.

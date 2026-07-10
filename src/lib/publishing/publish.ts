@@ -103,15 +103,24 @@ async function publishToDestination(
   const attemptCount = (existing?.attemptCount ?? 0) + 1;
   const secrets = await readIntegrationSecrets(scope.brandId, provider);
 
-  const result = await adapter.publish(article, {
-    workspaceId: scope.workspaceId,
-    config: integration.config,
-    secrets,
-    origin,
-    // Prefer a stored remote id so adapters update instead of creating a duplicate.
-    externalId: existing?.externalId ?? null,
-    externalUrl: existing?.externalUrl ?? null,
-  });
+  let result: PublishResult;
+  try {
+    result = await adapter.publish(article, {
+      workspaceId: scope.workspaceId,
+      config: integration.config,
+      secrets,
+      origin,
+      // Prefer a stored remote id so adapters update instead of creating a duplicate.
+      externalId: existing?.externalId ?? null,
+      externalUrl: existing?.externalUrl ?? null,
+    });
+  } catch (error) {
+    // Adapters should return { ok: false }, but never let one throw abort siblings.
+    result = {
+      ok: false,
+      error: error instanceof Error ? error.message : "Publishing adapter failed unexpectedly",
+    };
+  }
 
   if (result.ok) {
     await upsertPublication(scope, article.id, provider, {

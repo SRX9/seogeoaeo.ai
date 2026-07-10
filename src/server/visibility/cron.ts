@@ -11,11 +11,7 @@ import {
   finishAgentJob,
   type VisibilityMonitorMeta,
 } from "@/lib/jobs/repository";
-import {
-  dispatchDecision,
-  dueForReaudit,
-  type FindingKey,
-} from "@/lib/jobs/visibility-agent";
+import { dueForReaudit, type FindingKey } from "@/lib/jobs/visibility-agent";
 import { logInfo } from "@/lib/logging/logger";
 import { SITE_URL } from "@/lib/site";
 import {
@@ -24,9 +20,12 @@ import {
   spendForVisibilityJob,
 } from "@/lib/usage/credits";
 import { runAnswerCheck } from "@/lib/visibility/answers";
-import { applyFix } from "@/lib/visibility/apply-fix";
 import { compareAudits, type DeltaReport } from "@/lib/visibility/compare";
 import { persistNewFindings } from "@/lib/visibility/findings-repository";
+import {
+  dispatchOpenFindings,
+  type FixDispatchSummary,
+} from "@/lib/visibility/fix-dispatch";
 import { getAutonomyOverrides, resolveBrandForSite } from "./autonomy";
 import { createAudit, executeAudit } from "./run-audit";
 
@@ -70,56 +69,21 @@ export interface DueSite {
   planId: string | null;
 }
 
-export interface DispatchSummary {
-  applied: number;
-  proposed: number;
-  queued: number;
-}
+export type DispatchSummary = FixDispatchSummary;
 
 /**
- * AP4 — per-category autonomy dispatch. After a scheduled re-audit, every OPEN
- * finding in the workspace's fix queue — the new audit's, the standing backlog's
- * (dedup keeps re-detections on their original row), and the C2/C4 prepared
- * fixes that carry no audit id — gets one of three fates decided by the brand's
- * Autopilot/Copilot dial + its per-category overrides (`agent_autonomy`):
- * `apply` (Level 2, `auto`-capable, within the plan's *monthly* autoFixCap),
- * `propose` (Level 1 — stamped `proposedAt` for the approval inbox), or `queue`
- * (Level 0 — watch only). Best-effort per finding; retry-safe: applies only
- * touch `isResolved = false`, proposes only stamp where `proposedAt IS NULL`.
+ * AP4 — per-category autonomy dispatch after a scheduled re-audit. Shared
+ * policy in `dispatchOpenFindings`: monthly `autoFixCap` covers new prepares
+ * and live-applies; Level 0 queues; no brand → no-op.
  */
 async function dispatchFixes(
   workspaceId: string,
   autoFixCap: number,
   brand: { brandId: string; autonomyMode: "FULL_AUTO" | "REVIEW" } | null,
 ): Promise<DispatchSummary> {
-  const summary: DispatchSummary = { applied: 0, proposed: 0, queued: 0 };
-  const db = getDb();
-
-  // No resolvable brand → nothing to decide with; leave everything queued.
-  if (!brand) return summary;
+  if (!brand) return { applied: 0, proposed: 0, queued: 0 };
   const overrides = await getAutonomyOverrides(brand.brandId);
-
-  // The cap is *per month* (that's what the plan copy promises), not per
-  // re-audit — on a weekly cadence an uncounted cap would quietly be 4× the
-  // advertised number. Count only what the AGENT auto-applied this calendar
-  // month (`resolution = auto_applied`, stamped by applyFix(…, "agent")) —
-  // user dismissals and one-click applies must never eat the agent's budget.
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const [used] = await db
-    .select({ n: count() })
-    .from(auditFindings)
-    .where(
-      and(
-        eq(auditFindings.workspaceId, workspaceId),
-        eq(auditFindings.resolution, "auto_applied"),
-        gte(auditFindings.resolvedAt, monthStart),
-      ),
-    );
-  let remaining = Math.max(0, autoFixCap - (used?.n ?? 0));
-
-  // Scope to this brand so multi-brand workspaces don't auto-apply each other's findings.
-  const findings = await db
+  const findings = await getDb()
     .select({
       id: auditFindings.id,
       category: auditFindings.category,
@@ -135,38 +99,14 @@ async function dispatchFixes(
       ),
     );
 
-  const toPropose: string[] = [];
-  for (const finding of findings) {
-    let action = dispatchDecision(finding, brand.autonomyMode, overrides);
-    // Cap exhausted: she still prepares the fix, just can't apply it herself.
-    if (action === "apply" && remaining <= 0) action = "propose";
-    if (action === "apply") {
-      try {
-        await applyFix(finding.id, workspaceId, "agent");
-        summary.applied += 1;
-        remaining -= 1;
-      } catch (error) {
-        console.error(`[visibility] auto-fix failed for finding ${finding.id}`, error);
-      }
-    } else if (action === "propose") {
-      // Count only NEWLY prepared fixes — the whole backlog is re-scanned each
-      // cycle, and "prepared N" must mean this cycle's work, not the queue size.
-      if (!finding.proposedAt) {
-        summary.proposed += 1;
-        toPropose.push(finding.id);
-      }
-    } else {
-      summary.queued += 1;
-    }
-  }
-
-  if (toPropose.length > 0) {
-    await db
-      .update(auditFindings)
-      .set({ proposedAt: now })
-      .where(and(inArray(auditFindings.id, toPropose), isNull(auditFindings.proposedAt)));
-  }
-  return summary;
+  return dispatchOpenFindings({
+    workspaceId,
+    brandId: brand.brandId,
+    autonomyMode: brand.autonomyMode,
+    overrides,
+    autoFixCap,
+    findings,
+  });
 }
 
 const APPLIED_RESOLUTIONS = ["auto_applied", "user_applied", "completed"] as const;
@@ -429,7 +369,7 @@ export async function finishReaudit(args: {
       await finishAgentJob(
         job.id,
         "completed",
-        `Re-audit complete: applied ${dispatch.applied}, prepared ${dispatch.proposed}, verified ${outcomes.verified.length} fix(es)${outcomes.regressed.length > 0 ? `, ${outcomes.regressed.length} regressed` : ""}; score ${gain >= 0 ? "+" : ""}${gain}.`,
+        `Re-audit complete: live-applied ${dispatch.applied}, prepared ${dispatch.proposed}, verified ${outcomes.verified.length} fix(es)${outcomes.regressed.length > 0 ? `, ${outcomes.regressed.length} regressed` : ""}; score ${gain >= 0 ? "+" : ""}${gain}.`,
         meta,
       );
     } catch (error) {

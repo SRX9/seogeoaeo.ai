@@ -1,3 +1,5 @@
+import { publishFetch } from "@/lib/publishing/fetch";
+import { normalizeNamedTags } from "@/lib/publishing/tags";
 import type { PublishArticle, PublishContext, PublishResult, PublishingAdapter } from "@/lib/publishing/types";
 
 const PUBLISH_POST_MUTATION = `
@@ -35,10 +37,7 @@ export const hashnodeAdapter: PublishingAdapter = {
       return { ok: false, error: "Hashnode publication ID is not configured" };
     }
 
-    const tags = article.tags.map((tag) => ({
-      slug: tag.toLowerCase().replace(/\s+/g, "-"),
-      name: tag,
-    }));
+    const tags = normalizeNamedTags(article.tags, { max: 5 });
 
     const isUpdate = Boolean(context.externalId);
     const body = isUpdate
@@ -65,15 +64,18 @@ export const hashnodeAdapter: PublishingAdapter = {
           },
         };
 
-    const response = await fetch("https://gql.hashnode.com", {
+    const fetched = await publishFetch("Hashnode", "https://gql.hashnode.com", {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        // Hashnode expects the raw PAT in Authorization (not Bearer-prefixed).
         authorization: apiKey,
       },
       body: JSON.stringify(body),
     });
+    if (!fetched.ok) return fetched;
 
+    const response = fetched.response;
     if (!response.ok) {
       const text = await response.text();
       return {

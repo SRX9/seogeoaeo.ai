@@ -79,16 +79,16 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
     <div className="space-y-4">
       <CompetitorDiscovery />
 
-      <Card>
+      <Card className="material-panel">
         <Card.Header>
-          <Card.Title>Competitors</Card.Title>
-          <Card.Description>
+          <Card.Title className="tracking-tight">Competitors</Card.Title>
+          <Card.Description className="leading-relaxed">
             URLs, RSS feeds, and sitemaps used for research. Up to {MAX_COMPETITORS} per brand.
           </Card.Description>
         </Card.Header>
         <Card.Content>
           {atLimit ? (
-            <p className="text-sm text-muted">
+            <p className="text-sm leading-relaxed text-muted">
               You&apos;ve reached the limit of {MAX_COMPETITORS} competitors. Remove one to add
               another.
             </p>
@@ -121,25 +121,25 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
       </Card>
 
       {competitors.length === 0 ? (
-        <p className="text-sm text-muted">No competitors added yet.</p>
+        <p className="text-sm leading-relaxed text-muted">No competitors added yet.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {competitors.map((competitor) => (
             <li
               key={competitor.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-surface p-4"
+              className="material-panel flex flex-wrap items-start justify-between gap-3 rounded-2xl p-4"
             >
               <div>
-                <p className="font-medium text-foreground">{competitor.name}</p>
+                <p className="font-medium tracking-tight text-foreground">{competitor.name}</p>
                 <a
                   href={competitor.url}
-                  className="text-sm text-muted hover:text-foreground"
+                  className="pressable text-sm text-muted hover-fine:text-foreground"
                   target="_blank"
                   rel="noreferrer"
                 >
                   {competitor.url}
                 </a>
-                <div className="mt-2 space-y-1 text-xs text-muted">
+                <div className="mt-2 space-y-1 text-xs leading-relaxed text-muted">
                   {competitor.rssUrl ? <p>RSS: {competitor.rssUrl}</p> : null}
                   {competitor.sitemapUrl ? <p>Sitemap: {competitor.sitemapUrl}</p> : null}
                 </div>

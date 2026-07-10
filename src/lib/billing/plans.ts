@@ -22,7 +22,11 @@ export type VisibilityCaps = {
   monitoringCadence: "none" | "monthly" | "weekly";
   /** Tracked-prompt count for answer-share (V5.5). */
   trackedPrompts: number;
-  /** Auto-fixes Claudia may apply per month (plan-included, not credits). */
+  /**
+   * Monthly agent fix budget (plan-included, not credits): new prepares
+   * (`proposedAt`) plus live-applies (`auto_applied`) this calendar month.
+   * User-installed marks do not consume it.
+   */
   autoFixCap: number;
   /** Competitors benchmarked (V6.4). */
   competitors: number;

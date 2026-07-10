@@ -6,6 +6,7 @@ import { trafficSnapshots } from "@/lib/db/schema/visibility";
 import { listIntegrations } from "@/lib/integrations/repository";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
 import { countInboxFromParts } from "@/lib/inbox/rows";
+import { isInstallReady } from "@/lib/visibility/fix-policy";
 
 /**
  * Cheap server-side inbox badge count — no article bodies, no full traffic series.
@@ -30,9 +31,7 @@ export async function getInboxSummaryCount(scope: BrandScope): Promise<number> {
   ]);
 
   const draftCount = Number(draftRow[0]?.n ?? 0);
-  const approvableFixCount = findings.filter(
-    (f) => f.fixCapability === "auto" || f.fixCapability === "artifact",
-  ).length;
+  const approvableFixCount = findings.filter((f) => isInstallReady(f.fixCapability)).length;
 
   return countInboxFromParts({
     draftCount,

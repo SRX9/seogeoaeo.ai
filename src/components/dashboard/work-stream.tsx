@@ -92,7 +92,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
     return (
       <section className={cn("space-y-3", className)}>
         <StreamHeader live={live} activeCount={0} />
-        <EmptyState className="rounded-xl border border-dashed border-border">
+        <EmptyState className="material-panel rounded-2xl border-dashed">
           <EmptyState.Header>
             <EmptyState.Media variant="icon">
               <ActivityIcon />
@@ -115,7 +115,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
         {hasMore ? (
           <Link
             href="/activity"
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 text-sm text-muted transition-colors hover-fine:text-foreground"
           >
             Full log
             <ChevronRightIcon className="size-3.5" />
@@ -138,10 +138,10 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
                 type="button"
                 onClick={() => setFilter(chip.id)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  "chip",
                   selected
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-surface-secondary text-muted hover:text-foreground",
+                    ? "bg-accent text-accent-foreground shadow-sm"
+                    : "bg-surface-secondary text-muted hover-fine:bg-default/60 hover-fine:text-foreground",
                 )}
               >
                 {chip.label}
@@ -153,16 +153,16 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
       ) : null}
 
       {visible.length === 0 ? (
-        <Card className="p-5">
-          <p className="text-sm text-muted">Nothing in this filter right now.</p>
+        <Card className="material-panel p-5">
+          <p className="text-sm leading-relaxed text-muted">Nothing in this filter right now.</p>
         </Card>
       ) : (
-        <Card className="divide-y divide-border p-0">
+        <Card className="material-panel divide-y divide-border/50 p-0">
           {visible.map((item) => {
             const Icon = eventIcon(item);
             const itemLive = isItemLive(item);
             const body = (
-              <div className="flex items-start gap-3 p-4">
+              <div className="surface-interactive flex items-start gap-3 rounded-none p-4">
                 <span
                   className={cn(
                     "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl",
@@ -176,7 +176,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
                   <Icon className={cn("size-4", itemLive && "animate-pulse")} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-snug text-foreground">
+                  <p className="text-sm font-medium leading-snug tracking-tight text-foreground">
                     {item.narrative}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
@@ -204,7 +204,7 @@ export function WorkStream({ items, limit, filterable = false, className }: Work
                 <Link
                   key={`${item.type}-${item.id}`}
                   href={item.href}
-                  className="block transition-colors hover:bg-overlay/40"
+                  className="block"
                 >
                   {body}
                 </Link>
@@ -231,16 +231,16 @@ function StreamHeader({ live, activeCount }: { live: boolean; activeCount: numbe
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold text-foreground">What I&apos;ve been doing</h2>
+        <h2 className="type-title text-lg text-foreground">What I&apos;ve been doing</h2>
         {live ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-soft-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-medium tracking-[0.01em] text-success-soft-foreground">
             <span className="size-1.5 animate-pulse rounded-full bg-success" aria-hidden />
             Live
             {activeCount > 0 ? ` · ${activeCount}` : ""}
           </span>
         ) : null}
       </div>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-1 text-sm leading-relaxed text-muted">
         {live
           ? "Updating as I work — newest first."
           : "Newest first — tap a row for the related artifact."}

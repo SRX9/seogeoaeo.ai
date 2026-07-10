@@ -77,7 +77,7 @@ function UserMenu({ user }: { user: SessionUser }) {
       <Button
         variant="ghost"
         aria-label="Account menu"
-        className="h-auto min-w-0 flex-1 justify-start gap-2.5 px-2 py-2"
+        className="h-auto min-w-0 flex-1 justify-start gap-2.5 rounded-xl px-2 py-2"
       >
         <Avatar size="sm">
           {user.image ? <Avatar.Image alt={user.name} src={user.image} /> : null}
@@ -139,7 +139,7 @@ function NavMenu({
             </Sidebar.MenuIcon>
             <Sidebar.MenuLabel>{entry.label}</Sidebar.MenuLabel>
             {badge != null ? (
-              <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-warning-soft-foreground">
+              <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-semibold tabular-nums tracking-[0.02em] text-warning-soft-foreground">
                 {badge > 9 ? "9+" : badge}
               </span>
             ) : null}
@@ -254,7 +254,7 @@ export function AppShell({ children, user, brands, activeBrandId }: AppShellProp
       <div className="fixed left-3 top-3 z-50 md:hidden">
         <AppLayout.MenuToggle tooltip="Open menu" />
       </div>
-      <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-16 md:px-8 md:py-8">
+      <div className="mx-auto w-full max-w-7xl px-4 pb-12 pt-16 md:px-8 md:py-9">
         <WorkshopBanner />
         {children}
       </div>

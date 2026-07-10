@@ -17,11 +17,16 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { CheckIcon } from "@/components/icons";
 import {
   CompetitorRadar,
   CompetitorSuggestionCard,
 } from "@/components/brand/competitor-visuals";
+import {
+  onboardingStepSpring,
+  onboardingStepVariants,
+} from "@/components/brand/onboarding-step-motion";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { TagInput } from "@/components/ui/tag-input";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
@@ -166,14 +171,14 @@ const AUTONOMY_OPTIONS = [
     title: "Autopilot",
     recommended: true,
     description:
-      "She publishes and applies safe fixes herself. Everything is logged and reversible — you glance the work log.",
+      "She publishes articles to your CMS herself and prepares ready site fixes in your inbox. You install site artifacts; she re-checks next audit.",
   },
   {
     value: "REVIEW" as const,
     title: "Copilot",
     recommended: false,
     description:
-      "Same work, but drafts and fixes wait in your Inbox until you approve.",
+      "Same work, but article drafts wait in your Inbox until you approve. Site fixes stay ready-to-install either way.",
   },
 ];
 
@@ -273,6 +278,9 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
   const isSubscribed = isActiveSubscription(me.data?.subscription?.status);
 
   const [step, setStep] = useState(0);
+  /** +1 = forward, −1 = back — drives symmetric enter/exit paths. */
+  const [stepDirection, setStepDirection] = useState(1);
+  const prefersReducedMotion = useReducedMotion();
   // Controlled fields — HeroUI/react-aria inputs do not reliably surface their
   // value through native FormData when used bare, so we own the state here.
   const [fields, setFields] = useState<Fields>(INITIAL_FIELDS);
@@ -694,7 +702,14 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
       }
     }
 
+    setStepDirection(1);
     setStep((value) => Math.min(lastStep, value + 1));
+  }
+
+  function goBack() {
+    setError(null);
+    setStepDirection(-1);
+    setStep((value) => Math.max(0, value - 1));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -755,20 +770,40 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
 
   return (
     <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex min-h-dvh flex-col">
-      {/* The only pacing cue — a hairline progress bar. No steps, no numbers. */}
-      <div className="fixed inset-x-0 top-0 z-20 h-0.5 bg-border/50">
-        <div
-          className="h-full bg-accent transition-[width] duration-500 ease-out"
-          style={{ width: `${progress}%` }}
+      {/* Hairline progress — material strip, no step numbers (Apple simplicity). */}
+      <div className="fixed inset-x-0 top-0 z-20 h-1 bg-border/40 backdrop-blur-md">
+        <motion.div
+          className="h-full w-full origin-left bg-accent"
+          initial={false}
+          animate={{ scaleX: progress / 100 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0.15 }
+              : { type: "spring", bounce: 0, duration: 0.35 }
+          }
         />
       </div>
 
-      <div className="flex flex-1 items-center justify-center px-6 py-16">
-        <div key={step} ref={stepRef} className="onboarding-step w-full max-w-xl">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+      <div className="flex flex-1 items-center justify-center px-5 py-16 sm:px-6">
+        <div className="relative w-full max-w-xl">
+          <AnimatePresence mode="wait" custom={stepDirection} initial={false}>
+            <motion.div
+              key={step}
+              ref={stepRef}
+              custom={stepDirection}
+              variants={prefersReducedMotion ? undefined : onboardingStepVariants}
+              initial={prefersReducedMotion ? { opacity: 0 } : "enter"}
+              animate={prefersReducedMotion ? { opacity: 1 } : "center"}
+              exit={prefersReducedMotion ? { opacity: 0 } : "exit"}
+              transition={
+                prefersReducedMotion ? { duration: 0.15 } : onboardingStepSpring
+              }
+              className="w-full"
+            >
+          <h1 className="type-display text-2xl text-foreground sm:text-3xl sm:leading-[1.1]">
             {current.question}
           </h1>
-          <p className="mt-2 text-sm text-muted sm:text-base">
+          <p className="mt-2.5 text-sm leading-relaxed text-muted sm:text-base">
             {step === STEP_LAUNCH ? launchHint : current.hint}
           </p>
 
@@ -852,12 +887,16 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
 
                 {prefill.isPending ? (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-center">
-                    <LoadingDots />
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Understanding your brand</p>
-                      <p className="mt-1 text-xs text-muted">
-                        {PREFILL_MESSAGES[prefillState.messageIndex]}
-                      </p>
+                    <div className="material-panel rounded-2xl px-6 py-5">
+                      <LoadingDots />
+                      <div className="mt-3">
+                        <p className="text-sm font-semibold tracking-tight text-foreground">
+                          Understanding your brand
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-muted">
+                          {PREFILL_MESSAGES[prefillState.messageIndex]}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -875,7 +914,9 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                   onChange={(value) => setField("seedKeywords", value)}
                   placeholder="content marketing automation, seo blog agent…"
                 />
-                <p className="text-xs text-muted">Type a keyword and press Enter. Leave empty to skip.</p>
+                <p className="text-xs leading-relaxed tracking-[0.01em] text-muted">
+                  Type a keyword and press Enter. Leave empty to skip.
+                </p>
               </div>
             ) : null}
 
@@ -917,7 +958,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                         </ul>
                       </div>
                     ) : (
-                      <p className="rounded-xl border border-border bg-surface-muted px-3 py-3 text-sm text-muted">
+                      <p className="material-panel rounded-2xl px-3.5 py-3 text-sm leading-relaxed text-muted">
                         Claudia didn&apos;t surface clear rivals yet — add one below, or skip and she
                         keeps looking after setup.
                       </p>
@@ -933,12 +974,12 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                       >
                         Search again
                       </Button>
-                      <span className="text-xs text-muted">
+                      <span className="text-xs tracking-[0.01em] text-muted">
                         {fields.competitors.length}/{MAX_COMPETITORS} selected
                       </span>
                     </div>
 
-                    <div className="grid gap-2 border-t border-border pt-4 sm:grid-cols-[1fr_1fr_auto]">
+                    <div className="grid gap-2 border-t border-border/50 pt-4 sm:grid-cols-[1fr_1fr_auto]">
                       <Input
                         aria-label="Competitor name"
                         value={manualCompetitor.name}
@@ -983,13 +1024,15 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                       {fields.useCases.map((useCase, index) => (
                         <li
                           key={`${useCase.job}-${index}`}
-                          className={`flex items-start justify-between gap-3 rounded-xl border border-border bg-surface p-3 ${
+                          className={`surface-interactive flex items-start justify-between gap-3 rounded-2xl border border-border/50 bg-surface/80 p-3.5 ${
                             useCase.enabled ? "" : "opacity-55"
                           }`}
                         >
                           <div>
-                            <p className="font-medium text-foreground">{useCase.persona}</p>
-                            <p className="text-sm text-muted">
+                            <p className="font-medium tracking-tight text-foreground">
+                              {useCase.persona}
+                            </p>
+                            <p className="mt-0.5 text-sm leading-relaxed text-muted">
                               {useCase.job}
                               {useCase.industry ? ` · ${useCase.industry}` : ""}
                             </p>
@@ -1016,7 +1059,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                     </Button>
                   </>
                 ) : (
-                  <p className="rounded-xl border border-border bg-surface-muted px-3 py-3 text-sm text-muted">
+                  <p className="material-panel rounded-2xl px-3.5 py-3 text-sm leading-relaxed text-muted">
                     Claudia needs a bit more to find target profiles. She&apos;ll search again once
                     your profile is saved, and you can review or edit customer profiles in Brand
                     settings.
@@ -1086,7 +1129,7 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                   onConfigChange={setIntegrationConfig}
                   onSecretChange={setIntegrationSecret}
                 />
-                <p className="text-sm text-muted">
+                <p className="text-sm leading-relaxed text-muted">
                   Tip: after setup, connect Google Search Console in Settings → Integrations so
                   Claudia can see what Google already almost-ranks you for and prove her gains with
                   real traffic.
@@ -1105,21 +1148,27 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                       type="button"
                       onClick={() => setFields((prev) => ({ ...prev, autonomyMode: option.value }))}
                       aria-pressed={selected}
-                      className={`rounded-xl border p-4 text-left transition ${
-                        selected ? "border-accent bg-accent-soft" : "border-border hover:border-accent/50"
+                      className={`pressable rounded-2xl border p-4 text-left transition-[border-color,background-color,box-shadow] duration-ui ease-out-strong ${
+                        selected
+                          ? "border-accent bg-accent-soft shadow-sm"
+                          : "border-border/60 bg-surface/50 hover-fine:border-accent/40"
                       }`}
                     >
-                      <span className="font-semibold text-foreground">
+                      <span className="font-semibold tracking-tight text-foreground">
                         {option.title}
                         {option.recommended ? (
-                          <span className="ml-2 text-xs font-medium text-accent">Recommended</span>
+                          <span className="ml-2 rounded-full bg-accent-soft/60 px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-accent">
+                            Recommended
+                          </span>
                         ) : null}
                       </span>
-                      <span className="mt-1 block text-sm text-muted">{option.description}</span>
+                      <span className="mt-1.5 block text-sm leading-relaxed text-muted">
+                        {option.description}
+                      </span>
                     </button>
                   );
                 })}
-                <p className="text-xs text-muted">
+                <p className="text-xs leading-relaxed text-muted">
                   The moment your plan is live, she starts Setup Run on her own: first audit, AI
                   answer check, competitors, topics, quick wins, first article, Day-0 brief. You can
                   watch or leave.
@@ -1141,12 +1190,12 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
           </div>
 
           {error ? (
-            <p className="mt-4 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger-soft-foreground">
+            <p className="mt-4 rounded-2xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm leading-relaxed text-danger-soft-foreground">
               {error}
             </p>
           ) : null}
 
-          <div className="mt-8 flex items-center gap-3">
+          <div className="mt-9 flex items-center gap-3">
             {step === STEP_LAUNCH ? (
               isSubscribed ? (
                 <LoadingButton type="submit" isPending={create.isPending} pendingLabel="Starting her…">
@@ -1163,21 +1212,23 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
                 type="button"
                 variant="ghost"
                 isDisabled={create.isPending}
-                onPress={() => {
-                  setError(null);
-                  setStep((value) => Math.max(0, value - 1));
-                }}
+                onPress={goBack}
               >
                 Back
               </Button>
             ) : null}
             {step < lastStep ? (
-              <span className="ml-auto hidden text-xs text-muted sm:block">
-                press <kbd className="font-sans font-medium text-foreground">Enter ↵</kbd>
+              <span className="ml-auto hidden text-xs tracking-[0.01em] text-muted sm:block">
+                press{" "}
+                <kbd className="rounded-md border border-border/60 bg-surface/80 px-1.5 py-0.5 font-sans text-[11px] font-medium text-foreground">
+                  Enter ↵
+                </kbd>
                 {current.optional ? " — or leave blank to skip" : ""}
               </span>
             ) : null}
           </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </form>
@@ -1186,21 +1237,21 @@ export function BrandOnboardingForm({ providers }: { providers: ProviderOption[]
 
 function LoadingDots() {
   return (
-    <div className="flex gap-1.5">
-      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent [animation-delay:-0.3s]" />
-      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent [animation-delay:-0.15s]" />
-      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-accent" />
+    <div className="flex justify-center gap-1.5" aria-hidden>
+      <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.3s]" />
+      <span className="h-2 w-2 animate-pulse rounded-full bg-accent [animation-delay:-0.15s]" />
+      <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
     </div>
   );
 }
 
 function DiscoveryLoading({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface py-12 text-center">
+    <div className="material-panel flex flex-col items-center justify-center gap-4 rounded-2xl py-12 text-center">
       <LoadingDots />
       <div>
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="mt-1 text-xs text-muted">{subtitle}</p>
+        <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
+        <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted">{subtitle}</p>
       </div>
     </div>
   );
@@ -1218,11 +1269,11 @@ function LaunchSummary({ fields }: { fields: Fields }) {
     },
   ];
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
+    <div className="material-panel space-y-3 rounded-2xl p-4">
       {rows.map((row) => (
         <div key={row.label} className="flex items-center justify-between text-sm">
-          <span className="text-muted">{row.label}</span>
-          <span className="font-medium text-foreground">{row.value}</span>
+          <span className="tracking-[0.01em] text-muted">{row.label}</span>
+          <span className="font-medium tracking-tight text-foreground">{row.value}</span>
         </div>
       ))}
     </div>
@@ -1245,24 +1296,26 @@ function PlanPaywall({
           return (
             <div
               key={plan.id}
-              className={`flex flex-col rounded-xl border p-4 ${
-                popular ? "border-accent" : "border-border"
+              className={`material-panel flex flex-col rounded-2xl p-4 ${
+                popular ? "border-accent/40 ring-2 ring-accent/40" : "border-border/50"
               }`}
             >
-              <div className="flex items-baseline justify-between">
-                <span className="font-semibold text-foreground">{plan.name}</span>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold tracking-tight text-foreground">{plan.name}</span>
                 {popular ? (
-                  <span className="text-xs font-medium text-accent">Most popular</span>
+                  <span className="rounded-full bg-accent-soft/50 px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-accent">
+                    Most popular
+                  </span>
                 ) : null}
               </div>
-              <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
+              <p className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
                 ${plan.price}
                 <span className="text-sm font-normal text-muted">/mo</span>
               </p>
-              <p className="mt-1 text-xs text-muted">{planTaglines[plan.id]}</p>
-              <ul className="mt-3 flex-1 space-y-1.5 border-t border-border pt-3">
+              <p className="mt-1 text-xs leading-relaxed text-muted">{planTaglines[plan.id]}</p>
+              <ul className="mt-3 flex-1 space-y-1.5 border-t border-border/50 pt-3">
                 {planFeatureList(plan.id).map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-xs text-muted">
+                  <li key={feature} className="flex items-start gap-2 text-xs leading-snug text-muted">
                     <CheckIcon aria-hidden className="mt-px size-3.5 shrink-0 text-accent" />
                     <span>{feature}</span>
                   </li>
@@ -1284,7 +1337,7 @@ function PlanPaywall({
           );
         })}
       </div>
-      <p className="text-xs text-muted">
+      <p className="text-xs leading-relaxed text-muted">
         Secure checkout via Stripe — coupon codes work there. You&apos;ll return here and she starts
         Setup Run; your answers are already saved.
       </p>
@@ -1320,16 +1373,18 @@ function FinalizeScreen({
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
-      {!error ? <LoadingDots /> : null}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{heading}</h1>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted">{subtitle}</p>
+      <div className="material-panel w-full max-w-md space-y-5 rounded-2xl p-8">
+        {!error ? <LoadingDots /> : null}
+        <div>
+          <h1 className="type-title text-2xl text-foreground">{heading}</h1>
+          <p className="mx-auto mt-2.5 max-w-md text-sm leading-relaxed text-muted">{subtitle}</p>
+        </div>
+        {(timedOut || error) && !creating ? (
+          <Button type="button" onPress={onRetry}>
+            Try again
+          </Button>
+        ) : null}
       </div>
-      {(timedOut || error) && !creating ? (
-        <Button type="button" onPress={onRetry}>
-          Try again
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -1353,7 +1408,7 @@ function OnboardingIntegrationFields({
 
   if (provider.status !== "available") {
     return (
-      <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+      <div className="material-panel rounded-xl px-3.5 py-2.5 text-sm leading-relaxed text-muted">
         {provider.requirements.summary} Finish setup in Settings when this connector is available.
       </div>
     );
@@ -1364,7 +1419,7 @@ function OnboardingIntegrationFields({
 
   if (requiredFields.length === 0 && requiredSecrets.length === 0) {
     return (
-      <p className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+      <p className="material-panel rounded-xl px-3.5 py-2.5 text-sm leading-relaxed text-muted">
         {provider.requirements.summary}
       </p>
     );

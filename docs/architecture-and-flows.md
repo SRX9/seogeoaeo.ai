@@ -17,20 +17,23 @@ Two Cloudflare Workers, one Postgres (via Hyperdrive), one KV namespace.
    Cloudflare cron ─────▶│  seo-ai worker  (.open-next/worker.js)        │
    "0 8 * * *"           │  = Next.js app (OpenNext) + patched           │
    "0 9 * * *"           │    scheduled() handler                        │
-                         │                                               │
+   "0 10 * * 1"          │                                               │
                          │  bindings: HYPERDRIVE, CACHE(KV), EMAIL,      │
-                         │            ASSETS, AGENT_WORKFLOW ────────┐   │
+                         │            ASSETS, AGENT_WORKFLOW,            │
+                         │            SETUP_WORKFLOW, AUDIT_WORKFLOW ─┐  │
                          └───────────────────────────────────────────┼──┘
                                                                       │ create()/createBatch()
                                                                       ▼
                          ┌─────────────────────────────────────────────┐
                          │  agent-workflow worker (workers/agent)        │
-                         │  class DailyBrandWorkflow                     │
+                         │  DailyBrandWorkflow | SetupRunWorkflow |      │
+                         │  AuditRunWorkflow                             │
                          │  durable, checkpointed; NO db access —        │
                          │  calls back into the app over HTTP            │
                          └───────────────────────────────────────────┬──┘
                                   POST /api/agent/{plan,research,      │
-                                       write-article,settle}          │
+                                       write-article,settle,           │
+                                       setup-step,audit-step}          │
                                   Authorization: Bearer CRON_SECRET   ▼
                                           (back to seo-ai worker)
 ```
@@ -96,7 +99,10 @@ Each instance runs `DailyBrandWorkflow.run`:
                   best-effort AFTER the upsert — jobs are not idempotent, so a
                   failure here must never 500 the step and trigger a retry)
                 syncTrafficForBrand()          best-effort, unmetered
+                runDueCheckpoints() / source weights (C4) best-effort
                 maybeRediscoverCompetitors()   every 15 days, best-effort
+                maybeRunWeeklySiteHealth()     best-effort
+                refreshAgentBrief()            best-effort
                 if paused_no_credits ⇒ sendOutOfCreditsEmail() (throttled weekly)
 ```
 
@@ -109,106 +115,100 @@ the real budget — the day stops at `insufficient_credits`.
 ```
 POST /api/cron/visibility
   authorize
-  reauditActiveSites():
-    latestAuditPerSite()   // DISTINCT ON (workspace, siteUrl), kind=owned,
-                           //   status=complete, active subscription
-    filter dueForReaudit(lastAuditAt, plan.monitoringCadence)   // weekly=7d/monthly=30d
-    for each due site:
-       createAudit + executeAudit                // full 3-stage re-audit
-       autoApplyFixes()                          // FULL_AUTO brands only: apply
-                                                 //   auto-capable findings up to
-                                                 //   plan.autoFixCap (V8.5 loop)
-       compareAudits(baseline, new) → delta
-       countNewCriticals(baseline, new)
-       shouldAlert(delta, newCriticals)          // drop>=8pts OR any new critical
-    return alerts[]
-  for each alert: sendToWorkspaceOwner(visibilityAlertEmail) + logInfo
+  settleStaleAudits()
+  listDueSites()   // DISTINCT ON owned complete audits + active sub + cadence
+  AUDIT_WORKFLOW.createBatch per due site
+     id = reaudit-<dayKey>-<baselineAuditId>
+     params: mode "monitor", workspaceId, siteUrl, baselineAuditId, planId
+
+  // Fallback without binding (next dev): sequential reauditSite()
 ```
 
-Safe to fire daily: the cadence gate makes most days a no-op per site.
+Each `AuditRunWorkflow` (mode monitor):
 
-Known scale ceiling: unlike the daily agent, this loop is NOT a durable
-Workflow — every due site is re-audited sequentially inside one HTTP request.
-Per-site failures are logged and skipped (the route still returns 200), and a
-site whose audit never completes stays `status!=complete`, so it remains due
-and self-heals on the next day's fire. If the due-site count grows enough to
-threaten request limits, fan this out like the daily agent.
+```
+1. create   → create audit row (reuse recent running if lost response)
+2. execute  → executeAudit (charge NOT here — monitor is plan cadence work;
+              manual mode charges on success)
+3. finish   → verifyAppliedFixes + dispatchFixes + compareAudits + alert
+              alert if overall drop ≥ DROP_THRESHOLD (5 pts) OR new criticals
+              stamp monitorFinishedAt
+4. answers  → runScheduledAnswerCheck (credit-gated, non-fatal)
+```
+
+**Fix dispatch honesty:** `canLiveApply()` is currently **false** for all
+capabilities. Level 2 (Autopilot on `fix_capability: auto`) therefore
+**proposes** ready-to-install artifacts (`proposedAt`), it does **not** mark
+findings `auto_applied`. Owner installs on their origin, then marks done
+(`user_applied`). Next re-audit verifies; re-detection reopens the finding.
+When a real CMS/host channel ships, flip `canLiveApply` per capability.
+
+Safe to fire daily: the cadence gate makes most days a no-op per site.
 
 ### 2.3 Weekly digest — `0 10 * * 1` → `POST /api/cron/digest`  (AP5)
 
 ```
 POST /api/cron/digest
   authorize
-  sendWeeklyDigests():
+  sendWeeklyReports():
     for each owned site with an active subscription:
        latest two completed audits → compareAudits → delta
-          └─ fewer than two audits ⇒ skip (no baseline yet — a zero-delta
-             digest on a new customer's first Monday is worse than silence)
-       answerRuns last 7d for the site's brand → computeShare
-       fix counts on the current audit (applied / awaiting approval)
-       buildDigest (proof-stack order) → weeklyDigestEmail → owner
+          └─ fewer than two audits ⇒ skip (no baseline yet)
+       answerRuns last 7d → share
+       fix counts · build report · email owner · archive /reports
 ```
 
-Same single-request shape (and the same scale caveat) as §2.2; each site is
-best-effort, so one failed digest never blocks the rest.
+Scale caveat: single-request fan-out (not Workflow). Each site is best-effort.
 
 ---
 
 ## 3. One-time ignition — Setup Run (AP2)
 
-Not a cron. Two triggers, both idempotent on the per-brand `setup_runs` row:
-1. Client-side fire-and-forget after onboarding / from the Claudia hero
-   (`POST /api/setup-run`).
-2. Server-side from the Stripe webhook on `checkout.session.completed`
-   (`igniteWorkspaceSetupRuns`, backgrounded via `waitUntil`) — so ignition
-   survives a closed tab.
+Not a cron. Triggers (all idempotent on the per-brand `setup_runs` row):
+1. `POST /api/brands` after paid onboarding (when sub active)
+2. Client `POST /api/setup-run` / poll GET (self-heals stale runs)
+3. Stripe webhook / checkout confirm → `igniteWorkspaceSetupRuns`
 
 ```
-POST /api/setup-run
-  requireApiBrand(); require active subscription (trialing counts) else 402
-  startSetupRun(scope)          // one setup_runs row per brand (unique index)
-  if created OR status==failed OR isSetupRunStale(run):
-     executeSetupRun() in background via ctx.waitUntil
-  return 202  (client polls GET /api/setup-run)
-
-executeSetupRun — ordered, resumable, plan-included (no credit spend):
-  1. first_audit          runAudit(own site)
-  2. seed_prompts         LLM → trackedPrompts (cap = plan.trackedPrompts)
-  3. answer_check         runAnswerCheck across engines
-  4. competitor_baseline  discoverCompetitors + runAudit(rival, kind=benchmark)
-  5. topic_research       runResearch(idempotencyKey = setup-<brandId>)
-  6. quick_win_fixes      only if autonomyMode==FULL_AUTO;
-                          applyFix() up to min(plan.autoFixCap, 10)
-  7. first_article        generateArticleFromTopic(skipCreditCheck)
-  8. day0_brief           LLM brief; persisted to setup_runs.briefText
-  each step: done|skipped(input-less)|failed(marks run failed, resumes next trigger)
+startSetupRun → SetupRunWorkflow (or inline waitUntil without binding)
+  each step → POST /api/agent/setup-step
+  finalize → finalizeSetupRun
 ```
 
-Stale-run takeover: the pipeline runs inside `waitUntil`, so a hard kill
-(isolate eviction, wall clock) can strand a run in `running` without ever
-reaching the catch that marks it `failed`. Both triggers therefore also resume
-a run whose row hasn't been touched in 15 min (`isSetupRunStale`) — every step
-persists progress within minutes, so a silent quarter-hour means the executor
-died. Takeover re-runs any step not yet done/skipped.
+Steps (metered like the same work done manually; spend after success, idempotent
+by refId; short balance → skip with note, never wedge):
+
+1. first_audit          runAudit(own site) — charge visibility_audit
+2. seed_prompts         LLM → trackedPrompts (cap = plan.trackedPrompts)
+3. answer_check         runAnswerCheck — charge answer_run
+4. competitor_baseline  discover + runAudit(rival, kind=benchmark) — charge competitor_benchmark
+5. topic_research       runResearch(idempotencyKey = setup-<brandId>) — charge research_run
+6. quick_win_fixes      FULL_AUTO only: stamp proposedAt on auto findings (no fake auto_applied)
+7. first_article        generateArticleFromTopic (metered)
+8. day0_brief           LLM brief → setup_runs.briefText
+
+**Completion rule:** `finalizeSetupRun` marks `completed` only if at least one
+**material** step is `done` (`first_audit`, `answer_check`, `competitor_baseline`,
+`topic_research`, `first_article`). All-skipped / all-failed → `failed` (Resume).
+
+Stale-run takeover: `isSetupRunStale` (15 min silent) + GET poller CAS + resume.
 
 ---
 
 ## 4. On-demand / user flows (not scheduled)
 
-- **Auth**: better-auth at `/api/auth/[...all]`.
-- **Billing**: Stripe checkout → `/api/webhooks/stripe` → subscription rows;
-  entitlements from `src/lib/billing/plans.ts` (`visibilityCapsForPlan`,
-  `dailyArticleCapForPlan`, `ACTIVE_SUBSCRIPTION_STATUSES`).
-- **Manual audit / quick check**: `/api/visibility/*` (public quick, summary,
-  answers, traffic, pdf, badge, fix).
-- **Manual fix apply**: `POST /api/visibility/fix` → `applyFix`.
+- **Auth**: better-auth at `/api/auth/[...all]`. Workspace + free signup grant (100 credits).
+- **Billing**: Stripe checkout → webhook **or** `/api/billing/checkout/confirm` →
+  subscription rows + monthly credit grant; entitlements in `plans.ts`.
+- **Manual audit / tools / answers / site-health**: credit assert → work → charge on success.
+  Overlap with Setup Run blocked via `assertNoSetupRunning` where work races setup.
+- **Fix queue**: copy/download artifact → owner installs on site → "I installed this"
+  (`user_applied`). Not a live host write.
 - **Article authoring**: editor + `/api/articles/*`, publish adapters
-  (devto/ghost/hashnode/wordpress/webhook/markdown).
-- **Integrations**: GSC/GA4 traffic via `syncTrafficForBrand`.
-- **Internal smoke test** (CRON_SECRET-gated, Cloudflare runtime only):
-  `POST /api/agent/test-run` — enqueue one brand's `DailyBrandWorkflow` on
-  demand, reusing the daily `daily-<brand>-<date>` instance id so it can never
-  race the real cron into a duplicate day.
+  (devto/ghost/hashnode/wordpress/webhook/markdown). Publish requires active sub.
+- **Integrations**: GSC/GA4 traffic via `syncTrafficForBrand` (unmetered).
+- **Public quick check**: `/api/visibility/quick` IP-limited, KV-cached, signup token.
+- **Internal smoke test** (CRON_SECRET-gated): `POST /api/agent/test-run`.
 
 ---
 
@@ -222,38 +222,30 @@ died. Takeover re-runs any step not yet done/skipped.
 | Setup run re-trigger | resumes from first non-done/skipped step |
 | Setup run killed mid-step | `isSetupRunStale` (15 min silent ⇒ takeover) |
 | Retried settle step | `daily_runs` upsert first; job logging best-effort after |
-| Re-audit cadence | `dueForReaudit` gate; safe to fire daily |
-| Benchmark audits | `kind=benchmark` never writes findings / never re-audited |
+| Re-audit cadence | `dueForReaudit` gate; `monitorFinishedAt` for unfinished finish |
+| Benchmark audits | `kind=benchmark` never writes fix-queue findings as owned work |
+| Live fix apply | `canLiveApply` gate (currently always false) |
 | Ephemeral cache | KV (`CACHE`), never Postgres |
 
 ---
 
 ## 6. Review findings & resolutions
 
-Gaps found while tracing these flows (2026-07-05), and what was done:
+Gaps found while tracing these flows, and what was done:
 
-1. **Setup Run could wedge in `running` forever.** A hard-killed `waitUntil`
-   execution never reached the catch that marks the run `failed`, and both
-   triggers only resumed `created || failed` runs. **Fixed**: `isSetupRunStale`
-   lets either trigger take over a run silent for 15+ minutes (§3).
-2. **Failed daily enqueues looked like success.** The patched `scheduled()`
-   handler only logged a non-OK cron response; the doc wrongly claimed the cron
-   "re-fires". **Fixed**: `scheduled()` now throws so the invocation is recorded
-   as failed; doc corrected — Cloudflare never auto-retries crons (§2.1).
-3. **Settle wasn't fully idempotent.** `createAgentJob("daily_pipeline")` ran on
-   every retry attempt; a job-write failure after it would 500 the step and
-   duplicate the overview row. **Fixed**: upsert first, job logging best-effort
-   (§2.1).
-4. **Ignition read the plan from an arbitrary subscription row.** A stale
-   canceled row beside the active one could set the wrong caps. **Fixed**:
-   `igniteWorkspaceSetupRuns` prefers the active subscription's plan.
-5. **Weekly digest sent a zero-delta email to single-audit sites.** **Fixed**:
-   sites without a baseline audit are skipped (§2.3).
-6. **Visibility cron / digest run all sites in one request.** Accepted for now
-   as a documented scale ceiling (§2.2) — self-healing via the cadence gate;
-   fan out onto Workflows if the due-site count grows.
-7. **`/api/cron/test-email` is test-only debris** with a hardcoded recipient —
-   should be deleted before launch (not yet removed).
-8. **`countNewCriticals` dedupes by `category::title`.** If finding titles ever
-   embed dynamic values, a persistent critical would re-alert every cycle —
-   keep titles stable.
+1. **Setup Run could wedge in `running` forever.** Fixed: `isSetupRunStale` + poller resume.
+2. **Failed daily enqueues looked like success.** Fixed: `scheduled()` throws on non-OK.
+3. **Settle wasn't fully idempotent.** Fixed: upsert first, job logging best-effort.
+4. **Ignition read arbitrary subscription row.** Fixed: prefer active plan.
+5. **Weekly digest zero-delta on single-audit sites.** Fixed: skip without baseline.
+6. **Visibility monitoring was sequential in one request.** Fixed: `AuditRunWorkflow` fan-out.
+7. **`/api/cron/test-email` test debris.** Removed.
+8. **`countNewCriticals` dedupes by `category::title`.** Keep titles stable.
+9. **Auto-apply lied about live site changes** (2026-07-09). Fixed: `canLiveApply`
+   gate; agent proposes; owner marks installed; honest UI/copy; setup prepares not applies.
+10. **Setup completed on all-skips.** Fixed: material-step completion rule.
+11. **Onboarding checklist drifted from Setup Run product.** Fixed: website / setup /
+    CMS / article / publish-or-fix checklist.
+12. **Toolbox raced Setup Run.** Fixed: `assertNoSetupRunning` on tool POST.
+13. **Architecture doc stale** (setup free, sequential visibility, drop≥8). This file
+    refreshed to match code.

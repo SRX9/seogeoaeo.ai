@@ -100,12 +100,12 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
   }
 
   return (
-    <Card>
+    <Card className="material-panel">
       <Card.Header>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Card.Title>Customer profiles</Card.Title>
-            <Card.Description>
+            <Card.Title className="tracking-tight">Customer profiles</Card.Title>
+            <Card.Description className="leading-relaxed">
               Claudia searches for the buyers and users most likely to need your product. Confirm
               the roles, industries, and situations she should write for.
             </Card.Description>
@@ -123,30 +123,34 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
       </Card.Header>
       <Card.Content className="space-y-4">
         {useCases.length === 0 ? (
-          <p className="text-sm text-muted">
+          <p className="text-sm leading-relaxed text-muted">
             No customer profiles yet. Save your brand profile and Claudia searches automatically,
             or add one below.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2.5">
             {useCases.map((useCase) => (
               <li
                 key={useCase.id}
-                className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-surface p-4 ${useCase.enabled ? "" : "opacity-55"}`}
+                className={`surface-interactive flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border/50 bg-surface/70 p-4 ${useCase.enabled ? "" : "opacity-55"}`}
               >
                 <div>
-                  <p className="font-medium text-foreground">{useCase.persona}</p>
-                  <p className="text-sm text-muted">
+                  <p className="font-medium tracking-tight text-foreground">{useCase.persona}</p>
+                  <p className="text-sm leading-relaxed text-muted">
                     {useCase.job}
                     {useCase.industry ? ` · ${useCase.industry}` : ""}
                   </p>
                   {useCase.evidence ? (
-                    <p className="mt-1 text-xs text-muted">Seen: {useCase.evidence}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted">
+                      Seen: {useCase.evidence}
+                    </p>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
                   {useCase.origin === "user" || useCase.edited ? (
-                    <span className="text-xs uppercase tracking-wide text-muted">yours</span>
+                    <span className="text-[11px] uppercase tracking-[0.08em] text-muted">
+                      yours
+                    </span>
                   ) : null}
                   <Switch
                     aria-label={`Write for "${useCase.persona}"`}
@@ -166,7 +170,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
           </ul>
         )}
 
-        <form onSubmit={handleAdd} className="space-y-3 border-t border-border pt-4">
+        <form onSubmit={handleAdd} className="space-y-3 border-t border-border/50 pt-4">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="uc-job">Need or situation</Label>

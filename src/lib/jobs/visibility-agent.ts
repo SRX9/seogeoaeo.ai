@@ -3,13 +3,16 @@ import { AUTONOMY_CATEGORIES } from "@/lib/visibility/display";
 
 /**
  * V8.5 — Claudia's visibility duties: monitor on the plan cadence, prepare fixes,
- * apply the categories she's authorized for (V7.2), and report the score delta.
- * This module holds the deterministic cadence + dispatch-decision logic; the run
- * wiring lives in the daily cron handler (patched into the deployed worker by
- * build-cloudflare.mjs). Autonomy is earned per category, opt-in.
+ * live-apply when a channel exists (V7.2), and report the score delta.
+ * Pure cadence + dispatch decision logic; orchestration lives in
+ * `fix-policy.dispatchOpenFindings` + visibility cron / AuditRunWorkflow.
+ *
+ * Live site push: no host/CMS channel yet for robots/llms/JSON-LD/meta on the
+ * customer origin. Until that ships, Level 2 is not offered in UI and
+ * {@link canLiveApply} stays false — never mark `auto_applied` without a channel.
  */
 
-export type AutonomyLevel = 0 | 1 | 2; // 0 monitor · 1 propose · 2 auto-apply
+export type AutonomyLevel = 0 | 1 | 2; // 0 watch · 1 prepare · 2 live-apply (when available)
 
 /** The brand-level dial: Autopilot (FULL_AUTO) or Copilot (REVIEW). */
 export type AutonomyMode = "FULL_AUTO" | "REVIEW";
@@ -19,11 +22,8 @@ export type DispatchAction = "apply" | "propose" | "queue";
 
 /**
  * Fix categories whose findings typically carry `fix_capability: auto` —
- * used only to show *default* levels in the settings UI. Per-finding dispatch
- * always trusts the finding's own `fixCapability`, never this set. Derived
- * from the AUTONOMY_CATEGORIES registry so the settings panel can't drift
- * from what the standing loop actually auto-applies (crawler_access robots
- * fixes were exactly that drift before the registry existed).
+ * used only for *default* levels in settings. Per-finding dispatch trusts the
+ * finding's own `fixCapability`, never this set.
  */
 export const AUTO_CAPABLE_CATEGORIES: ReadonlySet<string> = new Set(
   Object.entries(AUTONOMY_CATEGORIES)
@@ -32,20 +32,30 @@ export const AUTO_CAPABLE_CATEGORIES: ReadonlySet<string> = new Set(
 );
 
 /**
- * The dial's per-category defaults (AP4 §4): Autopilot = auto-apply where the
- * machinery can (`fix_capability: auto`), propose everywhere else; Copilot =
- * propose everywhere. Level 0 (watch) is never a default — it's an explicit
- * per-category opt-down.
+ * Whether Claudia can push a fix onto the live site without the owner pasting
+ * or uploading. Currently false for every capability. Flip per-capability when
+ * a CMS/plugin channel is wired.
+ */
+export function canLiveApply(_fixCapability: string | null): boolean {
+  return false;
+}
+
+/**
+ * Dial defaults: Autopilot aims for live-apply (2) only when a channel exists
+ * for that capability; otherwise both modes default to Prepare (1). Level 0
+ * is never a default — opt-down only.
  */
 export function defaultLevelFor(mode: AutonomyMode, fixCapability: string | null): AutonomyLevel {
-  if (mode === "FULL_AUTO" && fixCapability === "auto") return 2;
+  if (mode === "FULL_AUTO" && fixCapability === "auto" && canLiveApply(fixCapability)) {
+    return 2;
+  }
   return 1;
 }
 
 /**
- * Decide one finding's fate. Per-category overrides (the `agent_autonomy`
- * table) beat the dial; `canAutoApply` still gates Level 2, so a Level-2
- * override on a `guided` category proposes rather than applies.
+ * Decide one finding's fate. Per-category overrides beat the dial; live-apply
+ * only when Level 2 + auto-capable + {@link canLiveApply}. Otherwise Level ≥1
+ * proposes a ready artifact for the owner.
  */
 export function dispatchDecision(
   finding: { category: string; fixCapability: string | null },
@@ -81,8 +91,10 @@ export function dueForReaudit(
   return ageDays >= CADENCE_DAYS[cadence];
 }
 
-/** Only `auto`-capable categories may ever reach Level 2 (auto-apply). */
+/**
+ * Level 2 + auto-capable + a real live-apply channel. Without a channel,
+ * Autopilot still prepares — it never pretends the site changed.
+ */
 export function canAutoApply(level: AutonomyLevel, fixCapability: string | null): boolean {
-  return level === 2 && fixCapability === "auto";
+  return level === 2 && fixCapability === "auto" && canLiveApply(fixCapability);
 }
-

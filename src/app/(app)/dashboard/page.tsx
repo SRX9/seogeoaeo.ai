@@ -41,7 +41,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8">
+    <div className="mx-auto w-full max-w-5xl space-y-9">
       <PageHeader
         title="Claudia"
         description="Your autonomous employee for search, AI answers, and content."

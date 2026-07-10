@@ -25,17 +25,17 @@ const reportSkeleton = (
 function ReportContent({ model }: { model: VisibilityReport["model"] }) {
   return (
     <>
-      <Card className="p-5 sm:p-6">
+      <Card className="material-panel p-5 sm:p-6">
         <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
           <ScoreGauge value={model.overall} size={110} barSize={8}>
-            <span className="text-2xl font-semibold leading-none text-foreground tabular-nums">
+            <span className="text-2xl font-semibold leading-none tracking-tight text-foreground tabular-nums">
               {fmt(model.overall)}
             </span>
           </ScoreGauge>
           <div>
-            <p className="text-sm text-default-500">Overall visibility</p>
-            <p className="text-xl font-semibold">{model.band}</p>
-            <p className="mt-1 text-sm text-default-600">{model.impact}</p>
+            <p className="text-sm tracking-[0.01em] text-default-500">Overall visibility</p>
+            <p className="type-title text-xl">{model.band}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-default-600">{model.impact}</p>
           </div>
         </div>
       </Card>
@@ -46,27 +46,29 @@ function ReportContent({ model }: { model: VisibilityReport["model"] }) {
         ))}
       </div>
 
-      <Card className="p-5">
-        <h2 className="mb-2 font-semibold">Quick wins</h2>
+      <Card className="material-panel p-5">
+        <h2 className="type-title mb-2.5 text-base">Quick wins</h2>
         <ul className="space-y-2.5 text-sm leading-relaxed">
           {model.quickWins.map((f, i) => (
             <li key={i}>
-              <span className="font-medium">{f.title}</span> — {f.recommendation}
+              <span className="font-medium tracking-tight">{f.title}</span> — {f.recommendation}
             </li>
           ))}
-          {model.quickWins.length === 0 && <li className="text-default-400">None outstanding.</li>}
+          {model.quickWins.length === 0 && (
+            <li className="text-default-400">None outstanding.</li>
+          )}
         </ul>
       </Card>
 
       {model.themes.map((t) => (
-        <Card key={t.week} className="p-5">
-          <h2 className="mb-2 font-semibold">
+        <Card key={t.week} className="material-panel p-5">
+          <h2 className="type-title mb-2.5 text-base">
             Week {t.week}: {t.title}
           </h2>
           <ul className="space-y-2.5 text-sm leading-relaxed">
             {t.findings.map((f, i) => (
               <li key={i}>
-                <span className="font-medium">{f.title}</span> — {f.recommendation}
+                <span className="font-medium tracking-tight">{f.title}</span> — {f.recommendation}
               </li>
             ))}
           </ul>
@@ -81,7 +83,7 @@ export default function ReportPage({ params }: { params: Promise<{ auditId: stri
   const report = useVisibilityReport(auditId);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-3xl space-y-9">
       <PageHeader
         title="Visibility report"
         description={report.data?.model.site ?? "Your full audit, scored and prioritized."}

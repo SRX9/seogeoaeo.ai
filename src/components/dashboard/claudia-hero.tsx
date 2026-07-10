@@ -75,7 +75,7 @@ function StepIcon({ status }: { status: SetupStep["status"] }) {
 
 function HeroShell({ children }: { children: React.ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-surface p-6 sm:p-8">
+    <section className="material-panel overflow-hidden rounded-2xl p-6 sm:p-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">{children}</div>
     </section>
   );
@@ -126,10 +126,10 @@ export function ClaudiaHero() {
         <div className="min-w-0 flex-1 space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-xl font-semibold text-foreground">
+              <h2 className="type-title text-xl text-foreground">
                 {failed ? "Claudia paused mid-setup" : "Claudia is setting up your brand"}
               </h2>
-              <div className="mt-1 text-sm text-muted">
+              <div className="mt-1.5 text-sm leading-relaxed text-muted">
                 {failed ? (
                   "She hit a snag. Pick up where she left off."
                 ) : runningStep ? (
@@ -193,12 +193,12 @@ export function ClaudiaHero() {
         <ClaudiaAvatar working={start.isPending} />
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">
+            <h2 className="type-title text-xl text-foreground">
               {subscribed
                 ? `${name ? `${name}, ` : ""}Claudia is ready to set herself up`
                 : "Claudia is ready when you are"}
             </h2>
-            <p className="mt-1 max-w-prose text-sm text-muted">
+            <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted">
               First audit, the questions buyers ask AI, a competitor baseline, topic research,
               and your first article — all included, no steps for you.
             </p>
@@ -238,12 +238,16 @@ export function ClaudiaHero() {
       <ClaudiaAvatar working={working} />
       <div className="min-w-0 flex-1 space-y-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">{briefLabel}</p>
-          <h2 className="mt-1 text-xl font-semibold text-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
+            {briefLabel}
+          </p>
+          <h2 className="type-title mt-1.5 text-xl text-foreground">
             {name ? `Hi ${name} — ` : ""}here&apos;s where things stand
           </h2>
         </div>
-        {brief ? <p className="max-w-prose text-sm text-foreground">{brief}</p> : null}
+        {brief ? (
+          <p className="max-w-prose text-sm leading-relaxed text-foreground">{brief}</p>
+        ) : null}
         {stats?.nextRunAt ? (
           <p className="text-sm text-muted">
             Next run{" "}

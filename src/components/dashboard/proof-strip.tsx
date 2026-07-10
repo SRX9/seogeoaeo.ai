@@ -45,11 +45,11 @@ function Slot({
   return (
     <Link
       href={href}
-      className="group flex flex-col gap-1 rounded-lg p-4 transition-colors hover:bg-default-100"
+      className="surface-interactive group flex flex-col gap-1 rounded-xl p-4"
     >
-      <span className="inline-flex items-center gap-1 text-sm font-medium text-muted">
+      <span className="inline-flex items-center gap-1 text-sm font-medium tracking-[0.01em] text-muted">
         {label}
-        <ChevronRightIcon className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
+        <ChevronRightIcon className="size-3 opacity-0 transition-opacity duration-snappy ease-out-strong group-hover-fine:opacity-100" />
       </span>
       {children}
     </Link>
@@ -94,12 +94,12 @@ export function ProofStrip({
   const clicks = gscConnected ? clicksWindows(traffic.gsc) : null;
 
   return (
-    <Card className="p-2">
-      <div className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+    <Card className="material-panel p-2">
+      <div className="grid divide-y divide-border/50 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <Slot href={summary.latest ? `/visibility/${summary.latest.id}` : "/visibility"} label="Visibility score">
           {summary.hasAudit && overall != null ? (
             <>
-              <span className="text-3xl font-semibold text-foreground tabular-nums">
+              <span className="text-3xl font-semibold tracking-tight text-foreground tabular-nums">
                 {Math.round(overall)}
                 <span className="text-base font-normal text-muted"> / 100</span>
               </span>
@@ -122,7 +122,7 @@ export function ProofStrip({
         <Slot href="/visibility/answers" label="AI answers">
           {answerSlots > 0 ? (
             <>
-              <span className="text-3xl font-semibold text-foreground tabular-nums">
+              <span className="text-3xl font-semibold tracking-tight text-foreground tabular-nums">
                 {appeared}
                 <span className="text-base font-normal text-muted"> of {answerSlots}</span>
               </span>
@@ -142,7 +142,7 @@ export function ProofStrip({
 
         {gscConnected && clicks ? (
           <Slot href="/visibility" label="Search clicks">
-            <span className="text-3xl font-semibold text-foreground tabular-nums">
+            <span className="text-3xl font-semibold tracking-tight text-foreground tabular-nums">
               {clicks.current.toLocaleString()}
             </span>
             <span className="text-sm">

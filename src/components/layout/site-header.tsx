@@ -40,16 +40,16 @@ export function SiteHeader({ className }: SiteHeaderProps) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 ease-out",
+        "sticky top-0 z-50 transition-[background-color,border-color,box-shadow,backdrop-filter,height] duration-ui ease-out-strong",
         scrolled
-          ? "border-border bg-surface/70 shadow-sm backdrop-blur-md"
-          : "border-transparent bg-transparent",
+          ? "material-chrome scroll-edge relative border-transparent"
+          : "border-b border-transparent bg-transparent",
         className,
       )}
     >
       <div
         className={cn(
-          "mx-auto flex max-w-6xl items-center justify-between px-4 transition-[height] duration-300 ease-out",
+          "mx-auto flex max-w-6xl items-center justify-between px-4 transition-[height] duration-ui ease-out-strong",
           scrolled ? "h-14" : "h-20",
         )}
       >
@@ -57,19 +57,19 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           href="/"
           aria-label="seogeoaeo.ai home"
           className={cn(
-            "origin-left transition-transform duration-300 ease-out",
+            "origin-left rounded-lg transition-transform duration-ui ease-out-strong motion-reduce:transition-none",
             scrolled ? "scale-[0.88]" : "scale-100",
           )}
         >
           <SgaLogo />
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">
-          <div className="mr-2 hidden items-center gap-1 lg:flex">
+          <div className="mr-2 hidden items-center gap-0.5 lg:flex">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:text-foreground"
+                className="pressable rounded-full px-3 py-2 text-sm font-medium tracking-[0.01em] text-muted hover-fine:bg-default/50 hover-fine:text-foreground"
               >
                 {link.label}
               </Link>

@@ -32,13 +32,13 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
   }
 
   return (
-    <Card className="space-y-4 p-5">
+    <Card className="material-panel space-y-4 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted">
             <TrendingUpIcon className="size-4" />
           </div>
-          <h2 className="font-semibold">Proof — real traffic</h2>
+          <h2 className="type-title text-base">Proof — real traffic</h2>
         </div>
         <div className="flex gap-2">
           {!data.connected.gsc && (
@@ -62,7 +62,7 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
 
       {data.connected.gsc ? (
         <div>
-          <p className="text-2xl font-semibold tabular-nums">
+          <p className="text-2xl font-semibold tracking-tight tabular-nums">
             {totalClicks.toLocaleString()} clicks
             {clickDelta != null && (
               <span className={`ml-2 text-base ${clickDelta >= 0 ? "text-success" : "text-danger"}`}>
@@ -71,12 +71,12 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
               </span>
             )}
           </p>
-          <p className="text-xs text-default-400">
+          <p className="text-xs tracking-[0.01em] text-default-400">
             since {data.gsc[0]?.date} · {data.auditMarkers.length} audit marker(s)
           </p>
         </div>
       ) : (
-        <p className="text-sm text-default-500">
+        <p className="text-sm leading-relaxed text-default-500">
           Connect Search Console to overlay real clicks on your score trend — this is how you prove
           the gain.
         </p>
@@ -84,10 +84,13 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
 
       {data.connected.ga4 && (
         <div>
-          <p className="mb-1 text-sm font-medium">AI-referral sessions</p>
+          <p className="mb-1.5 text-sm font-medium tracking-tight">AI-referral sessions</p>
           <div className="flex flex-wrap gap-2 text-sm">
             {Object.entries(referralTotals).map(([engine, n]) => (
-              <span key={engine} className="rounded-lg bg-default-100 px-2.5 py-1">
+              <span
+                key={engine}
+                className="rounded-full bg-default-100 px-2.5 py-1 tracking-[0.01em]"
+              >
                 {engine}: <span className="font-semibold tabular-nums">{n}</span>
               </span>
             ))}

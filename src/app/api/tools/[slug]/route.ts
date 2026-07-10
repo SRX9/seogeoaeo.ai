@@ -1,6 +1,14 @@
 import { and, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
-import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
+import {
+  assertNoSetupRunning,
+  getApiContext,
+  handleApi,
+  HttpError,
+  jsonOk,
+  parseBody,
+  readJson,
+} from "@/lib/api/server";
 import { getDb } from "@/lib/db";
 import { auditFindings, toolRuns } from "@/lib/db/schema/visibility";
 import {
@@ -73,6 +81,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     const { slug } = await params;
     const tool = getTool(slug);
     if (!tool) throw new HttpError(404, "Unknown tool");
+
+    // Don't race Claudia's Setup Run (first audit / answer check) with a manual tool.
+    if (brand?.id) await assertNoSetupRunning(brand.id);
 
     const { input } = parseBody(z.object({ input: z.string().min(1).max(200_000) }), await readJson(request));
     const db = getDb();

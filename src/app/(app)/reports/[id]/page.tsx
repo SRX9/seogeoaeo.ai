@@ -19,11 +19,11 @@ export default function ReportDetailPage() {
   const report = useReport(params.id);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-3xl space-y-9">
       <div>
         <Link
           href="/reports"
-          className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
+          className="pressable inline-flex items-center gap-1.5 rounded-md text-sm text-muted hover-fine:text-foreground"
         >
           <ArrowLeftIcon className="size-4" />
           All reports
@@ -36,8 +36,8 @@ export default function ReportDetailPage() {
               title={data.report.subject}
               description={weekLabel(data.report.weekStart)}
             />
-            <Card>
-              <ul className="space-y-3">
+            <Card className="material-panel">
+              <ul className="space-y-3.5">
                 {data.lines.map((line) => (
                   <li key={line} className="text-sm leading-relaxed text-foreground">
                     {line}
@@ -46,9 +46,11 @@ export default function ReportDetailPage() {
               </ul>
             </Card>
             {data.ask ? (
-              <Card>
-                <p className="text-sm font-medium text-foreground">One thing from you</p>
-                <p className="mt-1 text-sm text-muted">{data.ask.what}</p>
+              <Card className="material-panel">
+                <p className="text-sm font-medium tracking-tight text-foreground">
+                  One thing from you
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">{data.ask.what}</p>
                 <div className="mt-3">
                   <Link href={data.ask.href} className={buttonVariants({ size: "sm" })}>
                     Take care of it
@@ -56,7 +58,7 @@ export default function ReportDetailPage() {
                 </div>
               </Card>
             ) : (
-              <p className="text-sm text-muted">
+              <p className="text-sm leading-relaxed text-muted">
                 Nothing needed from you this week — she&apos;s got it.
               </p>
             )}

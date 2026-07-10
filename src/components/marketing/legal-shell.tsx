@@ -19,15 +19,15 @@ export function LegalShell({ title, lastUpdated, intro, sections }: LegalShellPr
     <div>
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pb-24 pt-24 sm:pt-32">
-        <p className="text-sm font-medium uppercase tracking-wider text-muted">Legal</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight text-foreground">{title}</h1>
-        <p className="mt-3 text-sm text-muted">Last updated: {lastUpdated}</p>
-        <p className="mt-6 text-pretty leading-relaxed text-muted">{intro}</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Legal</p>
+        <h1 className="type-display mt-3 text-4xl text-foreground sm:text-5xl">{title}</h1>
+        <p className="mt-3 text-sm tracking-[0.01em] text-muted">Last updated: {lastUpdated}</p>
+        <p className="mt-6 text-pretty text-base leading-relaxed text-muted">{intro}</p>
 
-        <div className="mt-10 space-y-10">
+        <div className="mt-12 space-y-10">
           {sections.map((section, index) => (
             <section key={section.heading}>
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              <h2 className="type-title text-xl text-foreground">
                 {index + 1}. {section.heading}
               </h2>
               <div className="mt-3 space-y-3">
@@ -41,11 +41,11 @@ export function LegalShell({ title, lastUpdated, intro, sections }: LegalShellPr
           ))}
         </div>
 
-        <p className="mt-12 border-t border-border/60 pt-6 text-sm text-muted">
+        <p className="mt-14 border-t border-border/40 pt-6 text-sm leading-relaxed text-muted">
           Questions about this policy? Email{" "}
           <a
             href="mailto:hello@seogeoaeo.ai"
-            className="text-foreground/80 hover:text-foreground"
+            className="pressable rounded-sm text-foreground/80 hover-fine:text-foreground"
           >
             hello@seogeoaeo.ai
           </a>

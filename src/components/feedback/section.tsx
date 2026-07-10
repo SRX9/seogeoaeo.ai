@@ -39,8 +39,8 @@ function SectionError({
 }) {
   const message = getErrorMessage(error, label ?? "Couldn't load this section.");
   return (
-    <div className="flex flex-col items-start gap-3 rounded-xl border border-border bg-surface p-4">
-      <p className="text-sm text-muted">{message}</p>
+    <div className="material-panel flex flex-col items-start gap-3 rounded-2xl p-4">
+      <p className="text-sm leading-relaxed text-muted">{message}</p>
       {onRetry ? (
         <Button variant="secondary" size="sm" onPress={onRetry}>
           Try again

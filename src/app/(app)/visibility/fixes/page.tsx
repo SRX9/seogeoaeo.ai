@@ -19,13 +19,14 @@ import {
 } from "@/lib/api/queries";
 import { PILLAR_LABELS } from "@/lib/visibility/display";
 import { buildFixArtifact } from "@/lib/visibility/fix-artifact";
+import { isInstallReady } from "@/lib/visibility/fix-policy";
 import { buildFixPrompt } from "@/lib/visibility/fix-prompt";
 
 /**
  * V8.2 — the fix queue: one severity-ranked list of every open finding. Each
  * row opens into the actual fix: a paste-ready snippet/file when we generated
- * one, a "fix it for me" apply for auto-capable findings, and — always — a
- * copy-paste prompt for the owner's AI coding assistant.
+ * one, a "mark as installed" control after the owner deploys it, and — always —
+ * a copy-paste prompt for the owner's AI coding assistant.
  */
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
@@ -111,9 +112,9 @@ function FixDetail({ finding, website }: { finding: VisibilityFinding; website: 
         </div>
       )}
 
-      <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
-        <p className="text-sm font-medium">Fix it with your AI coding assistant</p>
-        <p className="text-sm text-default-500">
+      <div className="space-y-2 rounded-2xl border border-border/50 bg-surface-muted/80 p-3.5">
+        <p className="text-sm font-medium tracking-tight">Fix it with your AI coding assistant</p>
+        <p className="text-sm leading-relaxed text-default-500">
           Copy this prompt and paste it into Cursor, Claude Code, or Copilot inside your
           website&apos;s project — it tells the assistant exactly what to change and how to verify
           it.
@@ -136,38 +137,47 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
     onSuccess: invalidate,
     onError: (error) => toast.danger(getErrorMessage(error, "Couldn't update this finding.")),
   });
-  const applyAuto = useMutation({
+  const markInstalled = useMutation({
     mutationFn: () => apiPost("/api/visibility/fix", { findingId: finding.id }),
-    onSuccess: invalidate,
-    onError: (error) => toast.danger(getErrorMessage(error, "Couldn't apply this fix.")),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Marked installed — Claudia will re-check on the next audit.");
+    },
+    onError: (error) => toast.danger(getErrorMessage(error, "Couldn't update this finding.")),
   });
 
+  const hasReadyFix = isInstallReady(finding.fixCapability);
+
   return (
-    <Card className="p-5">
+    <Card className="material-panel p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs text-default-400">{PILLAR_LABELS[finding.pillar]}</p>
-          <p className="font-medium">{finding.title}</p>
-          <p className="mt-1 text-sm text-default-500">{finding.recommendation}</p>
+          <p className="text-xs tracking-[0.01em] text-default-400">
+            {PILLAR_LABELS[finding.pillar]}
+          </p>
+          <p className="font-medium tracking-tight">{finding.title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-default-500">
+            {finding.recommendation}
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          {finding.fixCapability === "auto" && (
-            <Button
-              size="sm"
-              variant="primary"
-              isDisabled={applyAuto.isPending}
-              onPress={() => applyAuto.mutate()}
-            >
-              {applyAuto.isPending ? "Applying…" : "Fix it for me"}
-            </Button>
-          )}
           <Button
             size="sm"
-            variant={finding.fixCapability === "auto" ? "secondary" : "primary"}
+            variant="primary"
             onPress={() => setOpen(!open)}
           >
-            {open ? "Hide fix" : "Show me the fix"}
+            {open ? "Hide fix" : hasReadyFix ? "Show fix" : "How to fix"}
           </Button>
+          {hasReadyFix && (
+            <Button
+              size="sm"
+              variant="secondary"
+              isDisabled={markInstalled.isPending}
+              onPress={() => markInstalled.mutate()}
+            >
+              {markInstalled.isPending ? "Saving…" : "I installed this"}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -186,8 +196,8 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
           </Button>
         </div>
       </div>
-      {applyAuto.isError && (
-        <p className="mt-2 text-sm text-danger">Couldn&apos;t apply this fix — try again.</p>
+      {markInstalled.isError && (
+        <p className="mt-2 text-sm text-danger">Couldn&apos;t update this finding — try again.</p>
       )}
       {open && <FixDetail finding={finding} website={website} />}
     </Card>
@@ -203,7 +213,7 @@ function FindingsList({
 }) {
   if (findings.length === 0) {
     return (
-      <EmptyState className="rounded-xl border border-dashed border-border">
+      <EmptyState className="material-panel rounded-2xl border-dashed">
         <EmptyState.Header>
           <EmptyState.Media variant="icon">
             <CircleCheckIcon />
@@ -233,10 +243,10 @@ function FindingsList({
         if (group.length === 0) return null;
         return (
           <div key={sev} className="space-y-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold capitalize text-default-600">
+            <h2 className="flex items-center gap-2 text-sm font-semibold capitalize tracking-tight text-default-600">
               <span className={`size-2 rounded-full ${SEVERITY_DOT[sev]}`} aria-hidden />
               {sev}
-              <span className="font-normal normal-case text-default-400">
+              <span className="font-normal normal-case tracking-[0.01em] text-default-400">
                 · {group.length} · {SEVERITY_HINT[sev]}
               </span>
             </h2>

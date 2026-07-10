@@ -1,5 +1,9 @@
 function Bar({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded-lg bg-default ${className}`} />;
+  return (
+    <div
+      className={`animate-pulse rounded-2xl bg-default/70 ${className}`}
+    />
+  );
 }
 
 export default function AppLoading() {
@@ -9,8 +13,8 @@ export default function AppLoading() {
       aria-busy="true"
       aria-label="Loading"
     >
-      <div className="mx-auto w-full max-w-5xl space-y-8">
-        <div className="space-y-2">
+      <div className="mx-auto w-full max-w-5xl space-y-9">
+        <div className="space-y-2.5">
           <Bar className="h-7 w-40" />
           <Bar className="h-4 w-64 max-w-full" />
         </div>
@@ -20,7 +24,7 @@ export default function AppLoading() {
           ))}
         </div>
         <Bar className="h-40" />
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <Bar className="h-16" />
           <Bar className="h-16" />
         </div>

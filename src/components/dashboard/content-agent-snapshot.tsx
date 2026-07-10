@@ -62,10 +62,12 @@ function Tile({
   hint?: React.ReactNode;
 }) {
   return (
-    <Card>
-      <p className="text-sm font-medium text-muted">{label}</p>
-      <div className="mt-2 text-2xl font-semibold text-foreground tabular-nums">{value}</div>
-      {hint ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
+    <Card className="material-panel">
+      <p className="text-sm font-medium tracking-[0.01em] text-muted">{label}</p>
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+        {value}
+      </div>
+      {hint ? <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p> : null}
     </Card>
   );
 }
@@ -102,20 +104,26 @@ export function ContentAgentSnapshot({
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-foreground">Content agent</h2>
-          <p className="mt-1 max-w-prose text-sm text-muted">
+          <h2 className="type-title text-lg text-foreground">Content agent</h2>
+          <p className="mt-1 max-w-prose text-sm leading-relaxed text-muted">
             {headline(agentState, autoPublish)}
           </p>
         </div>
-        <span className={cn("inline-flex items-center gap-1.5 text-sm font-medium", state.className)}>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 text-sm font-medium tracking-[0.01em]",
+            state.className,
+          )}
+        >
           <span className="size-2 rounded-full bg-current" aria-hidden />
           {state.label}
         </span>
       </div>
 
       {nextTopic && agentState === "active" ? (
-        <p className="text-sm text-muted">
-          Writing next: <span className="font-medium text-foreground">{nextTopic.title}</span>
+        <p className="text-sm leading-relaxed text-muted">
+          Writing next:{" "}
+          <span className="font-medium tracking-tight text-foreground">{nextTopic.title}</span>
           {nextTopic.thesis ? <> — {nextTopic.thesis}</> : null}
         </p>
       ) : null}

@@ -7,6 +7,8 @@ describe("buildFixArtifact", () => {
     expect(a.mode).toBe("snippet");
     expect(a.content).toContain('application/ld+json');
     expect(a.content).toContain('"@type": "Organization"');
+    expect(a.instructions.toLowerCase()).toContain("paste");
+    expect(a.instructions.toLowerCase()).not.toContain("insert it for you");
   });
 
   it("emits llms.txt and robots.txt as downloadable files", () => {

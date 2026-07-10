@@ -86,10 +86,10 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-8">
+    <div className="mx-auto w-full max-w-2xl space-y-9">
       <PageHeader title={tool.name} description={tool.description} />
 
-      <Card className="space-y-3 p-5">
+      <Card className="material-panel space-y-3 p-5">
         <TextArea
           aria-label={tool.name}
           className="min-h-20"
@@ -103,7 +103,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           fullWidth
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs text-default-400">
+          <span className="text-xs leading-relaxed tracking-[0.01em] text-default-400">
             A run costs {CREDIT_COSTS[tool.costKey]} credits — your last result stays here for
             free.
           </span>
@@ -117,7 +117,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
             {busy ? "Running…" : hasResult ? "Re-run tool" : "Run tool"}
           </Button>
         </div>
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && <p className="text-sm leading-relaxed text-danger">{error}</p>}
       </Card>
 
       {fresh ? (
@@ -139,7 +139,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       ) : latest.isLoading ? (
         <CardSkeleton lines={4} />
       ) : (
-        <Card className="p-5 text-sm text-default-500">
+        <Card className="material-panel p-5 text-sm leading-relaxed text-default-500">
           No runs yet. Run it once and this page will always show your latest result.
         </Card>
       )}

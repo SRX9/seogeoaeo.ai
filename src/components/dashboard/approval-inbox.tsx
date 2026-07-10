@@ -26,6 +26,7 @@ import { authClient } from "@/lib/auth/client";
 import { buildInboxRows } from "@/lib/inbox/rows";
 import { GOOGLE_TRAFFIC_SCOPES } from "@/lib/integrations/google-scopes";
 import { buildFixArtifact } from "@/lib/visibility/fix-artifact";
+import { isInstallReady } from "@/lib/visibility/fix-policy";
 import { cn } from "@/lib/cn";
 
 export { buildInboxRows } from "@/lib/inbox/rows";
@@ -136,14 +137,14 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  async function applyFix(findingId: string) {
+  async function markInstalled(findingId: string) {
     setApplyingId(findingId);
     try {
       await apiPost("/api/visibility/fix", { findingId });
-      toast.success("Fix applied — logged and reversible.");
+      toast.success("Marked installed — Claudia re-checks on the next audit.");
       invalidateInbox(queryClient);
     } catch (error) {
-      toast.danger(getErrorMessage(error, "Couldn't apply this fix."));
+      toast.danger(getErrorMessage(error, "Couldn't update this finding."));
     } finally {
       setApplyingId(null);
     }
@@ -160,7 +161,7 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
       await navigator.clipboard.writeText(text);
       setCopiedId(finding.id);
       setTimeout(() => setCopiedId(null), 2000);
-      toast.success("Fix copied.");
+      toast.success("Fix copied — install on your site, then mark done.");
     } catch {
       toast.danger("Couldn't copy — browser blocked clipboard access.");
     }
@@ -174,41 +175,47 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
         const open = expandedId === finding.id;
         const artifact = buildFixArtifact(finding.fixPayload);
         const hasArtifact = artifact.content.trim().length > 0;
+        const ready = isInstallReady(finding.fixCapability);
         return (
           <div
             key={finding.id}
-            className="rounded-lg border border-border bg-surface-secondary/30 px-3 py-2.5"
+            className="rounded-xl border border-border/50 bg-surface-secondary/30 px-3 py-2.5"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <button
                 type="button"
-                className="min-w-0 flex-1 text-left"
+                className="pressable min-w-0 flex-1 rounded-lg text-left"
                 onClick={() => setExpandedId(open ? null : finding.id)}
               >
-                <p className="text-sm font-medium text-foreground">{finding.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-muted">{finding.recommendation}</p>
+                <p className="text-sm font-medium tracking-tight text-foreground">
+                  {finding.title}
+                </p>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted">
+                  {finding.recommendation}
+                </p>
               </button>
               <div className="flex shrink-0 flex-wrap gap-1.5">
-                {finding.fixCapability === "auto" ? (
-                  <LoadingButton
-                    size="sm"
-                    isPending={applyingId === finding.id}
-                    pendingLabel="Applying…"
-                    isDisabled={applying && applyingId !== finding.id}
-                    onPress={() => applyFix(finding.id)}
-                  >
-                    Fix it for me
-                  </LoadingButton>
-                ) : null}
                 {hasArtifact ? (
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="primary"
                     isDisabled={applying}
                     onPress={() => copyArtifact(finding)}
                   >
                     {copiedId === finding.id ? "Copied ✓" : "Copy fix"}
                   </Button>
+                ) : null}
+                {ready ? (
+                  <LoadingButton
+                    size="sm"
+                    variant="secondary"
+                    isPending={applyingId === finding.id}
+                    pendingLabel="Saving…"
+                    isDisabled={applying && applyingId !== finding.id}
+                    onPress={() => markInstalled(finding.id)}
+                  >
+                    I installed this
+                  </LoadingButton>
                 ) : null}
               </div>
             </div>
@@ -223,7 +230,7 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
       {findings.length > 5 ? (
         <Link
           href="/visibility/fixes"
-          className="inline-block text-sm text-muted transition-colors hover:text-foreground"
+          className="inline-block text-sm text-muted transition-colors hover-fine:text-foreground"
         >
           View all {findings.length} in Workshop
         </Link>
@@ -317,7 +324,7 @@ function CmsConnectActions({ integrations }: { integrations: IntegrationView[] }
       </ul>
       <Link
         href="/help/integrations"
-        className="text-sm text-muted transition-colors hover:text-foreground"
+        className="text-sm text-muted transition-colors hover-fine:text-foreground"
       >
         Integration guide
       </Link>
@@ -360,19 +367,19 @@ export function ApprovalInbox({
     typeof maxRows === "number" && rows.length > maxRows ? rows.length - maxRows : 0;
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3.5">
       {showHeader ? (
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Needs you</h2>
-            <p className="mt-1 text-sm text-muted">
+            <h2 className="type-title text-lg text-foreground">Needs you</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
               The only things Claudia can&apos;t do without you.
             </p>
           </div>
           {rows.length > 0 ? (
             <Link
               href="/inbox"
-              className="shrink-0 text-sm text-muted transition-colors hover:text-foreground"
+              className="pressable shrink-0 rounded-md text-sm text-muted hover-fine:text-foreground"
             >
               Open inbox
               {rows.length > 1 ? ` (${rows.length})` : ""}
@@ -382,13 +389,13 @@ export function ApprovalInbox({
       ) : null}
 
       {rows.length === 0 ? (
-        <Card className="p-5">
-          <p className="text-sm text-foreground">
+        <Card className="material-panel p-5">
+          <p className="text-sm leading-relaxed text-foreground">
             Nothing — I&apos;ve got it. Check back after my next run.
           </p>
         </Card>
       ) : (
-        <Card className="divide-y divide-border p-0">
+        <Card className="material-panel divide-y divide-border/50 p-0">
           {visible.map((row) => {
             const isOpen = openKey === row.key;
             const isOverflowDraft = row.key === "drafts-more";
@@ -396,8 +403,8 @@ export function ApprovalInbox({
               <div key={row.key} className="p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <p className="font-medium text-foreground">{row.what}</p>
-                    <p className="mt-0.5 text-sm text-muted">{row.why}</p>
+                    <p className="font-medium tracking-tight text-foreground">{row.what}</p>
+                    <p className="mt-0.5 text-sm leading-relaxed text-muted">{row.why}</p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <Button

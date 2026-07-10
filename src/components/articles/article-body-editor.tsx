@@ -34,7 +34,7 @@ export function ArticleBodyEditor({ defaultMarkdown, onChange }: ArticleBodyEdit
   const initialDoc = useMemo(() => markdownToTiptapDoc(defaultMarkdown), [defaultMarkdown]);
 
   return (
-    <div>
+    <div className="material-panel overflow-hidden rounded-2xl">
       <RichTextEditor
         className="w-full"
         defaultValue={initialDoc}
@@ -42,7 +42,7 @@ export function ArticleBodyEditor({ defaultMarkdown, onChange }: ArticleBodyEdit
         onValueChange={(value: JSONContent) => onChange(tiptapDocToMarkdown(value))}
       >
         <RichTextEditor.Shell>
-          <RichTextEditor.Toolbar>
+          <RichTextEditor.Toolbar className="border-b border-border/40">
             <RichTextEditor.ToolbarGroup>
               <RichTextEditor.ToggleButton command="bold" tooltip="Bold">
                 <BoldIcon className="size-4" />

@@ -34,7 +34,7 @@ const heroPreviewPillars = [
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft/40 px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-soft-foreground">
+    <span className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft/35 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-accent-soft-foreground">
       <span className="size-1.5 rounded-full bg-accent" aria-hidden />
       {children}
     </span>
@@ -43,13 +43,13 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
 
 export function Hero() {
   return (
-    <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-24 sm:pt-32">
+    <section className="relative mx-auto max-w-6xl px-4 pb-20 pt-24 sm:pt-32">
       <div className="mx-auto max-w-3xl text-center">
         <SectionEyebrow>Hire an AI employee — not another dashboard</SectionEyebrow>
-        <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">
+        <h1 className="type-display mt-7 text-4xl text-foreground sm:text-6xl sm:leading-[1.02]">
           Meet <span className="text-accent">Claudia</span> — she keeps your brand findable
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted">
+        <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted sm:text-xl sm:leading-relaxed">
           Claudia audits you on Google and AI assistants, fixes what she can, writes and
           publishes content that moves the score, and checks in weekly. You pay, connect, and
           approve — she does the rest.
@@ -65,9 +65,9 @@ export function Hero() {
             See how she works
           </Link>
         </div>
-        <ul className="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted sm:gap-x-10">
+        <ul className="mx-auto mt-9 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted sm:gap-x-10">
           {heroEvidence.map((item) => (
-            <li key={item} className="flex items-center gap-2">
+            <li key={item} className="flex items-center gap-2 tracking-[0.01em]">
               <CircleCheckIcon className="size-4 text-accent" />
               {item}
             </li>
@@ -84,14 +84,16 @@ export function Hero() {
 function HeroPreview() {
   return (
     <div className="mx-auto mt-16 max-w-4xl">
-      <Card className="overflow-hidden border-border/70 bg-surface/60 backdrop-blur">
-        <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-8">
+      <Card className="material-panel overflow-hidden border-border/50">
+        <div className="grid gap-6 p-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-8">
           <div>
-            <p className="text-sm font-medium text-muted">Visibility score</p>
+            <p className="text-sm font-medium tracking-[0.01em] text-muted">Visibility score</p>
             <div className="mt-2 flex items-end gap-2">
-              <span className="text-5xl font-semibold tabular-nums text-foreground">78</span>
+              <span className="text-5xl font-semibold tabular-nums tracking-tight text-foreground">
+                78
+              </span>
               <span className="pb-1 text-sm text-muted">/ 100</span>
-              <span className="mb-1 ml-auto rounded-lg bg-success-soft px-2 py-0.5 text-xs font-medium text-success-soft-foreground">
+              <span className="mb-1 ml-auto rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium tracking-[0.01em] text-success-soft-foreground">
                 +14 this month
               </span>
             </div>
@@ -102,10 +104,10 @@ function HeroPreview() {
                     <span className="font-medium text-foreground">{pillar.label}</span>
                     <span className="tabular-nums text-muted">{pillar.value}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-border/60">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-border/50">
                     <div
-                      className="h-full rounded-full bg-accent"
-                      style={{ width: `${pillar.value}%` }}
+                      className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-ui ease-out-strong motion-reduce:transition-none"
+                      style={{ transform: `scaleX(${pillar.value / 100})` }}
                     />
                   </div>
                 </div>
@@ -113,9 +115,9 @@ function HeroPreview() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-muted">Claudia this week</p>
-            <ul className="mt-3 space-y-2.5">
+          <div className="rounded-2xl border border-border/40 bg-background/50 p-4 backdrop-blur-sm">
+            <p className="text-sm font-medium tracking-[0.01em] text-muted">Claudia this week</p>
+            <ul className="mt-3 space-y-2">
               {[
                 { title: "Published “How AI assistants pick sources”", status: "Done" },
                 { title: "Fixed schema on 3 key pages", status: "Done" },
@@ -123,11 +125,11 @@ function HeroPreview() {
               ].map((row) => (
                 <li
                   key={row.title}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-surface/50 px-3 py-2.5"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-surface/60 px-3.5 py-2.5"
                 >
                   <span className="truncate text-sm text-foreground">{row.title}</span>
                   <span
-                    className={`inline-flex shrink-0 items-center gap-1.5 text-xs font-medium ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 text-xs font-medium tracking-[0.01em] ${
                       row.status === "Done"
                         ? "text-success"
                         : row.status === "Working"
@@ -168,12 +170,17 @@ const publishTargets = [
 
 export function TrustBar() {
   return (
-    <section className="border-y border-border/60 bg-surface/30">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-8 sm:flex-row sm:justify-between">
-        <p className="text-sm font-medium text-muted">She publishes where your audience already is</p>
+    <section className="border-y border-border/40 bg-surface/40 backdrop-blur-sm">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-9 sm:flex-row sm:justify-between">
+        <p className="text-sm font-medium tracking-[0.01em] text-muted">
+          She publishes where your audience already is
+        </p>
         <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {publishTargets.map((target) => (
-            <li key={target} className="text-sm font-medium text-foreground/80">
+            <li
+              key={target}
+              className="text-sm font-medium tracking-tight text-foreground/80"
+            >
               {target}
             </li>
           ))}
@@ -212,10 +219,10 @@ const capabilities = [
     icon: GaugeIcon,
     title: "She measures & fixes visibility",
     blurb:
-      "Claudia scores how findable you are on Google and AI assistants, queues fixes by impact, and applies the safe ones when you put her on Autopilot.",
+      "Claudia scores how findable you are on Google and AI assistants, queues fixes by impact, and prepares ready-to-install artifacts you deploy on your site.",
     points: [
       "Score with delta — never a vanity number alone",
-      "One inbox of approvals, not 35 tools",
+      "One inbox of ready fixes, not 35 tools",
       "Re-audits on schedule to prove the gain",
     ],
   },
@@ -234,27 +241,29 @@ const capabilities = [
 
 export function Features() {
   return (
-    <section id="features" className="border-t border-border/60 px-4 py-20 sm:py-28">
+    <section id="features" className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>What she does every week</SectionEyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
             One employee. Both halves of the job.
           </h2>
-          <p className="mt-4 text-muted">
+          <p className="mt-4 text-pretty leading-relaxed text-muted">
             Most products are toolboxes you operate. Claudia is the hire who operates them —
             visibility and content, closed-loop, in your brand&apos;s voice.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-6 lg:grid-cols-2">
+        <div className="mt-14 grid gap-5 lg:grid-cols-2">
           {capabilities.map((cap) => (
-            <Card key={cap.title} className="border-border/70">
-              <div className="flex size-11 items-center justify-center rounded-xl border border-accent/30 bg-accent-soft/30 text-accent">
+            <Card key={cap.title} className="material-panel border-border/50">
+              <div className="flex size-11 items-center justify-center rounded-2xl border border-accent/25 bg-accent-soft/25 text-accent">
                 <cap.icon className="size-6" />
               </div>
-              <h3 className="mt-5 text-xl font-semibold text-foreground">{cap.title}</h3>
-              <p className="mt-2 text-muted">{cap.blurb}</p>
+              <h3 className="mt-5 text-xl font-semibold tracking-tight text-foreground">
+                {cap.title}
+              </h3>
+              <p className="mt-2 leading-relaxed text-muted">{cap.blurb}</p>
               <ul className="mt-5 space-y-2.5">
                 {cap.points.map((point) => (
                   <li key={point} className="flex items-start gap-2.5 text-sm text-foreground/90">
@@ -269,29 +278,29 @@ export function Features() {
 
         <div className="mt-16">
           <div className="mx-auto max-w-2xl text-center">
-            <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+            <h3 className="type-title text-2xl text-foreground sm:text-3xl">
               Optimized for all three engines
             </h3>
-            <p className="mt-3 text-muted">
+            <p className="mt-3 leading-relaxed text-muted">
               Search, answer engines, and AI assistants each rank you differently. We cover the
               signals that matter for every one.
             </p>
           </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
             {pillars.map((pillar) => (
-              <Card key={pillar.name} className="border-border/70">
+              <Card key={pillar.name} className="material-panel border-border/50">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg border border-border/60 bg-surface/60 text-accent">
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-border/50 bg-surface/70 text-accent">
                     <pillar.icon className="size-5" />
                   </div>
                   <div>
-                    <p className="text-lg font-semibold leading-none text-foreground">
+                    <p className="text-lg font-semibold leading-none tracking-tight text-foreground">
                       {pillar.name}
                     </p>
-                    <p className="mt-1 text-xs text-muted">{pillar.full}</p>
+                    <p className="mt-1 text-xs tracking-[0.01em] text-muted">{pillar.full}</p>
                   </div>
                 </div>
-                <p className="mt-4 text-sm text-muted">{pillar.blurb}</p>
+                <p className="mt-4 text-sm leading-relaxed text-muted">{pillar.blurb}</p>
                 <ul className="mt-4 space-y-2">
                   {pillar.points.map((point) => (
                     <li key={point} className="flex items-start gap-2 text-sm text-foreground/90">
@@ -332,38 +341,40 @@ const steps = [
     icon: RocketIcon,
     title: "You only decide exceptions",
     blurb:
-      "Approve drafts or fixes on Copilot, connect GSC/CMS once, read her weekly memo. Autopilot means even fewer taps.",
+      "Approve article drafts on Copilot, install prepared site fixes, connect GSC/CMS once, read her weekly memo. Autopilot auto-publishes articles.",
   },
 ];
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="border-t border-border/60 px-4 py-20 sm:py-28">
+    <section id="how-it-works" className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>How she works</SectionEyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
             Onboard an employee — not a project plan
           </h2>
-          <p className="mt-4 text-muted">
+          <p className="mt-4 leading-relaxed text-muted">
             Your job: pay, connect, approve. Hers: measure, fix, write, publish, prove.
           </p>
         </div>
 
-        <ol className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <li key={step.title} className="relative">
-              <Card className="h-full border-border/70">
+              <Card className="material-panel h-full border-border/50">
                 <div className="flex items-center justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-lg border border-accent/30 bg-accent-soft/30 text-accent">
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-accent/25 bg-accent-soft/25 text-accent">
                     <step.icon className="size-5" />
                   </div>
-                  <span className="text-3xl font-semibold tabular-nums text-border">
+                  <span className="text-3xl font-semibold tabular-nums tracking-tight text-border">
                     {String(index + 1).padStart(2, "0")}
                   </span>
                 </div>
-                <h3 className="mt-4 text-base font-semibold text-foreground">{step.title}</h3>
-                <p className="mt-2 text-sm text-muted">{step.blurb}</p>
+                <h3 className="mt-4 text-base font-semibold tracking-tight text-foreground">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{step.blurb}</p>
               </Card>
             </li>
           ))}
@@ -375,23 +386,23 @@ export function HowItWorks() {
 
 const employeePerks = [
   { icon: CalendarIcon, text: "Shows up daily with research, drafts, and publishes" },
-  { icon: RefreshIcon, text: "Re-audits and applies safe fixes on your plan cadence" },
+  { icon: RefreshIcon, text: "Re-audits and prepares ready fixes on your plan cadence" },
   { icon: ChartBarIcon, text: "Weekly memo: score delta, AI mentions, traffic proof" },
   { icon: BoltIcon, text: "Never sleeps, never invents work you can't verify in the log" },
 ];
 
 export function ContentEmployee() {
   return (
-    <section className="border-t border-border/60 px-4 py-20 sm:py-28">
+    <section className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
-        <Card className="overflow-hidden border-accent/30 bg-accent-soft/10">
+        <Card className="material-panel overflow-hidden border-accent/25 bg-accent-soft/10">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
               <SectionEyebrow>Meet Claudia</SectionEyebrow>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
                 Your autonomous visibility &amp; content hire
               </h2>
-              <p className="mt-4 text-muted">
+              <p className="mt-4 leading-relaxed text-muted">
                 Not a sidebar of tools you have to operate. An employee who already knows the
                 job — search, answer boxes, AI assistants, and the content that moves them —
                 and checks in like a great hire on Monday morning.
@@ -409,16 +420,16 @@ export function ContentEmployee() {
               </div>
             </div>
 
-            <ul className="grid gap-4">
+            <ul className="grid gap-3">
               {employeePerks.map((perk) => (
                 <li
                   key={perk.text}
-                  className="flex items-center gap-4 rounded-xl border border-border/60 bg-surface/50 p-4"
+                  className="flex items-center gap-4 rounded-2xl border border-border/40 bg-surface/55 p-4 backdrop-blur-sm"
                 >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-accent/30 bg-accent-soft/30 text-accent">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent-soft/25 text-accent">
                     <perk.icon className="size-5" />
                   </div>
-                  <span className="text-sm text-foreground/90">{perk.text}</span>
+                  <span className="text-sm leading-snug text-foreground/90">{perk.text}</span>
                 </li>
               ))}
             </ul>
@@ -440,14 +451,14 @@ const integrations = [
 
 export function Publish() {
   return (
-    <section id="publish" className="border-t border-border/60 px-4 py-20 sm:py-28">
+    <section id="publish" className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>Publish anywhere</SectionEyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
             Connect your platforms and ship
           </h2>
-          <p className="mt-4 text-muted">
+          <p className="mt-4 leading-relaxed text-muted">
             Connect once. On Autopilot she publishes for you; on Copilot she waits for your OK —
             or export Markdown and take it anywhere.
           </p>
@@ -455,14 +466,16 @@ export function Publish() {
 
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {integrations.map((integration) => (
-            <Card key={integration.name} className="border-border/70">
+            <Card key={integration.name} className="material-panel border-border/50">
               <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-surface/60 text-accent">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-surface/70 text-accent">
                   <LayersIcon className="size-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">{integration.name}</p>
-                  <p className="mt-1 text-sm text-muted">{integration.blurb}</p>
+                  <p className="font-semibold tracking-tight text-foreground">
+                    {integration.name}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">{integration.blurb}</p>
                 </div>
               </div>
             </Card>
@@ -488,24 +501,26 @@ const paidTeaser = [
 export function Pricing() {
   const startingPrice = Math.min(...Object.values(plans).map((plan) => plan.price));
   return (
-    <section id="pricing" className="border-t border-border/60 px-4 py-20 sm:py-28">
+    <section id="pricing" className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-5xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>Plans</SectionEyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
             Salary for an employee — not a taxi meter
           </h2>
-          <p className="mt-4 text-muted">
+          <p className="mt-4 leading-relaxed text-muted">
             Try the free check to see the gap. Hire Claudia on a plan so she can write, fix, and
             report — safe fixes are included, never charged per click.
           </p>
         </div>
 
-        <div className="mt-12 grid items-stretch gap-6 md:grid-cols-2">
-          <Card className="flex flex-col border-border/70">
+        <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2">
+          <Card className="material-panel flex flex-col border-border/50">
             <div className="flex items-baseline gap-2">
               <Card.Title>Preview</Card.Title>
-              <span className="text-2xl font-semibold tabular-nums text-foreground">$0</span>
+              <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                $0
+              </span>
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
@@ -524,10 +539,10 @@ export function Pricing() {
             </Link>
           </Card>
 
-          <Card className="flex flex-col border-accent/40 bg-accent-soft/10 ring-2 ring-accent/60">
+          <Card className="material-panel flex flex-col border-accent/35 bg-accent-soft/10 ring-2 ring-accent/50">
             <div className="flex items-baseline gap-2">
               <Card.Title>Hire Claudia</Card.Title>
-              <span className="text-2xl font-semibold tabular-nums text-foreground">
+              <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
                 from ${startingPrice}
               </span>
               <span className="text-sm text-muted">/mo</span>
@@ -552,7 +567,7 @@ export function Pricing() {
         <div className="mt-8 text-center">
           <Link
             href="/pricing"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+            className="pressable inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-accent hover-fine:underline"
           >
             See full pricing &amp; FAQ
             <ArrowRightIcon className="size-4" />
@@ -570,19 +585,19 @@ const faqs = [
   },
   {
     q: "What does Claudia actually do?",
-    a: "She measures how findable you are on Google (search), answer boxes, and AI assistants; prepares or applies safe fixes; researches topics with a traffic thesis; writes and can publish articles; and reports score delta, AI mentions, and real traffic when Search Console is connected.",
+    a: "She measures how findable you are on Google (search), answer boxes, and AI assistants; prepares ready site fixes; researches topics with a traffic thesis; writes and can publish articles; and reports score delta, AI mentions, and real traffic when Search Console is connected.",
   },
   {
     q: "Do I need to be technical?",
-    a: "No. Share your site, confirm what she inferred, pick Autopilot or Copilot, and start a plan. Findings use owner language — not jargon — and many fixes are one click.",
+    a: "No. Share your site, confirm what she inferred, pick Autopilot or Copilot, and start a plan. Findings use owner language — not jargon — and many fixes are copy-and-install ready.",
   },
   {
     q: "Autopilot vs Copilot?",
-    a: "Autopilot: she publishes and applies safe on-site fixes herself (everything logged and reversible). Copilot: she prepares the same work and waits for your approval in Inbox. You can switch anytime.",
+    a: "Autopilot: she publishes articles to your CMS without a review step and prepares ready site fixes in your inbox. Copilot: she prepares the same work and waits for your OK before publishing articles. Site artifacts (robots, schema, meta) you install; she re-checks next audit. Switch anytime.",
   },
   {
     q: "What are credits?",
-    a: "Credits budget heavy AI work (articles, research, audits). Safe fixes are plan-included — never metered per fix, because an employee is salaried, not a taxi. Top-up packs never expire if you need more volume.",
+    a: "Credits budget heavy AI work (articles, research, audits). Preparing site fixes is plan-included — never metered per fix. You copy ready artifacts onto your site; she re-checks next audit. Top-up packs never expire if you need more volume.",
   },
   {
     q: "Can I try before hiring her?",
@@ -592,21 +607,21 @@ const faqs = [
 
 export function Faq() {
   return (
-    <section id="faq" className="border-t border-border/60 px-4 py-20 sm:py-28">
+    <section id="faq" className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
           <SectionEyebrow>FAQ</SectionEyebrow>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
             Questions, answered
           </h2>
         </div>
 
-        <div className="mt-12 divide-y divide-border/60 border-y border-border/60">
+        <div className="mt-12 divide-y divide-border/40 border-y border-border/40">
           {faqs.map((faq) => (
             <details key={faq.q} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-base font-medium text-foreground [&::-webkit-details-marker]:hidden">
+              <summary className="pressable flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg text-left text-base font-medium tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
                 {faq.q}
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted transition-transform duration-200 group-open:rotate-45">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 text-muted transition-transform duration-ui ease-out-strong group-open:rotate-45">
                   <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
                     <path d="M12 5v14M5 12h14" />
                   </svg>
@@ -625,15 +640,15 @@ export function FinalCta() {
   return (
     <section className="px-4 py-24">
       <div className="mx-auto max-w-4xl">
-        <Card className="overflow-hidden border-accent/30 bg-accent-soft/15 text-center">
-          <div className="mx-auto max-w-2xl px-2 py-8">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-accent/30 bg-accent-soft/30 text-accent">
+        <Card className="material-panel overflow-hidden border-accent/25 bg-accent-soft/12 text-center">
+          <div className="mx-auto max-w-2xl px-2 py-10">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-accent/25 bg-accent-soft/25 text-accent">
               <UsersIcon className="size-6" />
             </div>
-            <h2 className="mt-6 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h2 className="type-title mt-6 text-3xl text-foreground sm:text-4xl">
               Hire the employee who already knows the job
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-muted">
+            <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted">
               Share your site. Claudia sets herself up, starts working, and only pings you when
               something needs a human.
             </p>

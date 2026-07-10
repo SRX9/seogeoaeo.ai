@@ -37,16 +37,20 @@ function NotificationsPanel({ enabled }: { enabled: boolean }) {
   }
 
   return (
-    <Card>
+    <Card className="material-panel">
       <Card.Header>
-        <Card.Title>Notifications</Card.Title>
-        <Card.Description>Emails about your content agent and credits.</Card.Description>
+        <Card.Title className="tracking-tight">Notifications</Card.Title>
+        <Card.Description className="leading-relaxed">
+          Emails about your content agent and credits.
+        </Card.Description>
       </Card.Header>
       <Card.Content>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="font-medium text-foreground">Low &amp; out-of-credit emails</p>
-            <p className="mt-1 text-sm text-muted">
+            <p className="font-medium tracking-tight text-foreground">
+              Low &amp; out-of-credit emails
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
               Get notified when your content agent is running low on or out of credits.
             </p>
           </div>

@@ -57,12 +57,12 @@ export function AskClaudia({ className }: { className?: string }) {
   }
 
   return (
-    <section className={cn("space-y-3", className)}>
+    <section className={cn("space-y-3.5", className)}>
       <div className="flex items-center gap-3">
         <ClaudiaAvatar className="size-9" />
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Ask me</h2>
-          <p className="text-sm text-muted">
+          <h2 className="type-title text-lg text-foreground">Ask me</h2>
+          <p className="text-sm leading-relaxed text-muted">
             Grounded in your scores, fixes, topics, and work log — not inventing SEO advice.
           </p>
         </div>
@@ -78,10 +78,10 @@ export function AskClaudia({ className }: { className?: string }) {
               disabled={ask.isPending}
               onClick={() => runIntent(intent.id)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-left text-xs font-medium transition-colors",
+                "chip",
                 selected
-                  ? "bg-accent text-accent-foreground"
-                  : "bg-surface-secondary text-muted hover:text-foreground",
+                  ? "bg-accent text-accent-foreground shadow-sm"
+                  : "bg-surface-secondary text-muted hover-fine:bg-default/60 hover-fine:text-foreground",
                 ask.isPending && "opacity-60",
               )}
             >
@@ -119,11 +119,11 @@ export function AskClaudia({ className }: { className?: string }) {
       </div>
 
       {result ? (
-        <Card className="space-y-3 p-4">
+        <Card className="material-panel space-y-3 p-4">
           {isAskUnknown(result) ? (
             <>
-              <p className="text-sm text-foreground">{result.suggestion}</p>
-              <p className="text-xs text-muted">Try one of the chips above.</p>
+              <p className="text-sm leading-relaxed text-foreground">{result.suggestion}</p>
+              <p className="text-xs tracking-[0.01em] text-muted">Try one of the chips above.</p>
             </>
           ) : (
             <>
@@ -131,8 +131,10 @@ export function AskClaudia({ className }: { className?: string }) {
                 {result.answer}
               </p>
               {result.sources.length > 0 ? (
-                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-                  <span className="w-full text-xs font-medium text-muted">Sources</span>
+                <div className="flex flex-wrap gap-2 border-t border-border/50 pt-3">
+                  <span className="w-full text-xs font-medium tracking-[0.01em] text-muted">
+                    Sources
+                  </span>
                   {result.sources.map((s) => (
                     <Link
                       key={s.href + s.label}

@@ -23,19 +23,19 @@ export function WorkshopBanner() {
 
   return (
     <div className="mb-6 space-y-3">
-      <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-surface-secondary/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="material-panel flex flex-col gap-3 rounded-2xl border-dashed px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface text-muted">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-surface/80 text-muted">
             <WorkshopIcon className="size-4" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">
+            <p className="text-sm font-medium tracking-tight text-foreground">
               Workshop
               {current ? (
                 <span className="font-normal text-muted"> · {current.title}</span>
               ) : null}
             </p>
-            <p className="mt-0.5 text-xs text-muted sm:text-sm">
+            <p className="mt-0.5 text-xs leading-relaxed text-muted sm:text-sm">
               Advanced — you don&apos;t need this for Claudia to work. Most owners stay on her
               home, Inbox, and Reports.
             </p>
@@ -67,10 +67,10 @@ export function WorkshopBanner() {
               key={link.href}
               href={link.href}
               className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                "chip",
                 active
                   ? "bg-accent text-accent-foreground"
-                  : "bg-surface-secondary text-muted hover:text-foreground",
+                  : "bg-surface-secondary text-muted hover-fine:bg-default/60 hover-fine:text-foreground",
               )}
             >
               {link.title}

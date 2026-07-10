@@ -86,11 +86,11 @@ export function QuickCheck() {
 
   return (
     <section id="quick-check" className="mx-auto max-w-6xl px-4 pb-20">
-      <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-surface p-6 sm:p-8">
-        <h2 className="text-center text-2xl font-semibold tracking-tight text-foreground">
+      <div className="material-panel mx-auto max-w-2xl rounded-2xl p-6 sm:p-8">
+        <h2 className="type-title text-center text-2xl text-foreground sm:text-3xl">
           How visible is your site to AI?
         </h2>
-        <p className="mt-2 text-center text-sm text-muted">
+        <p className="mt-2.5 text-center text-sm leading-relaxed text-muted">
           Free 60-second check across {PILLAR_LABELS.seo.toLowerCase()} and{" "}
           {PILLAR_LABELS.geo.toLowerCase()}. No signup needed.
         </p>
@@ -114,12 +114,14 @@ export function QuickCheck() {
         {state.phase === "done" && (
           <div className="mt-8">
             <div className="flex items-baseline justify-center gap-3">
-              <span className="text-5xl font-semibold text-foreground">
+              <span className="text-5xl font-semibold tracking-tight text-foreground tabular-nums">
                 {state.result.score}
               </span>
-              <span className="text-lg text-muted">/ 100 · {scoreBand(state.result.score)}</span>
+              <span className="text-lg text-muted">
+                / 100 · {scoreBand(state.result.score)}
+              </span>
             </div>
-            <p className="mt-1 text-center text-xs text-muted">
+            <p className="mt-1.5 text-center text-xs tracking-[0.01em] text-muted">
               Estimate — run the full audit for the real score.
             </p>
 
@@ -127,7 +129,7 @@ export function QuickCheck() {
               {signalRows(state.result).map((row) => (
                 <li
                   key={row.label}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-surface/40 px-3.5 py-2.5 text-sm"
                 >
                   <span className="flex items-center gap-2 text-foreground">
                     <span
@@ -143,8 +145,10 @@ export function QuickCheck() {
 
             {state.result.topGaps.length > 0 && (
               <div className="mt-6">
-                <h3 className="text-sm font-medium text-foreground">Top gaps to fix</h3>
-                <ul className="mt-2 space-y-1.5 text-sm text-muted">
+                <h3 className="text-sm font-medium tracking-tight text-foreground">
+                  Top gaps to fix
+                </h3>
+                <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted">
                   {state.result.topGaps.map((gap) => (
                     <li key={gap.title} className="flex gap-2">
                       <span aria-hidden>•</span>
@@ -162,7 +166,7 @@ export function QuickCheck() {
               >
                 Fix these gaps automatically
               </Link>
-              <p className="mt-2 text-xs text-muted">
+              <p className="mt-2.5 text-xs tracking-[0.01em] text-muted">
                 Sign up free — we&apos;ll carry this result into your workspace.
               </p>
             </div>

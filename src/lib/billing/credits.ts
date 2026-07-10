@@ -8,7 +8,7 @@ export const CREDIT_COSTS = {
   research_run: 20,
   competitor_discovery: 15,
   // Visibility suite (V8.4). Users buy outcomes, not tool access. No per-fix key —
-  // auto-fixes are plan-included with a monthly cap ("salaried, not a taxi meter").
+  // Fix preparation is plan-included with a monthly cap ("salaried, not a taxi meter").
   visibility_audit: 50,
   answer_run: 10,
   competitor_benchmark: 40,

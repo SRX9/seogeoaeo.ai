@@ -66,7 +66,7 @@ const ArticleBodyEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-[420px] animate-pulse rounded-xl border border-border bg-default/40" />
+      <div className="material-panel min-h-[420px] animate-pulse rounded-2xl bg-default/30" />
     ),
   },
 );
@@ -198,8 +198,8 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   const heldForReview = gates.some((gate) => gate.gate === "style-lint" && !gate.passed);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide">
+    <div className="space-y-7">
+      <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.08em]">
         <span className="text-muted">v{article.version}</span>
         <span className={isApproved ? "text-success" : "text-muted"}>{article.status}</span>
         {article.shape ? <span className="text-muted">{article.shape}</span> : null}
@@ -222,7 +222,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         ))}
       </div>
       {heldForReview ? (
-        <p className="text-sm text-muted">
+        <p className="text-sm leading-relaxed text-muted">
           Claudia held this draft for your review — it didn&apos;t pass her quality checks:{" "}
           {gates.find((gate) => gate.gate === "style-lint" && !gate.passed)?.detail}
         </p>
@@ -274,14 +274,14 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Article body</p>
+              <p className="text-sm font-medium tracking-tight text-foreground">Article body</p>
               <ArticleBodyEditor
                 defaultMarkdown={article.bodyMarkdown}
                 onChange={(markdown) => setFields((prev) => ({ ...prev, bodyMarkdown: markdown }))}
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+            <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-4">
               {canPublish ? (
                 <LoadingButton
                   isPending={intent === "publish"}
@@ -302,7 +302,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
                 Save as draft
               </LoadingButton>
               {canPublish ? (
-                <p className="text-xs text-muted">
+                <p className="text-xs leading-relaxed text-muted">
                   Approve &amp; publish saves your edits and sends the article to every enabled
                   destination.
                 </p>
@@ -319,11 +319,11 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
         </Tabs.Panel>
 
         <Tabs.Panel id="history">
-          <section className="rounded-xl border border-border bg-surface p-4">
+          <section className="material-panel rounded-2xl p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Publishing</h2>
-                <p className="mt-1 text-sm text-muted">
+                <h2 className="type-title text-lg text-foreground">Publishing</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted">
                   Per-destination results. Re-publish after fixing a connector or editing an
                   approved article.
                 </p>
@@ -375,7 +375,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
                     {publication.externalUrl ? (
                       <a
                         href={publication.externalUrl}
-                        className="mt-2 inline-block text-muted hover:text-foreground"
+                        className="mt-2 inline-block text-muted hover-fine:text-foreground"
                         target="_blank"
                         rel="noreferrer"
                       >

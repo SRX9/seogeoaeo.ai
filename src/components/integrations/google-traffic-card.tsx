@@ -77,26 +77,26 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
   const busy = save.isPending || disconnect.isPending;
 
   return (
-    <Card>
+    <Card className="material-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Card.Title>Search Console & Analytics</Card.Title>
-          <Card.Description>
+          <Card.Title className="tracking-tight">Search Console & Analytics</Card.Title>
+          <Card.Description className="leading-relaxed">
             Prove the gain with real traffic — overlay Google clicks on your score trend, and (with
             GA4) track AI-referral sessions.
           </Card.Description>
         </div>
         {status.gsc.connected ? (
-          <span className="text-xs uppercase tracking-wide text-success">Connected</span>
+          <span className="text-[11px] uppercase tracking-[0.08em] text-success">Connected</span>
         ) : (
-          <span className="text-xs uppercase tracking-wide text-muted">Optional</span>
+          <span className="text-[11px] uppercase tracking-[0.08em] text-muted">Optional</span>
         )}
       </div>
 
       {/* Not granted — the on-demand OAuth connect. */}
       {status.needsConnect ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-muted">
+          <p className="text-sm leading-relaxed text-muted">
             Connect the Google account that owns your Search Console property. We only request
             read-only access, and you can disconnect anytime.
           </p>
@@ -110,9 +110,11 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
           <div className="space-y-2">
             <Label>Search Console site</Label>
             {status.gsc.connected ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm">
-                <span className="font-medium text-foreground">{status.gsc.siteUrl}</span>
-                <span className="text-xs text-muted">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/50 bg-surface-muted/80 px-3.5 py-2.5 text-sm">
+                <span className="font-medium tracking-tight text-foreground">
+                  {status.gsc.siteUrl}
+                </span>
+                <span className="text-xs tracking-[0.01em] text-muted">
                   {status.gsc.lastError
                     ? `Sync error: ${status.gsc.lastError}`
                     : lastSyncLabel(status.gsc.lastSyncedAt)}
@@ -153,7 +155,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
                 </LoadingButton>
               </>
             ) : (
-              <p className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted">
+              <p className="rounded-xl border border-border/50 bg-surface-muted/80 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
                 No verified Search Console sites found for this Google account. Verify your site in
                 Search Console, then reload.
               </p>
@@ -171,7 +173,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
               variant="secondary"
               fullWidth
             />
-            <p className="text-xs text-muted">
+            <p className="text-xs leading-relaxed text-muted">
               Adds AI-referral sessions to the Proof panel. Find it in GA4 → Admin → Property
               settings. Leave blank to skip; clear it to stop GA4 sync.
             </p>

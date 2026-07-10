@@ -27,8 +27,8 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
       queryClient.invalidateQueries({ queryKey: queryKeys.brandAutonomy });
       toast.success(
         autonomyMode === "FULL_AUTO"
-          ? "Autopilot on — Claudia publishes and applies safe fixes herself."
-          : "Copilot on — Claudia prepares everything and asks before acting.",
+          ? "Autopilot on — Claudia publishes articles and prepares ready site fixes."
+          : "Copilot on — Claudia prepares everything and asks before publishing.",
       );
     },
     onError: (error, autonomyMode) => {
@@ -55,10 +55,10 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
   }
 
   return (
-    <Card>
+    <Card className="material-panel">
       <Card.Header>
-        <Card.Title>How Claudia works</Card.Title>
-        <Card.Description>
+        <Card.Title className="tracking-tight">How Claudia works</Card.Title>
+        <Card.Description className="leading-relaxed">
           One dial for both halves of her job — writing and fixing. Each brand is set
           independently; fine-tune individual areas below.
         </Card.Description>
@@ -66,11 +66,13 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
       <Card.Content>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="font-medium text-foreground">{isAuto ? "Autopilot" : "Copilot"}</p>
-            <p className="mt-1 text-sm text-muted">
+            <p className="font-medium tracking-tight text-foreground">
+              {isAuto ? "Autopilot" : "Copilot"}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
               {isAuto
-                ? "She publishes articles herself and applies safe fixes herself. Everything logged, everything reversible."
-                : "She prepares articles and fixes, then waits for your one-click approval before anything goes live."}
+                ? "She publishes articles to connected destinations and prepares ready-to-install site fixes in your inbox. You install site artifacts; she re-checks next audit."
+                : "She prepares articles and site fixes, then waits for your approval before publishing articles."}
             </p>
           </div>
           <Switch
@@ -98,9 +100,10 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
             </AlertDialog.Header>
             <AlertDialog.Body>
               <p>
-                Claudia will publish new articles to every enabled destination and apply safe
-                fixes on her own — no review step. Every action is logged and reversible, and
-                you can switch back to Copilot anytime.
+                Claudia will publish new articles to every enabled destination without a review
+                step, and prepare ready-to-install site fixes (robots, schema, meta) in your
+                inbox for you to deploy. Article actions are logged and reversible; you can
+                switch back to Copilot anytime.
               </p>
             </AlertDialog.Body>
             <AlertDialog.Footer>

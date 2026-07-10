@@ -65,14 +65,16 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
           const s = data.share.find((x) => x.engine === engine);
           const EngineIcon = ENGINE_ICONS[engine] ?? SparklesIcon;
           return (
-            <Card key={engine} className="p-5">
+            <Card key={engine} className="material-panel p-5">
               <div className="flex items-center gap-2">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted">
                   <EngineIcon className="size-4" />
                 </div>
-                <p className="text-sm text-default-500">{ENGINE_LABELS[engine]}</p>
+                <p className="text-sm tracking-[0.01em] text-default-500">
+                  {ENGINE_LABELS[engine]}
+                </p>
               </div>
-              <p className="mt-2 text-2xl font-semibold tabular-nums">
+              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
                 {s ? `${s.share}%` : "—"}
               </p>
               <p className="text-xs text-default-400">
@@ -83,13 +85,13 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
         })}
       </div>
 
-      <Card className="overflow-x-auto p-0">
+      <Card className="material-panel overflow-x-auto p-0">
         <table className="w-full min-w-140 text-sm">
           <thead>
-            <tr className="border-b border-default-100 text-left text-default-500">
-              <th className="p-3">Prompt</th>
+            <tr className="border-b border-default-100/80 text-left text-default-500">
+              <th className="p-3.5 font-medium tracking-tight">Prompt</th>
               {ENGINES.map((e) => (
-                <th key={e} className="p-3">
+                <th key={e} className="p-3.5 font-medium tracking-tight">
                   {ENGINE_LABELS[e]}
                 </th>
               ))}
@@ -97,12 +99,12 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
           </thead>
           <tbody>
             {data.prompts.map((p) => (
-              <tr key={p.id} className="border-b border-default-50">
-                <td className="max-w-xs p-3">{p.prompt}</td>
+              <tr key={p.id} className="border-b border-default-50/80">
+                <td className="max-w-xs p-3.5 leading-relaxed">{p.prompt}</td>
                 {ENGINES.map((e) => {
                   const c = cell(runFor(p.id, e));
                   return (
-                    <td key={e} className={`p-3 ${c.className}`}>
+                    <td key={e} className={`p-3.5 ${c.className}`}>
                       {c.label}
                     </td>
                   );
@@ -111,7 +113,7 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
             ))}
             {data.prompts.length === 0 && (
               <tr>
-                <td colSpan={4} className="p-6 text-center text-default-400">
+                <td colSpan={4} className="p-6 text-center leading-relaxed text-default-400">
                   No tracked prompts yet — seed a starter set, then run a check.
                 </td>
               </tr>

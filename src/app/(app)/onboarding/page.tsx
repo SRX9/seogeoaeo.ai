@@ -25,7 +25,7 @@ export default function OnboardingPage() {
       {!isFirst ? (
         <Link
           href="/dashboard"
-          className="fixed left-6 top-5 z-20 text-sm text-muted transition hover:text-foreground"
+          className="pressable material-chrome fixed left-5 top-4 z-30 rounded-full px-3.5 py-1.5 text-sm tracking-[0.01em] text-muted hover-fine:text-foreground sm:left-6 sm:top-5"
         >
           ← Back to Claudia
         </Link>
