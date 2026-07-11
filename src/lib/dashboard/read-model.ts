@@ -28,6 +28,7 @@ import {
 } from "@/lib/jobs/setup-run";
 import { getCreditBalance } from "@/lib/usage/credits";
 import { computeShare, type EngineName } from "@/lib/visibility/answers";
+import { scoreBand } from "@/lib/visibility/display";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
 import {
   DAILY_RUN_SCHEDULE_LABEL,
@@ -97,7 +98,7 @@ export async function getDashboardAutomation(
   };
 }
 
-async function getVisibilitySummary(
+export async function getDashboardVisibilitySummary(
   workspaceId: string,
   brandId: string,
 ): Promise<VisibilitySummary> {
@@ -108,7 +109,19 @@ async function getVisibilitySummary(
     eq(audits.kind, "owned"),
   ];
   const recent = await getDb()
-    .select({ id: audits.id, overall: audits.overallScore })
+    .select({
+      id: audits.id,
+      overall: audits.overallScore,
+      aiVisibility: audits.aiVisibilityScore,
+      businessType: audits.businessType,
+      completedAt: audits.completedAt,
+      citability: audits.citabilityScore,
+      brand: audits.brandScore,
+      eeat: audits.eeatScore,
+      technical: audits.technicalScore,
+      schema: audits.schemaScore,
+      platform: audits.platformScore,
+    })
     .from(audits)
     .where(and(...conditions))
     .orderBy(desc(audits.createdAt))
@@ -122,17 +135,17 @@ async function getVisibilitySummary(
       ? {
           id: latest.id,
           overall: latest.overall,
-          band: null,
-          aiVisibility: null,
-          businessType: null,
-          completedAt: null,
+          band: latest.overall != null ? scoreBand(latest.overall) : null,
+          aiVisibility: latest.aiVisibility,
+          businessType: latest.businessType,
+          completedAt: latest.completedAt?.toISOString() ?? null,
           subScores: {
-            citability: null,
-            brand: null,
-            eeat: null,
-            technical: null,
-            schema: null,
-            platform: null,
+            citability: latest.citability,
+            brand: latest.brand,
+            eeat: latest.eeat,
+            technical: latest.technical,
+            schema: latest.schema,
+            platform: latest.platform,
           },
         }
       : null,
@@ -277,7 +290,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     credits: creditsPromise,
     weekly: weeklyPromise,
   });
-  const summaryPromise = getVisibilitySummary(workspace.id, brand.id);
+  const summaryPromise = getDashboardVisibilitySummary(workspace.id, brand.id);
   const answersPromise = getVisibilityAnswers(brand.id);
   const trafficPromise = getVisibilityTraffic(brand.id, connectionsPromise);
 

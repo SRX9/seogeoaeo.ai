@@ -47,9 +47,15 @@ export async function GET(request: Request) {
     }
 
     logInfo("cron.brand_intelligence.completed", { due: due.length, refreshed, failed });
-    return NextResponse.json({ ok: failed === 0, due: due.length, refreshed, failed }, {
-      status: failed > 0 ? 500 : 200,
-    });
+    const partial = refreshed > 0 && failed > 0;
+    const sweepFailed = failed > 0 && refreshed === 0;
+    return NextResponse.json({
+      ok: !sweepFailed,
+      partial,
+      due: due.length,
+      refreshed,
+      failed,
+    }, { status: sweepFailed ? 500 : 200 });
   } catch (error) {
     logError("cron.brand_intelligence.failed", {
       error: error instanceof Error ? error.message : String(error),
