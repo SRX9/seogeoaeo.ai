@@ -3,7 +3,7 @@ import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
 import { grantCredits } from "@/lib/usage/credits";
 
 /**
- * V8.6 — growth funnel handoff. A public free-tool result is stashed in KV under
+ * V8.6: growth funnel handoff. A public free-tool result is stashed in KV under
  * a short-lived token; signup with the token pre-fills the brand website and
  * shows "here's what we already found". Also the one-time first-audit-free grant.
  */
@@ -31,7 +31,7 @@ export async function readHandoff(token: string): Promise<HandoffResult | null> 
 
 /**
  * Grant one free full audit to a new workspace. A grant (recorded in the
- * ledger), not a `CREDIT_COSTS` bypass — idempotent by workspace id, so it can
+ * ledger), not a `CREDIT_COSTS` bypass: idempotent by workspace id, so it can
  * only ever fire once. Charging before showing value is friction at the worst
  * moment.
  */

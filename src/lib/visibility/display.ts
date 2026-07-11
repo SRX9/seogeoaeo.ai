@@ -2,7 +2,7 @@ import type { Pillar, SubScore } from "./types";
 
 /**
  * Owner-language display map (01-product-surface.md → "Owner language").
- * The internal SEO/AEO/GEO taxonomy never reaches a user-facing surface —
+ * The internal SEO/AEO/GEO taxonomy never reaches a user-facing surface.
  * every UI pulls labels from here so strings can't drift.
  */
 
@@ -22,11 +22,11 @@ export const SUBSCORE_LABELS: Record<SubScore["key"], string> = {
 };
 
 /**
- * AP4 — THE autonomy category registry: every fix category the standing loop
+ * AP4: THE autonomy category registry: every fix category the standing loop
  * can act on, its owner-language label, and whether its analyzer emits
  * `fix_capability: auto` findings (drives the settings UI's *default* level;
  * per-finding dispatch always trusts the finding's own `fixCapability`).
- * Single source of truth — the settings UI, the PATCH enum, and
+ * Single source of truth: the settings UI, the PATCH enum, and
  * AUTO_CAPABLE_CATEGORIES all derive from this map, so a new analyzer category
  * only ever gets added here. Purely informational finding categories stay out
  * of the autonomy surface.

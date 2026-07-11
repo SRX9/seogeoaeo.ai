@@ -210,4 +210,36 @@ describe("/api/brands", () => {
     expect(createCompetitors).not.toHaveBeenCalled();
     expect(createUseCase).not.toHaveBeenCalled();
   });
+
+  it("can resume a legitimate checkout replay after an extended interruption", async () => {
+    const sessionCreatedAt = new Date("2026-01-01T00:00:00Z");
+    const delayedBrand = {
+      ...brand,
+      createdAt: new Date("2026-01-01T00:05:00Z"),
+      updatedAt: new Date("2026-01-01T00:05:00Z"),
+    };
+    vi.mocked(createBrand).mockRejectedValue(new BrandExistsError("Acme"));
+    vi.mocked(getBrandByName).mockResolvedValue(
+      delayedBrand as Awaited<ReturnType<typeof getBrandByName>>,
+    );
+    vi.mocked(getStripe).mockReturnValue({
+      checkout: {
+        sessions: {
+          retrieve: vi.fn().mockResolvedValue({
+            id: checkoutSessionId,
+            status: "complete",
+            created: Math.floor(sessionCreatedAt.getTime() / 1000),
+            metadata: { workspaceId, userId: "user-1" },
+          }),
+        },
+      },
+    } as unknown as ReturnType<typeof getStripe>);
+
+    const response = await POST(
+      jsonRequest(onboardingBody({ resumeExisting: true, checkoutSessionId })),
+    );
+
+    expect(response.status).toBe(201);
+    expect(upsertBrandProfile).toHaveBeenCalledWith(scope, expect.any(Object));
+  });
 });

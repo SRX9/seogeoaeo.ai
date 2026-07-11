@@ -21,7 +21,7 @@ type BrandProfileFormProps = {
 
 export function BrandProfileForm({ initial }: BrandProfileFormProps) {
   const queryClient = useQueryClient();
-  // Controlled state — HeroUI/react-aria inputs don't reliably surface edits
+  // Controlled state: HeroUI/react-aria inputs don't reliably surface edits
   // through native FormData, so we own the values here (see onboarding form).
   const [fields, setFields] = useState<BrandProfile>(() => initial);
 

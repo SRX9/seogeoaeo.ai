@@ -75,7 +75,7 @@ export async function getOnboardingSteps(brandId: string): Promise<OnboardingSte
     {
       id: "setup",
       title: "Let Claudia finish Setup",
-      description: "First audit, answer check, topics, and Day-0 brief — runs after you hire her.",
+      description: "First audit, answer check, topics, and Day-0 brief: runs after you hire her.",
       href: "/dashboard",
       completed: setupComplete || hasAudit,
     },
@@ -89,7 +89,7 @@ export async function getOnboardingSteps(brandId: string): Promise<OnboardingSte
     {
       id: "article",
       title: "Review your first article",
-      description: "Claudia writes on cadence — open drafts in Articles when they land.",
+      description: "Claudia writes on cadence: open drafts in Articles when they land.",
       href: "/articles",
       completed: hasArticle,
     },

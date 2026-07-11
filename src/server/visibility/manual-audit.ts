@@ -6,7 +6,7 @@ import { executeAudit } from "./run-audit";
 
 /**
  * User-triggered (Toolbox) audit execution: run the audit, then charge credits
- * only on success — a failed audit must never burn credits. `refId = auditId`
+ * only on success: a failed audit must never burn credits. `refId = auditId`
  * keeps the spend idempotent across Workflow retries.
  */
 export async function runManualAudit(
@@ -21,7 +21,7 @@ export async function runManualAudit(
 
 /**
  * Kick off execution for a just-created audit row. On Cloudflare this creates a
- * durable `AuditRunWorkflow` instance (mode "manual") — checkpointed, retried,
+ * durable `AuditRunWorkflow` instance (mode "manual"): checkpointed, retried,
  * immune to isolate eviction, so the row can't strand in `running`. Elsewhere
  * (plain `next dev`) it falls back to the old inline `waitUntil` promise.
  */

@@ -1,7 +1,7 @@
 import { scoreBand } from "./display";
 
 /**
- * V7.4 — proposal generator (optional agency tier). Turns audit data into a
+ * V7.4: proposal generator (optional agency tier). Turns audit data into a
  * tiered proposal with packages, ROI projection, timeline, and a recommended
  * tier from the score. Logic from commands-reference.md "/geo proposal".
  */
@@ -73,7 +73,7 @@ export function buildProposal(audit: { overall: number | null; findingCount?: nu
     band: scoreBand(score),
     recommendedTier: recommended,
     packages,
-    roi: `Closing your ${gap}-point visibility gap typically compounds into more AI citations and organic clicks over 3–6 months.`,
+    roi: `There is a ${gap}-point visibility gap between your score and the comparison set. Use the next 3-6 months to work through the highest-impact findings and measure whether citations and clicks improve.`,
     timeline: recommended === "Authority" ? "6 months" : recommended === "Growth" ? "3 months" : "30 days",
   };
 }

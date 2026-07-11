@@ -24,7 +24,7 @@ function hostOf(url: string | null | undefined): string | null {
 }
 
 /**
- * V8.6 — the public score badge opt-in. Off by default: until the owner flips
+ * V8.6: the public score badge opt-in. Off by default: until the owner flips
  * this on, /api/public/badge 404s for their domain, so their score is never
  * publicly readable. Enabling reveals the embed snippet to copy.
  */
@@ -39,8 +39,8 @@ export function BadgePanel({ brandId, initialEnabled }: BadgePanelProps) {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
       toast.success(
         badgePublic
-          ? "Badge enabled — your score is now publicly embeddable."
-          : "Badge disabled — your score is private again.",
+          ? "Badge enabled. You can now embed your score on a public page."
+          : "Badge disabled. Your score is private again.",
       );
     },
     onError: (error, badgePublic) => {

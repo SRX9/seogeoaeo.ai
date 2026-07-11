@@ -16,13 +16,13 @@ export type PublishSummary = {
  */
 export function notifyPublishResult(summary: PublishSummary) {
   if (summary.unchanged) {
-    toast.info("No changes since the last publish — nothing to send.");
+    toast.info("No changes since the last publish: nothing to send.");
     return;
   }
   if (summary.published > 0) {
     if (summary.failed > 0) {
       toast.danger(
-        `Published to ${summary.published} destination(s), but ${summary.failed} failed — check Connections.`,
+        `Published to ${summary.published} destination(s), but ${summary.failed} failed: check Connections.`,
       );
     } else {
       toast.success(`Published to ${summary.published} destination(s).`);
@@ -34,10 +34,10 @@ export function notifyPublishResult(summary: PublishSummary) {
     return;
   }
   if (summary.failed > 0) {
-    toast.danger("Publishing failed — check Connections.");
+    toast.danger("Publishing failed: check Connections.");
     return;
   }
-  toast.warning("Approved, but publishing had issues — check Connections.");
+  toast.warning("Approved, but publishing had issues: check Connections.");
 }
 
 /** Handle publish-route errors after a successful approve. */

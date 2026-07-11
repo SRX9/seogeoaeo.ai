@@ -8,10 +8,10 @@ import { creditPacks } from "@/lib/billing/credits";
 const POPULAR_PLAN: PlanId = "startup";
 
 const freeFeatures = [
-  "Meet Claudia & set up your brand",
-  "She pre-fills voice, rivals & use cases",
-  "60-second visibility snapshot",
-  "1 article credit to try her writing",
+  "Set up your first brand",
+  "Review a draft brand voice, competitor list, and customer profiles",
+  "Run a quick visibility snapshot",
+  "Try one article draft",
 ];
 
 function FeatureItem({ children }: { children: React.ReactNode }) {
@@ -30,7 +30,7 @@ function FeatureItem({ children }: { children: React.ReactNode }) {
 export function PricingPlans() {
   return (
     <div>
-      <Card className="material-panel mb-6 border-accent/25 bg-accent-soft/15">
+      <Card variant="transparent" className="mb-8 rounded-none border-y border-border/60 px-0 py-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-baseline gap-2">
@@ -38,7 +38,7 @@ export function PricingPlans() {
               <span className="text-sm font-medium tracking-[0.01em] text-muted">$0 / mo</span>
             </div>
             <Card.Description className="mt-1 leading-relaxed">
-              Preview the hire — brand setup and a free snapshot, no card required.
+              Set up your brand and check your site without entering a card.
             </Card.Description>
           </div>
           <ul className="grid gap-2 sm:grid-cols-2 lg:max-w-xl">
@@ -61,8 +61,8 @@ export function PricingPlans() {
               key={id}
               className={
                 isPopular
-                  ? "material-panel flex flex-col border-accent/35 bg-accent-soft/10 ring-2 ring-accent/50"
-                  : "material-panel flex flex-col border-border/50"
+                  ? "flex flex-col border-accent/60"
+                  : "flex flex-col border-border/60"
               }
             >
               <Card.Header>
@@ -106,8 +106,8 @@ export function PricingPlans() {
       </div>
 
       <p className="mt-6 text-center text-sm leading-relaxed text-muted">
-        Need more capacity? One-time credit packs from ${creditPacks.small.price} —
-        purchased credits never expire and stack on top of your plan.
+        Need more capacity? One-time credit packs start at ${creditPacks.small.price}.
+        Purchased credits do not expire and are added to your plan balance.
       </p>
     </div>
   );

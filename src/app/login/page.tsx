@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Sign in — seogeoaeo.ai",
+  title: "Sign in: seogeoaeo.ai",
   description:
     "Sign in to seogeoaeo.ai to set up your brand, audit your visibility across search " +
     "and AI, and publish optimized content automatically.",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LoginPage() {
-  // Already signed in — there's nothing to do here; the app layout routes
+  // Already signed in: there's nothing to do here; the app layout routes
   // brand-less users on to onboarding from the dashboard.
   const session = await getSession();
   if (session) {

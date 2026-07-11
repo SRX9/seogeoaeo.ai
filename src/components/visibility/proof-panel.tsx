@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { Section } from "@/components/feedback/section";
@@ -9,9 +8,9 @@ import { TrendingUpIcon } from "@/components/icons";
 import { useVisibilityTraffic, type VisibilityTraffic } from "@/lib/api/queries";
 
 /**
- * V6.6 — Proof panel: GSC clicks trend with audit-date markers + per-engine AI
+ * V6.6: Proof panel: GSC clicks trend with audit-date markers + per-engine AI
  * referrals. Empty state shows connect buttons with a one-line reason each.
- * Proof is free — nothing here is metered.
+ * Proof is free: nothing here is metered.
  */
 
 function ProofContent({ data }: { data: VisibilityTraffic }) {
@@ -32,13 +31,13 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
   }
 
   return (
-    <Card className="material-panel space-y-4 p-5">
+    <section className="space-y-4 border-y border-separator/70 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
             <TrendingUpIcon className="size-4" />
           </div>
-          <h2 className="type-title text-base">Proof — real traffic</h2>
+          <h2 className="text-base font-semibold tracking-[-0.015em]">Proof: real traffic</h2>
         </div>
         <div className="flex gap-2">
           {!data.connected.gsc && (
@@ -77,8 +76,8 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
         </div>
       ) : (
         <p className="text-sm leading-relaxed text-default-500">
-          Connect Search Console to overlay real clicks on your score trend — this is how you prove
-          the gain.
+          Connect Search Console to compare real clicks with your score trend. This shows whether
+          better visibility is bringing more people to your site.
         </p>
       )}
 
@@ -100,7 +99,7 @@ function ProofContent({ data }: { data: VisibilityTraffic }) {
           </div>
         </div>
       )}
-    </Card>
+    </section>
   );
 }
 

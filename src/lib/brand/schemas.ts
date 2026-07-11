@@ -25,7 +25,7 @@ export const brandProfileSchema = z.object({
   seedKeywords: z.string().max(1000).optional().default(""),
 });
 
-/** Hard cap on competitors per brand — enforced in the repository and the UI. */
+/** Hard cap on competitors per brand: enforced in the repository and the UI. */
 export const MAX_COMPETITORS = 10;
 
 export const competitorSchema = z.object({
@@ -40,7 +40,7 @@ export const competitorBulkSchema = z.object({
   competitors: z.array(competitorSchema).min(1).max(MAX_COMPETITORS),
 });
 
-/** Body for the AI prefill endpoint — runs on the entered name + website, no row yet. */
+/** Body for the AI prefill endpoint: runs on the entered name + website, no row yet. */
 export const brandPrefillSchema = z.object({
   name: z.string().min(1).max(120),
   website: optionalHttpUrlSchema,
@@ -71,7 +71,7 @@ export const brandOnboardingSchema = z.object({
   audience: z.string().max(500).optional().default(""),
   tone: z.string().max(200).optional().default(""),
   seedKeywords: z.string().max(1000).optional().default(""),
-  // Legacy single-competitor fields — kept for back-compat; the form now sends
+  // Legacy single-competitor fields: kept for back-compat; the form now sends
   // the `competitors` array from AI discovery.
   competitorName: z.string().max(200).optional().or(z.literal("")),
   competitorUrl: optionalHttpUrlSchema,

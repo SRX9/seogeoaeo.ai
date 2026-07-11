@@ -29,8 +29,8 @@ import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/
  * and may retry, so all of them are safe to call repeatedly.
  *
  * Pipeline shape: plan → (optional) research → write N → settle. Credits remain
- * the real budget — generation stops the moment the workspace can't afford the
- * next article — and the plan's `dailyArticleCap` bounds the agent's output so a
+ * the real budget: generation stops the moment the workspace can't afford the
+ * next article: and the plan's `dailyArticleCap` bounds the agent's output so a
  * single day never burns the month.
  */
 
@@ -113,7 +113,7 @@ function excludeOwnerBlockedTopics<
 
 /**
  * Decide a brand's work for the day. Pure reads plus an idempotent upsert when
- * the cap is already met — safe to call repeatedly.
+ * the cap is already met: safe to call repeatedly.
  */
 export async function planDailyForBrand(
   scope: BrandScope,
@@ -167,7 +167,7 @@ export async function planDailyForBrand(
   const priorResearched = existing?.topicsResearched ?? 0;
   const budget = cap - writtenToday;
 
-  // Already hit today's cap — record idle and stop.
+  // Already hit today's cap: record idle and stop.
   if (budget <= 0) {
     await upsertDailyRun(scope, runDate, {
       articlesWritten: writtenToday,
@@ -215,7 +215,7 @@ export async function planDailyForBrand(
  * Lean, quality-safe replenish: at most one research run, only when the queue
  * can't cover the day's budget. Idempotent on `idempotencyKey` (the Workflow
  * instance id) so a retried step reuses the same run and never double-charges.
- * Insufficient-credit errors are swallowed — research is optional; the day still
+ * Insufficient-credit errors are swallowed: research is optional; the day still
  * writes whatever is already queued. Returns the refreshed write targets.
  */
 export async function researchForDaily(
@@ -265,14 +265,14 @@ export type SettleInput = {
   /** Whether the day stopped because the workspace ran out of credits. */
   outOfCredits: boolean;
   brandName?: string;
-  /** Plan id — gates the periodic competitor rediscovery. */
+  /** Plan id: gates the periodic competitor rediscovery. */
   planId?: string | null;
 };
 
 /**
  * Record the day's final state for a brand: settle the daily-run row (absolute
- * values, idempotent upsert), log a `daily_pipeline` job for the overview, and —
- * when paused for credits — nudge the owner (throttled). Returns the status.
+ * values, idempotent upsert), log a `daily_pipeline` job for the overview, and
+ * nudge the owner when credits pause the work. Returns the status.
  */
 export async function settleDailyForBrand(
   scope: BrandScope,
@@ -334,7 +334,7 @@ export async function settleDailyForBrand(
   if (status === "paused_by_owner") return status;
 
   // Pull traffic proof for any connected source (GSC/GA4) once per brand-day.
-  // Best-effort and unmetered — a missing grant or API hiccup never affects the
+  // Best-effort and unmetered: a missing grant or API hiccup never affects the
   // content run's status.
   try {
     await syncTrafficForBrand(scope);
@@ -366,7 +366,7 @@ export async function settleDailyForBrand(
   }
 
   // Every 15 days: re-run evidence-based competitor discovery and auto-fill any
-  // open plan slots. Best-effort — a failed scan never affects the day's status.
+  // open plan slots. Best-effort: a failed scan never affects the day's status.
   try {
     await maybeRediscoverCompetitors(scope, input.planId);
   } catch (error) {
@@ -375,7 +375,7 @@ export async function settleDailyForBrand(
 
   // Weekly: re-verify every Site Health check (speed, meta, social previews,
   // crawler access) and queue fixes for anything that slipped. Plan-included
-  // and best-effort — a failed check never affects the day's status.
+  // and best-effort: a failed check never affects the day's status.
   try {
     await maybeRunWeeklySiteHealth(scope);
   } catch (error) {
@@ -383,14 +383,14 @@ export async function settleDailyForBrand(
   }
 
   // AP3: regenerate Claudia's Overview brief from today's run data. Best-effort
-  // and unmetered — the dashboard falls back to a derived brief on a miss.
+  // and unmetered: the dashboard falls back to a derived brief on a miss.
   try {
     await refreshAgentBrief(scope, input.brandName ?? "your brand");
   } catch (error) {
     console.error("[daily] agent brief refresh failed", error);
   }
 
-  // Out of credits with work still queued — nudge the owner (throttled).
+  // Out of credits with work still queued: nudge the owner (throttled).
   if (status === "paused_no_credits") {
     const remaining = await listPendingTopicsForWriting(scope.brandId, 50);
     await sendOutOfCreditsEmail({

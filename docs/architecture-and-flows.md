@@ -51,6 +51,14 @@ Key facts:
 
 ## 2. Cron flows
 
+### 2.0 Brand intelligence — `0 7 * * *` → `POST /api/cron/brand-intelligence`
+
+The route scans at most 25 brands whose saved Context.dev snapshot is missing or
+older than 30 days, then refreshes them in batches of five. Each snapshot keeps
+the complete provider payload plus projected logo, backdrop, palette, slogan,
+description, and refresh timestamps. Failed brands remain due and retry on the
+next daily sweep; fresh brands consume no API call.
+
 ### 2.1 Daily content agent — `0 8 * * *` → `POST /api/cron/daily`
 
 Enumerator only; does no content work.

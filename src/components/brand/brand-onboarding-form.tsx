@@ -30,7 +30,7 @@ import {
 import { CheckIcon, SparklesIcon, SgaLogo } from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
-import { queryKeys, useMe } from "@/lib/api/queries";
+import { queryKeys, useMe, type MeResponse } from "@/lib/api/queries";
 import {
   articlesPerMonth,
   isActiveSubscription,
@@ -110,6 +110,7 @@ const MOMENTS = [
 const DRAFT_KEY = "claudia:onboarding-v2-draft";
 const SKIP_PROVIDER_KEY = "__skip__";
 const POPULAR_PLAN: PlanId = "startup";
+const BRAND_CREATE_TIMEOUT_MS = 30_000;
 
 const PLAN_CHOICE_COPY: Record<PlanId, { fit: string; eyebrow: string }> = {
   indie: {
@@ -379,10 +380,34 @@ function BrandOnboardingClient({
 
   const create = useMutation({
     mutationFn: (payload: BrandCreatePayload) =>
-      apiPost<{ brand: { id: string }; canIgnite: boolean }>("/api/brands", payload),
-    onSuccess: async ({ canIgnite }) => {
+      apiPost<{ brand: { id: string; name: string }; canIgnite: boolean }>("/api/brands", payload, {
+        signal: AbortSignal.timeout(BRAND_CREATE_TIMEOUT_MS),
+      }),
+    onSuccess: async ({ brand, canIgnite }) => {
       clearDraft();
-      await queryClient.invalidateQueries({ queryKey: queryKeys.me });
+      // The create response and active-brand cookie are authoritative. Update
+      // the bootstrap cache before navigating so the app layout cannot observe
+      // the old empty brand list and bounce the user back to onboarding.
+      queryClient.setQueryData<MeResponse>(queryKeys.me, (current) =>
+        current
+          ? {
+              ...current,
+              brands: current.brands.some((item) => item.id === brand.id)
+                ? current.brands
+                : [
+                    ...current.brands,
+                    {
+                      id: brand.id,
+                      name: brand.name,
+                      autonomyMode: fields.autonomyMode,
+                      badgePublic: false,
+                      identity: null,
+                    },
+                  ],
+              activeBrandId: brand.id,
+            }
+          : current,
+      );
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
       await releaseExitGuard();
@@ -390,7 +415,12 @@ function BrandOnboardingClient({
     },
     onError: (failure) => {
       rearmExitGuard();
-      setError(getErrorMessage(failure, "Could not create this brand."));
+      setError(
+        getErrorMessage(
+          failure,
+          "Claudia could not finish activation. Your payment and saved brief are safe.",
+        ),
+      );
     },
   });
 
@@ -411,17 +441,23 @@ function BrandOnboardingClient({
   }, [checkoutSessionId, create, disarmExitGuard, fields, phase]);
 
   useEffect(() => {
+    // Save Stripe's replay token before removing it from the address bar. A
+    // refresh/crash during activation can then resume confirmation safely.
+    if (phase === "finalizing" && checkoutSessionId) {
+      saveDraft({ fields, moment, checkoutSessionId });
+    } else if (phase === "form") {
+      saveDraft({ fields, moment });
+    }
+  }, [checkoutSessionId, fields, moment, phase]);
+
+  useEffect(() => {
     if (bootstrap.cleanUrl) {
       window.history.replaceState(null, "", "/onboarding");
     }
   }, [bootstrap.cleanUrl]);
 
-  useEffect(() => {
-    if (phase === "form") saveDraft({ fields, moment });
-  }, [fields, moment, phase]);
-
   const refetchMe = me.refetch;
-  useCheckoutConfirm({
+  const checkoutConfirm = useCheckoutConfirm({
     sessionId: checkoutSessionId,
     enabled: phase === "finalizing" && !subscribed,
     onSettled: () => void refetchMe(),
@@ -498,19 +534,41 @@ function BrandOnboardingClient({
   }
 
   if (phase === "finalizing") {
+    const activationFailed = create.isError;
+    const confirmationFailed = Boolean(me.error) && !subscribed;
+    const needsRetry = activationFailed || confirmationFailed || finalizeTimedOut;
+
     return (
       <CenteredFrame>
         <p className="text-sm font-medium text-muted">Activating Claudia</p>
         <h1 className="mt-3 text-3xl text-foreground">
-          {create.isPending ? "Starting the first day…" : finalizeTimedOut ? "Still activating…" : "Confirming your plan…"}
+          {create.isPending
+            ? "Starting the first day…"
+            : needsRetry
+              ? "Activation needs another try"
+              : "Confirming your plan…"}
         </h1>
         <p className="mt-3 max-w-lg text-sm leading-7 text-muted">
-          {finalizeTimedOut
-            ? "Payment is safe. Refresh the activation check and the saved brief will resume."
+          {needsRetry
+            ? error ?? "We could not confirm the latest account state. Your payment and saved brief are safe."
             : "The operating brief is saved. Claudia starts Setup Run as soon as the plan is active."}
         </p>
-        {finalizeTimedOut && !create.isPending ? (
-          <Button className="mt-6" onPress={() => void refetchMe()}>Check again</Button>
+        {needsRetry && !create.isPending ? (
+          <Button
+            className="mt-6"
+            onPress={() => {
+              setError(null);
+              setFinalizeTimedOut(false);
+              if (activationFailed) {
+                submitCreate();
+              } else {
+                checkoutConfirm.reset();
+                void refetchMe();
+              }
+            }}
+          >
+            Try activation again
+          </Button>
         ) : null}
       </CenteredFrame>
     );
@@ -726,7 +784,7 @@ function OnboardingStepPanel({
               {moment === 0 ? (
                 <Button onPress={onBeginDiscovery}>Build my brief</Button>
               ) : moment === 1 ? (
-                <Button onPress={onContinueBrief}>Looks right — continue</Button>
+                <Button onPress={onContinueBrief}>Looks right: continue</Button>
               ) : subscribed ? (
                 <LoadingButton
                   isPending={createPending}
@@ -784,7 +842,7 @@ function OnboardingValueRail({
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">free credits are ready</p>
             <p className="mt-2 text-xs leading-5 text-muted">
-              Already added to your workspace—enough for your first complete article.
+              Already added to your workspace, enough for your first complete article.
             </p>
           </>
         ) : (
@@ -1103,7 +1161,7 @@ function PlanChoices({ loading, onPick }: { loading: PlanId | null; onPick: (pla
   const highlights = [
     `Capacity for up to ${articlesPerMonth(selectedPlan.monthlyCredits)} search-led articles each month`,
     `${cadence.charAt(0).toUpperCase() + cadence.slice(1)} visibility checks with ${selectedPlan.visibility.trackedPrompts} buyer questions tracked`,
-    `${selectedPlan.visibility.autoFixCap} safe site fixes included every month — never a per-fix bill`,
+    `${selectedPlan.visibility.autoFixCap} prepared site fixes included each month`,
   ];
 
   return (

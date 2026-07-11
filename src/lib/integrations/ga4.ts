@@ -4,7 +4,7 @@ import { trafficSnapshots } from "@/lib/db/schema/visibility";
 import { aggregateAiReferrals } from "@/lib/visibility/ai-referrers";
 
 /**
- * V6.6 — GA4 AI-referral pull. OAuth token from the integration-secret framework.
+ * V6.6: GA4 AI-referral pull. OAuth token from the integration-secret framework.
  * Runs a Data API report of sessions by date × source, keeps only AI surfaces
  * (via the shared referrer list), and stores per-engine counts per date in
  * traffic_snapshots (source "ga4"). Optional and never metered.

@@ -176,7 +176,7 @@ async function publishToDestination(
     }
   }
 
-  // Nothing changed since the last successful publish to this destination — skip
+  // Nothing changed since the last successful publish to this destination: skip
   // it so we don't re-send identical content (which providers like dev.to reject
   // as a duplicate). Failed destinations always retry.
   if (existing?.status === "published" && existing.publishedHash === fingerprint) {

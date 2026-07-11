@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { toolRuns } from "@/lib/db/schema/visibility";
 
 /**
- * V8.3 — latest run per tool, for the Toolbox grid. Lets each card show its
+ * V8.3: latest run per tool, for the Toolbox grid. Lets each card show its
  * last score and run time so the grid reads as a results overview, not just a
  * launcher.
  */

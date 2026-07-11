@@ -12,7 +12,7 @@ export default function ArticlesPage() {
   const articles = useArticles();
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-9">
+    <div className="mx-auto w-full max-w-4xl space-y-12">
       <PageHeader
         title="Articles"
         description="Every piece Claudia has drafted or published for this brand."

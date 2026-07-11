@@ -1,7 +1,7 @@
 import { toMarkdown, type ReportModel } from "./report";
 
 /**
- * V6.2 — PDF report. Reuses the V6.1 report model + a print stylesheet and
+ * V6.2: PDF report. Reuses the V6.1 report model + a print stylesheet and
  * renders to PDF via Cloudflare Browser Rendering (headless Chromium), rather
  * than porting ReportLab. Gauge/table colors follow the 80/60/40 thresholds
  * from generate_pdf_report.py; palette from templates/geo-report-style.css.
@@ -13,9 +13,9 @@ export interface ReportBrand {
   logo?: string;
 }
 
-/** Gauge color band: green 80+ · blue 60–79 · amber 40–59 · red <40. */
+/** Gauge color band: green 80+ · blue 60-79 · amber 40-59 · red <40. */
 export function gaugeColor(score: number | null): string {
-  if (score == null) return "#94a3b8"; // slate — not scored
+  if (score == null) return "#94a3b8"; // slate: not scored
   if (score >= 80) return "#16a34a";
   if (score >= 60) return "#2563eb";
   if (score >= 40) return "#d97706";
@@ -28,7 +28,7 @@ function scoreRows(model: ReportModel): string {
   return model.subScores
     .map((s) => {
       const color = gaugeColor(s.score);
-      return `<tr><td>${esc(s.label)}</td><td style="color:${color};font-weight:600">${s.score == null ? "—" : Math.round(s.score)}</td></tr>`;
+      return `<tr><td>${esc(s.label)}</td><td style="color:${color};font-weight:600">${s.score == null ? "N/A" : Math.round(s.score)}</td></tr>`;
     })
     .join("");
 }
@@ -60,7 +60,7 @@ export function reportHtml(model: ReportModel, brand: ReportBrand = {}): string 
     ${brand.logo ? `<img src="${esc(brand.logo)}" alt="" height="40"/>` : ""}
     <h1>${esc(brand.name ?? "Visibility report")}</h1>
     <p>${esc(model.site)} · ${model.generatedAt.slice(0, 10)}</p>
-    <div class="gauge">${model.overall == null ? "—" : Math.round(model.overall)}</div>
+    <div class="gauge">${model.overall == null ? "N/A" : Math.round(model.overall)}</div>
     <p class="band">${esc(model.band)}</p>
     <table style="color:#fff;border-color:#334155;max-width:360px">${scoreRows(model)}</table>
   </div>

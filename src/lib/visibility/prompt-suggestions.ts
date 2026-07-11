@@ -1,5 +1,5 @@
 /**
- * V5.5 — seed tracked prompts from the brand profile, topic backlog, and (once
+ * V5.5: seed tracked prompts from the brand profile, topic backlog, and (once
  * available) PAA questions. Deterministic; the user edits/adds/disables the list
  * and plan caps the count.
  */

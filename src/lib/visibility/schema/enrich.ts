@@ -4,7 +4,7 @@ import type { PageSnapshot } from "../types";
 import type { SchemaFix } from "./generate";
 
 /**
- * V3.3 (v3) — optional LLM enrichment of generated schema. `generate.ts` stays
+ * V3.3 (v3): optional LLM enrichment of generated schema. `generate.ts` stays
  * fully deterministic and emits `[REPLACE: …]` placeholders; this fills the
  * extractable ones (description, features, contact) using ONLY facts present in
  * the page text. A grounding guard rejects any fill whose content words aren't
@@ -21,7 +21,7 @@ export type EnrichFn = (
   messages: { role: "system" | "user" | "assistant"; content: string }[],
 ) => Promise<{ data: unknown }>;
 
-// Only fields whose value can be *extracted* from page copy — never ratings,
+// Only fields whose value can be *extracted* from page copy: never ratings,
 // prices, dates, or identifiers the model might fabricate.
 const EXTRACTABLE_KEYS = new Set([
   "description",
@@ -79,8 +79,8 @@ function isGrounded(value: string, textLower: string): boolean {
 
 const SYSTEM = [
   "You fill schema.org JSON-LD placeholder fields using ONLY facts explicitly present in the page text.",
-  "If a field's fact is not clearly stated in the text, omit that field entirely — never guess or invent.",
-  'Return JSON: {"fills":[{"path":"<id>","value":"<text from the page>"}]} — use the numeric ids given.',
+  "If the text does not clearly state a fact, omit that field. Do not guess or invent values.",
+  'Return JSON: {"fills":[{"path":"<id>","value":"<text from the page>"}]}: use the numeric ids given.',
 ].join(" ");
 
 export async function enrichSchemaFixes(
@@ -98,7 +98,7 @@ export async function enrichSchemaFixes(
 
   try {
     const excerpt = snapshot.text_content.slice(0, 4000);
-    const fieldList = slots.map((s) => `${s.id}: ${s.key} — ${s.label}`).join("\n");
+    const fieldList = slots.map((s) => `${s.id}: ${s.key}: ${s.label}`).join("\n");
     const { data } = await generate("light", [
       { role: "system", content: SYSTEM },
       { role: "user", content: `Page text:\n${excerpt}\n\nFields to fill:\n${fieldList}` },

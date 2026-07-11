@@ -6,13 +6,13 @@ import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { AI_ENGINES } from "@/lib/visibility/ai-referrers";
 
 /**
- * V6.6 — traffic series for the Proof panel: GSC clicks/impressions/position
+ * V6.6: traffic series for the Proof panel: GSC clicks/impressions/position
  * over time + per-engine AI referrals, plus audit-date markers so score deltas
  * read causally against real traffic. Never metered.
  */
 export async function GET() {
   return handleApi(async () => {
-    // Active brand (cookie-selected), not an arbitrary first brand — multi-brand
+    // Active brand (cookie-selected), not an arbitrary first brand: multi-brand
     // workspaces must see the proof panel for the brand they're viewing.
     const { workspace, brand } = await requireApiBrand();
     const db = getDb();
@@ -45,7 +45,7 @@ export async function GET() {
       .filter((s) => s.source === "ga4")
       .map((s) => ({ date: s.date, byEngine: (s.aiReferrals ?? {}) as Record<string, number> }));
 
-    // Owned audits only — a competitor benchmark's score is not a causal marker
+    // Owned audits only: a competitor benchmark's score is not a causal marker
     // for the owner's traffic.
     const markers = auditRows
       .filter((a) => a.date)

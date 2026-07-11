@@ -1,5 +1,5 @@
 /**
- * V6.6 — the single source of truth for AI-assistant referrer domains. Used by
+ * V6.6: the single source of truth for AI-assistant referrer domains. Used by
  * the GA4 pull (to filter sessions) and by the proof panel (to label per-engine
  * referral bars). Keep this list here only.
  */

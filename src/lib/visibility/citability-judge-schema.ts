@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 /**
- * V2.1 (v3) — Zod schema for the LLM semantic-citability judgement. The judge
+ * V2.1 (v3): Zod schema for the LLM semantic-citability judgement. The judge
  * scores how likely an AI assistant is to *cite* each passage when answering a
- * question — the semantic complement to the deterministic structural scorer.
- * This never feeds the 0–100 sub-score; it only enriches findings.
+ * question: the semantic complement to the deterministic structural scorer.
+ * This never feeds the 0-100 sub-score; it only enriches findings.
  */
 export const CitabilityJudgeSchema = z.object({
   blocks: z.array(

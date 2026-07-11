@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { weeklyReports } from "@/lib/db/schema/reports";
 
 /**
- * AP5 — list the workspace's weekly reports, newest first. Reports are keyed
+ * AP5: list the workspace's weekly reports, newest first. Reports are keyed
  * per audited site (brand is attribution only and can be null), so the archive
  * is workspace-scoped rather than brand-scoped.
  */

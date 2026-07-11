@@ -15,7 +15,7 @@ import {
 } from "./templates";
 
 /**
- * V3.3 — pick + fill the JSON-LD templates a page is missing, business-type
+ * V3.3: pick + fill the JSON-LD templates a page is missing, business-type
  * aware (`agents/geo-schema.md` Step 7). Each fix is stored as a `fix_payload`
  * for V7.2 auto-insert. Generation is deterministic (no LLM needed).
  */
@@ -44,7 +44,7 @@ export function siteHints(snapshot: PageSnapshot): SiteHints {
     }
   })();
   const name =
-    snapshot.title?.split(/[|\-–—]/)[0].trim() ||
+    snapshot.title?.split(/[|\-\u2013\u2014]/)[0].trim() ||
     snapshot.h1_tags[0]?.trim() ||
     new URL(origin).host;
   return {

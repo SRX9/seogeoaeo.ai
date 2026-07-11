@@ -23,21 +23,21 @@ function relativeLabel(iso: string): string {
 function headline(state: AgentState, autoPublish: boolean): string {
   switch (state) {
     case "paused_no_subscription":
-      return "Subscribe to put your writer on the job — researching and writing for your brand every day.";
+      return "Choose a plan to start regular research and writing for your brand.";
     case "paused_no_credits":
-      return "Out of credits — paused with topics ready to write. Top up to put her back to work.";
+      return "Writing is paused because your credits ran out. Your researched topics are still waiting in the queue.";
     case "idle_caught_up":
       return autoPublish
-        ? "All caught up — every researched topic is written. Fresh topics surface on her next run."
-        : "All caught up — drafts are waiting for your review. Fresh topics surface on her next run.";
+        ? "Every researched topic is written. Claudia will look for fresh ideas on her next run."
+        : "Your latest drafts are ready for review. Claudia will look for fresh ideas on her next run.";
     default:
       return autoPublish
-        ? "Researches your niche, writes, and auto-publishes to your channels every day — hands-free."
-        : "Researches your niche and writes fresh articles every day. You approve, she publishes.";
+        ? "Claudia researches your market, writes articles, and publishes them to your connected channels."
+        : "Claudia researches your market and writes new articles. She waits for your approval before publishing.";
   }
 }
 
-/** State label as plain coloured text with a status dot — never a chip (per the
+/** State label as plain coloured text with a status dot: never a chip (per the
  * house no-pills rule). */
 function stateLabel(state: AgentState): { label: string; className: string } {
   switch (state) {
@@ -124,7 +124,7 @@ export function ContentAgentSnapshot({
         <p className="text-sm leading-relaxed text-muted">
           Writing next:{" "}
           <span className="font-medium tracking-tight text-foreground">{nextTopic.title}</span>
-          {nextTopic.thesis ? <> — {nextTopic.thesis}</> : null}
+          {nextTopic.thesis ? <>: {nextTopic.thesis}</> : null}
         </p>
       ) : null}
 
@@ -150,7 +150,7 @@ export function ContentAgentSnapshot({
         />
         <Tile
           label="Next run"
-          value={nextRunAt ? relativeLabel(nextRunAt) : "—"}
+          value={nextRunAt ? relativeLabel(nextRunAt) : "Not scheduled"}
           hint={nextRunAt ? schedule : "resumes when subscribed"}
         />
       </div>
@@ -158,7 +158,7 @@ export function ContentAgentSnapshot({
       {showMeter ? (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted">Credits — her fuel this month</span>
+            <span className="text-muted">Monthly credits remaining</span>
             <span className="text-foreground tabular-nums">
               {credits.monthly.toLocaleString()} / {monthlyCreditGrant.toLocaleString()}
             </span>

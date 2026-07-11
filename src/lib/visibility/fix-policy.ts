@@ -21,7 +21,7 @@ export function isLiveApplyAvailable(): boolean {
 
 /**
  * Levels the settings UI should offer. Until a host/CMS channel exists,
- * only Watch (0) and Prepare (1) — Level 2 would be a no-op costume.
+ * only Watch (0) and Prepare (1): Level 2 would be a no-op costume.
  */
 export function selectableAutonomyLevels(): readonly AutonomyLevel[] {
   return isLiveApplyAvailable() ? [0, 1, 2] : [0, 1];

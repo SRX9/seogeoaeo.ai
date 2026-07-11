@@ -9,7 +9,7 @@ type Params = {
 };
 
 /**
- * Ordered step keys — must mirror SETUP_STEPS in `src/lib/jobs/setup-run.ts`.
+ * Ordered step keys: must mirror SETUP_STEPS in `src/lib/jobs/setup-run.ts`.
  * The app tolerates unknown/extra keys (parseSteps), so a drift here degrades
  * to a 400 on that one step rather than corrupting the run.
  */
@@ -26,7 +26,7 @@ const STEP_KEYS = [
 
 /**
  * Heavy steps run full site audits (up to 50 gated page fetches) or long LLM
- * generations — they need real wall clock. The rest settle in seconds.
+ * generations: they need real wall clock. The rest settle in seconds.
  */
 const HEAVY_STEPS = new Set<string>([
   "first_audit",
@@ -42,7 +42,7 @@ type StepResult = { status: string; note?: string | null };
  * Claudia's Setup Run (AP2), made durable. One instance per ignition; each
  * setup step is a checkpointed `step.do` calling back into the app, where the
  * real DB/LLM/audit logic lives and every outcome is persisted before the call
- * returns. Isolate death costs at most one step's retry — never the run. A step
+ * returns. Isolate death costs at most one step's retry: never the run. A step
  * that exhausts its retries is left `failed` (already persisted app-side) and
  * the pipeline continues, so one broken step can't strand setup in `running`.
  */

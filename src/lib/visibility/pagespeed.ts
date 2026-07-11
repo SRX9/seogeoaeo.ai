@@ -2,7 +2,7 @@ import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
 import { logError } from "@/lib/logging/logger";
 
 /**
- * Google PageSpeed Insights v5 client — real Lighthouse lab scores plus CrUX
+ * Google PageSpeed Insights v5 client: real Lighthouse lab scores plus CrUX
  * field data for the Site Health checklist. Never throws: any failure (missing
  * key, timeout, quota, parse error) returns null so callers fall back to the
  * static CWV heuristic in `technical.ts`. Responses are KV-cached for 6h so an
@@ -21,14 +21,14 @@ export type CruxRating = "FAST" | "AVERAGE" | "SLOW";
 export interface PsiResult {
   strategy: "mobile";
   fetchedAt: string;
-  /** Lighthouse category scores, 0–100. */
+  /** Lighthouse category scores, 0-100. */
   scores: {
     performance: number | null;
     accessibility: number | null;
     bestPractices: number | null;
     seo: number | null;
   };
-  /** CrUX field data — null when Chrome has no real-user data for the URL/origin. */
+  /** CrUX field data: null when Chrome has no real-user data for the URL/origin. */
   fieldData: {
     lcpMs: number | null;
     inpMs: number | null;
@@ -42,8 +42,8 @@ export interface PsiResult {
 }
 
 const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
-const CACHE_TTL_SECONDS = 21_600; // 6h — balances freshness against the shared daily quota.
-const REQUEST_TIMEOUT_MS = 60_000; // PSI runs a full Lighthouse pass; 10–30s is normal.
+const CACHE_TTL_SECONDS = 21_600; // 6h: balances freshness against the shared daily quota.
+const REQUEST_TIMEOUT_MS = 60_000; // PSI runs a full Lighthouse pass; 10-30s is normal.
 const MAX_OPPORTUNITIES = 5;
 
 export function isPsiConfigured(): boolean {

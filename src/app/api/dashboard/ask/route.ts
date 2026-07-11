@@ -7,8 +7,8 @@ import {
 import { handleApi, jsonOk, parseBody, readJson, requireApiBrand } from "@/lib/api/server";
 
 /**
- * Phase 4 — Ask Claudia. Intent chips or free-text mapped to grounded answers
- * from brand data only. Unmetered (like the brief) — proof/comms, not a tool run.
+ * Phase 4: Ask Claudia. Intent chips or free-text mapped to grounded answers
+ * from brand data only. Unmetered (like the brief): proof/comms, not a tool run.
  * Never triggers LLM brief refresh.
  */
 const bodySchema = z.object({

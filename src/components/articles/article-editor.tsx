@@ -41,7 +41,7 @@ type ArticleEditorProps = {
 
 type GateResult = { gate: string; passed: boolean; detail: string };
 
-// Owner-facing names for the machine gates — never show the raw ids.
+// Owner-facing names for the machine gates: never show the raw ids.
 const GATE_LABELS: Record<string, string> = {
   "style-lint": "Reads human",
   "eeat-source": "Cites a source",
@@ -59,7 +59,7 @@ function parseGateResults(json: string | null | undefined): GateResult[] {
 
 type Intent = "draft" | "publish" | "republish";
 
-// The rich-text editor pulls in tiptap/ProseMirror — a heavy chunk only needed
+// The rich-text editor pulls in tiptap/ProseMirror: a heavy chunk only needed
 // on this route. Load it on demand so it doesn't bloat the article page's JS.
 const ArticleBodyEditor = dynamic(
   () => import("@/components/articles/article-body-editor").then((m) => m.ArticleBodyEditor),
@@ -79,7 +79,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   const router = useRouter();
   const queryClient = useQueryClient();
   const [intent, setIntent] = useState<Intent | null>(null);
-  // Controlled state — HeroUI inputs don't reliably submit via native FormData.
+  // Controlled state: HeroUI inputs don't reliably submit via native FormData.
   const [fields, setFields] = useState({
     title: article.title,
     slug: article.slug,
@@ -190,7 +190,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   }
 
   async function republish() {
-    // Always save the form first — publish reads DB, not local editor state.
+    // Always save the form first: publish reads DB, not local editor state.
     await save("approved", true, "republish");
   }
 
@@ -223,12 +223,12 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
       </div>
       {heldForReview ? (
         <p className="text-sm leading-relaxed text-muted">
-          Claudia held this draft for your review — it didn&apos;t pass her quality checks:{" "}
+          Claudia held this draft for review because it did not pass these quality checks:{" "}
           {gates.find((gate) => gate.gate === "style-lint" && !gate.passed)?.detail}
         </p>
       ) : null}
 
-      <Tabs defaultSelectedKey="editor">
+      <Tabs defaultSelectedKey="editor" variant="secondary">
         <Tabs.ListContainer>
           <Tabs.List aria-label="Article views" className="w-fit">
             <Tabs.Tab id="editor" className="whitespace-nowrap">
@@ -236,15 +236,14 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
               <Tabs.Indicator />
             </Tabs.Tab>
             <Tabs.Tab id="history" className="whitespace-nowrap">
-              <Tabs.Separator />
               History
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
 
-        <Tabs.Panel id="editor">
-          <div className="space-y-6">
+        <Tabs.Panel id="editor" className="pt-8">
+          <div className="space-y-8">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
@@ -281,7 +280,7 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-4">
+            <div className="flex flex-wrap items-center gap-3 border-t border-separator/70 pt-6">
               {canPublish ? (
                 <LoadingButton
                   isPending={intent === "publish"}
@@ -318,8 +317,8 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
           </div>
         </Tabs.Panel>
 
-        <Tabs.Panel id="history">
-          <section className="material-panel rounded-2xl p-4">
+        <Tabs.Panel id="history" className="pt-8">
+          <section className="border-y border-separator/70 py-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="type-title text-lg text-foreground">Publishing</h2>
@@ -361,9 +360,9 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
             {publications.length === 0 ? (
               <p className="mt-4 text-sm text-muted">No publication attempts yet.</p>
             ) : (
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-5 divide-y divide-separator/70 border-y border-separator/70">
                 {publications.map((publication) => (
-                  <li key={publication.provider} className="rounded-lg border border-border p-3 text-sm">
+                  <li key={publication.provider} className="py-4 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium text-foreground">
                         {providerNames.get(publication.provider) ?? publication.provider}

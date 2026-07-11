@@ -5,7 +5,7 @@ import { scrapeUrl, type ScrapeFn, type ScrapeResult } from "./scrape";
 import type { PageSnapshot } from "./types";
 
 /**
- * V0.1 (v3) — resilient page fetch. Plain `fetch` is Tier 1; when it comes back
+ * V0.1 (v3): resilient page fetch. Plain `fetch` is Tier 1; when it comes back
  * blocked (bot-protection challenge / 403 / 429 / total failure) or thin
  * (client-rendered, near-empty), we escalate to the managed scrapers
  * (`scrape.ts`: context.dev → Firecrawl) and rebuild the snapshot from the
@@ -18,7 +18,7 @@ import type { PageSnapshot } from "./types";
 
 export type Adequacy = "ok" | "blocked" | "thin";
 
-// Interstitials from the common bot managers — a 200 body that is NOT the site.
+// Interstitials from the common bot managers: a 200 body that is NOT the site.
 const CHALLENGE_MARKERS: RegExp[] = [
   /just a moment/i,
   /checking your browser before accessing/i,
@@ -45,7 +45,7 @@ const THIN_WORDS = 120;
 
 export function assessAdequacy(snapshot: PageSnapshot): Adequacy {
   const status = snapshot.status_code;
-  if (status === null || status === 0) return "blocked"; // total fetch failure — a scraper may still get it
+  if (status === null || status === 0) return "blocked"; // total fetch failure: a scraper may still get it
   if (status === 401 || status === 403 || status === 429 || status === 503) return "blocked";
   if (isChallengePage(snapshot)) return "blocked";
   if (status >= 200 && status < 300) {
@@ -53,7 +53,7 @@ export function assessAdequacy(snapshot: PageSnapshot): Adequacy {
     if (snapshot.word_count < THIN_WORDS) return "thin";
     return "ok";
   }
-  return "ok"; // 404 / other 4xx-5xx: scraping won't reliably help — leave as-is
+  return "ok"; // 404 / other 4xx-5xx: scraping won't reliably help: leave as-is
 }
 
 /**
@@ -109,7 +109,7 @@ export interface ResilientOptions {
 /**
  * Fetch a page with Tier-1 `fetch`, escalating to the scraper chain on a
  * blocked/thin result. Also returns the SSR comparison for the caller (only
- * meaningful/available on a valid 200 — never diagnosed off a challenge page).
+ * meaningful/available on a valid 200: never diagnosed off a challenge page).
  */
 export async function fetchPageResilient(
   url: string,

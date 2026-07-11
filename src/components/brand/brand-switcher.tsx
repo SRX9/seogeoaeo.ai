@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Dropdown, Label, Spinner } from "@heroui/react";
+import { Avatar, Button, Dropdown, Label, Spinner } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "@heroui/react";
@@ -8,7 +8,11 @@ import { apiPut, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type MeResponse } from "@/lib/api/queries";
 import { ChevronUpDownIcon, CircleCheckIcon } from "@/components/icons";
 
-type BrandOption = { id: string; name: string };
+type BrandOption = {
+  id: string;
+  name: string;
+  identity?: { logoUrl: string | null; colors: Array<{ hex: string }> } | null;
+};
 
 const ADD_BRAND_KEY = "__add_brand__";
 
@@ -16,11 +20,20 @@ function brandInitial(name: string) {
   return name.trim().charAt(0).toUpperCase() || "B";
 }
 
-function BrandGlyph({ name }: { name: string }) {
+function BrandGlyph({ brand }: { brand: BrandOption }) {
+  const accent = brand.identity?.colors[0]?.hex;
   return (
-    <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-xs font-semibold tracking-tight text-accent-soft-foreground surface-interactive">
-      {brandInitial(name)}
-    </span>
+    <Avatar size="sm" className="size-6 shrink-0 rounded-lg bg-accent-soft">
+      {brand.identity?.logoUrl ? <Avatar.Image alt="" src={brand.identity.logoUrl} /> : null}
+      <Avatar.Fallback>
+        <span
+          className="flex size-full items-center justify-center text-xs font-semibold tracking-tight text-accent-soft-foreground"
+          style={accent ? { backgroundColor: accent } : undefined}
+        >
+          {brandInitial(brand.name)}
+        </span>
+      </Avatar.Fallback>
+    </Avatar>
   );
 }
 
@@ -91,7 +104,7 @@ export function BrandSwitcher({
         isDisabled={switchBrand.isPending}
         className="h-auto w-full justify-start gap-2 rounded-xl px-2 py-2"
       >
-        <BrandGlyph name={active.name} />
+        <BrandGlyph brand={active} />
         <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold tracking-tight text-foreground">
           {active.name}
         </span>
@@ -108,7 +121,7 @@ export function BrandSwitcher({
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>
           {brands.map((brand) => (
             <Dropdown.Item key={brand.id} id={brand.id} textValue={brand.name}>
-              <BrandGlyph name={brand.name} />
+              <BrandGlyph brand={brand} />
               <Label className="flex-1 truncate">{brand.name}</Label>
               {brand.id === active.id ? (
                 <CircleCheckIcon className="size-4 text-success" />

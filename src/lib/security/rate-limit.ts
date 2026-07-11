@@ -53,7 +53,7 @@ export function buildRateLimitUpsertQuery(
 }
 
 /**
- * Sweep buckets whose window has long passed — rows are one per (key, action)
+ * Sweep buckets whose window has long passed: rows are one per (key, action)
  * and would otherwise accumulate forever (unauthenticated routes key by IP).
  * Called from the daily cron; any live window is strictly newer than the grace.
  */

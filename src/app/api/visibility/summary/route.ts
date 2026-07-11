@@ -6,7 +6,7 @@ import { getIndustryBaseline } from "@/lib/visibility/baseline";
 import { scoreBand } from "@/lib/visibility/display";
 
 /**
- * V8.1 — visibility summary: latest audit + its six sub-scores, the previous
+ * V8.1: visibility summary: latest audit + its six sub-scores, the previous
  * audit's score (for the delta), and the industry baseline. The hero number is
  * never returned alone.
  */
@@ -15,7 +15,7 @@ export async function GET() {
     const { workspace, brand } = await getApiContext();
     const db = getDb();
 
-    // kind = "owned" — competitor benchmark audits share the workspace but must
+    // kind = "owned": competitor benchmark audits share the workspace but must
     // never surface as the owner's hero score (or its delta baseline).
     // Prefer brand-scoped rows when the active brand is set (multi-brand safe).
     const conditions = [

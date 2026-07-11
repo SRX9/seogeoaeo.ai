@@ -14,7 +14,7 @@ export type PublishContext = {
   config: IntegrationConfig;
   secrets: Partial<Record<string, string>>;
   origin: string;
-  /** Remote post id from a prior successful publish — adapters update when set. */
+  /** Remote post id from a prior successful publish: adapters update when set. */
   externalId?: string | null;
   externalUrl?: string | null;
 };

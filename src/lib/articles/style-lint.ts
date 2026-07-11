@@ -2,7 +2,7 @@ import type { ArticleShape } from "@/lib/articles/shapes";
 
 /**
  * C3 slop lint: pure, deterministic checks a draft must pass before it can
- * publish. Two families — a phrase blacklist (extend forever) and structure
+ * publish. Two families: a phrase blacklist (extend forever) and structure
  * smells (the shapes of text humans don't produce). Failures carry the flagged
  * excerpt so the rewrite pass can fix spans instead of regenerating.
  */
@@ -19,7 +19,7 @@ export type LintResult = {
   hits: LintHit[];
 };
 
-/** Blacklisted AI-tell phrases. Config, not logic — extend without ceremony. */
+/** Blacklisted AI-tell phrases. Config, not logic: extend without ceremony. */
 export const BANNED_PHRASES: Array<{ label: string; pattern: RegExp }> = [
   { label: "delve", pattern: /\bdelv(e|es|ing)\b/i },
   { label: "in today's … landscape/world", pattern: /\bin today'?s [\w\s'-]{0,40}(landscape|world|environment|era)\b/i },
@@ -33,9 +33,10 @@ export const BANNED_PHRASES: Array<{ label: string; pattern: RegExp }> = [
   { label: "let's dive in", pattern: /\blet'?s dive (in|into)\b|\bdive deeper into\b/i },
   { label: "navigate the complexities", pattern: /\bnavigat(e|ing) the (complexities|challenges)\b/i },
   { label: "in the realm of", pattern: /\bin the realm of\b/i },
+  { label: "long dash punctuation", pattern: /[\u2013\u2014]|\s--\s/ },
 ];
 
-/** "furthermore/moreover/additionally" are fine occasionally — cap the density. */
+/** "furthermore/moreover/additionally" are fine occasionally: cap the density. */
 const CONNECTOR_PATTERN = /\b(furthermore|moreover|additionally)\b/gi;
 const CONNECTORS_PER_1000_WORDS = 2;
 
@@ -44,7 +45,7 @@ type Block =
   | { kind: "paragraph"; text: string; words: number }
   | { kind: "list"; items: number };
 
-/** Minimal markdown structure read — enough for the smells, no parser dependency. */
+/** Minimal markdown structure read: enough for the smells, no parser dependency. */
 function parseBlocks(markdown: string): Block[] {
   const withoutCode = markdown.replace(/```[\s\S]*?```/g, "");
   const blocks: Block[] = [];
@@ -84,7 +85,7 @@ function countWords(text: string) {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
-/** Sentence containing the first match — the span the rewrite pass will fix. */
+/** Sentence containing the first match: the span the rewrite pass will fix. */
 function excerptAround(text: string, index: number) {
   const start = Math.max(text.lastIndexOf(".", index) + 1, text.lastIndexOf("\n", index) + 1, 0);
   const endDot = text.indexOf(".", index);
@@ -112,7 +113,7 @@ function checkPhrases(markdown: string): LintHit[] {
   if (connectors.length > cap) {
     hits.push({
       rule: "connector-density",
-      message: `"furthermore/moreover/additionally" used ${connectors.length}× — cap is ${cap} for this length`,
+      message: `"furthermore/moreover/additionally" used ${connectors.length}×: cap is ${cap} for this length`,
     });
   }
 
@@ -134,7 +135,7 @@ function checkStructure(blocks: Block[], shape?: ArticleShape): LintHit[] {
     if (coefficient < 0.25) {
       hits.push({
         rule: "uniform-paragraphs",
-        message: "Paragraph lengths are near-identical — vary the rhythm",
+        message: "Paragraph lengths are near-identical: vary the rhythm",
       });
     }
   }
@@ -144,7 +145,7 @@ function checkStructure(blocks: Block[], shape?: ArticleShape): LintHit[] {
   if (sectionHeadings.length >= 4 && totalWords / sectionHeadings.length < 100) {
     hits.push({
       rule: "heading-density",
-      message: `${sectionHeadings.length} headings over ${totalWords} words — merge sections`,
+      message: `${sectionHeadings.length} headings over ${totalWords} words: merge sections`,
     });
   }
 
@@ -153,7 +154,7 @@ function checkStructure(blocks: Block[], shape?: ArticleShape): LintHit[] {
   if (threeItemLists.length >= 3) {
     hits.push({
       rule: "triple-bullets",
-      message: `${threeItemLists.length} lists of exactly three items — an AI tell; vary or merge them`,
+      message: `${threeItemLists.length} lists of exactly three items: an AI tell; vary or merge them`,
     });
   }
 
@@ -174,7 +175,7 @@ function checkStructure(blocks: Block[], shape?: ArticleShape): LintHit[] {
     if (measured.every((size) => Math.abs(size - mean) / mean <= 0.15)) {
       hits.push({
         rule: "uniform-sections",
-        message: "Every section is the same length — perfect symmetry is an AI tell",
+        message: "Every section is the same length: perfect symmetry is an AI tell",
       });
     }
   }

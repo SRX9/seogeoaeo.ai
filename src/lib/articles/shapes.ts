@@ -1,7 +1,7 @@
 /**
  * C3 shape library: the outline step picks a shape from the topic's intent and
  * the article follows it. The intro→three-sections→conclusion essay is not in
- * the library — it is unreachable by design.
+ * the library: it is unreachable by design.
  */
 
 export type ArticleShape =
@@ -16,7 +16,7 @@ export const ARTICLE_SHAPES: Record<ArticleShape, { when: string; skeleton: stri
   "direct-answer": {
     when: "question-intent topics (AEO)",
     skeleton:
-      "Open with the answer itself in 40-60 words — a reader who leaves after the first " +
+      "Open with the answer itself in 40-60 words: a reader who leaves after the first " +
       "paragraph should leave satisfied. Then go deeper for the readers who want the " +
       "reasoning, edge cases, and specifics. No introduction before the answer.",
   },
@@ -25,13 +25,13 @@ export const ARTICLE_SHAPES: Record<ArticleShape, { when: string; skeleton: stri
     skeleton:
       "Prerequisites first (one short list), then numbered steps with a real, concrete " +
       "example carried through, then a short section on what usually goes wrong. " +
-      "No intro essay — the first line says what the reader will have working by the end.",
+      "No intro essay: the first line says what the reader will have working by the end.",
   },
   comparison: {
     when: '"X vs Y" and "Y alternative" topics',
     skeleton:
       "Verdict first: who should pick which, in the opening paragraph. Then a comparison " +
-      "table, then the honest tradeoffs — praise the competitor where they are genuinely " +
+      "table, then the honest tradeoffs: praise the competitor where they are genuinely " +
       "better; trust is the conversion asset. End with the one-line recommendation per buyer type.",
   },
   opinion: {
@@ -50,7 +50,7 @@ export const ARTICLE_SHAPES: Record<ArticleShape, { when: string; skeleton: stri
   teardown: {
     when: "examples and case studies",
     skeleton:
-      "Walk one real example start to finish — what they did, the actual numbers or " +
+      "Walk one real example start to finish: what they did, the actual numbers or " +
       "artifacts, then extract the transferable lessons as short takeaways. " +
       "The example is the article; the lessons earn their place at the end.",
   },
@@ -88,7 +88,7 @@ export function pickShape(topic: ShapeInput): ArticleShape {
   if (/\bwhy .+ (is|are) (wrong|dead|broken|overrated)\b|\bhot take\b|\bunpopular opinion\b|\bthe (future|state|end) of\b/.test(text)) {
     return "opinion";
   }
-  // Everything else answers a question — the safest default for a product whose
+  // Everything else answers a question: the safest default for a product whose
   // whole thesis is answer-first content. Never the essay.
   return "direct-answer";
 }

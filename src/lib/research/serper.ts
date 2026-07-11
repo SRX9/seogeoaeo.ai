@@ -1,7 +1,7 @@
 /**
  * Shared Serper (google.serper.dev) client. One place that knows how to call the
  * search API, so the research provider and the brand-enrichment features don't
- * each hand-roll the request. Always resolves — returns an empty result when the
+ * each hand-roll the request. Always resolves: returns an empty result when the
  * key is missing or the request fails, so callers can degrade gracefully.
  */
 

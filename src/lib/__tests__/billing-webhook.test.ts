@@ -102,4 +102,30 @@ describe("stripe webhook handler", () => {
     expect(result.handled).toBe(true);
     expect(syncSubscriptionFromStripe).toHaveBeenCalledWith("ws-1", expect.objectContaining({ id: "sub_123" }));
   });
+
+  it("does not activate a subscription while asynchronous payment is unpaid", async () => {
+    const retrieveSubscription = vi.fn();
+    const result = await processStripeWebhookEvent(
+      {
+        id: "evt_unpaid",
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: "cs_unpaid",
+            metadata: { workspaceId: "ws-1" },
+            subscription: "sub_123",
+            payment_status: "unpaid",
+          },
+        },
+      } as unknown as Stripe.Event,
+      { retrieveSubscription },
+    );
+
+    expect(result).toEqual({
+      handled: true,
+      action: "checkout.session.completed.subscription.awaiting_payment",
+    });
+    expect(retrieveSubscription).not.toHaveBeenCalled();
+    expect(syncSubscriptionFromStripe).not.toHaveBeenCalled();
+  });
 });

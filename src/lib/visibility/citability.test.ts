@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { analyzePageCitability, scorePassage } from "./citability";
 
 /**
- * Golden tests — locked against scorer v3 (see version.ts / citability.ts).
+ * Golden tests: locked against scorer v3 (see version.ts / citability.ts).
  * v3 diverges deliberately from the Python reference: single sentence-initial
  * capitalized words no longer count as named entities. If a score drifts
- * unexpectedly, the deterministic scorer changed — bump SCORER_VERSION and
+ * unexpectedly, the deterministic scorer changed: bump SCORER_VERSION and
  * recompute these on purpose, don't weaken the assertions.
  */
 
@@ -74,7 +74,7 @@ describe("scorePassage (locked against scorer v3)", () => {
   });
 });
 
-describe("countProperNouns (v3 — sentence-initial single words aren't entities)", () => {
+describe("countProperNouns (v3: sentence-initial single words aren't entities)", () => {
   // Identical prose with no pronouns and word count <30, so self_containment
   // isolates the proper-noun credit (word-count band 0 + pronoun bonus 8).
   const generic = "Good writing explains ideas clearly. Strong structure helps readers. Careful editing removes filler.";

@@ -16,7 +16,7 @@ import type { BusinessType, LlmsTxtResult, PageSnapshot, RobotsResult } from "./
  * Seed a `tool_runs` row for every Toolbox tool from data an audit already
  * fetched, so each tool page opens on Claudia's latest result instead of an
  * empty runner. Runs after every *owned* audit (setup run and recurring runs
- * alike) — plan-included work, so nothing here charges credits, and findings
+ * alike): plan-included work, so nothing here charges credits, and findings
  * are not re-persisted (the audit's analyzers already pushed them through
  * `persistNewFindings`).
  *

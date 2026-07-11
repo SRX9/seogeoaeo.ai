@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const website = override ?? (await getBrandProfile(brand.id))?.website;
     const url = website ? parseBody(urlSchema, website) : null;
     if (!url) {
-      throw new HttpError(400, "This brand has no website yet — add one in brand settings.", {
+      throw new HttpError(400, "Add a website in brand settings before running an audit.", {
         code: "NO_WEBSITE",
       });
     }
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         .update(audits)
         .set({
           status: "failed",
-          error: "The audit was interrupted and timed out — run it again.",
+          error: "The audit was interrupted and timed out: run it again.",
           completedAt: new Date(),
         })
         .where(and(eq(audits.id, id), eq(audits.status, "running")))
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // No findings exist until the audit settles — skip the query on the poll
+    // No findings exist until the audit settles: skip the query on the poll
     // hot path while it's still running.
     const findings =
       audit.status === "running"

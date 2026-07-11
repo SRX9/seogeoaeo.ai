@@ -6,46 +6,38 @@ import { creditLedger, subscriptions, user, workspaces } from "@/lib/db/schema";
 
 export async function ensureUserWorkspace(ownerId: string, name: string) {
   const db = getDb();
-  const [existing] = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.ownerId, ownerId))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    // The owner id is unique. A no-op conflict update makes concurrent signup
+    // hooks converge on the same row and still gives us the workspace id.
+    const [workspace] = await tx
+      .insert(workspaces)
+      .values({ ownerId, name: name || "My workspace" })
+      .onConflictDoUpdate({ target: workspaces.ownerId, set: { ownerId } })
+      .returning();
 
-  if (existing) {
-    return existing;
-  }
-
-  const [workspace] = await db
-    .insert(workspaces)
-    .values({
-      ownerId,
-      name: name || "My workspace",
-    })
-    .returning();
-
-  // No plan is purchased yet. Status drives publishing entitlement, while a
-  // one-time signup grant of credits (never-expiring bucket) lets new users
-  // generate their first article before subscribing. The Stripe webhook fills
-  // in the real plan + monthly credits at checkout.
-  await db.transaction(async (tx) => {
-    await tx.insert(subscriptions).values({
+    // Repair a historical/partially provisioned workspace as well as creating
+    // a new one. Stripe subscription sync uses an UPDATE, so this row is a hard
+    // invariant before checkout is allowed to start.
+    const insertedSubscriptions = await tx.insert(subscriptions).values({
       workspaceId: workspace.id,
       status: "inactive",
       planId: FREE_PLAN_ID,
       purchasedCredits: SIGNUP_GRANT_CREDITS,
-    });
-    await tx.insert(creditLedger).values({
-      workspaceId: workspace.id,
-      delta: SIGNUP_GRANT_CREDITS,
-      balanceAfter: SIGNUP_GRANT_CREDITS,
-      reason: "signup_grant",
-      refType: "workspace",
-      refId: workspace.id,
-    });
-  });
+    }).onConflictDoNothing({ target: subscriptions.workspaceId }).returning({ id: subscriptions.id });
 
-  return workspace;
+    if (insertedSubscriptions.length > 0) {
+      await tx.insert(creditLedger).values({
+        workspaceId: workspace.id,
+        delta: SIGNUP_GRANT_CREDITS,
+        balanceAfter: SIGNUP_GRANT_CREDITS,
+        reason: "signup_grant",
+        refType: "workspace",
+        refId: workspace.id,
+      }).onConflictDoNothing();
+    }
+
+    return workspace;
+  });
 }
 
 export async function getWorkspaceWithSubscription(ownerId: string) {

@@ -20,7 +20,7 @@ const SITEMAP_COUNT_CAP = 50;
 
 export const siteHealthOverlayKey = (workspaceId: string) => `site-health:${workspaceId}`;
 
-/** The site itself couldn't be fetched — callers decide how to surface it. */
+/** The site itself couldn't be fetched: callers decide how to surface it. */
 export class SiteUnreachableError extends Error {}
 
 export async function refreshSiteHealth(

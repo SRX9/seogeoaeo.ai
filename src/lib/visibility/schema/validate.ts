@@ -1,7 +1,7 @@
 import type { SchemaBlock } from "./detect";
 
 /**
- * V3.1 — schema validation. Deterministic syntax/property/nesting checks,
+ * V3.1: schema validation. Deterministic syntax/property/nesting checks,
  * Google rich-result eligibility, and the deprecated/restricted table. Ports
  * `agents/geo-schema.md` Steps 2, 3, 5.
  */
@@ -18,7 +18,7 @@ export interface ValidatedSchema {
   deprecatedNote?: string;
 }
 
-/** Google rich-result requirements (Step 3, 78–94). */
+/** Google rich-result requirements (Step 3, 78-94). */
 const RICH_RESULT: Record<string, { required: string[]; recommended: string[] }> = {
   Article: { required: ["headline", "image", "datePublished", "author"], recommended: ["dateModified", "publisher"] },
   NewsArticle: { required: ["headline", "image", "datePublished", "author"], recommended: ["dateModified", "publisher"] },
@@ -38,12 +38,12 @@ const RICH_RESULT: Record<string, { required: string[]; recommended: string[] }>
   Course: { required: ["name", "description", "provider"], recommended: [] },
 };
 
-/** Deprecated / restricted schemas (Step 5, 195–201). */
+/** Deprecated / restricted schemas (Step 5, 195-201). */
 const DEPRECATED: Record<string, string> = {
-  HowTo: "Removed from Google rich results (Sep 2023) — no search benefit.",
+  HowTo: "Removed from Google rich results (Sep 2023): no search benefit.",
   FAQPage: "Rich results restricted to gov/health authorities (Aug 2023); still useful for AI Q&A.",
-  SpecialAnnouncement: "Deprecated (COVID-era) — no longer supported.",
-  CourseInfo: "Deprecated — replaced by the Course schema.",
+  SpecialAnnouncement: "Deprecated (COVID-era): no longer supported.",
+  CourseInfo: "Deprecated: replaced by the Course schema.",
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;

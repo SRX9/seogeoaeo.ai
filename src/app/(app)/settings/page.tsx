@@ -36,20 +36,21 @@ function SettingsContent() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-9">
+    <div className="mx-auto max-w-4xl space-y-12">
       <PageHeader
         title="Brand"
-        description="How Claudia works for this brand — profile, autonomy, connections, and her workshop."
+        description="Update this brand's profile, connections, automation, and advanced tools."
       />
 
       <Segment
         aria-label="Brand settings sections"
+        size="sm"
+        variant="ghost"
         selectedKey={selected}
         onSelectionChange={(key: Key) => selectTab(String(key))}
       >
         {tabs.map((tab) => (
           <Segment.Item key={tab.id} id={tab.id}>
-            <Segment.Separator />
             {tab.label}
           </Segment.Item>
         ))}

@@ -10,7 +10,7 @@ import { useAgentApprovals, useInboxData } from "@/lib/api/queries";
 const inboxSkeleton = <CardSkeleton lines={5} />;
 
 /**
- * Agent OS Inbox — the only full-page surface that asks the owner to decide.
+ * Agent OS Inbox: the only full-page surface that asks the owner to decide.
  * Same merge logic as the home "Needs you" section; here with room to work the queue.
  */
 export default function InboxPage() {
@@ -18,10 +18,10 @@ export default function InboxPage() {
   const approvals = useAgentApprovals();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-9">
+    <div className="mx-auto w-full max-w-4xl space-y-12">
       <PageHeader
         title="Inbox"
-        description="Everything Claudia needs from you — approve, connect, or leave it to her."
+        description="Review the few tasks that need your approval or a new connection."
       />
       <Section query={approvals} skeleton={inboxSkeleton} errorLabel="Couldn't load decisions.">
         {(data) => <AgentApprovals approvals={data.approvals} />}

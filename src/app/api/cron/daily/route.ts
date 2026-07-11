@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   }
 
   // Housekeeping piggybacked on the daily fire: expired rate-limit buckets
-  // (one row per IP/action) would otherwise accumulate forever. Best-effort —
+  // (one row per IP/action) would otherwise accumulate forever. Best-effort.
   // a failed sweep must not block the content agent.
   try {
     const swept = await deleteExpiredRateLimitBuckets();

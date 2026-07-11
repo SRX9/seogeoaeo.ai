@@ -41,7 +41,7 @@ export type { SetupStep, SetupStepKey, SetupStepStatus } from "@/lib/jobs/setup-
 export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
 
 /**
- * AP2 — Claudia's Setup Run: the one-time ignition pipeline that onboards a new
+ * AP2: Claudia's Setup Run: the one-time ignition pipeline that onboards a new
  * brand with zero user steps. Everything derives from the brand profile; steps
  * that lack their input are *skipped with a note*, never blocked on the user.
  *
@@ -50,7 +50,7 @@ export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outc
  * same pattern as the daily content agent); the Workflow calls back into
  * `/api/agent/setup-step` once per step, and each step persists its status the
  * moment it settles. An isolate eviction mid-step costs at most that step's
- * retry — never the run. A failed step (after retries) is recorded and the
+ * retry: never the run. A failed step (after retries) is recorded and the
  * pipeline moves on, so one broken step can't wedge setup in `running` forever.
  *
  * Idempotency: one `setup_runs` row per brand (unique index); a re-run of an
@@ -59,7 +59,7 @@ export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outc
  * Metering: setup work spends credits like the same work triggered manually
  * (audit, answer check, benchmark, research, article). Each spend is idempotent
  * by refId so Workflow retries never double-charge; a step whose balance is
- * short is *skipped with a note* — never wedged, never free.
+ * short is *skipped with a note*: never wedged, never free.
  *
  * Outside Cloudflare (plain `next dev`, no SETUP_WORKFLOW binding) the whole
  * pipeline falls back to running inline in the request's `waitUntil`.
@@ -130,7 +130,7 @@ export async function startSetupRun(scope: BrandScope) {
     })
     .onConflictDoNothing({ target: setupRuns.brandId })
     .returning();
-  // Lost a concurrent-insert race — the other caller owns execution.
+  // Lost a concurrent-insert race: the other caller owns execution.
   if (!row) {
     const winner = await getSetupRun(scope.brandId);
     return { run: winner!, created: false };
@@ -149,7 +149,7 @@ async function saveRun(
     .where(eq(setupRuns.id, runId));
 }
 
-/** Latest completed audit for the workspace's own site — feeds the fix step. */
+/** Latest completed audit for the workspace's own site: feeds the fix step. */
 async function latestOwnAuditId(workspaceId: string, siteUrl: string): Promise<string | null> {
   const [row] = await getDb()
     .select({ id: audits.id })
@@ -162,8 +162,8 @@ async function latestOwnAuditId(workspaceId: string, siteUrl: string): Promise<s
 
 const MAX_SETUP_FIXES = 10;
 
-/** Skip note for steps the balance can't cover — the run keeps moving. */
-const NO_CREDITS_SKIP = "Not enough credits — top up and this runs on the next audit cycle.";
+/** Skip note for steps the balance can't cover: the run keeps moving. */
+const NO_CREDITS_SKIP = "Not enough credits: top up and this runs on the next audit cycle.";
 
 /** Pre-flight: turns a short balance into a skip note instead of a failed step. */
 async function hasCreditsFor(scope: BrandScope, action: BillableAction): Promise<boolean> {
@@ -179,7 +179,7 @@ async function hasCreditsFor(scope: BrandScope, action: BillableAction): Promise
 /**
  * Charge one setup step after its work succeeded, keyed on the work's own id so
  * a retried Workflow step never double-charges. A balance drained between the
- * pre-check and here is logged, not thrown — finished work is never orphaned
+ * pre-check and here is logged, not thrown: finished work is never orphaned
  * (mirrors article generation's post-work charge).
  */
 async function chargeSetupWork(scope: BrandScope, action: BillableAction, refId: string) {
@@ -213,7 +213,7 @@ type StepContext = {
   planId: string | null | undefined;
 };
 
-/** Notes from settled steps — the raw material for the Day-0 brief. */
+/** Notes from settled steps: the raw material for the Day-0 brief. */
 function factsFromSteps(steps: SetupStep[]): string[] {
   return steps
     .filter((s) => s.status === "done" && s.note)
@@ -228,9 +228,9 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     if (!(await hasCreditsFor(scope, "visibility_audit"))) return { skip: NO_CREDITS_SKIP };
     const auditId = await runAudit(scope.workspaceId, website, "owned", scope.brandId);
     const [audit] = await getDb().select().from(audits).where(eq(audits.id, auditId)).limit(1);
-    // Charge only on success — mirror manual audits so a dead site never burns credits.
+    // Charge only on success: mirror manual audits so a dead site never burns credits.
     if (audit?.status !== "complete") {
-      return { skip: audit?.error ?? "Site could not be audited yet — we'll try again later." };
+      return { skip: audit?.error ?? "The site could not be audited yet. We'll try again later." };
     }
     await chargeSetupWork(scope, "visibility_audit", auditId);
     return audit.overallScore != null
@@ -293,7 +293,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     let comps = await listCompetitors(scope.brandId);
     if (comps.length === 0 && caps.competitors > 0) {
       // answer_check already ran, so real AI answers exist as discovery
-      // evidence — brands the engines name are the truest rivals.
+      // evidence: brands the engines name are the truest rivals.
       const answerExcerpts = await recentAnswerExcerpts(scope.brandId);
       const suggestions = await discoverCompetitors(
         {
@@ -313,7 +313,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     const rival = comps[0];
     if (!rival) return { skip: "No competitor found yet." };
     if (!(await hasCreditsFor(scope, "competitor_benchmark"))) return { skip: NO_CREDITS_SKIP };
-    // "benchmark": scores a rival under our workspace — must never surface as
+    // "benchmark": scores a rival under our workspace: must never surface as
     // the owner's score (summary/badge/baseline) or write fix-queue findings.
     const benchmarkAuditId = await runAudit(scope.workspaceId, rival.url, "benchmark", scope.brandId);
     const [bench] = await getDb()
@@ -337,7 +337,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
 
   quick_win_fixes: async ({ scope, website, caps }) => {
     if (!website) return { skip: "No website to fix." };
-    // Same prepare path as the standing loop — never auto_applied without canLiveApply.
+    // Same prepare path as the standing loop: never auto_applied without canLiveApply.
     const auditId = await latestOwnAuditId(scope.workspaceId, website);
     if (!auditId) return { skip: "No completed audit to fix from." };
     const used = await monthlyFixBudgetUsed(scope.workspaceId, scope.brandId);
@@ -398,7 +398,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     const facts = factsFromSteps(steps);
     let brief =
       `I've set myself up on ${brand.name}. ` +
-      "I'll keep auditing, fixing, and writing on your plan's cadence — your weekly report will show exactly what moved.";
+      "I'll keep auditing, fixing, and writing on your plan's schedule. Your weekly report will show what changed.";
     if (getLlmConfig() && facts.length > 0) {
       try {
         const prompt = day0BriefPrompt(brand.name, facts.join("\n"));
@@ -408,7 +408,7 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
         ]);
         if (typeof data?.brief === "string" && data.brief.trim()) brief = data.brief.trim().slice(0, 2000);
       } catch {
-        // Fall back to the deterministic brief — the run must still complete.
+        // Fall back to the deterministic brief: the run must still complete.
       }
     }
     await saveRun(runId, steps, { briefText: brief });
@@ -514,7 +514,7 @@ export async function finalizeSetupRun(scope: BrandScope) {
   }
   if (materialDone) {
     const job = await createAgentJob(scope, "setup_run", "Claudia's Setup Run");
-    await finishAgentJob(job.id, "completed", "Setup Run complete — Claudia is on the job.", {
+    await finishAgentJob(job.id, "completed", "Setup Run complete: Claudia is on the job.", {
       steps: steps.map((s) => ({ key: s.key, status: s.status })),
     });
     logInfo("setup_run.completed", { workspaceId: scope.workspaceId, brandId: scope.brandId });
@@ -548,7 +548,7 @@ export async function executeSetupRun(scope: BrandScope, planId: string | null |
 
 /**
  * Kick off (or resume) execution for an existing run row. On Cloudflare this
- * creates a durable `SetupRunWorkflow` instance — checkpointed per step,
+ * creates a durable `SetupRunWorkflow` instance: checkpointed per step,
  * retried on transient failures, immune to isolate eviction. Elsewhere it falls
  * back to the inline executor in `waitUntil`.
  */
@@ -595,7 +595,7 @@ export async function triggerSetupRun(
 /**
  * Self-heal for the status poller: when GET finds a run stranded in `running`
  * (executor killed without reaching any persistence), resume it. The
- * compare-and-swap on `updatedAt` makes concurrent pollers race safely — only
+ * compare-and-swap on `updatedAt` makes concurrent pollers race safely: only
  * the claimant triggers, everyone else sees a freshly-touched row.
  */
 export async function resumeStaleSetupRun(
@@ -625,7 +625,7 @@ export async function igniteWorkspaceSetupRuns(workspaceId: string): Promise<voi
   const { listBrands } = await import("@/lib/brand/repository");
   const { subscriptions } = await import("@/lib/db/schema");
   // A workspace can carry stale subscription rows (e.g. a canceled plan beside
-  // the new one) — caps must come from the active row, not an arbitrary one.
+  // the new one): caps must come from the active row, not an arbitrary one.
   const subRows = await getDb()
     .select({ planId: subscriptions.planId, status: subscriptions.status })
     .from(subscriptions)

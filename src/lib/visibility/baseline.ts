@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { audits } from "@/lib/db/schema/visibility";
 
 /**
- * V8.1 — industry baseline. The hero score is never shown alone; it's paired
+ * V8.1: industry baseline. The hero score is never shown alone; it's paired
  * with the median score of prior audits of the same business type ("You: 68 ·
  * typical for SaaS sites: 74"), falling back to the global median under a
  * minimum sample size.
@@ -27,7 +27,7 @@ export interface Baseline {
 /** Median overall score for a business type, falling back to global. */
 export async function getIndustryBaseline(businessType: string | null): Promise<Baseline> {
   const db = getDb();
-  // Owned audits only — competitor benchmark runs would skew the "typical for
+  // Owned audits only: competitor benchmark runs would skew the "typical for
   // {businessType}" median with sites no tenant owns.
   const all = await db
     .select({ score: audits.overallScore, type: audits.businessType })

@@ -49,7 +49,7 @@ export async function createWorkflowInstance(
 /**
  * Fan a list of instances out idempotently: batched creates, falling back to
  * parallel per-instance creation when a batch fails (a batch is atomic, so one
- * already-existing id — the common re-fire case — fails the whole chunk). The
+ * already-existing id: the common re-fire case: fails the whole chunk). The
  * batch error itself is logged only when the fallback also saw real failures;
  * otherwise it was just a collision. `logEvent` prefixes the error events.
  */

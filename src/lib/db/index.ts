@@ -27,7 +27,11 @@ const schema = {
 
 type Db = ReturnType<typeof createDb>;
 
-let cached: Db | null = null;
+// Next.js can evaluate this module once per route bundle and again after HMR.
+// Keep the direct-connection pool process-global so those copies do not each
+// consume a PostgreSQL connection. Hyperdrive remains request-scoped below.
+const PROCESS_DB_KEY = Symbol.for("seo-ai.process-db");
+const processDbCache = globalThis as unknown as Record<symbol, Db | undefined>;
 const requestDbs = new WeakMap<object, Db>();
 
 function resolveConnectionString(connectionString?: string) {
@@ -67,10 +71,8 @@ export function getDb(connectionString?: string) {
     return createDb(connectionString);
   }
 
-  if (!cached) {
-    cached = createDb();
-  }
-  return cached;
+  processDbCache[PROCESS_DB_KEY] ??= createDb();
+  return processDbCache[PROCESS_DB_KEY];
 }
 
 export { schema };

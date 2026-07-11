@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, toast } from "@heroui/react";
+import { Button, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import { EmptyState } from "@heroui-pro/react/empty-state";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,10 +23,10 @@ import { isInstallReady } from "@/lib/visibility/fix-policy";
 import { buildFixPrompt } from "@/lib/visibility/fix-prompt";
 
 /**
- * V8.2 — the fix queue: one severity-ranked list of every open finding. Each
+ * V8.2: the fix queue: one severity-ranked list of every open finding. Each
  * row opens into the actual fix: a paste-ready snippet/file when we generated
- * one, a "mark as installed" control after the owner deploys it, and — always —
- * a copy-paste prompt for the owner's AI coding assistant.
+ * one, a "mark as installed" control after the owner deploys it, and a
+ * copy-paste prompt for the owner's AI coding assistant.
  */
 
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
@@ -64,7 +64,7 @@ function CopyButton({
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         } catch {
-          // Clipboard access denied — nothing to do, button stays unchanged
+          // Clipboard access denied: nothing to do, button stays unchanged
         }
       }}
     >
@@ -112,11 +112,11 @@ function FixDetail({ finding, website }: { finding: VisibilityFinding; website: 
         </div>
       )}
 
-      <div className="space-y-2 rounded-2xl border border-border/50 bg-surface-muted/80 p-3.5">
+      <div className="space-y-2 border-t border-separator/70 pt-4">
         <p className="text-sm font-medium tracking-tight">Fix it with your AI coding assistant</p>
         <p className="text-sm leading-relaxed text-default-500">
           Copy this prompt and paste it into Cursor, Claude Code, or Copilot inside your
-          website&apos;s project — it tells the assistant exactly what to change and how to verify
+          website&apos;s project. It tells the assistant exactly what to change and how to verify
           it.
         </p>
         <CopyButton text={prompt} label="Copy prompt" variant="primary" />
@@ -144,7 +144,7 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
     mutationFn: () => apiPost("/api/visibility/fix", { findingId: finding.id }),
     onSuccess: () => {
       invalidate();
-      toast.success("Marked installed — Claudia will re-check on the next audit.");
+      toast.success("Marked installed: Claudia will re-check on the next audit.");
     },
     onError: (error) => toast.danger(getErrorMessage(error, "Couldn't update this finding.")),
   });
@@ -152,7 +152,7 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
   const hasReadyFix = isInstallReady(finding.fixCapability);
 
   return (
-    <Card className="material-panel p-5">
+    <div className="py-5 sm:py-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs tracking-[0.01em] text-default-400">
@@ -166,7 +166,7 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             size="sm"
-            variant="primary"
+            variant="secondary"
             onPress={() => setOpen(!open)}
           >
             {open ? "Hide fix" : hasReadyFix ? "Show fix" : "How to fix"}
@@ -174,7 +174,7 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
           {hasReadyFix && (
             <Button
               size="sm"
-              variant="secondary"
+              variant="primary"
               isDisabled={markInstalled.isPending}
               onPress={() => markInstalled.mutate()}
             >
@@ -183,7 +183,7 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
           )}
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             isDisabled={resolve.isPending}
             onPress={() => resolve.mutate("complete")}
           >
@@ -200,10 +200,10 @@ function FindingCard({ finding, website }: { finding: VisibilityFinding; website
         </div>
       </div>
       {markInstalled.isError && (
-        <p className="mt-2 text-sm text-danger">Couldn&apos;t update this finding — try again.</p>
+        <p className="mt-2 text-sm text-danger">Couldn&apos;t update this finding: try again.</p>
       )}
       {open && <FixDetail finding={finding} website={website} />}
-    </Card>
+    </div>
   );
 }
 
@@ -240,12 +240,12 @@ function FindingsList({
   }
 
   return (
-    <>
+    <div className="space-y-10">
       {SEVERITIES.map((sev) => {
         const group = findings.filter((f) => f.severity === sev);
         if (group.length === 0) return null;
         return (
-          <div key={sev} className="space-y-3">
+          <div key={sev} className="space-y-2">
             <h2 className="flex items-center gap-2 text-sm font-semibold capitalize tracking-tight text-default-600">
               <span className={`size-2 rounded-full ${SEVERITY_DOT[sev]}`} aria-hidden />
               {sev}
@@ -253,13 +253,15 @@ function FindingsList({
                 · {group.length} · {SEVERITY_HINT[sev]}
               </span>
             </h2>
-            {group.map((f) => (
-              <FindingCard key={f.id} finding={f} website={website} />
-            ))}
+            <div className="divide-y divide-separator/70 border-y border-separator/70">
+              {group.map((f) => (
+                <FindingCard key={f.id} finding={f} website={website} />
+              ))}
+            </div>
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
 
@@ -268,7 +270,7 @@ export default function FixQueuePage() {
   const website = useBrandProfile().data?.profile.website?.trim() || null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-12">
       <PageHeader
         title="Fix queue"
         description="Every open finding, ranked by impact. For quick approvals use Inbox; this is the full list."

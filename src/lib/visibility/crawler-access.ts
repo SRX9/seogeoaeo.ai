@@ -1,7 +1,7 @@
 import type { AiCrawlerStatus, Finding, RobotsResult, RobotsRule } from "./types";
 
 /**
- * V1.1 — AI crawler access analyzer + V1.2 — Content Signals checker.
+ * V1.1: AI crawler access analyzer + V1.2: Content Signals checker.
  * Consumes the V0.2 `RobotsResult` (never re-fetches). Score algorithm ported
  * exactly from `inspiration-code/agents/geo-ai-visibility.md` → Step 3.
  */
@@ -80,7 +80,7 @@ function classifyAgent(
 
 /** Recommended robots.txt: allow all Tier 1/2 crawlers, keep sitemap lines. */
 function buildRecommendedRobotsTxt(robots: RobotsResult): string {
-  const lines: string[] = ["# AI crawlers — allow for maximum AI visibility"];
+  const lines: string[] = ["# AI crawlers: allow for maximum AI visibility"];
   for (const crawler of [...CRAWLER_TIERS[1], ...CRAWLER_TIERS[2]]) {
     lines.push(`User-agent: ${crawler}`, "Allow: /", "");
   }
@@ -114,9 +114,9 @@ const SIGNAL_MEANINGS: Record<string, { yes: string; no: string }> = {
 };
 
 /**
- * V1.2 — parse the IETF-draft `Content-Signal:` directive from robots.txt.
+ * V1.2: parse the IETF-draft `Content-Signal:` directive from robots.txt.
  * Non-scoring: unknown keys are warnings, never failures (the draft is still
- * evolving — see `inspiration-code/pr-draft-content-signals.md`).
+ * evolving: see `inspiration-code/pr-draft-content-signals.md`).
  */
 export function parseContentSignals(robotsText: string): ContentSignalsResult {
   const rawLines = robotsText
@@ -177,7 +177,7 @@ export function parseContentSignals(robotsText: string): ContentSignalsResult {
 }
 
 /**
- * V1.1 — map robots.txt against the AI crawlers in 3 tiers and compute the
+ * V1.1: map robots.txt against the AI crawlers in 3 tiers and compute the
  * Crawler Access Score: start 100, −15 per critical crawler blocked, −5 per
  * secondary crawler blocked, −10 if no sitemap referenced, floor 0.
  * Content Signals (V1.2) are attached but never affect the score.
@@ -229,7 +229,7 @@ export function analyzeCrawlerAccess(robots: RobotsResult): CrawlerAccessResult 
       category: "crawler_access",
       severity: "critical",
       title: "Googlebot is blocked in robots.txt",
-      recommendation: "Unblock Googlebot — the site is invisible to Google Search.",
+      recommendation: "Unblock Googlebot: the site is invisible to Google Search.",
       ...robotsFix,
     });
   }

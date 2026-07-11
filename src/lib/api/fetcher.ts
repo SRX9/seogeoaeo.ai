@@ -10,7 +10,7 @@ export class ApiError extends Error {
   status: number;
   details?: unknown;
   /**
-   * True only when {@link message} came from the API's `error` field — i.e. a
+   * True only when {@link message} came from the API's `error` field: i.e. a
    * message the server intends to show the user. False for transport-level
    * fallbacks (non-JSON body, raw HTTP status) which must never be displayed.
    */
@@ -61,7 +61,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /**
  * Resolve a user-safe message from any thrown value. Returns the server's
  * intended message for an {@link ApiError}, otherwise the caller's contextual
- * fallback — so raw network/auth/runtime errors are never shown to the user.
+ * fallback: so raw network/auth/runtime errors are never shown to the user.
  */
 export function getErrorMessage(error: unknown, fallback: string = GENERIC_ERROR_MESSAGE): string {
   if (error instanceof ApiError && error.userFacing && error.message) {
@@ -80,8 +80,12 @@ function safeJson(raw: string): unknown {
 
 export const apiGet = <T>(path: string) => request<T>(path);
 
-export const apiPost = <T>(path: string, body?: unknown) =>
-  request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
+export const apiPost = <T>(path: string, body?: unknown, init?: Omit<RequestInit, "method" | "body">) =>
+  request<T>(path, {
+    ...init,
+    method: "POST",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 
 export const apiPatch = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: "PATCH", body: body === undefined ? undefined : JSON.stringify(body) });

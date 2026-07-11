@@ -6,8 +6,8 @@ import { sanitizeLlmText } from "@/lib/llm/client";
 import type { Finding } from "./types";
 
 /**
- * V5.5 — AI answer tracking (share-of-answer). Ask the real answer engines a set
- * of tracked prompts and record whether the brand — and its competitors — appear
+ * V5.5: AI answer tracking (share-of-answer). Ask the real answer engines a set
+ * of tracked prompts and record whether the brand: and its competitors: appear
  * in the answer text (mention) or the returned sources (citation). Share-of-answer
  * is computed from stored runs. Mention/citation detection is deterministic and
  * unit-tested; engine adapters degrade gracefully (one engine down ≠ run failed).
@@ -243,7 +243,7 @@ export async function runAnswerCheck(
   const domain = profile?.website ? apexDomain(profile.website) : "";
   const comps = await db.select().from(competitors).where(eq(competitors.brandId, brandId));
   // Hard ceiling on the fan-out (prompts × engines concurrent fetches) as a
-  // backstop for any over-seeded prompt set — the largest plan tracks 100.
+  // backstop for any over-seeded prompt set: the largest plan tracks 100.
   const prompts = await db
     .select()
     .from(trackedPrompts)
@@ -259,7 +259,7 @@ export async function runAnswerCheck(
   const cells: AnswerCell[] = [];
   const rows: (typeof answerRuns.$inferInsert)[] = [];
 
-  // Fire every prompt × engine call concurrently — they're independent external
+  // Fire every prompt × engine call concurrently: they're independent external
   // requests. A thrown adapter is isolated to its own cell (null = engine down).
   const tasks = prompts.flatMap((p) => engines.map((engine) => ({ p, engine })));
   const answers = await Promise.all(
@@ -272,7 +272,7 @@ export async function runAnswerCheck(
   );
 
   for (const { p, engine, ans } of answers) {
-    if (!ans) continue; // engine down — skip this cell, run still succeeds
+    if (!ans) continue; // engine down: skip this cell, run still succeeds
     const brandMentioned = detectMention(ans.text, brandVars);
     const brandCited = !!domain && detectCitation(ans.citations, domain);
     const competitorsFlags = compMeta.map((c) => ({

@@ -5,8 +5,8 @@ import type { RenderComparison } from "./render";
 import type { Finding, PageSnapshot, RobotsResult } from "./types";
 
 /**
- * V2.2 — technical SEO auditor. Ports `inspiration-code/agents/geo-technical.md`
- * Steps 1–9 + 11: a 0–100 score across 9 categories with SSR as the
+ * V2.2: technical SEO auditor. Ports `inspiration-code/agents/geo-technical.md`
+ * Steps 1-9 + 11: a 0-100 score across 9 categories with SSR as the
  * highest-weight check (AI crawlers don't run JS), exact security-header
  * deductions, a static CWV risk estimate (INP, never FID), URL/mobile/response
  * checks. Reuses V1.4 meta + V1.1 crawler analyzers for those two categories so
@@ -33,7 +33,7 @@ export interface TechnicalResult {
     /** Present when a real headless render was compared to the raw HTML (v3). */
     renderCheck?: { renderedWordCount: number; ratio: number };
   };
-  /** Static-HTML estimate — validate with field data (CrUX/PageSpeed). */
+  /** Static-HTML estimate: validate with field data (CrUX/PageSpeed). */
   cwv: { lcp: RiskLevel; inp: RiskLevel; cls: RiskLevel; note: string };
   findings: Finding[];
 }
@@ -282,7 +282,7 @@ export function auditTechnical(
     const rendered = opts.render;
     const measured =
       rendered?.available && rendered.rendered_word_count
-        ? `A headless render produced ${rendered.rendered_word_count} words but only ${rendered.raw_word_count} are in the raw HTML AI crawlers (GPTBot, ClaudeBot, PerplexityBot) receive — they don't execute JavaScript. `
+        ? `A headless render produced ${rendered.rendered_word_count} words but only ${rendered.raw_word_count} are in the raw HTML AI crawlers (GPTBot, ClaudeBot, PerplexityBot) receive: they don't execute JavaScript. `
         : "AI crawlers (GPTBot, ClaudeBot, PerplexityBot) don't execute JavaScript. ";
     findings.push({
       pillar: "geo",
@@ -302,7 +302,7 @@ export function auditTechnical(
       category: "security",
       severity: "critical",
       title: "Site is not served over HTTPS",
-      recommendation: "Enable HTTPS — HTTP triggers browser warnings and a ranking penalty.",
+      recommendation: "Enable HTTPS: HTTP triggers browser warnings and a ranking penalty.",
       fix_capability: "guided",
     });
   }
@@ -349,7 +349,7 @@ export function auditTechnical(
       category: "structured_data",
       severity: "medium",
       title: "Invalid JSON-LD in the page source",
-      recommendation: "Fix the malformed JSON-LD — search engines skip structured data that won't parse.",
+      recommendation: "Fix the malformed JSON-LD: search engines skip structured data that won't parse.",
       fix_capability: "guided",
     });
   }
@@ -367,13 +367,13 @@ export function auditTechnical(
       lcp: cwv.lcp,
       inp: cwv.inp,
       cls: cwv.cls,
-      note: "Static HTML estimate — validate with PageSpeed Insights or CrUX field data.",
+      note: "Static HTML estimate: validate with PageSpeed Insights or CrUX field data.",
     },
     findings,
   };
 }
 
-// ── V5.3 — Agent-readiness signals (non-scoring, never penalize) ────────────
+// ── V5.3: Agent-readiness signals (non-scoring, never penalize) ────────────
 export interface AgentReadiness {
   linkHeaders: { present: boolean; relTypes: string[]; recommendation?: string };
   markdown: { status: "supported" | "not-supported" | "error"; contentType?: string; recommendation?: string };
@@ -397,7 +397,7 @@ function isApiFirst(snapshot: PageSnapshot): boolean {
 /**
  * Detect two emerging agentic-web signals: RFC 8288 `Link:` service discovery
  * (from V0.1 headers) and Markdown content negotiation (one extra request).
- * Bonuses/recommendations only — never affects any score (V5.3).
+ * Bonuses/recommendations only: never affects any score (V5.3).
  */
 export async function checkAgentReadiness(
   snapshot: PageSnapshot,
@@ -426,7 +426,7 @@ export async function checkAgentReadiness(
       markdown.status = "not-supported";
       markdown.contentType = contentType;
       markdown.recommendation =
-        "Serve Markdown via content negotiation (Accept: text/markdown) — a one-line config on Cloudflare Workers/Pages.";
+        "Serve Markdown via content negotiation (Accept: text/markdown): a one-line config on Cloudflare Workers/Pages.";
     }
   } catch {
     // Non-200 / network error → skip, never penalize.

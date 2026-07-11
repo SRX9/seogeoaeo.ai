@@ -10,11 +10,11 @@ import { CardSkeleton } from "@/components/feedback/skeletons";
 import { apiPost } from "@/lib/api/fetcher";
 import {
   queryKeys,
-  useAgentState,
   useMe,
-  useSetupRun,
+  type SetupRunResponse,
   type SetupStep,
 } from "@/lib/api/queries";
+import type { AgentState } from "@/lib/agent/types";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { cn } from "@/lib/cn";
 
@@ -30,8 +30,8 @@ function SetupStepIcon({ status }: { status: SetupStep["status"] }) {
 
 function HeroShell({ children }: { children: React.ReactNode }) {
   return (
-    <section className="relative overflow-hidden rounded-[1.75rem] bg-surface p-6 shadow-surface sm:p-9">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start">{children}</div>
+    <section className="relative p-6 sm:p-8 lg:p-10">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">{children}</div>
     </section>
   );
 }
@@ -53,26 +53,25 @@ function StateChip({ id, label }: { id: string; label: string }) {
   );
 }
 
-export function ClaudiaHero() {
+export function ClaudiaHero({ setup, agent }: { setup: SetupRunResponse; agent: AgentState }) {
   const queryClient = useQueryClient();
   const me = useMe();
-  const setup = useSetupRun();
-  const agent = useAgentState();
   const start = useMutation({
     mutationFn: () => apiPost("/api/setup-run", {}),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
       void queryClient.invalidateQueries({ queryKey: queryKeys.setupRun });
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
     },
   });
 
-  if (me.isLoading || setup.isLoading || agent.isLoading) {
-    return <CardSkeleton lines={5} className="rounded-[1.75rem]" />;
+  if (me.isLoading) {
+    return <CardSkeleton lines={5} className="rounded-none border-0 shadow-none" />;
   }
 
-  const run = setup.data?.run ?? null;
-  const labels = setup.data?.labels ?? {};
-  const state = agent.data;
+  const run = setup.run;
+  const labels = setup.labels;
+  const state = agent;
   const subscribed = isActiveSubscription(me.data?.subscription?.status);
 
   if (!run) {
@@ -81,7 +80,7 @@ export function ClaudiaHero() {
         <ClaudiaAvatar working={start.isPending} />
         <div className="min-w-0 flex-1">
           <Chip size="sm" variant="soft">Ready to begin</Chip>
-          <h1 className="mt-4 max-w-2xl text-2xl text-foreground sm:text-3xl">
+          <h1 className="mt-4 max-w-2xl text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl">
             Build the evidence Claudia needs to run the brand
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
@@ -118,7 +117,7 @@ export function ClaudiaHero() {
             id={failed ? "needs_attention" : "working_now"}
             label={failed ? "Needs attention" : "Working now"}
           />
-          <h1 className="mt-4 text-2xl text-foreground sm:text-3xl">
+          <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl">
             {failed
               ? "Setup stopped before the operating baseline was ready"
               : current
@@ -167,7 +166,6 @@ export function ClaudiaHero() {
     );
   }
 
-  if (!state) return <CardSkeleton lines={5} className="rounded-[1.75rem]" />;
   const headline = state.now
     ? state.now.title
     : state.waiting
@@ -185,8 +183,13 @@ export function ClaudiaHero() {
           <StateChip id={state.presence.id} label={state.presence.label} />
           <span className="text-xs text-muted tabular-nums">Plan v{state.plan.version}</span>
         </div>
-        <p className="mt-4 text-sm font-medium text-muted">{state.mission.objective}</p>
-        <h1 className="mt-2 max-w-3xl text-2xl text-foreground sm:text-3xl">{headline}</h1>
+        <p className="mt-4 text-xs font-medium tracking-[0.04em] text-muted">Current mission</p>
+        <p className="mt-1.5 max-w-3xl text-sm font-medium text-foreground/80">
+          {state.mission.objective}
+        </p>
+        <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl lg:text-[2rem]">
+          {headline}
+        </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">{context}</p>
         {state.next[0]?.scheduledFor && !state.now ? (
           <p className="mt-3 text-sm text-muted">

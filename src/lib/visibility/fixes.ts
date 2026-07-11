@@ -2,10 +2,10 @@ import { generateText } from "@/lib/llm/client";
 import { scorePassage } from "./citability";
 
 /**
- * V6.5 — answer-block & featured-snippet optimizer (shared with V7.1/V7.2).
- * Rewrites a section into the shape answer engines extract (a 40–60 word direct
+ * V6.5: answer-block & featured-snippet optimizer (shared with V7.1/V7.2).
+ * Rewrites a section into the shape answer engines extract (a 40-60 word direct
  * answer first, then structured detail) and ships it ONLY if the deterministic
- * V2.1 citability score improves. The score is the gate — never trust the LLM
+ * V2.1 citability score improves. The score is the gate: never trust the LLM
  * blindly. Pattern from geo-platform-analysis.md Step 1.
  */
 
@@ -24,7 +24,7 @@ export interface AnswerFix {
   improved: boolean;
   rewrite: string | null;
   explanation: string;
-  /** Set only when the rewrite raises citability — drives V7.2 apply. */
+  /** Set only when the rewrite raises citability: drives V7.2 apply. */
   fixPayload: { kind: "answer_block"; heading: string | null; rewrite: string } | null;
 }
 
@@ -39,7 +39,7 @@ export function detectShape(content: string): SnippetShape {
 
 const SYSTEM = [
   "You rewrite a content section to be maximally citable by AI answer engines.",
-  "Lead with a direct, self-contained answer of 40–60 words that stands alone.",
+  "Lead with a direct, self-contained answer of 40-60 words that stands alone.",
   "Then add structured detail (a short list, steps, or table) matching the requested shape.",
   "Keep every fact and citation intact. Do not invent statistics. Plain text/markdown only.",
 ].join(" ");
@@ -84,7 +84,7 @@ export async function optimizeAnswerBlock(
     explanation: improved
       ? `Answer-first rewrite raised citability ${before} → ${after}.`
       : rewrite
-        ? `Kept the original — the rewrite (${after}) didn't beat the current score (${before}).`
+        ? `Kept the original: the rewrite (${after}) didn't beat the current score (${before}).`
         : "Could not generate a rewrite; original kept.",
     fixPayload: improved && rewrite ? { kind: "answer_block", heading: block.heading, rewrite } : null,
   };

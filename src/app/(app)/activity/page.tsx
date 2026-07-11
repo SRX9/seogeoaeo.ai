@@ -26,7 +26,7 @@ export default function ActivityPage() {
         title="Work log"
         description={
           live
-            ? "I'm working right now — this feed updates every few seconds."
+            ? "I'm working right now. This feed updates every few seconds."
             : "Everything I've done for this brand, in plain language."
         }
       />

@@ -64,7 +64,7 @@ describe("detectBusinessType", () => {
   it("detects E-commerce", () => {
     const result = detectBusinessType(
       snapshot({
-        text_content: "Add to cart — $49.99. Fast checkout and free shipping.",
+        text_content: "Add to cart: $49.99. Fast checkout and free shipping.",
         internal_links: [{ url: "https://example.com/product/blue-shirt", text: "Blue Shirt" }],
         structured_data: [{ "@type": "Product", name: "Blue Shirt" }],
       }),
@@ -123,7 +123,7 @@ describe("classifyBusinessType", () => {
   });
 
   it("falls back to the deterministic result when the LLM is unavailable", async () => {
-    // LLM env is not configured in tests — the fallback must not throw.
+    // LLM env is not configured in tests: the fallback must not throw.
     const result = await classifyBusinessType(
       snapshot({ text_content: "Nothing identifiable here." }),
     );

@@ -2,7 +2,7 @@ import type { Finding } from "../types";
 import type { ValidatedSchema } from "./validate";
 
 /**
- * V3.2 — schema completeness score (0–100) + sameAs entity-graph audit. Ports
+ * V3.2: schema completeness score (0-100) + sameAs entity-graph audit. Ports
  * `agents/geo-schema.md` Step 8 point table (exact) and Step 4b sameAs priority.
  * sameAs is the single most impactful GEO property (cross-platform entity
  * resolution), so it drives both the score and the top recommendations.
@@ -162,21 +162,21 @@ export function scoreSchema(validated: ValidatedSchema[]): SchemaScoreResult {
     });
 
   if (!orgNode) {
-    gap("critical", "No Organization schema", "Add Organization schema with a comprehensive sameAs — it's how AI builds your entity graph.", "Organization");
+    gap("critical", "No Organization schema", "Add Organization schema with sameAs links to the brand's official profiles.", "Organization");
   } else {
     const missing = PRIORITY.filter((p) => !sameAsAudit.find((e) => e.platform === p)?.linked);
     if (missing.length > 0) {
-      gap("high", `Organization sameAs is incomplete (${linkedCount} linked)`, `Add sameAs links to ${missing.slice(0, 3).join(", ")} — the strongest cross-platform entity signals.`, "Organization");
+      gap("high", `Organization sameAs is incomplete (${linkedCount} linked)`, `Add sameAs links for ${missing.slice(0, 3).join(", ")} so crawlers can connect those profiles to the brand.`, "Organization");
     }
   }
   if (articleNode && b.article < 15) {
     gap("medium", "Article schema is missing author/dateModified", "Link author to a Person object and add dateModified so AI can attribute and freshness-rank the content.", "Article");
   }
   if (!personNode && articleNode) {
-    gap("medium", "No Person schema for the author", "Add Person schema (name, url, sameAs, jobTitle, knowsAbout) — a key E-E-A-T + entity signal.", "Person");
+    gap("medium", "No Person schema for the author", "Add Person schema (name, url, sameAs, jobTitle, knowsAbout): a key E-E-A-T + entity signal.", "Person");
   }
   if (!hasSpeakable) {
-    gap("low", "No speakable property", "Add speakable to mark voice/AI-readable sections — an underused direct GEO signal.", "speakable");
+    gap("low", "No speakable property", "Add speakable to identify the sections that work well when read aloud.", "speakable");
   }
   if (!websiteNode) {
     gap("low", "No WebSite + SearchAction schema", "Add WebSite schema with a SearchAction to enable the sitelinks search box.", "WebSite");
@@ -188,7 +188,7 @@ export function scoreSchema(validated: ValidatedSchema[]): SchemaScoreResult {
         category: "schema",
         severity: "low",
         title: "Deprecated HowTo schema present",
-        recommendation: v.deprecatedNote ?? "Remove HowTo — it no longer produces rich results.",
+        recommendation: v.deprecatedNote ?? "Remove HowTo because Google no longer uses it for rich results.",
         fix_capability: "guided",
       });
     }
@@ -199,7 +199,7 @@ export function scoreSchema(validated: ValidatedSchema[]): SchemaScoreResult {
       category: "schema",
       severity: "low",
       title: "Schema uses Microdata/RDFa",
-      recommendation: "Migrate to JSON-LD — the format Google and AI crawlers prefer.",
+      recommendation: "Migrate to JSON-LD: the format Google and AI crawlers prefer.",
       fix_capability: "guided",
     });
   }

@@ -4,7 +4,7 @@ import { searchQueries } from "@/lib/db/schema/content";
 import { trafficSnapshots } from "@/lib/db/schema/visibility";
 
 /**
- * V6.6 — Google Search Console daily pull. OAuth token comes from the existing
+ * V6.6: Google Search Console daily pull. OAuth token comes from the existing
  * encrypted integration-secret framework (the caller passes a valid access
  * token). Writes site-level daily clicks/impressions/position into
  * traffic_snapshots, idempotent per (brand, source, date). Proof is never metered.
@@ -55,13 +55,13 @@ export interface GscQueryRow {
   page: string;
   clicks: number;
   impressions: number;
-  /** Null when the API omits it — NOT 0, which downstream would read as rank #1. */
+  /** Null when the API omits it: NOT 0, which downstream would read as rank #1. */
   position: number | null;
 }
 
 /** How many days one query report covers (a stable, seasonal-noise-resistant window). */
 export const QUERY_WINDOW_DAYS = 28;
-/** Top rows by impressions — one API call, plenty for every mining play. */
+/** Top rows by impressions: one API call, plenty for every mining play. */
 const QUERY_ROW_LIMIT = 1000;
 /** Refresh cadence for the query report (it "rides the weekly research run"). */
 const QUERY_STALE_DAYS = 7;

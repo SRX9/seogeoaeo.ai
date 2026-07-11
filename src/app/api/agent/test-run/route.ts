@@ -1,7 +1,7 @@
 // Manual smoke-test endpoint for the daily content agent. Give it just a
 // workspaceId + brandId (query string or JSON body) and it derives the rest
 // (brand name, plan, today's runDate) and kicks off ONE DailyBrandWorkflow
-// instance — the same thing the daily cron does per brand, on demand.
+// instance: the same thing the daily cron does per brand, on demand.
 //
 // Gated behind CRON_SECRET so it can't be hit publicly. Needs the AGENT_WORKFLOW
 // binding, so it only works on the Cloudflare runtime (deployed worker or
@@ -11,7 +11,7 @@
 //     "https://seogeoaeo.ai/api/agent/test-run?workspaceId=<ws>&brandId=<brand>"
 //
 // Optional `?planId=scale` overrides the plan (handy if the workspace has no
-// active subscription — otherwise the run resolves to cap 0 and writes nothing).
+// active subscription: otherwise the run resolves to cap 0 and writes nothing).
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
@@ -58,7 +58,7 @@ async function handle(request: Request) {
   const workflow = getCloudflareRequestContext()?.env?.AGENT_WORKFLOW;
   if (!workflow) {
     return NextResponse.json(
-      { error: "AGENT_WORKFLOW binding not available — run on Cloudflare (deploy or `pnpm preview:cf`)." },
+      { error: "AGENT_WORKFLOW binding not available: run on Cloudflare (deploy or `pnpm preview:cf`)." },
       { status: 503 },
     );
   }
@@ -86,7 +86,7 @@ async function handle(request: Request) {
   // test must NOT spin up a second instance beside today's real run: two workflows
   // would each plan from their own snapshot and settle absolute `articlesWritten`,
   // double-charging credits and corrupting the day's counts. With a shared id
-  // there's exactly one run per brand-day — whoever enqueues first wins, and a
+  // there's exactly one run per brand-day: whoever enqueues first wins, and a
   // repeat call (or a collision with the cron) is a no-op that returns it.
   const id = `daily-${brandId}-${runDate}`;
   try {

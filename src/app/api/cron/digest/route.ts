@@ -4,7 +4,7 @@ import { logError, logInfo } from "@/lib/logging/logger";
 import { sendWeeklyReports } from "@/server/reports/weekly";
 
 /**
- * AP5 — the weekly report. Cloudflare's scheduled handler POSTs here every
+ * AP5: the weekly report. Cloudflare's scheduled handler POSTs here every
  * Monday; each owned site on an active subscription gets Claudia's full weekly
  * report (both halves of her job, one ask max) emailed to the workspace owner
  * and archived at /reports.

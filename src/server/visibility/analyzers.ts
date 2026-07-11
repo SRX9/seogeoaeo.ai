@@ -21,7 +21,7 @@ import type {
 } from "@/lib/visibility/types";
 
 /**
- * V0.3 — analyzer registry. Mirrors the 5 parallel subagents of the
+ * V0.3: analyzer registry. Mirrors the 5 parallel subagents of the
  * inspiration skill; the audit Workflow `Promise.all`s over this list. Each is
  * dual-mode: the same function runs inside the Workflow, a Toolbox route, or the
  * agent. Later phases replace the remaining stubs with real scorers.
@@ -49,7 +49,7 @@ function stub(key: SubScore["key"]): Analyzer {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const WEAK_BLOCK = 60;
 
-/** V2.1 — citability sub-score: average of per-page top-5 block scores. The
+/** V2.1: citability sub-score: average of per-page top-5 block scores. The
  *  deterministic score IS the sub-score; an LLM semantic pass (v3) only enriches
  *  the findings and never changes the number. */
 const citabilityAnalyzer: Analyzer = async ({ homepage, pages }) => {
@@ -78,7 +78,7 @@ const citabilityAnalyzer: Analyzer = async ({ homepage, pages }) => {
     if (block.total_score >= WEAK_BLOCK) continue;
     const sem = judgeMap.get(block);
     const rec =
-      "Lead with a direct answer, add a specific statistic or named source, and keep it self-contained (134–167 words).";
+      "Lead with a direct answer, add a specific statistic or named source, and keep it self-contained (134-167 words).";
     weak.push({
       pillar: "aeo",
       category: "citability",
@@ -99,7 +99,7 @@ const citabilityAnalyzer: Analyzer = async ({ homepage, pages }) => {
   const findings = weak.slice(0, 5);
 
   // One informational finding when structure and meaning disagree sharply on a
-  // top block — the deterministic scorer and the AI judge see it differently.
+  // top block: the deterministic scorer and the AI judge see it differently.
   for (const block of home?.top_5 ?? []) {
     const sem = judgeMap.get(block);
     if (!sem || Math.abs(block.total_score - sem.semantic_score) <= 30) continue;
@@ -110,7 +110,7 @@ const citabilityAnalyzer: Analyzer = async ({ homepage, pages }) => {
       severity: "low",
       title: `${structural ? "Well-formatted but thin" : "Strong content, weak structure"}: "${block.heading ?? "Introduction"}"`,
       recommendation: structural
-        ? "This section is well-structured but light on substance an AI would quote — add a concrete fact, figure, or example."
+        ? "This section is well-structured but light on substance an AI would quote: add a concrete fact, figure, or example."
         : "Good substance, but tighten the structure (answer-first sentence, self-contained) so answer engines can extract it.",
       fix_capability: "guided",
     });
@@ -120,18 +120,18 @@ const citabilityAnalyzer: Analyzer = async ({ homepage, pages }) => {
   return { subScore: { key: "citability", score }, findings };
 };
 
-/** V2.2 — technical sub-score (SEO owner of meta + crawler findings too). */
+/** V2.2: technical sub-score (SEO owner of meta + crawler findings too). */
 const technicalAnalyzer: Analyzer = async ({ homepage, robots, render }) => {
   const result = auditTechnical(homepage, robots, [], { render });
   return { subScore: { key: "technical", score: result.score }, findings: result.findings };
 };
 
-/** V3.x — schema sub-score: detect → validate → score → generate fixes. */
+/** V3.x: schema sub-score: detect → validate → score → generate fixes. */
 const schemaAnalyzer: Analyzer = async ({ homepage, businessType }) => {
   const detection = detectSchema(homepage);
   const scored = scoreSchema(validateSchema(detection.blocks));
   // Deterministic templates, then an optional LLM pass that fills placeholders
-  // from the page's own copy (grounded — never invents facts).
+  // from the page's own copy (grounded: never invents facts).
   const fixes = await enrichSchemaFixes(
     generateSchema({
       present: scored.present,
@@ -183,7 +183,7 @@ const schemaAnalyzer: Analyzer = async ({ homepage, businessType }) => {
       severity: "high",
       title: "Schema may be JavaScript-injected",
       recommendation:
-        "Server-render your JSON-LD — AI crawlers don't run JS and Google delays JS-injected schema.",
+        "Server-render your JSON-LD: AI crawlers don't run JS and Google delays JS-injected schema.",
       fix_capability: "guided",
     });
   }
@@ -191,20 +191,20 @@ const schemaAnalyzer: Analyzer = async ({ homepage, businessType }) => {
   return { subScore: { key: "schema", score: scored.score }, findings };
 };
 
-/** V4.x — content & E-E-A-T sub-score across homepage + discovered pages. */
+/** V4.x: content & E-E-A-T sub-score across homepage + discovered pages. */
 const eeatAnalyzer: Analyzer = async ({ homepage, pages }) => {
   const siteUrls = [homepage.url, ...pages.map((p) => p.url)];
   const { subScore, findings } = await analyzeContent(homepage, siteUrls);
   return { subScore, findings };
 };
 
-/** V5.1 — brand authority sub-score (computed in run-audit, shared here). */
+/** V5.1: brand authority sub-score (computed in run-audit, shared here). */
 const brandAnalyzer: Analyzer = async ({ brand }) => ({
   subScore: { key: "brand", score: brand.score },
   findings: brand.findings,
 });
 
-/** V5.2 — platform readiness sub-score (average of the 5 engines). */
+/** V5.2: platform readiness sub-score (average of the 5 engines). */
 const platformAnalyzer: Analyzer = async ({ platforms }) => ({
   subScore: { key: "platform", score: platforms.average },
   findings: platforms.findings,

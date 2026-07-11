@@ -3,7 +3,7 @@ import { generateJson } from "@/lib/llm/client";
 import type { BusinessType, BusinessTypeResult, PageSnapshot } from "./types";
 
 /**
- * V0.4 — business-type detector. Deterministic signal scan over the homepage
+ * V0.4: business-type detector. Deterministic signal scan over the homepage
  * snapshot using the signal table from `inspiration-code/geo/SKILL.md`
  * ("Business Type Detection"), with an optional cheap LLM fallback when the
  * deterministic result is low-confidence or ambiguous.

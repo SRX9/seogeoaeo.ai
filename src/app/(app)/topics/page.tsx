@@ -22,7 +22,7 @@ export default function TopicsPage() {
   // of the queries the site already almost ranks for.
   const showGscNudge = traffic.data ? !traffic.data.gsc.connected : false;
 
-  // Read without gating — defaults to "ready" until /api/me resolves so the
+  // Read without gating: defaults to "ready" until /api/me resolves so the
   // warning only appears when we actually know the LLM env is unconfigured.
   const llmReady = me.data?.llmReady ?? true;
   const headerMeta = useMemo(
@@ -37,10 +37,10 @@ export default function TopicsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-9">
+    <div className="mx-auto w-full max-w-4xl space-y-12">
       <PageHeader
         title="Topic queue"
-        description="What Claudia is planning to write next — evidence-backed theses first."
+        description="See what Claudia plans to write next and the evidence behind each idea."
         meta={headerMeta}
       />
 
@@ -58,7 +58,7 @@ export default function TopicsPage() {
               </p>
               <p className="mt-0.5 text-sm text-muted">
                 Each article costs {articleCost} credits. Pick a topic in the queue and hit
-                Generate — subscribe later to unlock auto-publishing.
+                Generate. You can choose a plan later if you want automatic publishing.
               </p>
             </div>
           );
@@ -74,7 +74,7 @@ export default function TopicsPage() {
         </p>
       ) : null}
 
-      <Tabs defaultSelectedKey="research">
+      <Tabs defaultSelectedKey="research" variant="secondary">
         <Tabs.ListContainer>
           <Tabs.List aria-label="Topic tools" className="w-fit">
             <Tabs.Tab id="research" className="whitespace-nowrap">
@@ -82,24 +82,22 @@ export default function TopicsPage() {
               <Tabs.Indicator />
             </Tabs.Tab>
             <Tabs.Tab id="manual" className="whitespace-nowrap">
-              <Tabs.Separator />
               Manual topic
               <Tabs.Indicator />
             </Tabs.Tab>
             <Tabs.Tab id="queue" className="whitespace-nowrap">
-              <Tabs.Separator />
               Topic queue
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
-        <Tabs.Panel id="research">
+        <Tabs.Panel id="research" className="pt-8">
           <ResearchPanel />
         </Tabs.Panel>
-        <Tabs.Panel id="manual">
+        <Tabs.Panel id="manual" className="pt-8">
           <ManualTopicForm />
         </Tabs.Panel>
-        <Tabs.Panel id="queue">
+        <Tabs.Panel id="queue" className="pt-8">
           <Section
             query={credits}
             skeleton={queueSkeleton}

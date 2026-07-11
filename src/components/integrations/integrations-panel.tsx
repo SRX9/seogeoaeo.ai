@@ -107,7 +107,7 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
   );
 }
 
-/** Labelled on/off switch for an integration — enable/disable is a state, not an action. */
+/** Labelled on/off switch for an integration: enable/disable is a state, not an action. */
 function EnableSwitch({
   name,
   enabled,

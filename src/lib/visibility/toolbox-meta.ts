@@ -1,7 +1,7 @@
 import type { Pillar } from "./types";
 
 /**
- * V8.3 — client-safe Toolbox metadata (no analyzer imports, so it's bundle-safe
+ * V8.3: client-safe Toolbox metadata (no analyzer imports, so it's bundle-safe
  * for the /tools grid). The server registry in `toolbox-registry.ts` pairs each
  * entry with its `run()`.
  */

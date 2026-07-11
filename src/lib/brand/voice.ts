@@ -7,7 +7,7 @@ import { logInfo, logWarn } from "@/lib/logging/logger";
 
 /**
  * C3 brand voice memory: a structured voice doc that starts from the profile's
- * tone and grows every time the user edits a draft before approving it —
+ * tone and grows every time the user edits a draft before approving it.
  * Claudia learns the voice the way a real hire does, by being edited.
  */
 
@@ -21,7 +21,7 @@ export type VoiceDoc = {
 };
 
 const MAX_LEARNED_RULES = 15;
-/** Skip learning on trivial tweaks — a typo fix teaches nothing about voice. */
+/** Skip learning on trivial tweaks: a typo fix teaches nothing about voice. */
 const MIN_EDIT_DISTANCE_CHARS = 120;
 
 export function parseVoiceDoc(json: string | null | undefined): VoiceDoc | null {
@@ -63,7 +63,7 @@ async function saveVoiceDoc(brandId: string, voice: VoiceDoc) {
     .where(eq(brandProfiles.brandId, brandId));
 }
 
-/** Rough size of the diff — cheap gate so typo fixes never hit the LLM. */
+/** Rough size of the diff: cheap gate so typo fixes never hit the LLM. */
 function editMagnitude(before: string, after: string) {
   const beforeSet = new Set(before.split(/\s+/));
   const afterSet = new Set(after.split(/\s+/));
@@ -75,7 +75,7 @@ function editMagnitude(before: string, after: string) {
 
 /**
  * Diff a draft against the user's edited version and append generalizable
- * voice rules to the doc. Fire on approval; failures only log — an edit save
+ * voice rules to the doc. Fire on approval; failures only log: an edit save
  * must never break because learning hiccupped.
  */
 export async function learnVoiceFromEdit(brandId: string, before: string, after: string) {
@@ -88,10 +88,10 @@ export async function learnVoiceFromEdit(brandId: string, before: string, after:
         role: "system",
         content:
           "You learn a brand's writing voice from how the owner edits AI drafts. Compare the " +
-          "draft and the edited version and extract at most 3 generalizable voice rules — " +
+          "draft and the edited version and extract at most 3 generalizable voice rules: " +
           'phrasing, word choice, tone, structure preferences (e.g. "shorten intros", ' +
           "\"say 'clients', never 'customers'\"). Ignore factual corrections and one-off " +
-          'changes. Return JSON {"rules": string[]} — an empty array when the edits teach nothing.',
+          'changes. Return JSON {"rules": string[]}: an empty array when the edits teach nothing.',
       },
       {
         role: "user",

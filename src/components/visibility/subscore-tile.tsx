@@ -1,4 +1,3 @@
-import { Card } from "@heroui/react";
 import type { ComponentType, SVGProps } from "react";
 import {
   BoltIcon,
@@ -11,7 +10,7 @@ import {
 import { scoreColor } from "@/components/dashboard/score-gauge";
 
 /**
- * One sub-score stat tile: icon, owner-language label, and the 0–100 value in
+ * One sub-score stat tile: icon, owner-language label, and the 0-100 value in
  * its band colour. Shared by the visibility overview and the report page so
  * the six pillars always look the same.
  */
@@ -25,7 +24,7 @@ export const SUBSCORE_ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement
   platform: SparklesIcon,
 };
 
-const fmt = (n: number | null | undefined) => (n == null ? "—" : `${Math.round(n)}`);
+const fmt = (n: number | null | undefined) => (n == null ? "N/A" : `${Math.round(n)}`);
 
 export function SubScoreTile({
   subScoreKey,
@@ -40,9 +39,9 @@ export function SubScoreTile({
 }) {
   const IconComponent = SUBSCORE_ICONS[subScoreKey] ?? SparklesIcon;
   return (
-    <Card className="material-panel p-4" title={explainer}>
+    <div className="py-3" title={explainer}>
       <div className="flex items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
           <IconComponent className="size-4.5" />
         </div>
         <div className="min-w-0">
@@ -56,6 +55,6 @@ export function SubScoreTile({
           </p>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

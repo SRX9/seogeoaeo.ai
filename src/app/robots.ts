@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/site";
 
 /**
  * Allow crawling of the public marketing pages while keeping the authenticated
- * app and API surface out of search indexes. AI crawlers are welcome — being
+ * app and API surface out of search indexes. AI crawlers are welcome: being
  * found across AI assistants (GEO) is the whole point of the product.
  */
 export default function robots(): MetadataRoute.Robots {

@@ -81,7 +81,7 @@ describe("maybeRunWeeklySiteHealth", () => {
     expect(finishAgentJob).toHaveBeenCalledWith(
       "job-1",
       "completed",
-      "Checked 23 things on your site — everything looks great.",
+      "Checked 23 things on your site: everything looks great.",
       { pass: 23, warn: 0, fail: 0 },
     );
   });

@@ -3,7 +3,7 @@ import { LegalShell, type LegalSection } from "@/components/marketing/legal-shel
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — seogeoaeo.ai",
+  title: "Privacy Policy: seogeoaeo.ai",
   description:
     "How seogeoaeo.ai collects, uses, and protects your data when you use the SEO·AEO·GEO suite.",
   alternates: { canonical: `${SITE_URL}/privacy` },
@@ -21,7 +21,7 @@ const sections: LegalSection[] = [
   {
     heading: "How we use your information",
     body: [
-      "To provide the service — authenticating you, running audits, generating and publishing content, and processing billing.",
+      "To provide the service: authenticating you, running audits, generating and publishing content, and processing billing.",
       "To improve reliability, performance, and the quality of our features.",
       "To communicate with you about your account, security, and important product changes.",
     ],

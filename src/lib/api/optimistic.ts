@@ -26,7 +26,7 @@ type OptimisticMutationConfig<TData, TVariables, TCache> = {
  *
  * The whole app renders from the query cache (see {@link file://./queries.ts}),
  * so a plain `invalidateQueries`-only mutation leaves the old value on screen
- * until a fresh GET round-trips — a visible 2-3s lag. This applies the canonical
+ * until a fresh GET round-trips: a visible 2-3s lag. This applies the canonical
  * TanStack optimistic pattern: cancel in-flight refetches, snapshot, write the
  * optimistic value, roll back on error, and invalidate on settle to reconcile.
  */

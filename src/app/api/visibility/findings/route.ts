@@ -3,7 +3,7 @@ import { getApiContext, handleApi, jsonOk, parseBody, readJson } from "@/lib/api
 import { getOpenFindings, setFindingResolved } from "@/lib/visibility/findings-repository";
 import type { FixCapability, Pillar, Severity } from "@/lib/visibility/types";
 
-/** V8.2 — open findings for the fix queue + dismiss/complete. */
+/** V8.2: open findings for the fix queue + dismiss/complete. */
 export async function GET(request: Request) {
   return handleApi(async () => {
     const { workspace, brand } = await getApiContext();

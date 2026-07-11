@@ -15,7 +15,7 @@ import { extractXmlValues, fetchText } from "@/lib/research/utils";
 /**
  * C1 competitor content mining: competitors already spent money discovering
  * which topics work. Crawl their blogs incrementally, classify each post once,
- * and emit the topics they cover that we don't — as *our* topic with *our*
+ * and emit the topics they cover that we don't: as *our* topic with *our*
  * angle. Binding rule: their titles/text never reach a writing prompt; only
  * the topic cluster and intent do.
  */
@@ -102,7 +102,7 @@ export function coversTopic(ourTitles: string[], topic: string) {
     .toLowerCase()
     .split(/\s+/)
     .filter((term) => term.length > 3);
-  if (terms.length === 0) return true; // unusable topic — don't emit noise
+  if (terms.length === 0) return true; // unusable topic: don't emit noise
   return ourTitles.some((title) => {
     const haystack = title.toLowerCase();
     const matched = terms.filter((term) => haystack.includes(term)).length;
@@ -135,12 +135,12 @@ export const competitorContentProvider: ResearchProvider = {
       .where(eq(competitorContent.brandId, scope.brandId));
     const knownUrls = new Set(known.map((row) => row.url));
     // Known rows that were persisted without a topic (crawled during an LLM
-    // outage) get retried — otherwise they'd be poisoned forever: never "fresh"
+    // outage) get retried: otherwise they'd be poisoned forever: never "fresh"
     // again, so never re-classified, and null-topic rows never join a cluster.
     const knownUnclassified = new Set(known.filter((row) => !row.topic).map((row) => row.url));
 
     // Incremental: only never-seen (or still-unclassified) posts hit the LLM.
-    // A fresh post is itself a signal — "they just started covering X".
+    // A fresh post is itself a signal: "they just started covering X".
     const fresh = crawled.filter((post) => !knownUrls.has(post.url));
     const needsTopic = crawled.filter(
       (post) => !knownUrls.has(post.url) || knownUnclassified.has(post.url),
@@ -231,9 +231,9 @@ export const competitorContentProvider: ResearchProvider = {
       const who = [...cluster.competitors].join(", ");
       const majorityIntent = cluster.intents.sort().at(cluster.intents.length >> 1) ?? "mofu";
       return {
-        // The topic cluster only — never a competitor headline to paraphrase.
+        // The topic cluster only: never a competitor headline to paraphrase.
         // The angle rule: our version states our use case, our data, our take.
-        title: `${cluster.topic.charAt(0).toUpperCase()}${cluster.topic.slice(1)} — our take`,
+        title: `${cluster.topic.charAt(0).toUpperCase()}${cluster.topic.slice(1)}: our take`,
         query: cluster.topic,
         source: `Competitor gap (${who})`,
         sourceType: "competitor_gap",
@@ -241,7 +241,7 @@ export const competitorContentProvider: ResearchProvider = {
         snippet: `Write from our angle: our use case, our numbers, our opinion. Never reuse their framing.`,
         intentTier: majorityIntent,
         thesis: cluster.hasFresh
-          ? `${who} just started covering "${cluster.topic}" (${cluster.count} posts) — we have nothing on it.`
+          ? `${who} recently published ${cluster.count} posts about "${cluster.topic}". We do not have an article on that topic yet.`
           : `${who} has ${cluster.count} posts on "${cluster.topic}"; we have 0. Demand they already validated.`,
       };
     });

@@ -44,7 +44,7 @@ export {
 } from "@/lib/agent/ask-shared";
 
 /**
- * Phase 4 — constrained Ask Claudia (server).
+ * Phase 4: constrained Ask Claudia (server).
  * Structured brand data only. Never calls refreshAgentBrief / LLM.
  */
 
@@ -97,7 +97,7 @@ async function loadAskContext(
     getUsageTotals(scope.brandId),
     listPendingTopicsForWriting(scope.brandId, 5),
     getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
-    // brandId — multi-brand workspaces must never report another brand's score.
+    // brandId: multi-brand workspaces must never report another brand's score.
     // Prefer brand-scoped rows (same pattern as /api/visibility/summary).
     db
       .select({ overall: audits.overallScore })
@@ -197,7 +197,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
         lines.push(
           ctx.articlesThisWeek > 0
             ? `This week I wrote ${ctx.articlesThisWeek} article${ctx.articlesThisWeek === 1 ? "" : "s"} (${ctx.publishedThisWeek} published).`
-            : "I haven't written new articles yet this week — research or setup may still be filling the queue.",
+            : "I haven't written new articles yet this week: research or setup may still be filling the queue.",
         );
         if (ctx.score != null) {
           lines.push(
@@ -241,7 +241,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
         answer: `Here are the highest-impact open issues on my list:\n\n${list}\n\n${
           readyCount > 0
             ? `${readyCount} of these have a ready-to-install fix (copy from Inbox or the fix queue, install on your site, mark done).`
-            : "Most of these need a guided step — open Inbox or the fix queue for details."
+            : "Most of these need a guided step: open Inbox or the fix queue for details."
         }${
           ctx.score != null
             ? `\n\nCurrent visibility score: ${ctx.score}${
@@ -270,7 +270,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       }
       const lines = ctx.pendingTopics.map((t, i) => {
         const thesis = t.thesis?.trim();
-        return thesis ? `${i + 1}. ${t.title} — ${thesis}` : `${i + 1}. ${t.title}`;
+        return thesis ? `${i + 1}. ${t.title}: ${thesis}` : `${i + 1}. ${t.title}`;
       });
       return {
         intent,
@@ -316,7 +316,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
         return {
           intent,
           answer:
-            "Nothing waiting on you right now — I've got it. If drafts or fixes appear, they'll show in Inbox.",
+            "Nothing needs your attention right now. New drafts and fixes will appear in the Inbox.",
           sources: [{ label: "Inbox", href: "/inbox" }],
         };
       }
@@ -355,16 +355,16 @@ function answerFor(intent: AskIntentId, ctx: AskContext): AskAnswer {
       let answer: string;
       switch (ctx.presence) {
         case "Working now":
-          answer = `Yes — I'm working for ${ctx.brandName} right now${
+          answer = `Yes. I'm working for ${ctx.brandName} right now${
             ctx.lastRunStatus ? ` (latest job: ${ctx.lastRunStatus})` : ""
           }. Cadence is ${ctx.schedule}; next planned daily pass around ${when}.`;
           break;
         case "Needs attention":
-          answer = `Setup hit a wall on ${ctx.brandName} — open Home or Brand settings so we can retry.`;
+          answer = `Setup hit a wall on ${ctx.brandName}: open Home or Brand settings so we can retry.`;
           break;
         case "Paused":
           answer = ctx.pauseReason
-            ? `I'm paused for ${ctx.brandName} because you said: “${ctx.pauseReason}” I won't start new daily work until that instruction expires or you resume me.`
+            ? `I'm paused for ${ctx.brandName} because you said: "${ctx.pauseReason}" I won't start new daily work until that instruction expires or you resume me.`
             : `I'm paused for ${ctx.brandName} (plan or credits). I won't run daily work until that's fixed under Brand → Billing / automation.`;
           break;
         case "Waiting for you":
@@ -414,7 +414,7 @@ export async function answerAsk(
     return {
       unknown: true,
       suggestion:
-        "I stay grounded in your real data — pick a question I can answer, or rephrase around scores, writing, AI mentions, or what needs your approval.",
+        "I stay grounded in your real data: pick a question I can answer, or rephrase around scores, writing, AI mentions, or what needs your approval.",
       intents: askIntentChips(),
     };
   }

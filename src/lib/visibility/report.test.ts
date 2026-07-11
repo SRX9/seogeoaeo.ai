@@ -46,6 +46,6 @@ describe("reportHtml", () => {
     expect(html).toContain("Acme Report");
     expect(html).toContain("acme.example");
     expect(html).toContain(">68<"); // gauge value
-    expect(html).toContain("#2563eb"); // 60–79 → blue gauge
+    expect(html).toContain("#2563eb"); // 60-79 → blue gauge
   });
 });

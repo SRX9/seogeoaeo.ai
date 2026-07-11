@@ -3,7 +3,7 @@ import { DEFAULT_HEADERS } from "./fetch-page";
 import type { Finding, LlmsTxtResult } from "./types";
 
 /**
- * V0.2 — llms.txt probe. Port of `fetch_llms_txt()` from
+ * V0.2: llms.txt probe. Port of `fetch_llms_txt()` from
  * `inspiration-code/scripts/fetch_page.py`: existence + raw content only
  * (validation is ticket V1.3).
  */
@@ -41,7 +41,7 @@ export async function fetchLlmsTxt(
 }
 
 /**
- * V1.3 — llms.txt validation. Format checks + suggestion logic ported from
+ * V1.3: llms.txt validation. Format checks + suggestion logic ported from
  * `inspiration-code/scripts/llmstxt_generator.py` → `validate_llmstxt()`;
  * score bands from `agents/geo-ai-visibility.md` → Step 4.
  */
@@ -182,7 +182,7 @@ export async function validateLlmsTxt(
 }
 
 /**
- * V1.3 — llms.txt generator. Port of `generate_llmstxt()` from
+ * V1.3: llms.txt generator. Port of `generate_llmstxt()` from
  * `inspiration-code/scripts/llmstxt_generator.py`, including the 5-bucket
  * keyword map and the SSRF guard (skip cross-origin URLs in the full version).
  */
@@ -227,7 +227,7 @@ export async function generateLlmsTxt(
   url: string,
   opts: {
     maxPages?: number;
-    /** Reuse an already-fetched homepage HTML (V0.1 snapshot) — zero extra requests. */
+    /** Reuse an already-fetched homepage HTML (V0.1 snapshot): zero extra requests. */
     homepageHtml?: string;
     /** Fetch each page's meta description for llms-full.txt (default true). */
     includeFull?: boolean;
@@ -316,7 +316,7 @@ export async function generateLlmsTxt(
   const header = [`# ${siteName}`, `> ${siteDescription}`, ""];
   const contact = ["## Contact", `- Website: ${baseUrl}`, `- Email: contact@${base.host}`, ""];
 
-  // Concise version — top 10 links per section
+  // Concise version: top 10 links per section
   const concise = [...header];
   for (const section of SECTION_ORDER) {
     if (pages[section].length === 0) continue;
@@ -329,7 +329,7 @@ export async function generateLlmsTxt(
   concise.push(...contact);
   result.llms_txt = concise.join("\n");
 
-  // Full version — all links, with each page's meta description where fetchable
+  // Full version: all links, with each page's meta description where fetchable
   const full = [...header];
   for (const section of SECTION_ORDER) {
     if (pages[section].length === 0) continue;
@@ -348,7 +348,7 @@ export async function generateLlmsTxt(
         });
         description = metaDescription(parseHTML(await response.text()).document);
       } catch {
-        // best-effort — fall back to a bare link
+        // best-effort: fall back to a bare link
       }
       full.push(
         description

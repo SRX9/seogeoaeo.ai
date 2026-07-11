@@ -27,11 +27,11 @@ export const audits = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    /** Owning brand when known — multi-brand workspaces filter visibility by this. */
+    /** Owning brand when known: multi-brand workspaces filter visibility by this. */
     brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
     siteUrl: text("site_url").notNull(),
     /**
-     * owned | benchmark — a benchmark audit scores a competitor's site under the
+     * owned | benchmark: a benchmark audit scores a competitor's site under the
      * owner's workspace (Setup Run's competitor baseline). Owner-facing surfaces
      * (summary, badge, fix queue, re-audit cron, industry baseline) must filter
      * to "owned" so a rival's score/findings never masquerade as the owner's.
@@ -99,7 +99,7 @@ export const auditFindings = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     /** Denormalized so the fix queue (V8.2) queries findings from audits AND tool runs uniformly. */
     workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
-    /** Owning brand when known — multi-brand fix queues filter by this. */
+    /** Owning brand when known: multi-brand fix queues filter by this. */
     brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
     /** Null for standalone Toolbox-run findings (V8.3). */
     auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
@@ -112,18 +112,18 @@ export const auditFindings = pgTable(
     severity: text("severity").notNull(),
     title: text("title").notNull(),
     recommendation: text("recommendation").notNull(),
-    /** auto | artifact | guided — drives the fix-queue action button (V8.2). */
+    /** auto | artifact | guided: drives the fix-queue action button (V8.2). */
     fixCapability: text("fix_capability"),
     /** Ready-to-install payload for V7.2 (artifact / future live-apply channel). */
     fixPayload: jsonb("fix_payload"),
     isResolved: boolean("is_resolved").notNull().default(false),
-    /** When the finding was resolved (fix applied / dismissed) — null while open. */
+    /** When the finding was resolved (fix applied / dismissed): null while open. */
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     /** HOW it was resolved: auto_applied | user_applied | completed | dismissed.
      * `auto_applied` = live channel pushed the fix (counts toward monthly cap with
      * prepares). `user_applied` = owner marked installed. Dismissals never resurrect. */
     resolution: text("resolution"),
-    /** AP4: an applied fix re-detected by a later audit — the row is reopened and
+    /** AP4: an applied fix re-detected by a later audit: the row is reopened and
      * this stamp marks the regression for the monitor/weekly report. */
     regressedAt: timestamp("regressed_at", { withTimezone: true }),
     /** Claudia prepared a ready-to-install artifact; owner installs and marks done. */
@@ -200,7 +200,7 @@ export const platformScores = pgTable(
   (table) => [index("platform_scores_audit_id_idx").on(table.auditId)],
 );
 
-/** V5.5 — prompts we track share-of-answer for, per brand. */
+/** V5.5: prompts we track share-of-answer for, per brand. */
 export const trackedPrompts = pgTable(
   "tracked_prompts",
   {
@@ -217,7 +217,7 @@ export const trackedPrompts = pgTable(
   (table) => [index("tracked_prompts_brand_id_idx").on(table.brandId)],
 );
 
-/** V5.5 — one row per prompt × engine per run; share-of-answer derives from these. */
+/** V5.5: one row per prompt × engine per run; share-of-answer derives from these. */
 export const answerRuns = pgTable(
   "answer_runs",
   {
@@ -247,7 +247,7 @@ export const answerRuns = pgTable(
   ],
 );
 
-/** V8.3 — standalone Toolbox runs (per-run priced). Findings still go to audit_findings. */
+/** V8.3: standalone Toolbox runs (per-run priced). Findings still go to audit_findings. */
 export const toolRuns = pgTable(
   "tool_runs",
   {
@@ -265,7 +265,7 @@ export const toolRuns = pgTable(
   (table) => [index("tool_runs_workspace_id_idx").on(table.workspaceId)],
 );
 
-/** V8.5 — Claudia's per-category visibility autonomy (0 monitor · 1 propose · 2 live-apply when canLiveApply). */
+/** V8.5: Claudia's per-category visibility autonomy (0 monitor · 1 propose · 2 live-apply when canLiveApply). */
 export const agentAutonomy = pgTable(
   "agent_autonomy",
   {
@@ -280,7 +280,7 @@ export const agentAutonomy = pgTable(
   (table) => [uniqueIndex("agent_autonomy_brand_category_unique").on(table.brandId, table.category)],
 );
 
-/** V7.4 — agency CRM prospects (optional tier). */
+/** V7.4: agency CRM prospects (optional tier). */
 export const prospects = pgTable(
   "prospects",
   {
@@ -301,7 +301,7 @@ export const prospects = pgTable(
   (table) => [index("prospects_workspace_id_idx").on(table.workspaceId)],
 );
 
-/** V6.6 — daily traffic proof from GSC / GA4. Idempotent per (brand, source, date). */
+/** V6.6: daily traffic proof from GSC / GA4. Idempotent per (brand, source, date). */
 export const trafficSnapshots = pgTable(
   "traffic_snapshots",
   {
@@ -327,7 +327,7 @@ export const trafficSnapshots = pgTable(
 );
 
 /**
- * V6.6 connect — maps a brand to the Google property it pulls traffic proof from.
+ * V6.6 connect: maps a brand to the Google property it pulls traffic proof from.
  * The OAuth grant (access/refresh tokens) lives in better-auth's `account` table;
  * we only store which user's grant to refresh and which site/property this brand
  * uses. One row per (brand, source). No secrets here.

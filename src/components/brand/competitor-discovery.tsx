@@ -142,7 +142,7 @@ export function CompetitorDiscovery() {
 
             {settingUp ? (
               <p className="text-sm leading-relaxed text-muted">
-                Claudia is setting up your brand — competitor discovery runs as part of it.
+                Claudia is setting up your brand: competitor discovery runs as part of it.
               </p>
             ) : null}
 

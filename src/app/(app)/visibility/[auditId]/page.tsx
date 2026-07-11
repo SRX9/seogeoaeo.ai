@@ -10,9 +10,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useVisibilityReport, type VisibilityReport } from "@/lib/api/queries";
 import { SubScoreTile } from "@/components/visibility/subscore-tile";
 
-/** V6.1 — in-app report view: score dashboard + findings + Markdown/PDF export. */
+/** V6.1: in-app report view: score dashboard + findings + Markdown/PDF export. */
 
-const fmt = (n: number | null) => (n == null ? "—" : `${Math.round(n)}`);
+const fmt = (n: number | null) => (n == null ? "N/A" : `${Math.round(n)}`);
 
 const reportSkeleton = (
   <div className="space-y-6">
@@ -51,7 +51,7 @@ function ReportContent({ model }: { model: VisibilityReport["model"] }) {
         <ul className="space-y-2.5 text-sm leading-relaxed">
           {model.quickWins.map((f, i) => (
             <li key={i}>
-              <span className="font-medium tracking-tight">{f.title}</span> — {f.recommendation}
+              <span className="font-medium tracking-tight">{f.title}</span>: {f.recommendation}
             </li>
           ))}
           {model.quickWins.length === 0 && (
@@ -68,7 +68,7 @@ function ReportContent({ model }: { model: VisibilityReport["model"] }) {
           <ul className="space-y-2.5 text-sm leading-relaxed">
             {t.findings.map((f, i) => (
               <li key={i}>
-                <span className="font-medium tracking-tight">{f.title}</span> — {f.recommendation}
+                <span className="font-medium tracking-tight">{f.title}</span>: {f.recommendation}
               </li>
             ))}
           </ul>

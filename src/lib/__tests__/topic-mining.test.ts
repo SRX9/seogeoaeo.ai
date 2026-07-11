@@ -65,7 +65,7 @@ describe("unified backlog scoring (heuristic path)", () => {
   const envBackup = { ...process.env };
 
   beforeEach(() => {
-    // Force the deterministic heuristic path — no LLM config in unit tests.
+    // Force the deterministic heuristic path: no LLM config in unit tests.
     delete process.env.LLM_BASE_URL;
   });
 

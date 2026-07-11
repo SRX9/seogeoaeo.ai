@@ -2,14 +2,14 @@ import type { VisibilityCaps } from "@/lib/billing/plans";
 import { AUTONOMY_CATEGORIES } from "@/lib/visibility/display";
 
 /**
- * V8.5 — Claudia's visibility duties: monitor on the plan cadence, prepare fixes,
+ * V8.5: Claudia's visibility duties: monitor on the plan cadence, prepare fixes,
  * live-apply when a channel exists (V7.2), and report the score delta.
  * Pure cadence + dispatch decision logic; orchestration lives in
  * `fix-policy.dispatchOpenFindings` + visibility cron / AuditRunWorkflow.
  *
  * Live site push: no host/CMS channel yet for robots/llms/JSON-LD/meta on the
  * customer origin. Until that ships, Level 2 is not offered in UI and
- * {@link canLiveApply} stays false — never mark `auto_applied` without a channel.
+ * {@link canLiveApply} stays false: never mark `auto_applied` without a channel.
  */
 
 export type AutonomyLevel = 0 | 1 | 2; // 0 watch · 1 prepare · 2 live-apply (when available)
@@ -21,7 +21,7 @@ export type AutonomyMode = "FULL_AUTO" | "REVIEW";
 export type DispatchAction = "apply" | "propose" | "queue";
 
 /**
- * Fix categories whose findings typically carry `fix_capability: auto` —
+ * Fix categories whose findings typically carry `fix_capability: auto`.
  * used only for *default* levels in settings. Per-finding dispatch trusts the
  * finding's own `fixCapability`, never this set.
  */
@@ -49,7 +49,7 @@ export function canPrepareFix(fixCapability: string | null | undefined): boolean
 /**
  * Dial defaults: Autopilot aims for live-apply (2) only when a channel exists
  * for that capability; otherwise both modes default to Prepare (1). Level 0
- * is never a default — opt-down only.
+ * is never a default: opt-down only.
  */
 export function defaultLevelFor(mode: AutonomyMode, fixCapability: string | null): AutonomyLevel {
   if (mode === "FULL_AUTO" && fixCapability === "auto" && canLiveApply(fixCapability)) {
@@ -99,7 +99,7 @@ export function dueForReaudit(
 
 /**
  * Level 2 + auto-capable + a real live-apply channel. Without a channel,
- * Autopilot still prepares — it never pretends the site changed.
+ * Autopilot still prepares: it never pretends the site changed.
  */
 export function canAutoApply(level: AutonomyLevel, fixCapability: string | null): boolean {
   return level === 2 && fixCapability === "auto" && canLiveApply(fixCapability);

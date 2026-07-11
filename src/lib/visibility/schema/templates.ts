@@ -1,5 +1,5 @@
 /**
- * V3.3 — JSON-LD template builders. Typed ports of the 6 reference templates in
+ * V3.3: JSON-LD template builders. Typed ports of the 6 reference templates in
  * `inspiration-code/schema/*.json` (+ FAQ/speakable), per `agents/geo-schema.md`
  * Step 7. Known values are filled from the snapshot; everything else uses the
  * `[REPLACE: …]` placeholder convention. Always JSON-LD, `@context: schema.org`.

@@ -93,7 +93,7 @@ describe("parseContentSignals", () => {
     expect(result.explanation).toContain("must not be used to train");
   });
 
-  it("warns on an unknown key (draft is evolving — never a failure)", () => {
+  it("warns on an unknown key (draft is evolving: never a failure)", () => {
     const result = parseContentSignals("Content-Signal: ai-input=yes, search=yes\n");
     expect(result.status).toBe("warning");
     expect(result.issues[0]).toContain('Unknown key "ai-input"');

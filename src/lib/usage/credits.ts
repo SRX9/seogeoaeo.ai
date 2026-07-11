@@ -45,7 +45,7 @@ export async function getCreditBalance(workspaceId: string): Promise<CreditBalan
 }
 
 /**
- * V8.4 — spend credits for a visibility job. Cost comes from `CREDIT_COSTS`
+ * V8.4: spend credits for a visibility job. Cost comes from `CREDIT_COSTS`
  * (single source of truth); idempotent by `refId` (the run/audit id) so retries
  * and double-clicks never double-charge. Mirrors the article-generation pattern.
  * Never call this for fixes (plan-included) or proof surfaces (free).
@@ -83,11 +83,11 @@ export async function assertHasCredits(workspaceId: string, cost: number) {
  * Deduct `cost` credits atomically, draining the monthly (expiring) bucket
  * before the purchased (permanent) one. Re-checks the balance under a row lock
  * so concurrent spends can't overdraw. Call this only after the paid work has
- * succeeded — failed work must never burn credits.
+ * succeeded: failed work must never burn credits.
  *
  * Idempotent when `refId` is supplied: a repeat with the same reason+refId is a
  * no-op (returns the current balance). This makes a retried Workflow step that
- * re-charges the same article/research-run id safe — mirrors the dedupe in
+ * re-charges the same article/research-run id safe: mirrors the dedupe in
  * {@link grantCredits}, and is backstopped by the `credit_ledger_ref_unique_idx`
  * unique index.
  */
@@ -171,7 +171,7 @@ export async function grantCredits(
   return getDb().transaction(async (tx) => {
     // Lock the row first, then check for a duplicate. Concurrent retries of the
     // same webhook serialize on this lock, so the second one always sees the
-    // first's ledger entry and no-ops — no double-grant.
+    // first's ledger entry and no-ops: no double-grant.
     const [sub] = await tx
       .select({
         id: subscriptions.id,
@@ -185,7 +185,7 @@ export async function grantCredits(
 
     if (!sub) {
       // A paid grant with no subscription row means signup provisioning failed
-      // for this workspace — money was taken and nothing will be credited.
+      // for this workspace: money was taken and nothing will be credited.
       // Loud, because silently returning zeros here is invisible to everyone.
       logError("credits.grant_missing_subscription", {
         workspaceId,

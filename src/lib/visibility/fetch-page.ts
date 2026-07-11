@@ -2,7 +2,7 @@ import { parseHTML } from "linkedom";
 import type { PageSnapshot, RedirectHop } from "./types";
 
 /**
- * V0.1 — page fetcher. 1:1 port of `fetch_page()` from
+ * V0.1: page fetcher. 1:1 port of `fetch_page()` from
  * `inspiration-code/scripts/fetch_page.py`. Fetches RAW HTML (JSON-LD and meta
  * must survive), records the redirect chain, and applies the exact SSR
  * heuristic (<50 chars in a framework root AND <200 words on the page).
@@ -154,7 +154,7 @@ export async function fetchPage(
       }
     }
 
-    // Structured data (JSON-LD) — extract before any DOM mutation
+    // Structured data (JSON-LD): extract before any DOM mutation
     for (const script of document.querySelectorAll(
       'script[type="application/ld+json"]',
     )) {
@@ -165,7 +165,7 @@ export async function fetchPage(
       }
     }
 
-    // SSR check — measure framework roots BEFORE stripping elements
+    // SSR check: measure framework roots BEFORE stripping elements
     const rootIdPattern = /(app|root|__next|__nuxt)/i;
     const ssrChecks: { id: string; textLength: number }[] = [];
     for (const el of document.querySelectorAll("[id]")) {
@@ -175,7 +175,7 @@ export async function fetchPage(
       }
     }
 
-    // Text content — strip non-content elements (destructive from here on)
+    // Text content: strip non-content elements (destructive from here on)
     for (const el of document.querySelectorAll("script,style,nav,footer,header")) {
       el.remove();
     }
@@ -183,7 +183,7 @@ export async function fetchPage(
     result.text_content = text;
     result.word_count = text ? text.split(/\s+/).length : 0;
 
-    // Links (post-strip, matching the Python order — nav/footer links excluded)
+    // Links (post-strip, matching the Python order: nav/footer links excluded)
     const baseHost = new URL(url).host;
     for (const link of document.querySelectorAll("a[href]")) {
       const href = link.getAttribute("href") ?? "";
@@ -212,7 +212,7 @@ export async function fetchPage(
       });
     }
 
-    // SSR assessment — a framework root with minimal content only counts as
+    // SSR assessment: a framework root with minimal content only counts as
     // client-side rendering when the whole page is also thin, so SSR/prerendered
     // sites (WordPress, Prerender.io) with framework-style ids don't false-positive.
     for (const check of ssrChecks) {

@@ -11,7 +11,7 @@ import { countInboxFromParts } from "@/lib/inbox/rows";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
 
 /**
- * Cheap server-side inbox badge count — no article bodies, no full traffic series.
+ * Cheap server-side inbox badge count: no article bodies, no full traffic series.
  * Semantics match `buildInboxRows` / the owner Inbox UI.
  */
 export async function getInboxSummaryCount(scope: BrandScope): Promise<number> {

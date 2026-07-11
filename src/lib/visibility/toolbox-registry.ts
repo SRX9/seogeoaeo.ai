@@ -13,10 +13,10 @@ import { TOOLBOX_META, type ToolboxMeta } from "./toolbox-meta";
 import type { Finding } from "./types";
 
 /**
- * V8.3 — the Toolbox registry: every analyzer as a standalone, per-run-priced
+ * V8.3: the Toolbox registry: every analyzer as a standalone, per-run-priced
  * tool. Pairs the client-safe metadata (`toolbox-meta.ts`) with each tool's
- * `run()` — the analyzer's dual-mode entry-point (engine contract #2), identical
- * to what the audit calls — so findings land in the same fix queue.
+ * `run()`: the analyzer's dual-mode entry-point (engine contract #2), identical
+ * to what the audit calls: so findings land in the same fix queue.
  */
 
 export interface ToolResult {

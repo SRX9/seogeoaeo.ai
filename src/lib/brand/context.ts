@@ -17,7 +17,7 @@ function pickActiveBrand(brandList: BrandRow[], cookieId: string | undefined) {
 
 /**
  * Resolve the workspace, subscription, and the currently selected brand.
- * Never redirects — use for read-only contexts like the app shell.
+ * Never redirects: use for read-only contexts like the app shell.
  */
 export async function getActiveBrandContext() {
   const ctx = await getBillingContext();
@@ -31,7 +31,7 @@ export async function getActiveBrandContext() {
  * Require a workspace with at least one brand and a selected brand. Redirects to
  * onboarding when the workspace has no brand yet.
  *
- * This does NOT require an active subscription — the whole app is browsable on
+ * This does NOT require an active subscription: the whole app is browsable on
  * the free tier. Generating articles is gated separately at the action level so
  * users without a plan still see their data and a clear upgrade path.
  */

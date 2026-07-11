@@ -31,7 +31,7 @@ describe("mineStrikingDistance", () => {
     expect(findings[0].evidenceUrls).toEqual(["https://example.com/blog/invoices"]);
   });
 
-  it("ignores queries outside the 8–25 band or below the impression floor", () => {
+  it("ignores queries outside the 8-25 band or below the impression floor", () => {
     expect(mineStrikingDistance([row({ position: 3 })])).toHaveLength(0);
     expect(mineStrikingDistance([row({ position: 40 })])).toHaveLength(0);
     expect(mineStrikingDistance([row({ impressions: 10 })])).toHaveLength(0);
@@ -46,7 +46,7 @@ describe("mineStrikingDistance", () => {
     expect(findings[0].query).toBe("big win");
   });
 
-  it("is deterministic — same input, same output", () => {
+  it("is deterministic: same input, same output", () => {
     const input = [row({ query: "alpha", impressions: 100 }), row({ query: "beta", impressions: 90 })];
     expect(mineStrikingDistance(input)).toEqual(mineStrikingDistance(input));
   });
@@ -70,7 +70,7 @@ describe("mineCtrGaps", () => {
   });
 
   it("leaves healthy CTRs and page-2 rankings alone", () => {
-    // Position 3 at 8% CTR — above half of the expected 11%.
+    // Position 3 at 8% CTR: above half of the expected 11%.
     expect(mineCtrGaps([row({ position: 3, impressions: 1000, clicks: 80 })], brand)).toHaveLength(0);
     // Page 2 is a striking-distance case, not a CTR case.
     expect(mineCtrGaps([row({ position: 14, impressions: 1000, clicks: 1 })], brand)).toHaveLength(0);
@@ -78,7 +78,7 @@ describe("mineCtrGaps", () => {
 });
 
 describe("query families", () => {
-  // Impressions spread across three pages — no page owns >60% of the family.
+  // Impressions spread across three pages: no page owns >60% of the family.
   const familyRows = [
     row({ query: "invoice reminder email", page: "https://example.com/a", impressions: 60 }),
     row({ query: "invoice reminders for clients", page: "https://example.com/b", impressions: 50 }),

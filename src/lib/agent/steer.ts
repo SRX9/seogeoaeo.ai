@@ -175,7 +175,7 @@ export async function steerAgent(
         intent: "unsupported",
         outcome: "unsupported",
         title: "Use a concrete pause window",
-        summary: "Say “pause until Monday,” “pause for 3 days,” or “resume work” so I can enforce the schedule deterministically.",
+        summary: 'Say "pause until Monday," "pause for 3 days," or "resume work" so I know exactly how long to pause.',
       };
     }
     const scheduleScope = /\bpublish(?:ing)?\b/i.test(message)
@@ -293,7 +293,7 @@ export async function steerAgent(
         expiresAt: permissionExpiresAt?.toISOString() ?? null,
       },
       riskLevel: "medium",
-      expectedBenefit: "Unlock the requested class of autonomous work with an explicit audit trail.",
+      expectedBenefit: "Allow the requested work and record each action in the audit log.",
       expiresAt: permissionExpiresAt,
     });
     return {
@@ -316,7 +316,7 @@ export async function steerAgent(
         intent: "unsupported",
         outcome: "unsupported",
         title: "That executor is not connected yet",
-        summary: "I can queue a concrete article when you say “write an article about …”. Audits, publishing, and launches still need their existing dedicated controls.",
+        summary: 'I can queue an article when you say "write an article about...". Use the existing controls for audits, publishing, and launches.',
       };
     }
     const taskKey = `steer:${key}`;

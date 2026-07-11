@@ -6,15 +6,15 @@ import { persistNewFindings } from "@/lib/visibility/findings-repository";
 import type { Finding } from "@/lib/visibility/types";
 
 /**
- * C2 — GSC query mining. Deterministic (no LLM): three plays over the brand's
+ * C2: GSC query mining. Deterministic (no LLM): three plays over the brand's
  * own Search Console query×page report (synced weekly into `search_queries`).
  *
- * 1. Striking distance — queries at position 8–25 with real impressions become
+ * 1. Striking distance: queries at position 8-25 with real impressions become
  *    topics: Google already believes we're relevant; one dedicated piece moves
  *    us to page 1.
- * 2. CTR gap — page-1 rankings clicking far below the expected curve become
+ * 2. CTR gap: page-1 rankings clicking far below the expected curve become
  *    title/meta rewrite *fixes* (into the shared fix queue), not topics.
- * 3. Query families — clusters of related queries with impressions spread
+ * 3. Query families: clusters of related queries with impressions spread
  *    across pages but no dedicated page become one cluster-head topic.
  *
  * Not connected → the provider quietly contributes nothing.
@@ -35,7 +35,7 @@ export const GSC_MINING = {
   strikingDistance: { minPosition: 8, maxPosition: 25 },
   ctrGap: {
     maxPosition: 10,
-    /** Expected CTR by rounded position 1–10 (industry curve, conservative). */
+    /** Expected CTR by rounded position 1-10 (industry curve, conservative). */
     expectedCtrByPosition: [0.28, 0.15, 0.11, 0.08, 0.07, 0.05, 0.04, 0.03, 0.028, 0.025],
     /** Flag when actual CTR is below this fraction of expected. */
     gapRatio: 0.5,
@@ -58,7 +58,7 @@ function inferIntent(query: string): "bofu" | "mofu" {
   return BOFU_PATTERNS.some((p) => p.test(query)) ? "bofu" : "mofu";
 }
 
-/** Play 1 — striking distance: position 8–25, real impressions → topic findings. */
+/** Play 1: striking distance: position 8-25, real impressions → topic findings. */
 export function mineStrikingDistance(
   rows: SearchQueryRow[],
   cfg: GscMiningConfig = GSC_MINING,
@@ -79,7 +79,7 @@ export function mineStrikingDistance(
       sourceType: "gsc_query" as const,
       evidenceUrls: [r.page],
       intentTier: inferIntent(r.query),
-      thesis: `Google shows you at #${Math.round(r.position ?? 0)} for "${r.query}" — ${r.impressions} impressions/mo waiting on page 2.`,
+      thesis: `Google shows you at #${Math.round(r.position ?? 0)} for "${r.query}": ${r.impressions} impressions/mo waiting on page 2.`,
     }));
 }
 
@@ -90,10 +90,10 @@ function expectedCtr(position: number, cfg: GscMiningConfig): number {
 }
 
 /**
- * Play 2 — CTR gap: ranking page 1 but clicked at under half the expected rate.
+ * Play 2: CTR gap: ranking page 1 but clicked at under half the expected rate.
  * The page doesn't need new content; it needs a better shop window. Emitted as
  * fix-queue findings with a deterministic title/description rewrite payload
- * (`meta_tags` — the artifact builder and AP4 dispatch handle it unchanged).
+ * (`meta_tags`: the artifact builder and AP4 dispatch handle it unchanged).
  */
 export function mineCtrGaps(
   rows: SearchQueryRow[],
@@ -109,10 +109,10 @@ export function mineCtrGaps(
     })
     .sort((a, b) => b.impressions - a.impressions)
     .map((r) => {
-      const suffix = brand.name ? ` — ${brand.name}` : "";
+      const suffix = brand.name ? `: ${brand.name}` : "";
       const title = `${titleCase(r.query)}${suffix}`.slice(0, 60);
       const blurb = (brand.productDescription ?? "").split(/[.!?]/)[0]?.trim();
-      const description = `${titleCase(r.query)}: ${blurb || "a clear, direct answer"} — see how it works.`.slice(0, 155);
+      const description = `${titleCase(r.query)}: ${blurb || "a clear, direct answer"}: see how it works.`.slice(0, 155);
       return {
         pillar: "seo" as const,
         category: "search_ctr",
@@ -139,7 +139,7 @@ export interface QueryFamily {
 /**
  * The canonical query-family key (normalized, stop-word-stripped, stemmed head
  * bigram). Exported so C4's performance loop buckets follow-ups and dead
- * families with the SAME key C2 clustered topics under — a divergent copy
+ * families with the SAME key C2 clustered topics under: a divergent copy
  * would penalize the wrong families.
  */
 export function familyHead(query: string): string {
@@ -177,8 +177,8 @@ export function clusterQueryFamilies(
 }
 
 /**
- * Play 3 — family gaps: impressions spread across ≥2 pages with no single
- * dominant page means Google can't find one canonical answer from us — a
+ * Play 3: family gaps: impressions spread across ≥2 pages with no single
+ * dominant page means Google can't find one canonical answer from us: a
  * dedicated cluster-head piece consolidates the demand.
  */
 export function mineFamilyGaps(
@@ -253,7 +253,7 @@ export const gscQueriesProvider: ResearchProvider = {
 
     // CTR-gap fixes go straight to the shared fix queue (dedup lives in the
     // repository). Best-effort: a findings-write failure must never sink the
-    // research run — the topic plays below still count.
+    // research run: the topic plays below still count.
     try {
       const fixes = mineCtrGaps(rows, context.brand);
       if (fixes.length > 0) await persistNewFindings(scope.workspaceId, fixes);
@@ -263,7 +263,7 @@ export const gscQueriesProvider: ResearchProvider = {
 
     const striking = mineStrikingDistance(rows);
     const familyGaps = mineFamilyGaps(clusterQueryFamilies(rows));
-    // Striking-distance first — the highest-probability wins — then family
+    // Striking-distance first: the highest-probability wins: then family
     // heads that aren't already covered by a striking-distance pick.
     const seen = new Set(striking.map((f) => f.title.toLowerCase()));
     const merged = [

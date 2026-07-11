@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { buttonVariants } from "@heroui/react/button";
-import { Card } from "@heroui/react/card";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -9,26 +8,25 @@ import { CircleCheckIcon } from "@/components/icons";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Plans — Hire Claudia | seogeoaeo.ai",
+  title: "Plans for Claudia | seogeoaeo.ai",
   description:
-    "Salary-style plans for Claudia, your autonomous SEO·AEO·GEO employee. Safe fixes included, " +
-    "not metered per click. Start free, then hire her to write, fix, and report every week.",
+    "Choose a monthly workload for Claudia. Plans cover research, writing, audits, prepared site fixes, and weekly reporting.",
   alternates: { canonical: `${SITE_URL}/pricing` },
 };
 
 const includedEverywhere = [
-  "Visibility loop across Google, answer boxes & AI assistants",
-  "Brand-tuned writing with a traffic thesis per piece",
-  "Daily research → write → publish (within plan caps)",
-  "Safe fixes included in plan — never per-fix charges",
-  "Inbox for the rare decisions she needs from you",
-  "Weekly memo + work log in plain language",
+  "Regular checks across Google, answer boxes, and AI assistants",
+  "Writing based on your brand voice and search evidence",
+  "Research, writing, and publishing within your plan limits",
+  "A monthly allowance for prepared site fixes",
+  "One inbox for approvals and connection requests",
+  "A weekly report and a complete work log",
 ];
 
 const pricingFaqs = [
   {
-    q: "Is this a taxi meter for SEO tools?",
-    a: "No. Plans are closer to a salary: she works on a cadence. Heavy AI jobs use credits so volume stays fair. Preparing site fixes (robots, schema, meta) is plan-included — never metered per fix. You install ready artifacts on your site; Claudia re-checks on the next audit.",
+    q: "What does a plan include?",
+    a: "Each plan gives Claudia a monthly credit allowance and a limit for prepared site fixes. Credits cover heavier work such as articles, research, and audits. After you install a site fix, Claudia checks it again during the next audit.",
   },
   {
     q: "How do credits work?",
@@ -40,7 +38,7 @@ const pricingFaqs = [
   },
   {
     q: "What happens when credits run out?",
-    a: "She pauses heavy jobs gracefully, logs it, and can email you. Top up or wait for the monthly refresh — she won't invent work she can't fund.",
+    a: "Claudia pauses work that needs credits and records the reason in the work log. You can add more credits or wait for the next monthly allowance.",
   },
 ];
 
@@ -50,16 +48,16 @@ export default function PricingPage() {
       <SiteHeader />
       <main>
         <section className="mx-auto max-w-6xl px-4 pb-12 pt-24 text-center sm:pt-32">
-          <span className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft/35 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-accent-soft-foreground">
+          <span className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
             <span className="size-1.5 rounded-full bg-accent" aria-hidden />
             Plans
           </span>
           <h1 className="type-display mt-6 text-4xl text-foreground sm:text-5xl sm:leading-[1.05]">
-            Capacity for the employee you hired
+            Choose Claudia&apos;s monthly workload
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-lg leading-relaxed text-muted">
-            Preview free. Hire Claudia on a plan so she can write, fix, and report —
-            more capacity as you scale, not more dashboards.
+            Start with a free site check. Pick a paid plan when you want Claudia to research,
+            write, audit, and report on a regular schedule.
           </p>
         </section>
 
@@ -71,10 +69,11 @@ export default function PricingPage() {
 
         <section className="px-4 py-16">
           <div className="mx-auto max-w-4xl">
-            <Card className="material-panel border-border/50">
+            <div className="border-y border-border/60 py-8">
               <h2 className="type-title text-xl text-foreground">Every paid hire includes</h2>
               <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                Same employee, different capacity — credits, cadence, and fix volume.
+                Every plan includes the same workflow. Higher tiers cover more credits, more
+                frequent audits, and more prepared fixes.
               </p>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2">
                 {includedEverywhere.map((item) => (
@@ -87,7 +86,7 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-            </Card>
+            </div>
           </div>
         </section>
 

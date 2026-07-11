@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@heroui/react";
 import Link from "next/link";
 import type { ComponentType } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -10,7 +9,6 @@ import { PILLAR_LABELS, scoreBand } from "@/lib/visibility/display";
 import { TOOLBOX_META } from "@/lib/visibility/toolbox-meta";
 import {
   ActivityIcon,
-  ArrowRightIcon,
   ArticlesIcon,
   CircleCheckIcon,
   GaugeIcon,
@@ -21,7 +19,7 @@ import {
 } from "@/components/icons";
 
 /**
- * V8.3 — "Extra tools" grid (linked from the Visibility sidebar section).
+ * V8.3: "Extra tools" grid (linked from the Visibility sidebar section).
  * Every analyzer as a standalone tool, grouped by pillar. Each card shows the
  * tool's latest score so the grid doubles as a mini overview.
  */
@@ -54,7 +52,7 @@ const PILLAR_SECTIONS: { key: string; label: string; blurb: string }[] = [
   {
     key: "seo",
     label: PILLAR_LABELS.seo,
-    blurb: "Classic search fundamentals — listings, previews, and technical health.",
+    blurb: "Check search listings, page previews, and technical site health.",
   },
 ];
 
@@ -76,10 +74,10 @@ export default function ToolboxPage() {
   const latest = useToolLatestRuns().data?.latest ?? {};
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-9">
+    <div className="mx-auto w-full max-w-4xl space-y-12">
       <PageHeader
         title="Extra tools"
-        description="One-off analyzers on the same engine as full audits. Secondary surface — Claudia runs these on cadence for you."
+        description="Run an individual check when you need a fresh result between scheduled audits."
       />
       {PILLAR_SECTIONS.map((pillar) => {
         const tools = TOOLBOX_META.filter((t) => t.pillar === pillar.key);
@@ -92,37 +90,36 @@ export default function ToolboxPage() {
                 {pillar.blurb}
               </p>
             </div>
-            <div className="grid gap-3.5 sm:grid-cols-2">
+            <div className="divide-y divide-separator/70 border-y border-separator/70">
               {tools.map((t) => {
                 const run = latest[t.slug];
                 const display = TOOL_DISPLAY[t.slug];
                 const Icon = display?.icon ?? GaugeIcon;
                 return (
-                  <Link key={t.slug} href={`/tools/${t.slug}`} className="group block h-full">
-                    <Card className="material-panel surface-interactive flex h-full flex-col gap-3 p-5">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-default-100 text-default-600">
+                  <Link key={t.slug} href={`/tools/${t.slug}`} className="group grid gap-3 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-8 sm:py-6">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center text-default-500">
                           <Icon className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium tracking-tight text-foreground">
+                          <p className="font-medium tracking-tight text-foreground">
                             {display?.title ?? t.name}
                           </p>
-                          <p className="text-xs tracking-[0.01em] text-default-400">
-                            {creditLabel(CREDIT_COSTS[t.costKey])} per run
-                          </p>
+                          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-default-500">{t.description}</p>
                         </div>
-                        <ArrowRightIcon className="size-4 shrink-0 text-default-300 transition-[transform,color] duration-snappy ease-out-strong group-hover-fine:translate-x-0.5 group-hover-fine:text-default-600" />
-                      </div>
-                      <p className="text-sm leading-relaxed text-default-500">{t.description}</p>
-                      <p
-                        className={`mt-auto border-t border-default-100/80 pt-3 text-xs tracking-[0.01em] ${
+                    </div>
+                      <div className="pl-11 text-left sm:pl-0 sm:text-right">
+                        <p className="text-xs tracking-[0.01em] text-default-400">
+                          {creditLabel(CREDIT_COSTS[t.costKey])} per run
+                        </p>
+                        <p
+                        className={`mt-1 text-xs tracking-[0.01em] ${
                           run ? "text-default-600" : "text-default-400"
                         }`}
                       >
                         {lastRunLabel(run)}
                       </p>
-                    </Card>
+                      </div>
                   </Link>
                 );
               })}

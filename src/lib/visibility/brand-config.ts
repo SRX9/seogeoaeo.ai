@@ -1,7 +1,7 @@
 import type { ReportBrand } from "./report-pdf";
 
 /**
- * V7.4 — white-label config (optional agency tier). A workspace brand config
+ * V7.4: white-label config (optional agency tier). A workspace brand config
  * deep-merged over defaults, fed into the V6.1 report + V6.2 PDF. Port of
  * white-label/brand_config.py `load_brand()` (deep-merge over defaults).
  */

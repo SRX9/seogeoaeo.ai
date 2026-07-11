@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       return jsonOk({ prompts: rows }, { status: 201 });
     }
 
-    // action === "run" — pre-check (402) without charging, then charge only if the
+    // action === "run": pre-check (402) without charging, then charge only if the
     // run produced results (at least one engine answered), so empty runs (no engine
     // keys, or no active prompts) are never billed.
     try {
@@ -92,12 +92,12 @@ export async function POST(request: Request) {
     // Single-flight guard: the charge's refId is minted per request, so ledger
     // idempotency can't dedupe a double-click on its own. The workspace limiter
     // increments atomically in Postgres, so two concurrent "run" requests can't
-    // both pass — the loser gets a 429 instead of a second fan-out + charge.
+    // both pass: the loser gets a 429 instead of a second fan-out + charge.
     try {
       await assertWorkspaceRateLimit(workspace.id, "answer_run", 1, 30_000);
     } catch (error) {
       if (error instanceof RateLimitError) {
-        throw new HttpError(429, "An answer check just ran — give it a moment before rerunning.");
+        throw new HttpError(429, "An answer check just finished. Wait a moment before running another one.");
       }
       throw error;
     }

@@ -3,7 +3,7 @@ import { pickShape } from "@/lib/articles/shapes";
 import { BANNED_PHRASES, lintArticle } from "@/lib/articles/style-lint";
 import { parseVoiceDoc, renderVoiceBlock } from "@/lib/brand/voice";
 
-/** n distinct words — for building paragraphs with exact lengths. */
+/** n distinct words: for building paragraphs with exact lengths. */
 function words(n: number) {
   return Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
 }
@@ -28,12 +28,12 @@ describe("pickShape", () => {
     );
   });
 
-  it("never produces the essay — everything falls back to a real shape", () => {
+  it("never produces the essay: everything falls back to a real shape", () => {
     expect(pickShape({ title: "Content marketing trends" })).toBe("direct-answer");
   });
 });
 
-describe("style lint — phrase blacklist", () => {
+describe("style lint: phrase blacklist", () => {
   it("catches seeded slop phrases with excerpts for the rewrite pass", () => {
     const slop =
       "In today's fast-paced digital landscape, it's important to note that our " +
@@ -70,7 +70,7 @@ describe("style lint — phrase blacklist", () => {
   });
 });
 
-describe("style lint — structure smells", () => {
+describe("style lint: structure smells", () => {
   it("flags near-identical paragraph lengths", () => {
     const body = Array.from({ length: 7 }, () => words(20)).join("\n\n");
     const result = lintArticle(body);
@@ -142,7 +142,7 @@ describe("style lint — structure smells", () => {
   it("passes clean, varied human writing", () => {
     const clean = `# How we cut our invoice time by 70%
 
-Last quarter our team spent 11 hours a week chasing invoices. We rebuilt the flow around three rules and got that down to about 3 hours — here's exactly what changed and the numbers behind it.
+Last quarter our team spent 11 hours a week chasing invoices. We rebuilt the flow around three rules and got that down to about 3 hours: here's exactly what changed and the numbers behind it.
 
 ## The problem was batching
 
@@ -154,7 +154,7 @@ Switching to per-project invoicing cut disputes nearly in half within two cycles
 
 Start with the two biggest clients instead of rolling it out to everyone at once, and automate the reminder cadence from day one rather than sending reminders by hand for three months.
 
-Try the per-project switch first — it's the highest-leverage change on this list.`;
+Try the per-project switch first: it's the highest-leverage change on this list.`;
 
     const result = lintArticle(clean, "direct-answer");
     expect(result.hits).toEqual([]);

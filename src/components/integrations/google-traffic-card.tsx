@@ -12,7 +12,7 @@ import { authClient } from "@/lib/auth/client";
 import { GOOGLE_TRAFFIC_SCOPES } from "@/lib/integrations/google-scopes";
 
 /**
- * V6.6 connect — "Connect Search Console" card. The OAuth grant is requested on
+ * V6.6 connect: "Connect Search Console" card. The OAuth grant is requested on
  * demand with authClient.linkSocial (never at login); once granted the user picks
  * which verified GSC site (and optionally a GA4 property) maps to this brand. The
  * daily job then pulls real traffic into the Proof panel. Proof is never metered.
@@ -59,7 +59,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
     mutationFn: (body: { siteUrl?: string; propertyId?: string }) =>
       apiPost("/api/integrations/google", body),
     onSuccess: () => {
-      toast.success("Connection saved — pulling your traffic now.");
+      toast.success("Connection saved. We are pulling your traffic now.");
       invalidate();
     },
     onError: (error) => toast.danger(getErrorMessage(error, "Couldn't save the connection")),
@@ -82,8 +82,8 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
         <div>
           <Card.Title className="tracking-tight">Search Console & Analytics</Card.Title>
           <Card.Description className="leading-relaxed">
-            Prove the gain with real traffic — overlay Google clicks on your score trend, and (with
-            GA4) track AI-referral sessions.
+            Compare your visibility score with real Google traffic. Add clicks to the score trend and
+            use GA4 to track visits from AI assistants.
           </Card.Description>
         </div>
         {status.gsc.connected ? (
@@ -93,7 +93,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
         )}
       </div>
 
-      {/* Not granted — the on-demand OAuth connect. */}
+      {/* Not granted: the on-demand OAuth connect. */}
       {status.needsConnect ? (
         <div className="mt-4 space-y-3">
           <p className="text-sm leading-relaxed text-muted">

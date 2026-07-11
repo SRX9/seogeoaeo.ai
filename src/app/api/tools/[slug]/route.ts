@@ -20,7 +20,7 @@ import { persistNewFindings } from "@/lib/visibility/findings-repository";
 import { getTool } from "@/lib/visibility/toolbox-registry";
 
 /**
- * V8.3 — run one Toolbox tool: meter (refId = run id) → the analyzer's dual-mode
+ * V8.3: run one Toolbox tool: meter (refId = run id) → the analyzer's dual-mode
  * `run()` → persist the run + push its findings into the shared fix queue.
  */
 
@@ -47,7 +47,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     if (!run) return jsonOk({ run: null });
 
     // Findings persisted for this run. Deduping means a rerun that re-found a
-    // known issue attaches nothing new, so this list can be empty — the data
+    // known issue attaches nothing new, so this list can be empty: the data
     // payload still carries the full result.
     const findings = await db
       .select({
@@ -89,7 +89,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     const db = getDb();
 
     // Double-click / retry guard: the credit ledger's refId idempotency can't help
-    // here because each request mints a fresh run id — so dedupe at the run level.
+    // here because each request mints a fresh run id: so dedupe at the run level.
     // An identical (workspace, tool, input) run within the window is the same
     // click: return it without re-running, re-charging, or re-inserting findings.
     const [recent] = await db

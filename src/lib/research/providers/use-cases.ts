@@ -2,7 +2,7 @@ import type { ResearchContext, ResearchFinding, ResearchProvider } from "@/lib/r
 
 /**
  * C1 target-profile provider: expands the human-reviewed customer-profile
- * inventory into bottom-of-funnel article candidates. Deterministic — the LLM
+ * inventory into bottom-of-funnel article candidates. Deterministic: the LLM
  * judgement happened when the inventory was built; here we only enumerate the
  * article families each row earns. Buyers searching these are choosing a tool now.
  */
@@ -39,7 +39,7 @@ export const useCaseProvider: ResearchProvider = {
 
     for (const row of context.useCases.slice(0, MAX_ROWS)) {
       const audience = row.industry ? `${row.persona} (${row.industry})` : row.persona;
-      const evidence = `Target profile: ${audience} — needs to ${row.job}`;
+      const evidence = `Target profile: ${audience}: needs to ${row.job}`;
 
       findings.push(
         bofu(
@@ -50,7 +50,7 @@ export const useCaseProvider: ResearchProvider = {
         ),
         bofu(
           `Best way to ${row.job}`,
-          `Question-intent query with an answer we own — the AEO play for this target profile.`,
+          `Question-intent query with an answer we own: the AEO play for this target profile.`,
           evidence,
           `best way to ${row.job}`,
         ),
@@ -86,7 +86,7 @@ export const useCaseProvider: ResearchProvider = {
         findings.push(
           bofu(
             `${competitor.name} alternatives for ${personas[0]}`,
-            `"${competitor.name} alternative" searchers already want to switch — we just have to show up.`,
+            `People searching for "${competitor.name} alternative" are already comparing options. A focused page can put us in that comparison.`,
             `Competitor: ${competitor.name} (${competitor.url})`,
             `${competitor.name} alternative`,
           ),

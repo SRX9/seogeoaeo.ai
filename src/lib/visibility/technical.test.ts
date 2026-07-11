@@ -63,7 +63,7 @@ const IDEAL_HTML =
 function idealSnapshot(): PageSnapshot {
   return snapshot({
     url: "https://acme.example/product/analytics",
-    title: "Acme Analytics — product analytics for busy dev teams",
+    title: "Acme Analytics: product analytics for busy dev teams",
     description: "d".repeat(155),
     canonical: "https://acme.example/product/analytics",
     headers: { "content-encoding": "br", "cache-control": "max-age=3600" },

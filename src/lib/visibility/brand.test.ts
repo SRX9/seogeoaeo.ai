@@ -92,7 +92,7 @@ describe("scanBrand", () => {
     expect(r.score).toBe(57);
     // limitedData suppresses the punitive low-authority finding.
     expect(r.findings.some((f) => f.category === "brand_authority")).toBe(false);
-    expect(r.recommendations.some((rec) => rec.action.includes("declared profiles only"))).toBe(true);
+    expect(r.recommendations.some((rec) => rec.action.includes("profiles listed on the site"))).toBe(true);
   });
 
   it("is deterministic given identical injected signals", async () => {

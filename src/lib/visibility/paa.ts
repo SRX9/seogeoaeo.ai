@@ -3,8 +3,8 @@ import { serperSearch } from "@/lib/research/serper";
 import { scorePassage } from "./citability";
 
 /**
- * V5.4 — "People Also Ask" targeting. Mine the real questions users ask for a
- * topic, dedupe them, and map each to a question-style heading + a 40–60 word
+ * V5.4: "People Also Ask" targeting. Mine the real questions users ask for a
+ * topic, dedupe them, and map each to a question-style heading + a 40-60 word
  * direct-answer target (the answer-block pattern from geo-platform-analysis.md
  * Step 1). Each answer target is scored with the V2.1 citability scorer so the
  * writer drafts toward high-citability shapes. The outline feeds the writer.
@@ -25,21 +25,21 @@ export interface QuestionOutline {
 
 export type DraftAnswer = (question: string, topic: string) => Promise<string>;
 
-/** Default drafter: LLM `light`, 40–60 words, answer-first. Falls back to a stub. */
+/** Default drafter: LLM `light`, 40-60 words, answer-first. Falls back to a stub. */
 const llmDraft: DraftAnswer = async (question, topic) => {
   try {
     const { text } = await generateText("light", [
       {
         role: "system",
         content:
-          "Write a direct 40–60 word answer to the question, leading with the key fact. " +
+          "Write a direct 40-60 word answer to the question, leading with the key fact. " +
           "Self-contained, specific, no preamble. Plain text only.",
       },
       { role: "user", content: `Topic: ${topic}\nQuestion: ${question}` },
     ]);
     return text.trim();
   } catch {
-    return `${question.replace(/\?$/, "")}: [draft a 40–60 word direct answer leading with the key fact].`;
+    return `${question.replace(/\?$/, "")}: [draft a 40-60 word direct answer leading with the key fact].`;
   }
 };
 

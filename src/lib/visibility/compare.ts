@@ -5,7 +5,7 @@ import { SUBSCORE_LABELS } from "./display";
 import type { SubScore } from "./types";
 
 /**
- * V6.3 — monthly delta / progress tracker. Compares a baseline audit to the
+ * V6.3: monthly delta / progress tracker. Compares a baseline audit to the
  * current one across every score + platform with trend symbols, tracks resolved
  * action items, and projects a 6-month trajectory. This is what proves the gain.
  * Delta logic + ▲▲/▲/──/▼/▼▼ symbols per commands-reference.md "/geo compare".
@@ -67,7 +67,7 @@ export function computeDelta(baseline: AuditSummary, current: AuditSummary): Del
   const platformKeys = [...new Set([...Object.keys(baseline.platforms), ...Object.keys(current.platforms)])];
   const platforms = platformKeys.map((p) => delta(p, p, baseline.platforms[p] ?? null, current.platforms[p] ?? null));
 
-  // 6-month trajectory: extend the observed monthly delta, clamped to 0–100.
+  // 6-month trajectory: extend the observed monthly delta, clamped to 0-100.
   const monthly = overall.delta;
   const start = current.overall ?? 0;
   const trajectory = Array.from({ length: 6 }, (_, i) => ({
@@ -77,13 +77,13 @@ export function computeDelta(baseline: AuditSummary, current: AuditSummary): Del
 
   let impact =
     overall.delta > 0
-      ? `Overall visibility rose ${overall.delta} points — more of your pages now clear the bar where AI engines cite sources. Keep resolving findings to compound the gain.`
+      ? `Overall visibility rose ${overall.delta} points. More pages now meet the standard AI engines look for when choosing sources.`
       : overall.delta < 0
-        ? `Overall visibility fell ${Math.abs(overall.delta)} points — review recent site changes and the new findings below.`
+        ? `Overall visibility fell ${Math.abs(overall.delta)} points. Review recent site changes and the new findings below.`
         : "Overall visibility held steady. Work the quick wins to move it up.";
 
   // When the scoring methodology changed between the two runs, part of the delta
-  // reflects the upgraded scorer rather than the site — say so, don't hide it.
+  // reflects the upgraded scorer rather than the site: say so, don't hide it.
   if (!baselineOnly && baseline.scorerVersion !== current.scorerVersion) {
     impact +=
       " Note: the scoring methodology was upgraded between these runs, so part of this change reflects the new scorer, not your site.";

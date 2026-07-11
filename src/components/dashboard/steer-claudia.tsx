@@ -25,6 +25,7 @@ export function SteerClaudia() {
       apiPost<SteeringResult>("/api/agent/steer", { message: instruction }),
     onSuccess: (data) => {
       setResult(data);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.inboxSummary });
       void queryClient.invalidateQueries({ queryKey: queryKeys.topics });

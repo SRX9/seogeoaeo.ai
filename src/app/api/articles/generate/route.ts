@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       await assertWorkspaceRateLimit(workspace.id, "generate_article", 20, ONE_HOUR_MS);
     } catch (error) {
       if (error instanceof RateLimitError) {
-        throw new HttpError(429, "Too many generations — try again later", { code: "RATE_LIMITED" });
+        throw new HttpError(429, "Several articles are already being generated. Wait a moment and try again.", { code: "RATE_LIMITED" });
       }
       throw error;
     }

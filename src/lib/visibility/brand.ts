@@ -4,13 +4,13 @@ import type { serperSearch } from "@/lib/research/serper";
 import type { Finding } from "./types";
 
 /**
- * V5.1 (v3) — brand / entity authority scanner. Wikipedia + Wikidata are checked
- * via their APIs (the single strongest entity signal — never web search, to
+ * V5.1 (v3): brand / entity authority scanner. Wikipedia + Wikidata are checked
+ * via their APIs (the single strongest entity signal: never web search, to
  * avoid false negatives). Reddit / YouTube / third-party / LinkedIn presence now
  * comes from *real* off-site lookups (`offsite.ts`) instead of the site's own
  * declared `sameAs` links; declared profiles remain a secondary fallback signal.
  * Weights (geo-ai-visibility.md Step 5): Wikipedia 30 · Reddit 20 · YouTube 15 ·
- * LinkedIn 10 · industry/niche 25 → 0–100. Every earned score is `max(real,
+ * LinkedIn 10 · industry/niche 25 → 0-100. Every earned score is `max(real,
  * declared)`, so with no off-site data the score degrades to Wikipedia/Wikidata
  * plus declared-profile partial credit (never above the old behavior).
  */
@@ -30,7 +30,7 @@ export interface BrandResult {
   brandName: string;
   domain: string | null;
   score: number;
-  /** True when no real off-site source responded — score rests on declared profiles. */
+  /** True when no real off-site source responded: score rests on declared profiles. */
   limitedData: boolean;
   wikipedia: { hasPage: boolean; searchResults: number };
   wikidata: { hasEntry: boolean; id: string | null; description: string | null };
@@ -77,7 +77,7 @@ export function collectSameAs(structuredData: unknown[]): string[] {
   return [...new Set(urls)];
 }
 
-// ── Wikipedia title matching (v3 — exact normalized match, not substring) ────
+// ── Wikipedia title matching (v3: exact normalized match, not substring) ────
 const CORP_SUFFIX = /\b(inc|llc|ltd|corp|corporation|company|co|group|gmbh|plc|app|io)\b/g;
 
 /** Normalize an entity title for comparison: drop diacritics, parentheticals,
@@ -111,9 +111,9 @@ export async function scanBrand(
   const sameAs = opts.sameAsUrls ?? [];
 
   // Wikipedia, Wikidata, and the off-site gather are independent external
-  // lookups — fire them together instead of paying three RTTs in series.
+  // lookups: fire them together instead of paying three RTTs in series.
   const [wikiData, wdData, offsiteResult] = await Promise.all([
-    // ── Wikipedia (API — top result title must MATCH the brand, not contain it) ─
+    // ── Wikipedia (API: top result title must MATCH the brand, not contain it) ─
     getJson(
       `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${q(brandName)}&format=json`,
       fetchImpl,
@@ -178,7 +178,7 @@ export async function scanBrand(
     : 0;
   const youtubeEarned = Math.max(realYoutube, youtubeSameAs ? 5 : 0);
 
-  // LinkedIn (10): a company page found off-site or declared — the URL is verifiable.
+  // LinkedIn (10): a company page found off-site or declared: the URL is verifiable.
   const linkedinFound = Boolean(offsite?.web?.linkedinCompany) || linkedinSameAs;
   const linkedinEarned = linkedinFound ? 10 : 0;
 
@@ -242,17 +242,17 @@ export async function scanBrand(
 
   const recommendations: BrandResult["recommendations"] = [];
   if (sameAs.length === 0) {
-    recommendations.push({ horizon: "immediate", action: "Add Organization sameAs schema linking every brand profile — the fastest entity-graph win." });
+    recommendations.push({ horizon: "immediate", action: "Add Organization sameAs schema that links to each official brand profile." });
   }
   const youtubePlatform = platforms[2];
   if (!youtubePlatform.detected) {
-    recommendations.push({ horizon: "short-term", action: "Publish educational YouTube content — the strongest AI-citation correlation (0.737 vs 0.266 for backlinks)." });
+    recommendations.push({ horizon: "short-term", action: "Publish educational YouTube content: the strongest AI-citation correlation (0.737 vs 0.266 for backlinks)." });
   }
   if ((offsite?.reddit?.recentMentions ?? 0) < 3) {
     recommendations.push({
       horizon: "short-term",
       action: offsite?.reddit
-        ? `Only ${offsite.reddit.recentMentions} Reddit mention(s) in the past year — build authentic presence in your industry subreddits (no marketing speak).`
+        ? `Only ${offsite.reddit.recentMentions} Reddit mention(s) in the past year: build authentic presence in your industry subreddits (no marketing speak).`
         : "Build authentic Reddit presence in your industry subreddits (no marketing speak).",
     });
   }
@@ -260,7 +260,7 @@ export async function scanBrand(
   if (limitedData) {
     recommendations.push({
       horizon: "immediate",
-      action: "Off-site presence data was unavailable this run (search API not configured) — this score reflects declared profiles only.",
+      action: "Off-site presence data was unavailable because the search API is not configured. This score only uses the profiles listed on the site.",
     });
   }
 
@@ -281,7 +281,7 @@ export async function scanBrand(
       category: "brand_authority",
       severity: "medium",
       title: "No Wikipedia entity",
-      recommendation: "Wikipedia is the strongest entity signal. Build notability via press coverage, then create/improve the entry.",
+      recommendation: "If the brand meets Wikipedia's notability rules, make sure its entry is accurate and supported by independent sources.",
       fix_capability: "guided",
     });
   }

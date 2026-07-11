@@ -2,13 +2,13 @@ import { parseHTML } from "linkedom";
 import type { ContentBlock } from "./types";
 
 /**
- * V0.2 — heading-bounded content-block splitter for the citability scorer.
+ * V0.2: heading-bounded content-block splitter for the citability scorer.
  * Port of `extract_content_blocks()` from
  * `inspiration-code/scripts/fetch_page.py`: strip non-content elements, walk
  * headings + content tags in document order, start a new block at each
  * heading, and drop blocks under 20 words. Elements within a block are joined
  * with "\n" (not " ") so the citability scorer's structural-readability bonus
- * for genuinely multi-element blocks fires (scorer v3 — see citability.ts).
+ * for genuinely multi-element blocks fires (scorer v3: see citability.ts).
  */
 
 const MIN_BLOCK_WORDS = 20;

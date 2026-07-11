@@ -69,14 +69,14 @@ export type WeeklyReportEmailInput = {
   siteUrl: string;
   /** Owner-language report lines, proof-stack order (renderReportLines). */
   lines: string[];
-  /** At most one ask — AP5's "one ask, max" rule is enforced upstream. */
+  /** At most one ask: AP5's "one ask, max" rule is enforced upstream. */
   ask: { what: string; href: string } | null;
   reportsUrl: string;
 };
 
-/** AP5 — the full weekly report: both halves of Claudia's job, one ask max. */
+/** AP5: the full weekly report: both halves of Claudia's job, one ask max. */
 export function weeklyReportEmail(input: WeeklyReportEmailInput): EmailContent {
-  const subject = `Claudia's weekly report — ${input.brandName}`;
+  const subject = `Claudia's weekly report for ${input.brandName}`;
   const text = [
     `Here's my week on ${input.siteUrl}:`,
     "",
@@ -93,7 +93,7 @@ export function weeklyReportEmail(input: WeeklyReportEmailInput): EmailContent {
       .join("")}</ul>` +
     (input.ask
       ? `<p style="margin:16px 0 4px;color:#eef1f7;"><strong>One thing from you:</strong> ${escapeHtml(input.ask.what)}</p>`
-      : `<p style="margin:16px 0 4px;">Nothing needed from you this week — I've got it.</p>`);
+      : `<p style="margin:16px 0 4px;">You do not need to do anything this week. I'll keep working.</p>`);
 
   const html = claudiaEmailHtml(
     "Claudia · weekly report",
@@ -118,17 +118,17 @@ export function outOfCreditsEmail(input: OutOfCreditsEmailInput): EmailContent {
       ? `${topics} researched ${topics === 1 ? "topic is" : "topics are"} queued and ready to write`
       : "new topics are queued and ready to write";
 
-  const subject = `Your content agent paused — out of credits`;
+  const subject = `Claudia paused because your credits ran out`;
 
   const text = [
-    `Your content agent for ${input.brandName} has paused.`,
+    `Claudia has paused work for ${input.brandName}.`,
     "",
-    `It's out of credits, so it can't write today's articles. ${queued}, but it needs credits to turn them into published articles.`,
+    `Your account is out of credits, so Claudia cannot write today's articles. ${queued}.`,
     "",
-    `Top up add-on credits to get it working again: ${input.creditsUrl}`,
-    `View your agent: ${input.dashboardUrl}`,
+    `Add credits to resume the work: ${input.creditsUrl}`,
+    `View Claudia's work: ${input.dashboardUrl}`,
     "",
-    "It will pick up right where it left off as soon as credits are available.",
+    "Claudia will resume from the same place as soon as credits are available.",
   ].join("\n");
 
   const html = `<!doctype html>
@@ -142,15 +142,15 @@ export function outOfCreditsEmail(input: OutOfCreditsEmailInput): EmailContent {
             <h1 style="margin:10px 0 0;font-size:22px;font-weight:700;color:#ffffff;">Out of credits</h1>
           </td></tr>
           <tr><td style="padding:8px 32px 0;font-size:15px;line-height:1.6;color:#9aa3b8;">
-            <p style="margin:12px 0;">Your content agent for <strong style="color:#eef1f7;">${brand}</strong> has paused. It's out of credits, so it can't write today's articles.</p>
-            <p style="margin:12px 0;">${escapeHtml(queued)} — it just needs credits to turn them into published articles.</p>
+            <p style="margin:12px 0;">Claudia has paused work for <strong style="color:#eef1f7;">${brand}</strong> because your account is out of credits.</p>
+            <p style="margin:12px 0;">${escapeHtml(queued)}. Add credits when you want her to continue.</p>
           </td></tr>
           <tr><td style="padding:20px 32px 28px;">
             <a href="${input.creditsUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c6cff,#b06cff);color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px;">Buy add-on credits</a>
             <a href="${input.dashboardUrl}" style="display:inline-block;margin-left:10px;color:#cdd3e6;text-decoration:none;font-weight:600;font-size:15px;padding:12px 14px;">View agent →</a>
           </td></tr>
           <tr><td style="padding:0 32px 28px;font-size:13px;color:#6b7388;border-top:1px solid #242838;">
-            <p style="margin:16px 0 0;">It will pick up right where it left off as soon as credits are available.</p>
+            <p style="margin:16px 0 0;">Claudia will resume from the same place as soon as credits are available.</p>
           </td></tr>
         </table>
       </td></tr>

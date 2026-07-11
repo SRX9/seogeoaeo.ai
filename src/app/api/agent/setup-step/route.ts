@@ -21,7 +21,7 @@ const STEP_KEYS = new Set<string>(SETUP_STEPS.map((s) => s.key));
  * Workflow step callback: run exactly one Setup Run step (or finalize) for a
  * brand. Called by the `SetupRunWorkflow` Worker; each call persists the step's
  * outcome before returning, so the Workflow's checkpoint and the DB agree. A
- * thrown step returns 500 — persisted as `failed` — and the Workflow retries.
+ * thrown step returns 500: persisted as `failed`: and the Workflow retries.
  */
 export async function POST(request: Request) {
   if (!isCronAuthorized(request)) {

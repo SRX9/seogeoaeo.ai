@@ -34,7 +34,7 @@ export function ArticleBodyEditor({ defaultMarkdown, onChange }: ArticleBodyEdit
   const initialDoc = useMemo(() => markdownToTiptapDoc(defaultMarkdown), [defaultMarkdown]);
 
   return (
-    <div className="material-panel overflow-hidden rounded-2xl">
+    <div className="overflow-hidden border-y border-separator/70 bg-surface/40">
       <RichTextEditor
         className="w-full"
         defaultValue={initialDoc}

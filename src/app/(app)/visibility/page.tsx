@@ -8,7 +8,7 @@ import { useState } from "react";
 import { ScoreGauge } from "@/components/dashboard/score-gauge";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton, StatGridSkeleton } from "@/components/feedback/skeletons";
-import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from "@/components/icons";
+import { ArrowDownIcon, ArrowUpIcon } from "@/components/icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProofPanel } from "@/components/visibility/proof-panel";
 import { SubScoreTile } from "@/components/visibility/subscore-tile";
@@ -31,7 +31,7 @@ const KEYS: VisibilitySubScoreKey[] = [
   "schema",
   "platform",
 ];
-const fmt = (n: number | null | undefined) => (n == null ? "—" : `${Math.round(n)}`);
+const fmt = (n: number | null | undefined) => (n == null ? "N/A" : `${Math.round(n)}`);
 
 const overviewSkeleton = (
   <div className="space-y-6">
@@ -52,8 +52,8 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
       <Card className="material-panel p-8 text-center">
         <p className="type-title text-lg">No audit yet</p>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-default-500">
-          Run your first audit to get one 0–100 score for how easily people and AI assistants can
-          find and cite your site — plus a prioritized fix list.
+          Run your first audit to see how easily people and AI assistants can find and cite your
+          site. You will also get a fix list ordered by impact.
         </p>
       </Card>
     );
@@ -61,7 +61,7 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
 
   return (
     <>
-      <Card className="material-panel p-6 sm:p-8">
+      <div className="border-y border-separator/70 py-7 sm:py-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
           <ScoreGauge value={latest?.overall} size={148} barSize={10}>
             <span className="text-3xl font-semibold leading-none tracking-tight text-foreground tabular-nums">
@@ -71,7 +71,7 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
           </ScoreGauge>
           <div className="text-center sm:text-left">
             <p className="text-sm tracking-[0.01em] text-default-500">Overall visibility</p>
-            <p className="type-title text-2xl">{latest?.band ?? "—"}</p>
+            <p className="type-title text-2xl">{latest?.band ?? "No rating yet"}</p>
             <div className="mt-1 space-y-0.5 text-sm">
               {delta != null ? (
                 <p
@@ -97,9 +97,9 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-x-8 border-b border-separator/70 pb-4 sm:grid-cols-3">
         {KEYS.map((k) => (
           <SubScoreTile
             key={k}
@@ -114,11 +114,9 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
       <div className="flex flex-wrap gap-2">
         <Link href="/visibility/fixes" className={buttonVariants({ size: "sm", variant: "secondary" })}>
           Fix queue
-          <ArrowRightIcon className="size-4" />
         </Link>
         <Link href="/visibility/answers" className={buttonVariants({ size: "sm", variant: "secondary" })}>
           AI answers
-          <ArrowRightIcon className="size-4" />
         </Link>
         {latest && (
           <Link
@@ -126,7 +124,6 @@ function OverviewContent({ summary }: { summary: VisibilitySummary }) {
             className={buttonVariants({ size: "sm", variant: "secondary" })}
           >
             Full report
-            <ArrowRightIcon className="size-4" />
           </Link>
         )}
       </div>
@@ -150,7 +147,7 @@ export default function VisibilityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (res.status === 402) throw new Error("Out of credits — top up to run an audit.");
+      if (res.status === 402) throw new Error("You need more credits to run this audit.");
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         if (body.details?.code === "NO_WEBSITE") {
@@ -176,10 +173,10 @@ export default function VisibilityPage() {
         : "Failed";
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-9">
+    <div className="mx-auto w-full max-w-5xl space-y-12">
       <PageHeader
         title="Visibility scorecard"
-        description="Full score breakdown — day-to-day proof still lives on Claudia's home."
+        description="See the full score breakdown, open findings, and the evidence behind each result."
         meta={
           <Button
             size="sm"
@@ -193,7 +190,7 @@ export default function VisibilityPage() {
       />
       {settingUp && (
         <p className="text-sm leading-relaxed text-muted">
-          Claudia is setting up your brand — her first audit is already running as part of it.
+          Claudia is setting up your brand. Your first audit is already running.
         </p>
       )}
       {errorMessage && (
@@ -201,7 +198,7 @@ export default function VisibilityPage() {
       )}
       {needsWebsite && (
         <p className="text-sm leading-relaxed text-warning">
-          Your brand has no website yet —{" "}
+          Your brand has no website yet. {" "}
           <Link className="pressable underline" href="/settings">
             add it in brand settings
           </Link>{" "}

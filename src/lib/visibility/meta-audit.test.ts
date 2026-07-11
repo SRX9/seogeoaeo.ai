@@ -28,7 +28,7 @@ function snapshot(overrides: Partial<PageSnapshot> = {}): PageSnapshot {
   };
 }
 
-const TITLE_55 = "Acme Analytics — product analytics for busy dev teams"; // 53 chars
+const TITLE_55 = "Acme Analytics: product analytics for busy dev teams"; // 53 chars
 
 function check(result: ReturnType<typeof auditMeta>, tag: string) {
   return result.checks.find((c) => c.tag === tag)!;

@@ -3,8 +3,8 @@
 import { useState, type KeyboardEvent } from "react";
 
 /**
- * Tag-style editor over a comma-separated string. It *looks* like tags — each
- * value is a small rounded-lg block you can remove — but the data model stays a
+ * Tag-style editor over a comma-separated string. It *looks* like tags: each
+ * value is a small rounded-lg block you can remove: but the data model stays a
  * plain comma-joined string, so it drops into any field that already stores one
  * (seed keywords, audience) with no schema change.
  *
@@ -64,7 +64,7 @@ export function TagInput({
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter" || event.key === ",") {
-      // Only intercept when there's something to commit — an empty Enter is left
+      // Only intercept when there's something to commit: an empty Enter is left
       // to bubble so the onboarding "press Enter to continue" flow still works.
       if (draft.trim()) {
         event.preventDefault();

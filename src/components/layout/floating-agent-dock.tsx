@@ -9,7 +9,7 @@ import {
   InboxIcon,
   SettingsIcon,
 } from "@/components/icons";
-import { useAgentState, useInboxSummaryCount } from "@/lib/api/queries";
+import { useAgentState, useDashboard, useInboxSummaryCount } from "@/lib/api/queries";
 import { cn } from "@/lib/cn";
 import { isWorkshopPath } from "@/lib/workshop/routes";
 
@@ -28,8 +28,12 @@ function isCurrent(pathname: string, href: string) {
 export function FloatingAgentDock() {
   const pathname = usePathname();
   const router = useRouter();
-  const inboxCount = useInboxSummaryCount();
-  const state = useAgentState().data;
+  const isDashboard = pathname === "/dashboard";
+  const dashboard = useDashboard({ enabled: false });
+  const shellInboxCount = useInboxSummaryCount(!isDashboard);
+  const shellState = useAgentState(!isDashboard).data;
+  const inboxCount = isDashboard ? (dashboard.data?.inboxCount ?? 0) : shellInboxCount;
+  const state = isDashboard ? dashboard.data?.agent : shellState;
 
   useEffect(() => {
     for (const destination of DESTINATIONS) router.prefetch(destination.href);

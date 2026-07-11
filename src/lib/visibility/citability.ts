@@ -1,12 +1,12 @@
 import { extractContentBlocks } from "./blocks";
 
 /**
- * V2.1 — AI citability / passage scorer (flagship, deterministic core IP).
+ * V2.1: AI citability / passage scorer (flagship, deterministic core IP).
  * Originally ported from `inspiration-code/scripts/citability_scorer.py`, now at
  * scorer v3 (see `version.ts`) with two deliberate divergences from the Python
  * reference: (1) proper-noun counting excludes single sentence-initial words
  * ("The", "When") which are capitalized by grammar, not because they name an
- * entity — see `countProperNouns`; (2) content blocks are newline-joined
+ * entity: see `countProperNouns`; (2) content blocks are newline-joined
  * (`blocks.ts`) so the structural-readability bonus for multi-element blocks
  * actually fires. Every other regex, cap, and grade band is preserved, so the
  * same HTML always yields the same score. Page aggregation follows the
@@ -96,7 +96,7 @@ function count(text: string, re: RegExp): number {
 
 /**
  * Count named-entity-like capitalized runs. Excludes single sentence-initial
- * words (e.g. "The", "Content", "When") that are capitalized only by grammar —
+ * words (e.g. "The", "Content", "When") that are capitalized only by grammar.
  * counting those gave nearly every block false named-entity credit. A multi-word
  * run at a sentence start ("Acme Corporation …") still counts. Deterministic,
  * no dictionary (v3 divergence from the Python reference).
@@ -115,7 +115,7 @@ function countProperNouns(text: string): number {
   return total;
 }
 
-/** Score a single passage for AI citability (0–100). Deterministic. */
+/** Score a single passage for AI citability (0-100). Deterministic. */
 export function scorePassage(text: string, heading: string | null = null): PassageScore {
   const wordList = words(text);
   const wordCount = wordList.length;

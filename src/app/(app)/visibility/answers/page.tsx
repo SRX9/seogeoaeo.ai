@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ComponentType, SVGProps } from "react";
 import { Section } from "@/components/feedback/section";
@@ -16,7 +16,7 @@ import {
 } from "@/lib/api/queries";
 
 /**
- * V5.5 — AI answers page: share-of-answer per engine + the prompt × engine grid.
+ * V5.5: AI answers page: share-of-answer per engine + the prompt × engine grid.
  * Each cell is ✓ cited · ✓ mentioned · ✗ absent · ⚠ competitor named instead.
  */
 
@@ -35,7 +35,7 @@ const ENGINE_ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
 type RunRow = VisibilityAnswers["runs"][number];
 
 function cell(run: RunRow | undefined): { label: string; className: string } {
-  if (!run) return { label: "—", className: "text-default-300" };
+  if (!run) return { label: "No check yet", className: "text-default-300" };
   if (run.brandCited) return { label: "✓ cited", className: "text-success font-medium" };
   if (run.brandMentioned) return { label: "✓ mentioned", className: "text-success-600" };
   if (run.mentions?.some((m) => m.cited || m.mentioned))
@@ -60,32 +60,35 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid border-y border-separator/70 sm:grid-cols-3">
         {ENGINES.map((engine) => {
           const s = data.share.find((x) => x.engine === engine);
           const EngineIcon = ENGINE_ICONS[engine] ?? SparklesIcon;
           return (
-            <Card key={engine} className="material-panel p-5">
+            <div
+              key={engine}
+              className="border-t border-separator/70 py-5 first:border-t-0 sm:border-l sm:border-t-0 sm:px-5 sm:first:border-l-0 sm:first:pl-0 sm:last:pr-0"
+            >
               <div className="flex items-center gap-2">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-muted">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
                   <EngineIcon className="size-4" />
                 </div>
                 <p className="text-sm tracking-[0.01em] text-default-500">
                   {ENGINE_LABELS[engine]}
                 </p>
               </div>
-              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
-                {s ? `${s.share}%` : "—"}
+              <p className="mt-3 text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums">
+                {s ? `${s.share}%` : "No data"}
               </p>
               <p className="text-xs text-default-400">
                 {s ? `appeared in ${s.appeared}/${s.prompts} answers` : "no runs yet"}
               </p>
-            </Card>
+            </div>
           );
         })}
       </div>
 
-      <Card className="material-panel overflow-x-auto p-0">
+      <div className="overflow-x-auto border-y border-separator/70">
         <table className="w-full min-w-140 text-sm">
           <thead>
             <tr className="border-b border-default-100/80 text-left text-default-500">
@@ -114,13 +117,13 @@ function AnswersContent({ data }: { data: VisibilityAnswers }) {
             {data.prompts.length === 0 && (
               <tr>
                 <td colSpan={4} className="p-6 text-center leading-relaxed text-default-400">
-                  No tracked prompts yet — seed a starter set, then run a check.
+                  No tracked prompts yet: seed a starter set, then run a check.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </Card>
+      </div>
     </>
   );
 }
@@ -139,10 +142,10 @@ export default function AnswersPage() {
   const errorMessage = act.error ? getErrorMessage(act.error, "Request failed") : null;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-8">
+    <div className="mx-auto w-full max-w-5xl space-y-12">
       <PageHeader
         title="AI answers"
-        description="Share-of-answer across ChatGPT, Perplexity, and Gemini — also summarized on Claudia's proof strip."
+        description="Share-of-answer across ChatGPT, Perplexity, and Gemini: also summarized on Claudia's proof strip."
         meta={
           <div className="flex gap-2">
             <Button
@@ -167,7 +170,7 @@ export default function AnswersPage() {
 
       {settingUp && (
         <p className="text-sm text-muted">
-          Claudia is setting up your brand — she seeds prompts and runs the first answer check
+          Claudia is setting up your brand. She is adding prompts and running the first answer check
           herself.
         </p>
       )}

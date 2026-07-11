@@ -7,15 +7,15 @@ import { getUtcDayKey } from "@/lib/workspace/settings";
 import { listDueSites, reauditSite, settleStaleAudits, type DueSite } from "@/server/visibility/cron";
 
 /**
- * V7.3/V8.5 — scheduled visibility monitoring. Cloudflare's scheduled handler
+ * V7.3/V8.5: scheduled visibility monitoring. Cloudflare's scheduled handler
  * POSTs here daily; this route does no audit work itself. It lists the sites
- * due on their plan's cadence (weekly/monthly — most days most sites are a
+ * due on their plan's cadence (weekly/monthly: most days most sites are a
  * no-op) and fans each out into one durable `AuditRunWorkflow` instance
  * (mode "monitor"): create → execute → fixes/delta/alert, checkpointed and
  * retried per step. The id `reaudit-<dayKey>-<baselineAuditId>` makes a
  * same-day re-fire collide and skip; a failed run gets a fresh id (and a fresh
  * try) the next day because its baseline is unchanged. Also sweeps audits
- * stranded in `running` — the only daily hook shared by every audit producer.
+ * stranded in `running`: the only daily hook shared by every audit producer.
  */
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
