@@ -10,18 +10,18 @@ import { auditTechnical } from "./technical";
 import type { Finding, LlmsTxtResult, PageSnapshot, RobotsResult } from "./types";
 
 /**
- * Site Health composer — one checklist of everything the site should pass to
+ * Site Health composer: one checklist of everything the site should pass to
  * max its visibility scores, built from the analyzers the audit already runs
  * (meta, technical, crawler, llms, schema) plus the net-new probes (PSI,
  * favicon, logo, og:image). Every warn/fail check embeds its `Finding` inline
- * so the page can always render a copy-paste AI prompt — even when the fix
+ * so the page can always render a copy-paste AI prompt: even when the fix
  * queue deduped or the owner dismissed the matching row. Only the net-new
  * findings are RETURNED (the audit's analyzers persist their own).
  */
 
 export type HealthStatus = "pass" | "warn" | "fail";
 
-/** Keys of HEALTH_GROUP_LABELS in display.ts (labels live there — client-safe). */
+/** Keys of HEALTH_GROUP_LABELS in display.ts (labels live there: client-safe). */
 export type HealthGroup =
   | "search_listing"
   | "social_preview"
@@ -37,9 +37,9 @@ export interface HealthCheck {
   group: HealthGroup;
   label: string;
   status: HealthStatus;
-  /** Current state in owner language, e.g. "58 chars — within 50–60". */
+  /** Current state in owner language, e.g. "58 chars: within 50-60". */
   detail: string;
-  /** Embedded on warn/fail — powers the inline copy-paste AI prompt. */
+  /** Embedded on warn/fail: powers the inline copy-paste AI prompt. */
   finding?: Finding;
 }
 
@@ -66,7 +66,7 @@ export interface SiteHealthInput {
   render?: RenderComparison;
   psi: PsiResult | null;
   fetchImpl?: typeof fetch;
-  /** How this snapshot was produced — stored on the snapshot; no silent default. */
+  /** How this snapshot was produced: stored on the snapshot; no silent default. */
   source: SiteHealthSnapshot["source"];
 }
 
@@ -144,7 +144,7 @@ export async function buildSiteHealth(
       "social_preview",
       "medium",
       "Social share image does not load",
-      `The og:image URL (${ogImage.url}) did not return an image. Shared links on social platforms and in AI answers will show no preview — point og:image at a live image URL.`,
+      `The og:image URL (${ogImage.url}) did not return an image. Shared links on social platforms and in AI answers will show no preview: point og:image at a live image URL.`,
     );
     checks.push({
       id: "social.og_image_reachable",
@@ -166,14 +166,14 @@ export async function buildSiteHealth(
         "social_preview",
         "low",
         "Social share image is too small",
-        `og:image is declared as ${w}×${h}px. Platforms want at least 200×200 (1200×630 recommended) — small images render as tiny thumbnails or get dropped.`,
+        `og:image is declared as ${w}×${h}px. Platforms want at least 200×200 (1200×630 recommended): small images render as tiny thumbnails or get dropped.`,
       );
       checks.push({
         id: "social.og_image_size",
         group: "social_preview",
         label: "Share image size",
         status: tooSmall ? "warn" : "pass",
-        detail: `${w}×${h}px${tooSmall ? " — below the 200px minimum" : ""}`,
+        detail: `${w}×${h}px${tooSmall ? ": below the 200px minimum" : ""}`,
         ...(tooSmall ? { finding: sizeFinding } : {}),
       });
       if (tooSmall) newFindings.push(sizeFinding);
@@ -186,7 +186,7 @@ export async function buildSiteHealth(
     severity: "medium",
     title: "No favicon found",
     recommendation:
-      "Google shows favicons next to every mobile result and AI browsers use them to identify your brand — add one and declare it with a <link rel=\"icon\"> tag.",
+      "Google shows favicons next to every mobile result and AI browsers use them to identify your brand: add one and declare it with a <link rel=\"icon\"> tag.",
     fix_capability: "artifact",
     fix_payload: { kind: "meta_tag", tag: "icon", suggested: "/favicon.ico" },
   };
@@ -198,7 +198,7 @@ export async function buildSiteHealth(
     detail: favicon.reachable
       ? favicon.declared
         ? "Declared and loads"
-        : "/favicon.ico loads (not declared — fine)"
+        : "/favicon.ico loads (not declared: fine)"
       : favicon.declared
         ? "Declared but the icon does not load"
         : "No icon declared and /favicon.ico is missing",
@@ -222,7 +222,7 @@ export async function buildSiteHealth(
       logo.source === "schema"
         ? "Declared in your Organization schema"
         : logo.source === "og_image"
-          ? "Only guessable from og:image — declare it in schema"
+          ? "Only guessable from og:image: declare it in schema"
           : logo.source === "header_img"
             ? "Found in the page header but not declared in schema"
             : "No logo found on the page or in schema",
@@ -240,7 +240,7 @@ export async function buildSiteHealth(
         category: "performance",
         severity: perf < 50 ? "high" : "medium",
         title: "Mobile page speed is below Google's bar",
-        recommendation: `Lighthouse scores your page ${perf}/100 for performance on mobile. Slow pages rank lower and get abandoned — fix the measured issues, biggest savings first.`,
+        recommendation: `Lighthouse scores your page ${perf}/100 for performance on mobile. Slow pages rank lower and get abandoned: fix the measured issues, biggest savings first.`,
         fix_capability: "artifact",
         fix_payload: { kind: "psi_perf", score: perf, opportunities: psi.opportunities },
       };
@@ -262,14 +262,14 @@ export async function buildSiteHealth(
         rating === "SLOW" ? "fail" : rating === "AVERAGE" ? "warn" : "pass";
       const value =
         key === "cls"
-          ? (psi.fieldData?.cls?.toFixed(2) ?? "—")
+          ? (psi.fieldData?.cls?.toFixed(2) ?? "Not available")
           : `${(((key === "lcp" ? psi.fieldData?.lcpMs : psi.fieldData?.inpMs) ?? 0) / 1000).toFixed(1)}s`;
       const fieldFinding: Finding = {
         pillar: "seo",
         category: "performance",
         severity: rating === "SLOW" ? "high" : "medium",
         title: CRUX_FAIL_TITLES[key],
-        recommendation: `Real Chrome users measure ${CRUX_LABELS[key]} at ${value} — rated ${rating.toLowerCase()} by Google. Core Web Vitals are a ranking factor; fix the measured issues below.`,
+        recommendation: `Real Chrome users measure ${CRUX_LABELS[key]} at ${value}: rated ${rating.toLowerCase()} by Google. Core Web Vitals are a ranking factor; fix the measured issues below.`,
         fix_capability: "artifact",
         fix_payload: { kind: "psi_perf", metric: key, value, opportunities: psi.opportunities },
       };
@@ -278,7 +278,7 @@ export async function buildSiteHealth(
         group: "performance",
         label: CRUX_LABELS[key],
         status,
-        detail: `${value} — ${rating.toLowerCase()} (real-user data)`,
+        detail: `${value}: ${rating.toLowerCase()} (real-user data)`,
         ...(status === "pass" ? {} : { finding: fieldFinding }),
       });
       if (status !== "pass") newFindings.push(fieldFinding);
@@ -310,7 +310,7 @@ export async function buildSiteHealth(
       if (status === "warn") newFindings.push(extraFinding);
     }
   } else {
-    // No PSI — fall back to the static HTML risk estimate the audit already has.
+    // No PSI: fall back to the static HTML risk estimate the audit already has.
     for (const key of ["lcp", "inp", "cls"] as const) {
       const risk = technical.cwv[key];
       const status: HealthStatus = risk === "High" ? "fail" : risk === "Medium" ? "warn" : "pass";
@@ -378,7 +378,7 @@ export async function buildSiteHealth(
       "sitemap",
       "medium",
       "Sitemap is referenced but returns no pages",
-      "robots.txt points at a sitemap, but crawling it produced zero URLs. Check that the sitemap URL is live, valid XML, and lists your real pages — crawlers rely on it to find everything beyond the homepage.",
+      "robots.txt points at a sitemap, but crawling it produced zero URLs. Check that the sitemap URL is live, valid XML, and lists your real pages: crawlers rely on it to find everything beyond the homepage.",
     );
     checks.push({
       id: "crawlers.sitemap_pages",
@@ -422,7 +422,7 @@ export async function buildSiteHealth(
     detail:
       detection.blocks.length === 0
         ? "None found"
-        : `${detection.types.slice(0, 4).join(", ")}${validCount === 0 ? " — none validate" : ""}`,
+        : `${detection.types.slice(0, 4).join(", ")}${validCount === 0 ? ": none validate" : ""}`,
     ...(schemaStatus === "pass"
       ? {}
       : {
@@ -434,7 +434,7 @@ export async function buildSiteHealth(
               ? "No structured data on your homepage"
               : "Structured data has validation errors",
             detection.blocks.length === 0
-              ? "Add Organization and WebSite JSON-LD so Google and AI assistants understand who you are. The Schema Generator tool builds it from your page — or ask your AI assistant to."
+              ? "Add Organization and WebSite JSON-LD so Google and AI assistants can identify the site. Use the Schema Generator or ask your coding assistant to add it."
               : `The schema on your page fails validation (${validated.flatMap((v) => v.errors).slice(0, 3).join("; ")}). Search engines skip structured data that won't parse.`,
           ),
         }),
@@ -447,7 +447,7 @@ export async function buildSiteHealth(
       label: "Schema visible to AI crawlers",
       status: detection.jsInjectionRisk ? "fail" : "pass",
       detail: detection.jsInjectionRisk
-        ? "Injected by JavaScript — AI crawlers never see it"
+        ? "Injected by JavaScript: AI crawlers never see it"
         : "Present in the server HTML",
       ...(detection.jsInjectionRisk
         ? {
@@ -471,7 +471,7 @@ export async function buildSiteHealth(
     status: llmsValidation.exists ? (llmsValidation.format_valid ? "pass" : "warn") : "fail",
     detail: llmsValidation.exists
       ? llmsValidation.format_valid
-        ? `Valid — ${llmsValidation.section_count} sections, ${llmsValidation.link_count} links`
+        ? `Valid: ${llmsValidation.section_count} sections, ${llmsValidation.link_count} links`
         : `Found but has issues: ${llmsValidation.issues.slice(0, 2).join("; ")}`
       : "Missing",
     ...(llmsValidation.exists && llmsValidation.format_valid
@@ -484,7 +484,7 @@ export async function buildSiteHealth(
             llmsValidation.exists ? "llms.txt has formatting issues" : "Missing llms.txt",
             llmsValidation.exists
               ? `Fix the issues so AI assistants can parse it: ${llmsValidation.issues.join("; ")}.`
-              : "llms.txt is a site map for AI assistants — a Markdown file at /llms.txt describing your site and key pages. The llms.txt Generator tool builds one from your sitemap.",
+              : "llms.txt is a site map for AI assistants: a Markdown file at /llms.txt describing your site and key pages. The llms.txt Generator tool builds one from your sitemap.",
           ),
         }),
   });

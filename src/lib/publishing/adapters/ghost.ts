@@ -73,7 +73,7 @@ export const ghostAdapter: PublishingAdapter = {
       tags: article.tags.map((name) => ({ name })),
     };
 
-    // Ghost Admin API requires `updated_at` for edits — fetch the current post first.
+    // Ghost Admin API requires `updated_at` for edits: fetch the current post first.
     let endpoint = `${base}/ghost/api/admin/posts/?source=html`;
     let method: "POST" | "PUT" = "POST";
     let postsBody: Record<string, unknown> = postPayload;

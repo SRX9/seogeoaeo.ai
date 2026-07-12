@@ -121,6 +121,7 @@ Add these repository secrets so [`.github/workflows/deploy.yml`](../.github/work
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Optional GitHub OAuth |
 | `SERPER_API_KEY` | Optional search provider |
 | `TAVILY_API_KEY` | Optional fallback search provider |
+| `CONTEXT_DEV_API_KEY` | Context.dev brand intelligence, logos, colors, and resilient web extraction |
 | `KEYWORD_API_URL` | Optional autocomplete endpoint override |
 
 Optional later: add a [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) binding in `wrangler.jsonc` for connection pooling.

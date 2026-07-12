@@ -14,20 +14,18 @@ describe("article format helpers", () => {
 });
 
 describe("sanitizeLlmText", () => {
-  it("replaces em dashes with a comma-space", () => {
-    expect(sanitizeLlmText("Hello—world")).toBe("Hello, world");
-    expect(sanitizeLlmText("Hello — world")).toBe("Hello, world");
-    expect(sanitizeLlmText("Hello  —  world")).toBe("Hello, world");
+  it("replaces long dash punctuation with a comma and space", () => {
+    expect(sanitizeLlmText("Hello\u2014world")).toBe("Hello, world");
+    expect(sanitizeLlmText("Hello \u2013 world")).toBe("Hello, world");
+    expect(sanitizeLlmText("Hello  --  world")).toBe("Hello, world");
   });
 
-  it("handles multiple em dashes and leaves other punctuation alone", () => {
-    expect(sanitizeLlmText("One — two — three.")).toBe("One, two, three.");
-    expect(sanitizeLlmText("Keep hyphens and en-dashes: pre-built, 10–20.")).toBe(
-      "Keep hyphens and en-dashes: pre-built, 10–20.",
-    );
+  it("handles multiple long dashes and leaves word hyphens alone", () => {
+    expect(sanitizeLlmText("One \u2014 two \u2013 three.")).toBe("One, two, three.");
+    expect(sanitizeLlmText("Keep word hyphens: pre-built.")).toBe("Keep word hyphens: pre-built.");
   });
 
-  it("is a no-op when no em dash is present", () => {
+  it("is a no-op when no long dash is present", () => {
     expect(sanitizeLlmText("Clean copy, no long dash.")).toBe("Clean copy, no long dash.");
   });
 });

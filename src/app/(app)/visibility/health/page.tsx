@@ -21,7 +21,7 @@ import type {
 } from "@/lib/visibility/site-health";
 
 /**
- * V9 — Site Health: every check the site should pass to look its best in
+ * V9: Site Health: every check the site should pass to look its best in
  * Google and AI assistants, grouped by area. Passing rows confirm what's done;
  * failing rows open into a copy-paste prompt for the owner's AI coding
  * assistant, and also live in the fix queue.
@@ -55,7 +55,7 @@ function CopyPromptButton({ text }: { text: string }) {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         } catch {
-          // Clipboard access denied — nothing to do
+          // Clipboard access denied: nothing to do
         }
       }}
     >
@@ -108,8 +108,8 @@ function CheckRow({ check, website }: { check: HealthCheck; website: string | nu
             </Link>
           </div>
           <p className="text-xs leading-relaxed tracking-[0.01em] text-default-400">
-            Paste the prompt into Cursor, Claude Code, or Copilot inside your website&apos;s
-            project — it includes everything the assistant needs.
+            Paste the prompt into Cursor, Claude Code, or Copilot inside your website project.
+            It includes the audit details and the requested change.
           </p>
         </div>
       )}
@@ -156,11 +156,11 @@ function SummaryHeader({
   }
 
   return (
-    <Card className="material-panel p-5">
+    <Card variant="transparent" className="rounded-none border-y border-separator/70 px-0 py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap divide-x divide-separator/70">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-xl bg-default-100 px-3.5 py-2">
+            <div key={s.label} className="px-4 first:pl-0">
               <p className="text-lg font-semibold leading-tight tracking-tight tabular-nums">
                 {s.value}
               </p>
@@ -179,9 +179,9 @@ function SummaryHeader({
           </Button>
           <p className="text-xs text-default-400">
             {coolingDown
-              ? "Recently checked — refresh again in a few minutes"
+              ? "Recently checked. You can refresh again in a few minutes."
               : outOfRefreshes
-                ? "Weekly recheck limit reached — Claudia re-checks your site automatically every week"
+                ? "You have used this week's manual rechecks. Claudia will still check the site automatically."
                 : `Checked ${new Date(snapshot.generatedAt).toLocaleString()} · ${SOURCE_LABEL[snapshot.source]}${
                     refreshesLeft <= 3
                       ? ` · ${refreshesLeft} recheck${refreshesLeft === 1 ? "" : "s"} left this week`
@@ -192,12 +192,12 @@ function SummaryHeader({
       </div>
       {refresh.isError && (
         <p className="mt-2 text-sm text-danger">
-          {getErrorMessage(refresh.error, "Couldn't refresh the checks — try again.")}
+          {getErrorMessage(refresh.error, "Couldn't refresh the checks. Try again.")}
         </p>
       )}
       {!snapshot.psiAvailable && (
         <p className="mt-3 text-xs text-default-400">
-          Speed checks are a static estimate — real PageSpeed data isn&apos;t configured yet.
+          The speed score is an estimate because PageSpeed data is not configured yet.
         </p>
       )}
     </Card>
@@ -215,7 +215,7 @@ function Checklist({ data, website }: { data: SiteHealthResponse; website: strin
           </EmptyState.Media>
           <EmptyState.Title>No health checks yet</EmptyState.Title>
           <EmptyState.Description>
-            Run a visibility audit and Claudia checks everything on this list — speed, search
+            Run a visibility audit and Claudia checks everything on this list: speed, search
             listing, social previews, crawler access, and more.
           </EmptyState.Description>
         </EmptyState.Header>
@@ -240,7 +240,11 @@ function Checklist({ data, website }: { data: SiteHealthResponse; website: strin
         if (checks.length === 0) return null;
         const failing = checks.filter((c) => c.status !== "pass").length;
         return (
-          <Card key={group} className="material-panel p-5">
+          <Card
+            key={group}
+            variant="transparent"
+            className="rounded-none border-y border-separator/70 px-0 py-5"
+          >
             <div className="mb-2.5 flex items-baseline justify-between gap-2">
               <h2 className="type-title text-sm">{HEALTH_GROUP_LABELS[group]}</h2>
               <p className="text-xs tracking-[0.01em] text-default-400">
@@ -264,7 +268,7 @@ export default function SiteHealthPage() {
   const website = useBrandProfile().data?.profile.website?.trim() || null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8">
+    <div className="mx-auto w-full max-w-4xl space-y-12">
       <PageHeader
         title="Site health"
         description="Technical checklist under the score. Green is good; open a row for the exact fix."

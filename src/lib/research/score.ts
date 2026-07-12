@@ -13,7 +13,7 @@ import { slugify, uniqueByTitle } from "@/lib/research/utils";
 const MIN_SCORE = 45;
 
 // C1 ranking: buyer intent first, then evidence strength. BOFU topics dominate
-// the backlog whenever they exist — that's the point.
+// the backlog whenever they exist: that's the point.
 const TIER_RANK: Record<IntentTier, number> = { bofu: 0, mofu: 1, tofu: 2 };
 const NO_TIER_RANK = 3;
 
@@ -130,7 +130,7 @@ function scoreHeuristically(findings: ResearchFinding[], context: ResearchContex
   }));
 }
 
-/** Distinct source types that produced each title (by slug) — computed before
+/** Distinct source types that produced each title (by slug): computed before
  * dedupe so cross-source confirmation isn't lost with the duplicates. */
 function sourcesByTitle(findings: ResearchFinding[]) {
   const map = new Map<string, Set<string>>();
@@ -147,7 +147,7 @@ export async function scoreFindings(
   findings: ResearchFinding[],
   context: ResearchContext,
   opts: {
-    /** C4 — learned per-sourceType multipliers (bounded 0.5–2.0), applied
+    /** C4: learned per-sourceType multipliers (bounded 0.5-2.0), applied
      * before the MIN_SCORE cutoff so a losing source can fall out entirely. */
     sourceWeights?: Record<string, number>;
   } = {},
@@ -170,7 +170,7 @@ export async function scoreFindings(
     .reduce<ScoredTopic[]>((eligible, topic) => {
       const slug = slugify(topic.title);
       // An idea two independent sources produced is more than the sum of its
-      // scores — boost it before the cutoff so it can't fall below MIN_SCORE.
+      // scores: boost it before the cutoff so it can't fall below MIN_SCORE.
       const confirmations = sources.get(slug)?.size ?? 1;
       const weight = opts.sourceWeights?.[topic.sourceType] ?? 1;
       const score = Math.min(

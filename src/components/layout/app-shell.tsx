@@ -7,7 +7,11 @@ import { AgentCommandMenu } from "@/components/layout/agent-command-menu";
 import { FloatingAgentDock } from "@/components/layout/floating-agent-dock";
 import { WorkshopBanner } from "@/components/layout/workshop-banner";
 
-type BrandOption = { id: string; name: string };
+type BrandOption = {
+  id: string;
+  name: string;
+  identity?: { logoUrl: string | null; colors: Array<{ hex: string }> } | null;
+};
 
 export function AppShell({
   children,
@@ -21,9 +25,9 @@ export function AppShell({
   activeBrandId: string | null;
 }) {
   return (
-    <div className="min-h-screen">
+    <div className="app-shell min-h-screen bg-background">
       <BrandCapsule user={user} brands={brands} activeBrandId={activeBrandId} />
-      <main className="app-shell-content mx-auto w-full max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
+      <main className="app-shell-content mx-auto w-full max-w-7xl px-5 pt-24 sm:px-8 lg:px-10">
         <WorkshopBanner />
         {children}
       </main>

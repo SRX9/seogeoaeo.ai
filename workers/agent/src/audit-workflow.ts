@@ -12,12 +12,12 @@ type Params =
       mode: "monitor";
       workspaceId: string;
       siteUrl: string;
-      /** The previous complete audit — baseline for the delta report. */
+      /** The previous complete audit: baseline for the delta report. */
       baselineAuditId: string;
       planId?: string | null;
     };
 
-/** Full site audit: up to 50 gated page fetches + LLM judges — needs wall clock. */
+/** Full site audit: up to 50 gated page fetches + LLM judges: needs wall clock. */
 const EXECUTE_TIMEOUT = "15 minutes";
 
 type StepResponse = { ok?: boolean; auditId?: string; alerted?: boolean };
@@ -26,10 +26,10 @@ type StepResponse = { ok?: boolean; auditId?: string; alerted?: boolean };
  * One visibility audit, made durable. Replaces the old `waitUntil` (manual) and
  * inline-cron-loop (monitoring) execution: each phase is a checkpointed
  * `step.do` calling back into `/api/agent/audit-step`, so isolate eviction
- * costs at most one step's retry — never a stranded `running` audit row. The
+ * costs at most one step's retry: never a stranded `running` audit row. The
  * app side is retry-safe: `executeAudit` short-circuits settled rows and
  * `create` reuses the row a lost response left behind. An audit that *ran* and
- * failed comes back `{ ok: false }` (200) — terminal, persisted, never retried.
+ * failed comes back `{ ok: false }` (200): terminal, persisted, never retried.
  */
 export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
@@ -74,7 +74,7 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
       }),
     );
 
-    // AP4: the cadence answer check. Non-fatal — the audit, fixes, and delta
+    // AP4: the cadence answer check. Non-fatal: the audit, fixes, and delta
     // above already landed; a failed answer fan-out must not fail the cycle.
     try {
       await step.do("answers", { retries: RETRIES, timeout: "10 minutes" }, () =>

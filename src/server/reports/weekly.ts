@@ -25,11 +25,11 @@ import { resolveBrandForSite } from "@/server/visibility/autonomy";
 import { getWeekStart } from "@/lib/workspace/settings";
 
 /**
- * AP5 — the weekly report, Claudia's retention ritual. One email per audited
+ * AP5: the weekly report, Claudia's retention ritual. One email per audited
  * SITE per week covering BOTH halves of her job in proof-stack order: score
  * delta → answer share → real traffic, then what she fixed, what she published
  * and how it's performing (C4), what's next, and at most ONE ask. Deterministic,
- * first-person templating — no LLM, so the numbers can't be hallucinated.
+ * first-person templating: no LLM, so the numbers can't be hallucinated.
  * Rows land in `weekly_reports` (the /reports archive) whether or not the
  * email sends; the unique (workspace, site, week) index is the send-idempotency
  * guard. Supersedes the old `sendWeeklyDigests`.
@@ -43,10 +43,10 @@ export interface WeeklyReportData {
   weekStart: string;
   proof: {
     score: { current: number | null; baseline: number | null; delta: number } | null;
-    /** Only one audit exists — deltas start next week. */
+    /** Only one audit exists: deltas start next week. */
     firstWeek: boolean;
     answerShare: Array<{ engine: string; appeared: number; prompts: number }>;
-    /** Null until GSC is connected — the slot becomes the ask. */
+    /** Null until GSC is connected: the slot becomes the ask. */
     traffic: { clicks: number; prevClicks: number; aiReferrals: number } | null;
   };
   fixes: {
@@ -67,7 +67,7 @@ export interface WeeklyReportData {
   ask: { what: string; href: string } | null;
 }
 
-/** ONE ask, max — a report that always demands something trains people to ignore it. */
+/** ONE ask, max: a report that always demands something trains people to ignore it. */
 export function pickTheAsk(
   data: Omit<WeeklyReportData, "ask">,
   hasGsc: boolean,
@@ -102,13 +102,13 @@ export function renderReportLines(data: WeeklyReportData): string[] {
     const s = proof.score;
     if (proof.firstWeek) {
       lines.push(
-        `Your visibility score is ${s.current ?? "—"}. This is my baseline week — deltas start next Monday.`,
+        `Your visibility score is ${s.current ?? "not available"}. This is the baseline, so I can start showing changes next Monday.`,
       );
     } else if (s.delta === 0) {
-      lines.push(`Your visibility score held at ${s.current ?? "—"}.`);
+      lines.push(`Your visibility score held at ${s.current ?? "Not available"}.`);
     } else {
       lines.push(
-        `Your visibility score moved ${s.baseline ?? "—"} → ${s.current ?? "—"} (${s.delta > 0 ? "+" : ""}${s.delta}).`,
+        `Your visibility score moved from ${s.baseline ?? "an unavailable baseline"} to ${s.current ?? "an unavailable result"} (${s.delta > 0 ? "+" : ""}${s.delta}).`,
       );
     }
   }
@@ -148,7 +148,7 @@ export function renderReportLines(data: WeeklyReportData): string[] {
   if (content.nextWeek.length > 0) {
     const next = content.nextWeek[0];
     lines.push(
-      `Next up: "${next.title}"${next.thesis ? ` — ${next.thesis.charAt(0).toLowerCase()}${next.thesis.slice(1)}` : ""}`,
+      `Next up is "${next.title}"${next.thesis ? `. ${next.thesis}` : "."}`,
     );
   }
 
@@ -214,7 +214,7 @@ export async function assembleWeeklyReport(
   const sinceIso = since.toISOString().slice(0, 10);
   const twoWeeksIso = twoWeeksAgo.toISOString().slice(0, 10);
 
-  // Everything below is independent reads — batch them instead of paying a
+  // Everything below is independent reads: batch them instead of paying a
   // round-trip of latency per query inside the per-site cron loop. The
   // brand-scoped ones (answer share, traffic, monitor attribution, content)
   // resolve empty when no brand profile matches the site: the report still
@@ -253,7 +253,7 @@ export async function assembleWeeklyReport(
         .orderBy(desc(audits.createdAt))
         .limit(2),
       // "Ready for your approval" = what dispatch actually proposed (Level 1 /
-      // cap overflow), not every open auto-capable finding — a category the
+      // cap overflow), not every open auto-capable finding: a category the
       // owner set to Watch must not inflate this count.
       db
         .select({ n: count() })
@@ -402,13 +402,13 @@ export async function assembleWeeklyReport(
   const performance = checkpoints
     .map((c) => {
       if (c.verdict === "winner") {
-        return `"${c.title}" is winning — ${c.position != null ? `#${Math.round(c.position)} in search` : "growing fast"}; I queued follow-ups.`;
+        return `"${c.title}" is ${c.position != null ? `at #${Math.round(c.position)} in search` : "gaining traffic"}. I queued related follow-ups.`;
       }
       if (c.verdict === "stalling") {
-        return `"${c.title}" is stalling${c.position != null ? ` at #${Math.round(c.position)}` : ""} — I prepared a title rescue.`;
+        return `"${c.title}" is stalling${c.position != null ? ` at #${Math.round(c.position)}` : ""}. I prepared a new title and description.`;
       }
       if (c.verdict === "dead") {
-        return `"${c.title}" hasn't found traction in 90 days — I've deprioritized that topic family.`;
+        return `"${c.title}" has not gained traction in 90 days, so I moved that topic family down the queue.`;
       }
       return null;
     })
@@ -444,7 +444,7 @@ export async function sendWeeklyReports(): Promise<number> {
   for (const site of sites) {
     try {
       // Brand is attribution, not a gate: a site whose brand profile is empty
-      // or on another apex still gets its report (score, fixes, the GSC ask) —
+      // or on another apex still gets its report (score, fixes, the GSC ask).
       // the brand-scoped sections simply come back empty.
       const brand = await resolveBrandForSite(site.workspaceId, site.siteUrl);
 

@@ -23,10 +23,10 @@ import {
 import type { SiteHealthSnapshot } from "@/lib/visibility/site-health";
 
 /**
- * V9 — Site Health checklist. GET returns the freshest snapshot: the durable
+ * V9: Site Health checklist. GET returns the freshest snapshot: the durable
  * one computed by the last audit (audits.site_health) or the ephemeral KV
  * overlay a "Refresh checks" run produced, whichever is newer. POST recomputes
- * live (homepage + robots + llms + sitemap + PageSpeed) — KV-only per the
+ * live (homepage + robots + llms + sitemap + PageSpeed): KV-only per the
  * caching rule, charged like a basic tool run, with a cooldown so a double
  * click can't burn credits or PSI quota.
  */
@@ -36,7 +36,7 @@ const REFRESH_COOLDOWN_MS = 15 * 60 * 1000;
  * Manual rechecks per workspace per week. PageSpeed quota is shared across
  * every account and Claudia already re-checks each site weekly, so manual
  * refreshes are a top-up, not the main loop. Tracked as a KV counter keyed by
- * the rolling UTC week — approximate on purpose (KV isn't atomic), it only has
+ * the rolling UTC week: approximate on purpose (KV isn't atomic), it only has
  * to stop absurd usage, not enforce billing.
  */
 const MANUAL_REFRESHES_PER_WEEK = 10;
@@ -107,7 +107,7 @@ export async function POST() {
     const { workspace, brand } = await requireApiBrand();
     await assertNoSetupRunning(brand.id);
 
-    // Cooldown: a refresh inside the window returns the cached snapshot free —
+    // Cooldown: a refresh inside the window returns the cached snapshot free.
     // nothing meaningful changes in 15 minutes and PSI quota is shared.
     const overlay = await kvGetJson<SiteHealthSnapshot>(siteHealthOverlayKey(workspace.id));
     if (overlay && Date.now() - new Date(overlay.generatedAt).getTime() < REFRESH_COOLDOWN_MS) {
@@ -126,7 +126,7 @@ export async function POST() {
     const latest = await latestAuditSnapshot(workspace.id, brand.id);
     const siteUrl = latest?.siteUrl ?? (await getBrandProfile(brand.id))?.website;
     if (!siteUrl) {
-      throw new HttpError(400, "This brand has no website yet — add one in brand settings.", {
+      throw new HttpError(400, "Add a website in brand settings before running this check.", {
         code: "NO_WEBSITE",
       });
     }

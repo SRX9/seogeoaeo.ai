@@ -6,7 +6,7 @@
  * `generateArticleFromTopic` -> `settleDailyForBrand`). `runDaily` below composes
  * them exactly as `DailyBrandWorkflow.run` does, so these tests exercise the real
  * step logic against the in-memory store. Research is mocked (it declares how many
- * topics it "created" without seeding them — pending topics are seeded directly),
+ * topics it "created" without seeding them: pending topics are seeded directly),
  * and the out-of-credits email is mocked so we can assert it fires on pause.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db", async () => (await import("./helpers/memory-store")).dbMock);
 vi.mock("@/lib/articles/repository", async () => (await import("./helpers/memory-store")).articlesRepo);
 vi.mock("@/lib/brand/repository", async () => (await import("./helpers/memory-store")).brandRepo);
+vi.mock("@/lib/brand/intelligence", () => ({ getBrandIntelligence: vi.fn(async () => null) }));
 vi.mock("@/lib/jobs/repository", async () => (await import("./helpers/memory-store")).jobsRepo);
 vi.mock("@/lib/jobs/daily-repository", async () => (await import("./helpers/memory-store")).dailyRepo);
 vi.mock("@/lib/usage/credits", async () => (await import("./helpers/memory-store")).creditsRepo);
@@ -91,7 +92,7 @@ async function runDaily(planId: string) {
         outOfCredits = true;
         break;
       }
-      // A single article failing shouldn't sink the day — skip it.
+      // A single article failing shouldn't sink the day: skip it.
     }
   }
 
@@ -172,7 +173,7 @@ describe("daily content agent", () => {
     expect(email.sent).toHaveLength(0);
   });
 
-  it("never forces topics — an empty queue research can't fill writes nothing", async () => {
+  it("never forces topics: an empty queue research can't fill writes nothing", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     setCredits("ws-1", 5000);
     // No topics seeded; mocked research returns 0 new topics.
@@ -187,7 +188,7 @@ describe("daily content agent", () => {
     expect(email.sent).toHaveLength(0);
   });
 
-  it("is idempotent within a day — a re-fired cron respects the cap", async () => {
+  it("is idempotent within a day: a re-fired cron respects the cap", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     setCredits("ws-1", 5000);
     seedScoredTopics(2);

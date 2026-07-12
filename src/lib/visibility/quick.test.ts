@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { quickSnapshot } from "./quick";
 
 const HOMEPAGE = `<!doctype html><html lang="en"><head>
-<title>Acme Analytics — product analytics for busy dev teams</title>
+<title>Acme Analytics: product analytics for busy dev teams</title>
 <meta name="description" content="${"d".repeat(155)}">
 <link rel="canonical" href="https://acme.example/">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,7 +44,7 @@ describe("quickSnapshot", () => {
     // 100*.35 + 100*.25 + 0*.15 + 100*.15 + 100*.10 = 85
     expect(result.score).toBe(85);
 
-    // missing llms.txt is the only gap — and it carries the generated file
+    // missing llms.txt is the only gap: and it carries the generated file
     const llmsGap = result.topGaps.find((g) => g.category === "llms_txt");
     expect(llmsGap?.severity).toBe("high");
     expect(llmsGap?.fix_payload).toMatchObject({ kind: "llms_txt" });
@@ -60,7 +60,7 @@ describe("quickSnapshot", () => {
   });
 
   it("flags blocked crawlers and client-side rendering as top gaps", async () => {
-    const spa = `<html><head><title>Acme Analytics — product analytics for busy dev teams</title></head>
+    const spa = `<html><head><title>Acme Analytics: product analytics for busy dev teams</title></head>
 <body><div id="root"></div><script src="/bundle.js"></script></body></html>`;
     const result = await quickSnapshot("https://acme.example/", {
       fetchImpl: siteFetch({

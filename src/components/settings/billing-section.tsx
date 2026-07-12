@@ -41,7 +41,7 @@ function formatReason(reason: string) {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "Not available";
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -212,7 +212,7 @@ export function BillingSection() {
                       </Table.Cell>
                       <Table.Cell>
                         <span className="tabular-nums text-muted">
-                          {entry.balanceAfter?.toLocaleString() ?? "—"}
+                          {entry.balanceAfter?.toLocaleString() ?? "Not available"}
                         </span>
                       </Table.Cell>
                     </Table.Row>

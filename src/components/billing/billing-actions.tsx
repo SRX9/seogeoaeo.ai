@@ -26,7 +26,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
   const busy = loadingPlan !== null || loadingPack !== null || portalLoading;
 
   // Back from Stripe can restore this page from bfcache with the
-  // "Redirecting…" state frozen on the buttons — clear it.
+  // "Redirecting…" state frozen on the buttons: clear it.
   useBfcacheReset(() => {
     setLoadingPlan(null);
     setLoadingPack(null);

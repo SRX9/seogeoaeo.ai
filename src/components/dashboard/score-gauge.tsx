@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * A 270° radial gauge (HeroUI-Pro RadialChart) for a 0–100 visibility score.
+ * A 270° radial gauge (HeroUI-Pro RadialChart) for a 0-100 visibility score.
  * The arc fills to `value/max` in the band colour; `children` is centred inside
  * the ring (the number + unit). A null value renders an empty track so the
  * "no reading yet" state still holds its shape.

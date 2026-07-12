@@ -32,11 +32,12 @@ import { cn } from "@/lib/cn";
 export { buildInboxRows } from "@/lib/inbox/rows";
 
 /**
- * AP3 + Phase 2 — "What does she need from me?": ONE queue that ever asks
+ * AP3 + Phase 2: "What does she need from me?": ONE queue that ever asks
  * anything, with inline actions so the owner rarely leaves Claudia / Inbox.
  */
 
 function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
   void queryClient.invalidateQueries({ queryKey: queryKeys.articles });
   void queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
   void queryClient.invalidateQueries({ queryKey: queryKeys.visibilityTraffic });
@@ -67,7 +68,7 @@ function DraftActions({
   async function approveAndPublish() {
     setBusy(true);
     try {
-      // List omits body — load detail for PATCH contract (needs full markdown).
+      // List omits body: load detail for PATCH contract (needs full markdown).
       const detail = await apiGet<{ article: Article }>(`/api/articles/${article.id}`);
       const a = detail.article;
       await apiPatch(`/api/articles/${article.id}`, {
@@ -142,7 +143,7 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
     setApplyingId(findingId);
     try {
       await apiPost("/api/visibility/fix", { findingId });
-      toast.success("Marked installed — Claudia re-checks on the next audit.");
+      toast.success("Marked as installed. Claudia will check it in the next audit.");
       invalidateInbox(queryClient);
     } catch (error) {
       toast.danger(getErrorMessage(error, "Couldn't update this finding."));
@@ -155,16 +156,16 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
     const artifact = buildFixArtifact(finding.fixPayload);
     const text = artifact.content.trim();
     if (!text) {
-      toast.info("No paste-ready artifact — open the full fix queue for steps.");
+      toast.info("This fix needs a few manual steps. Open the full fix queue for instructions.");
       return;
     }
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(finding.id);
       setTimeout(() => setCopiedId(null), 2000);
-      toast.success("Fix copied — install on your site, then mark done.");
+      toast.success("Fix copied. Install it on your site, then mark it done.");
     } catch {
-      toast.danger("Couldn't copy — browser blocked clipboard access.");
+      toast.danger("Your browser blocked clipboard access. Copy the fix from the full queue instead.");
     }
   }
 
@@ -262,7 +263,7 @@ function GscConnectActions() {
         return;
       }
       invalidateInbox(queryClient);
-      toast.success("Google connected — pick your site under Brand → Connections if needed.");
+      toast.success("Google is connected. If needed, choose your site under Brand > Connections.");
       setConnecting(false);
     } catch (error) {
       toast.danger(getErrorMessage(error, "Couldn't start the Google connection"));
@@ -273,8 +274,8 @@ function GscConnectActions() {
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
       <p className="text-sm text-muted">
-        Read-only access to Search Console (and optional GA4). I use it for proof and smarter
-        topics — never to change your site.
+        Search Console and optional GA4 access is read only. I use it to measure traffic and
+        choose better topics. I cannot change your site through this connection.
       </p>
       {needsConnect ? (
         <LoadingButton
@@ -366,13 +367,15 @@ export function ApprovalInbox({
     typeof maxRows === "number" && rows.length > maxRows ? rows.slice(0, maxRows) : rows;
   const overflow =
     typeof maxRows === "number" && rows.length > maxRows ? rows.length - maxRows : 0;
+  const isCompact = typeof maxRows === "number";
 
   return (
     <section className="space-y-3.5">
       {showHeader ? (
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="type-title text-lg text-foreground">Needs you</h2>
+            <p className="text-xs font-medium text-muted">Owner decisions</p>
+            <h2 className="mt-1 text-lg font-semibold tracking-[-0.015em] text-foreground">Needs you</h2>
             <p className="mt-1 text-sm leading-relaxed text-muted">
               The only things Claudia can&apos;t do without you.
             </p>
@@ -392,7 +395,12 @@ export function ApprovalInbox({
       {rows.length === 0 ? (
         <p className="text-sm leading-relaxed text-muted">Nothing needed from you.</p>
       ) : (
-        <Card className="material-panel divide-y divide-border/50 p-0">
+        <Card
+          className={cn(
+            "divide-y divide-border/50 border border-border/70 bg-surface p-0 shadow-none",
+            isCompact && "border-warning/20 bg-warning-soft/25",
+          )}
+        >
           {visible.map((row) => {
             const isOpen = openKey === row.key;
             const isOverflowDraft = row.key === "drafts-more";

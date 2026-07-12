@@ -1,7 +1,7 @@
 import { DEFAULT_HEADERS } from "./fetch-page";
 
 /**
- * V0.2 — sitemap crawler. Port of `crawl_sitemap()` from
+ * V0.2: sitemap crawler. Port of `crawl_sitemap()` from
  * `inspiration-code/scripts/fetch_page.py`: try the common sitemap locations,
  * recurse one level into sitemap indexes, dedupe, cap at `max` pages.
  */
@@ -9,7 +9,7 @@ import { DEFAULT_HEADERS } from "./fetch-page";
 interface SitemapOptions {
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
-  /** Sitemap URLs declared in robots.txt — tried before the common locations. */
+  /** Sitemap URLs declared in robots.txt: tried before the common locations. */
   sitemaps?: string[];
 }
 

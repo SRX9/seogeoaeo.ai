@@ -4,7 +4,7 @@ import { getWorkspaceWithSubscription } from "@/lib/workspace";
 
 /**
  * Resolve the current session, workspace, and subscription without gating.
- * The app is browsable on the free tier, so this never redirects — callers that
+ * The app is browsable on the free tier, so this never redirects: callers that
  * need an active plan (e.g. article generation) check `isActiveSubscription`
  * themselves and send the user to billing with a clear message.
  */
@@ -45,15 +45,16 @@ export async function getBillingContext() {
   const session = await requireSession();
   let workspace = await getWorkspaceWithSubscription(session.user.id);
 
-  // Signup hook can race or fail — provision on demand so the app never 500s.
-  if (!workspace) {
+  // Signup can race or partially fail. Repair on demand so checkout never
+  // starts without the subscription row that Stripe synchronization updates.
+  if (!workspace?.subscription) {
     const { ensureUserWorkspace } = await import("@/lib/workspace");
     await ensureUserWorkspace(session.user.id, session.user.name);
     workspace = await getWorkspaceWithSubscription(session.user.id);
   }
 
-  if (!workspace) {
-    throw new Error("Workspace not found");
+  if (!workspace?.subscription) {
+    throw new Error("Workspace subscription could not be provisioned");
   }
 
   return { session, ...workspace };

@@ -2,8 +2,8 @@ import { scoreBand } from "./display";
 import type { SubScore } from "./types";
 
 /**
- * V2.3 — composite scoring. Weights + bands are the source of truth from
- * `inspiration-code/docs/scoring-methodology.md` (composite 27–33, bands 53–59)
+ * V2.3: composite scoring. Weights + bands are the source of truth from
+ * `inspiration-code/docs/scoring-methodology.md` (composite 27-33, bands 53-59)
  * and `agents/geo-ai-visibility.md` Step 7 (AI-visibility sub-composite).
  * Missing (null) sub-scores count as 0 so partial audits still produce a score.
  */
@@ -20,7 +20,7 @@ export const COMPOSITE_WEIGHTS: Record<SubScore["key"], number> = {
 export interface Composite {
   overall: number;
   band: string;
-  /** Sub-scores that haven't run yet — surfaced as "not yet measured". */
+  /** Sub-scores that haven't run yet: surfaced as "not yet measured". */
   notMeasured: SubScore["key"][];
 }
 

@@ -6,10 +6,10 @@ export type ResearchSourceType =
   | "keyword_api"
   | "use_case"
   | "competitor_gap"
-  /** C2 — mined from the brand's own Search Console query report. */
+  /** C2: mined from the brand's own Search Console query report. */
   | "gsc_query";
 
-/** C1 buyer-intent tiers — the first ranking key for the backlog. */
+/** C1 buyer-intent tiers: the first ranking key for the backlog. */
 export type IntentTier = "bofu" | "mofu" | "tofu";
 
 export type ResearchFinding = {
@@ -43,7 +43,7 @@ export type ResearchContext = {
   seedQueries: string[];
   /** Enabled rows from the C1 target-profile inventory. */
   useCases: Array<{ job: string; persona: string; industry?: string | null }>;
-  /** Titles of every topic/article we already have — for gap diffs. */
+  /** Titles of every topic/article we already have: for gap diffs. */
   ourTitles: string[];
   /** Set by runResearch for providers that persist (competitor index). */
   scope?: { workspaceId: string; brandId: string };

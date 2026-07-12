@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db", async () => (await import("./helpers/memory-store")).dbMock);
 vi.mock("@/lib/articles/repository", async () => (await import("./helpers/memory-store")).articlesRepo);
 vi.mock("@/lib/brand/repository", async () => (await import("./helpers/memory-store")).brandRepo);
+vi.mock("@/lib/brand/intelligence", () => ({ getBrandIntelligence: vi.fn(async () => null) }));
 vi.mock("@/lib/jobs/repository", async () => (await import("./helpers/memory-store")).jobsRepo);
 vi.mock("@/lib/usage/credits", async () => (await import("./helpers/memory-store")).creditsRepo);
 vi.mock("@/lib/workspace", async () => (await import("./helpers/memory-store")).workspaceRepo);
@@ -224,7 +225,7 @@ describe("article generation workflow", () => {
     expect(jobsFor("ws-1")).toHaveLength(0);
   });
 
-  it("is idempotent — returns the existing article without re-running the LLM", async () => {
+  it("is idempotent: returns the existing article without re-running the LLM", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     const topic = seedTopic({ workspaceId: "ws-1" });
     const existing = seedArticle({ workspaceId: "ws-1", topicId: topic.id, title: "Already written" });
@@ -236,7 +237,7 @@ describe("article generation workflow", () => {
     expect(trace).toBeNull();
     expect(llm.textCalls).toBe(0);
     expect(jobsFor("ws-1")).toHaveLength(0);
-    // Idempotent re-run charges nothing — balance stays at the seeded 1000.
+    // Idempotent re-run charges nothing: balance stays at the seeded 1000.
     expect(store.usage.get("ws-1") ?? 0).toBe(1000);
   });
 
@@ -270,7 +271,7 @@ describe("article generation workflow", () => {
     expect(jobs).toHaveLength(1);
     expect(jobs[0].status).toBe("failed");
     expect(store.articles.size).toBe(0);
-    // A failed generation must not charge credits — balance unchanged.
+    // A failed generation must not charge credits: balance unchanged.
     expect(store.usage.get("ws-1") ?? 0).toBe(1000);
   });
 

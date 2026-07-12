@@ -1,5 +1,5 @@
 /**
- * Agent OS Workshop — power-user routes buried under Brand → Workshop.
+ * Agent OS Workshop: power-user routes buried under Brand → Workshop.
  * Primary nav never lists these; owners live on Claudia / Inbox / Reports / Brand.
  */
 

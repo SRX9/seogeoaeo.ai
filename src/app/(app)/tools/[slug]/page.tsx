@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, TextArea } from "@heroui/react";
+import { Button, TextArea } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
 import { use, useEffect, useRef, useState } from "react";
@@ -12,7 +12,7 @@ import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { getToolMeta } from "@/lib/visibility/toolbox-meta";
 
 /**
- * V8.3 — one Toolbox tool. Opens on the tool's latest stored result (so the
+ * V8.3: one Toolbox tool. Opens on the tool's latest stored result (so the
  * page is a report, not an empty box) with a re-run action that spends credits
  * only when the owner explicitly asks for a fresh reading.
  */
@@ -43,7 +43,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
   const [error, setError] = useState<string | null>(null);
 
   // Prefill the input once: the last run's input, else the brand's website for
-  // URL/domain tools — so re-running is one click, not a copy-paste chore.
+  // URL/domain tools: so re-running is one click, not a copy-paste chore.
   const lastInput = latest.data?.run?.input ?? null;
   const inputKind = tool?.inputKind;
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input }),
       });
-      if (res.status === 402) throw new Error("Out of credits — top up to run this tool.");
+      if (res.status === 402) throw new Error("Out of credits: top up to run this tool.");
       if (!res.ok) throw new Error((await res.json()).error ?? "Run failed");
       const body = (await res.json()) as {
         score: number | null;
@@ -86,10 +86,10 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-9">
+    <div className="mx-auto w-full max-w-3xl space-y-12">
       <PageHeader title={tool.name} description={tool.description} />
 
-      <Card className="material-panel space-y-3 p-5">
+      <section className="space-y-4 border-y border-separator/70 py-6">
         <TextArea
           aria-label={tool.name}
           className="min-h-20"
@@ -104,7 +104,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-xs leading-relaxed tracking-[0.01em] text-default-400">
-            A run costs {CREDIT_COSTS[tool.costKey]} credits — your last result stays here for
+            A run costs {CREDIT_COSTS[tool.costKey]} credits. Your last result stays here for
             free.
           </span>
           <Button
@@ -118,7 +118,7 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           </Button>
         </div>
         {error && <p className="text-sm leading-relaxed text-danger">{error}</p>}
-      </Card>
+      </section>
 
       {fresh ? (
         <ToolResultCard
@@ -139,9 +139,9 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       ) : latest.isLoading ? (
         <CardSkeleton lines={4} />
       ) : (
-        <Card className="material-panel p-5 text-sm leading-relaxed text-default-500">
+        <div className="border-y border-separator/70 py-6 text-sm leading-relaxed text-default-500">
           No runs yet. Run it once and this page will always show your latest result.
-        </Card>
+        </div>
       )}
     </div>
   );

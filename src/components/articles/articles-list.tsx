@@ -6,7 +6,7 @@ import { EmptyState } from "@heroui-pro/react/empty-state";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Key, SortDescriptor } from "react-aria-components";
-import { ArticlesIcon, ChevronRightIcon } from "@/components/icons";
+import { ArticlesIcon } from "@/components/icons";
 import { StatusText } from "@/components/ui/status-text";
 import { parseTags } from "@/lib/articles/format";
 
@@ -17,18 +17,18 @@ type ArticleRow = {
   status: string;
   updatedAt: string;
   tags: string | null;
-  /** C4 — latest performance checkpoint, when one has run. */
+  /** C4: latest performance checkpoint, when one has run. */
   performance?: { verdict: "winner" | "stalling" | "dead" | "watching"; day: number; position: number | null } | null;
 };
 
-/** Owner-language line for a C4 verdict (plain text — no pills). */
+/** Owner-language line for a C4 verdict (plain text: no pills). */
 function performanceLine(p: NonNullable<ArticleRow["performance"]>): string {
   const pos = p.position != null ? `#${Math.round(p.position)}` : null;
   switch (p.verdict) {
     case "winner":
-      return pos ? `Winning — ${pos} in search` : "Winning in search";
+      return pos ? `Winning at ${pos} in search` : "Winning in search";
     case "stalling":
-      return pos ? `Stalling at ${pos} — rescue queued` : "Stalling — rescue queued";
+      return pos ? `Stalling at ${pos}. Title update queued.` : "Stalling. Title update queued.";
     case "dead":
       return "No traction after 90 days";
     default:
@@ -71,8 +71,8 @@ export function ArticlesList({ articles }: ArticlesListProps) {
           </EmptyState.Media>
           <EmptyState.Title>No articles yet</EmptyState.Title>
           <EmptyState.Description>
-            Claudia drafts articles from research-backed topics — or generate one yourself
-            from any topic in the queue.
+            Claudia drafts articles from researched topics. You can also generate one from any
+            topic in the queue.
           </EmptyState.Description>
         </EmptyState.Header>
         <EmptyState.Content>
@@ -85,7 +85,7 @@ export function ArticlesList({ articles }: ArticlesListProps) {
   }
 
   return (
-    <Table>
+    <Table variant="secondary">
       <Table.ScrollContainer>
         <Table.Content
           aria-label="Articles"
@@ -114,11 +114,11 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                   key={article.id}
                   id={article.id}
                   href={`/articles/${article.id}`}
-                  className="group cursor-pointer"
+                  className="cursor-pointer"
                 >
                   <Table.Cell>
                     <div className="flex flex-col">
-                      <span className="font-medium tracking-tight text-foreground transition-colors group-hover-fine:text-accent">
+                      <span className="font-medium tracking-tight text-foreground">
                         {article.title}
                       </span>
                       <span className="text-xs tracking-[0.01em] text-muted">
@@ -140,21 +140,18 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                     {tags.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {tags.slice(0, 2).map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full bg-surface-secondary px-2.5 py-0.5 text-xs tracking-[0.01em] text-foreground"
-                          >
+                          <span key={tag} className="text-xs tracking-[0.01em] text-foreground">
                             {tag}
                           </span>
                         ))}
                         {tags.length > 2 ? (
-                          <span className="rounded-full bg-surface-secondary px-2.5 py-0.5 text-xs tracking-[0.01em] text-muted">
+                          <span className="text-xs tracking-[0.01em] text-muted">
                             +{tags.length - 2}
                           </span>
                         ) : null}
                       </div>
                     ) : (
-                      <span className="text-sm text-muted">—</span>
+                      <span className="text-sm text-muted">No tags</span>
                     )}
                   </Table.Cell>
                   <Table.Cell>
@@ -162,11 +159,7 @@ export function ArticlesList({ articles }: ArticlesListProps) {
                       {new Date(article.updatedAt).toLocaleDateString()}
                     </span>
                   </Table.Cell>
-                  <Table.Cell>
-                    <ChevronRightIcon
-                      className="size-4 text-muted/60 transition-[transform,color] duration-snappy ease-out-strong group-hover-fine:translate-x-0.5 group-hover-fine:text-accent"
-                    />
-                  </Table.Cell>
+                  <Table.Cell aria-label="Open article" />
                 </Table.Row>
               );
             })}

@@ -86,7 +86,7 @@ describe("gatherOffsiteSignals", () => {
         organic: [
           { link: "https://techcrunch.com/acme" },
           { link: "https://www.linkedin.com/company/acme" },
-          { link: "https://acme.example/blog" }, // own domain — excluded from third-party count
+          { link: "https://acme.example/blog" }, // own domain: excluded from third-party count
         ],
         knowledgeGraph: { title: "Acme" },
       },

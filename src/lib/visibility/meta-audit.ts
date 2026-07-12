@@ -1,10 +1,10 @@
 import type { Finding, PageSnapshot, Severity } from "./types";
 
 /**
- * V1.4 — meta tags & Open Graph auditor. Rule table from
+ * V1.4: meta tags & Open Graph auditor. Rule table from
  * `inspiration-code/agents/geo-technical.md` → Step 3, including the
  * presence-vs-quality note: a title of "Home"/"Untitled" is effectively
- * missing. Reads the V0.1 `PageSnapshot` — never fetches.
+ * missing. Reads the V0.1 `PageSnapshot`: never fetches.
  */
 
 export type MetaTagStatus = "present" | "missing" | "issue";
@@ -60,20 +60,20 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
     });
   };
 
-  // Title — presence AND quality
+  // Title: presence AND quality
   const title = snapshot.title?.trim() ?? "";
   if (!title || PLACEHOLDER_TITLE.test(title)) {
     checks.push({
       tag: "title",
       status: "missing",
       value: snapshot.title,
-      note: title ? "Placeholder title — effectively missing" : undefined,
+      note: title ? "Placeholder title: effectively missing" : undefined,
     });
     const suggested = snapshot.h1_tags.find((h) => h && !PLACEHOLDER_TITLE.test(h)) ?? null;
     finding(
       "high",
       title ? `Title is a placeholder ("${title}")` : "Missing <title> tag",
-      "Write a descriptive 50–60 character title including your primary keyword.",
+      "Write a descriptive 50-60 character title including your primary keyword.",
       suggested ? { kind: "meta_tag", tag: "title", suggested } : undefined,
     );
   } else if (title.length < 50 || title.length > 60) {
@@ -81,12 +81,12 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
       tag: "title",
       status: "issue",
       value: title,
-      note: `${title.length} chars (target 50–60)`,
+      note: `${title.length} chars (target 50-60)`,
     });
     finding(
       "low",
       title.length > 60 ? "Title exceeds 60 characters" : "Title shorter than 50 characters",
-      "Aim for 50–60 characters so search results show the full title.",
+      "Aim for 50-60 characters so search results show the full title.",
     );
   } else {
     checks.push({ tag: "title", status: "present", value: title });
@@ -100,7 +100,7 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
     finding(
       "medium",
       "Missing meta description",
-      "Add a compelling 150–160 character description — otherwise Google generates its own.",
+      "Add a compelling 150-160 character description: otherwise Google generates its own.",
       suggested ? { kind: "meta_tag", tag: "description", suggested } : undefined,
     );
   } else if (description.length < 150 || description.length > 160) {
@@ -108,13 +108,13 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
       tag: "description",
       status: "issue",
       value: description,
-      note: `${description.length} chars (target 150–160)`,
+      note: `${description.length} chars (target 150-160)`,
     });
     if (description.length > 160) {
       finding(
         "low",
         "Meta description exceeds 160 characters",
-        "Trim to 150–160 characters so it isn't truncated in results.",
+        "Trim to 150-160 characters so it isn't truncated in results.",
         { kind: "meta_tag", tag: "description", suggested: suggestDescription(description) },
       );
     }
@@ -139,7 +139,7 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
       tag: "canonical",
       status: "present",
       value: canonical,
-      note: self ? undefined : "Points to a different URL — verify it's the preferred version",
+      note: self ? undefined : "Points to a different URL: verify it's the preferred version",
     });
   }
 
@@ -155,14 +155,14 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
     finding(
       "high",
       "Page is set to noindex",
-      "Remove the noindex directive — this page is excluded from search and AI answers.",
+      "Remove the noindex directive if this page should appear in search and AI answers.",
     );
   } else {
     checks.push({
       tag: "robots",
       status: "present",
       value: robotsDirectives || null,
-      note: robotsDirectives ? undefined : "Not set — indexable by default",
+      note: robotsDirectives ? undefined : "Not set: indexable by default",
     });
   }
 
@@ -177,14 +177,14 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
     finding(
       "medium",
       viewport ? "Viewport tag is misconfigured" : "Missing viewport tag",
-      "Mobile usability failure without it — search engines penalize non-mobile pages.",
+      "Mobile usability failure without it: search engines penalize non-mobile pages.",
       { kind: "meta_tag", tag: "viewport", suggested: "width=device-width, initial-scale=1" },
     );
   } else {
     checks.push({ tag: "viewport", status: "present", value: viewport });
   }
 
-  // <html lang> — read from the raw HTML (not captured as a meta tag)
+  // <html lang>: read from the raw HTML (not captured as a meta tag)
   const lang = snapshot.html.match(/<html[^>]*\blang\s*=\s*["']?([a-zA-Z0-9-]+)/i)?.[1] ?? null;
   if (lang) {
     checks.push({ tag: "lang", status: "present", value: lang });
@@ -254,7 +254,7 @@ export function auditMeta(snapshot: PageSnapshot): MetaAuditResult {
     checks.push({ tag: "twitter_card", status: "present", value: null, note: "All 4 tags set" });
   }
 
-  // hreflang — informational only (can't detect multilingual from one page)
+  // hreflang: informational only (can't detect multilingual from one page)
   const hreflangCount = (snapshot.html.match(/\bhreflang\s*=/gi) ?? []).length;
   checks.push({
     tag: "hreflang",

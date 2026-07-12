@@ -3,9 +3,9 @@ import { LegalShell, type LegalSection } from "@/components/marketing/legal-shel
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — seogeoaeo.ai",
+  title: "Terms of Service: seogeoaeo.ai",
   description:
-    "The terms that govern your use of seogeoaeo.ai, the all-in-one SEO·AEO·GEO suite.",
+    "The terms that govern your use of seogeoaeo.ai and its SEO and AI visibility tools.",
   alternates: { canonical: `${SITE_URL}/terms` },
 };
 
@@ -13,7 +13,7 @@ const sections: LegalSection[] = [
   {
     heading: "Acceptance of terms",
     body: [
-      "By creating an account or using seogeoaeo.ai (the “service”), you agree to these Terms of Service. If you are using the service on behalf of an organization, you represent that you have authority to bind that organization.",
+      'By creating an account or using seogeoaeo.ai (the "service"), you agree to these Terms of Service. If you are using the service on behalf of an organization, you represent that you have authority to bind that organization.',
     ],
   },
   {
@@ -33,7 +33,7 @@ const sections: LegalSection[] = [
     heading: "Acceptable use",
     body: [
       "You agree not to use the service to produce or publish content that is unlawful, infringing, deceptive, or harmful, and not to abuse, reverse engineer, or disrupt the service or its infrastructure.",
-      "You are responsible for the content you generate and publish through connected platforms, and for ensuring it complies with each platform’s rules and with applicable law.",
+      "You are responsible for the content you generate and publish through connected platforms, and for ensuring it complies with each platform's rules and with applicable law.",
     ],
   },
   {
@@ -51,7 +51,7 @@ const sections: LegalSection[] = [
   {
     heading: "Disclaimers & limitation of liability",
     body: [
-      "The service is provided “as is” without warranties of any kind. We do not guarantee specific search rankings, AI citations, or traffic outcomes.",
+      'The service is provided "as is" without warranties of any kind. We do not guarantee specific search rankings, AI citations, or traffic outcomes.',
       "To the maximum extent permitted by law, seogeoaeo.ai will not be liable for indirect, incidental, or consequential damages arising from your use of the service.",
     ],
   },
@@ -68,7 +68,7 @@ export default function TermsPage() {
     <LegalShell
       title="Terms of Service"
       lastUpdated="June 28, 2026"
-      intro="These terms govern your access to and use of seogeoaeo.ai. Please read them carefully — they form a binding agreement between you and seogeoaeo.ai."
+      intro="These terms govern your access to and use of seogeoaeo.ai. Please read them carefully: they form a binding agreement between you and seogeoaeo.ai."
       sections={sections}
     />
   );

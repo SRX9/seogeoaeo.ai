@@ -37,7 +37,7 @@ export function OverviewIcon(props: IconProps) {
   );
 }
 
-/** Claudia / home — soft person presence mark. */
+/** Claudia / home: soft person presence mark. */
 export function ClaudiaIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -47,7 +47,7 @@ export function ClaudiaIcon(props: IconProps) {
   );
 }
 
-/** Inbox — needs-you queue. */
+/** Inbox: needs-you queue. */
 export function InboxIcon(props: IconProps) {
   return (
     <Icon {...props}>

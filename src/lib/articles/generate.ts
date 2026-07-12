@@ -1,4 +1,5 @@
 import { getBrand, getBrandProfile, type BrandScope } from "@/lib/brand/repository";
+import { getBrandIntelligence } from "@/lib/brand/intelligence";
 import { getAgentControlState } from "@/lib/agent/memory";
 import { isArticleGenerationBlockedByOwnerConstraint } from "@/lib/agent/policy";
 import {
@@ -46,7 +47,7 @@ export type GenerationTrace = {
 /** Stored on the article as gate_results_json; shown in the editor. */
 export type GateResult = { gate: string; passed: boolean; detail: string };
 
-// Lint failures trigger targeted rewrites, capped — then the draft goes to
+// Lint failures trigger targeted rewrites, capped: then the draft goes to
 // human review instead of publishing. Autonomy never ships slop for its quota.
 const MAX_REWRITE_PASSES = 2;
 
@@ -60,7 +61,7 @@ type GenerateOptions = {
   origin?: string;
   /**
    * Force the article to "draft" regardless of autonomy mode. Used for
-   * non-subscribers so their output is never auto-published — publishing stays a
+   * non-subscribers so their output is never auto-published: publishing stays a
    * paid feature unlocked by an active subscription.
    */
   forceDraft?: boolean;
@@ -177,14 +178,25 @@ export async function generateArticleFromTopic(
         reason: error instanceof Error ? error.message : "Unknown error",
       });
     }
-    const profile = await getBrandProfile(brandId);
+    const [profile, intelligence] = await Promise.all([
+      getBrandProfile(brandId),
+      getBrandIntelligence(brandId),
+    ]);
     const voice = parseVoiceDoc(profile?.voiceJson);
     const brandContext: BrandContext = {
-      productDescription: profile?.productDescription,
+      productDescription: profile?.productDescription || intelligence?.description,
       audience: profile?.audience,
       tone: profile?.tone,
       website: profile?.website,
       seedKeywords: profile?.seedKeywords,
+      slogan: intelligence?.slogan,
+      industries: intelligence?.data.industries
+        ? Object.values(intelligence.data.industries)
+            .flat()
+            .filter((value): value is string => typeof value === "string")
+            .slice(0, 8)
+            .join(", ")
+        : null,
       voice: voice ? renderVoiceBlock(voice) : null,
     };
 
@@ -194,7 +206,7 @@ export async function generateArticleFromTopic(
       keywords: topic.keywords,
     };
 
-    // C3: shape follows topic — picked once, deterministic, stored on the
+    // C3: shape follows topic: picked once, deterministic, stored on the
     // article. The essay template is not in the library.
     const shape = pickShape({
       title: topic.title,
@@ -262,7 +274,7 @@ export async function generateArticleFromTopic(
       },
       {
         // E-E-A-T basics. Advisory until the publishing layer stamps
-        // author/date (V7.1) — recorded so the editor can surface it, but a
+        // author/date (V7.1): recorded so the editor can surface it, but a
         // missing link never blocks; only slop does.
         gate: "eeat-source",
         passed: /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(body),
@@ -288,7 +300,7 @@ export async function generateArticleFromTopic(
         tags: metadata.data.tags ?? [],
         bodyMarkdown: body,
         // A draft that failed the gates never auto-publishes, whatever the
-        // autonomy mode — it waits for a human.
+        // autonomy mode: it waits for a human.
         status:
           options.forceDraft || flaggedForReview
             ? "draft"
@@ -300,7 +312,7 @@ export async function generateArticleFromTopic(
         gateResultsJson: JSON.stringify(gateResults),
       });
     } catch (error) {
-      // Concurrent generate on the same topic (unique index) — return the winner.
+      // Concurrent generate on the same topic (unique index): return the winner.
       const raced = await getArticleByTopic(brandId, topicId);
       if (raced) {
         article = raced;
@@ -312,7 +324,7 @@ export async function generateArticleFromTopic(
     // Charge only after the article exists, so a failed generation never burns
     // credits. Drains the monthly bucket before purchased credits. The balance
     // was asserted up front; if a concurrent spend drained it in the meantime the
-    // charge can still fall short — keep the finished article rather than orphan
+    // charge can still fall short: keep the finished article rather than orphan
     // it, and log the miss instead of failing the request.
     if (!options.skipCreditCheck) {
       try {
@@ -333,7 +345,7 @@ export async function generateArticleFromTopic(
 
     await updateTopicStatus(topicId, "completed");
 
-    // Tally the agent's weekly output. Non-critical — never fail a finished
+    // Tally the agent's weekly output. Non-critical: never fail a finished
     // article because the metrics write hiccupped.
     try {
       await incrementArticlesGenerated(scope);
@@ -424,7 +436,7 @@ export async function generateArticleFromTopic(
         reason: taskError instanceof Error ? taskError.message : "Unknown error",
       });
     }
-    await finishAgentJob(job.id, "failed", "Article generation failed — retry to try again.", {
+    await finishAgentJob(job.id, "failed", "Article generation failed: retry to try again.", {
       topicId,
     });
     logError("article.generation_failed", { workspaceId, topicId, error: detail });

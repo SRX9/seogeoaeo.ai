@@ -5,9 +5,9 @@ import { weeklyReports } from "@/lib/db/schema/reports";
 import { renderReportLines, type WeeklyReportData } from "@/server/reports/weekly";
 
 /**
- * AP5 — one archived weekly report, re-rendered with the same renderer that
+ * AP5: one archived weekly report, re-rendered with the same renderer that
  * produced the email (the archive can never drift from what was sent).
- * Ownership is by workspace — reports are per site and may carry no brand.
+ * Ownership is by workspace: reports are per site and may carry no brand.
  */
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   return handleApi(async () => {

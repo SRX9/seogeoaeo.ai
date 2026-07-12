@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, toast } from "@heroui/react";
+import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -23,7 +23,7 @@ const sources = [
   {
     icon: UsersIcon,
     title: "Competitor feeds",
-    description: "What rivals publish and rank for — and the gaps they leave.",
+    description: "What rivals publish, where they rank, and what they have missed.",
   },
   {
     icon: TrendingUpIcon,
@@ -50,7 +50,7 @@ export function ResearchPanel() {
       queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
       queryClient.invalidateQueries({ queryKey: queryKeys.credits });
       queryClient.invalidateQueries({ queryKey: queryKeys.activity });
-      toast.success("Research finished — see your topic queue.");
+      toast.success("Research finished. Your topic queue is ready.");
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
@@ -62,28 +62,25 @@ export function ResearchPanel() {
   });
 
   return (
-    <Card className="material-panel gap-0 p-7 sm:p-9">
+    <section className="border-y border-separator/70 py-7 sm:py-9">
       {/* Header */}
       <div className="flex items-start gap-3.5">
         <SearchIcon className="mt-1 size-5 shrink-0 text-foreground" />
         <div className="space-y-2">
           <h3 className="type-title text-lg text-foreground">Topic research</h3>
           <p className="max-w-prose text-sm leading-relaxed text-muted">
-            Scan the web, your competitors, and trending queries — then get a ranked backlog
-            of topics worth writing.
+            Claudia checks search results, competitor sites, and rising queries. She turns the
+            evidence into a ranked list of topics worth writing.
           </p>
         </div>
       </div>
 
       {/* Sources */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8 grid border-y border-separator/70 sm:grid-cols-3 sm:divide-x sm:divide-separator/70">
         {sources.map((source) => {
           const Icon = source.icon;
           return (
-            <div
-              key={source.title}
-              className="surface-interactive rounded-2xl border border-border/50 bg-surface-secondary/80 p-5"
-            >
+            <div key={source.title} className="border-b border-separator/70 py-5 last:border-b-0 sm:border-b-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
               <Icon className="size-5 text-foreground" />
               <p className="mt-4 text-sm font-medium tracking-tight text-foreground">
                 {source.title}
@@ -108,14 +105,14 @@ export function ResearchPanel() {
         </LoadingButton>
         <p className="text-xs leading-relaxed text-muted">
           {settingUp
-            ? "Claudia is setting up your brand — research is already part of her setup run."
+            ? "Claudia is setting up your brand. Topic research is already running."
             : "Runs in the background and drops scored topics into your queue."}
         </p>
       </div>
 
       {/* Last run */}
       {latest ? (
-        <div className="mt-6 flex items-start gap-3.5 rounded-2xl border border-border/50 bg-surface-secondary/80 p-5">
+        <div className="mt-6 flex items-start gap-3.5 border-t border-separator/70 pt-6">
           <CircleCheckIcon className="mt-0.5 size-5 shrink-0 text-success" />
           <div className="min-w-0 flex-1 space-y-2">
             <p className="text-sm text-foreground">
@@ -131,6 +128,6 @@ export function ResearchPanel() {
           </div>
         </div>
       ) : null}
-    </Card>
+    </section>
   );
 }

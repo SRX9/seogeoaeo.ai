@@ -7,7 +7,7 @@ import { applyCompletedCheckoutSession } from "@/lib/billing/webhook";
  * Confirm a Checkout Session straight from the browser's return redirect
  * (`?session_id={CHECKOUT_SESSION_ID}`), instead of waiting for the
  * `checkout.session.completed` webhook. Applies the same idempotent logic as
- * the webhook, so whichever path lands first wins and the other is a no-op —
+ * the webhook, so whichever path lands first wins and the other is a no-op.
  * this removes the "polling for the webhook" wait after payment.
  */
 export async function POST(request: Request) {

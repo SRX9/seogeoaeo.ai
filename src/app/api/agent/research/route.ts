@@ -6,7 +6,7 @@ type ResearchBody = {
   workspaceId: string;
   brandId: string;
   budget: number;
-  /** Workflow instance id — keys research idempotency so a retry never duplicates. */
+  /** Workflow instance id: keys research idempotency so a retry never duplicates. */
   idempotencyKey: string;
 };
 

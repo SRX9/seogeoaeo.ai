@@ -24,7 +24,7 @@ type StatusTextProps = {
 };
 
 /**
- * Design rule: no Chip/pill badges — a status renders as a small semantic dot
+ * Design rule: no Chip/pill badges: a status renders as a small semantic dot
  * plus plain colored text (grey for neutral states). Shared by every table and
  * list that shows a run/article/job status so they all read identically.
  */

@@ -76,7 +76,7 @@ type WorkStreamProps = {
 };
 
 /**
- * Agent OS live work stream — Claudia's first-person timeline.
+ * Agent OS live work stream: Claudia's first-person timeline.
  * Polls while jobs are in flight (via useActivity); optional filters on /activity.
  */
 export function WorkStream({
@@ -262,9 +262,10 @@ function AgentEventTimeline({
     <section className={cn("space-y-4", className)}>
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl text-foreground">Recent work</h2>
+          <p className="text-xs font-medium text-muted">Work record</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-foreground">Recent work</h2>
           <p className="mt-1 text-sm leading-6 text-muted">
-            Created artifacts, applied changes, and verified outcomes from the event record.
+            Artifacts, changes, and outcomes from Claudia&apos;s event record.
           </p>
         </div>
         {hasMore ? (
@@ -347,8 +348,8 @@ function StreamHeader({ live, activeCount }: { live: boolean; activeCount: numbe
       </div>
       <p className="mt-1 text-sm leading-relaxed text-muted">
         {live
-          ? "Updating as I work — newest first."
-          : "Newest first — tap a row for the related artifact."}
+          ? "Updating as I work. Newest items appear first."
+          : "Newest items appear first. Open a row to see the related work."}
       </p>
     </div>
   );

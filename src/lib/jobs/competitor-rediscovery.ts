@@ -16,8 +16,8 @@ import { recentAnswerExcerpts } from "@/lib/visibility/answers";
 
 /**
  * Periodic competitor rediscovery (autopilot). Every REDISCOVERY_INTERVAL_DAYS
- * the daily pipeline re-runs evidence-based discovery for the brand — answer
- * runs keep accumulating, so the evidence only gets better — and auto-adds new
+ * the daily pipeline re-runs evidence-based discovery for the brand: answer
+ * runs keep accumulating, so the evidence only gets better: and auto-adds new
  * rivals up to the plan's competitor cap. The cadence gate is the most recent
  * `competitor_rediscovery` agent job, so a retried day never double-runs, and
  * the run itself is plan-included (no credits).
@@ -76,7 +76,7 @@ export async function maybeRediscoverCompetitors(
     return { ran: false, reason: "no_brand" };
   }
 
-  // The job row doubles as the cadence marker — created before the search so a
+  // The job row doubles as the cadence marker: created before the search so a
   // failed run still waits out the interval instead of retrying daily.
   const job = await createAgentJob(scope, "competitor_rediscovery", "Scanning for new competitors");
   try {
@@ -118,7 +118,7 @@ export async function maybeRediscoverCompetitors(
       "completed",
       fresh.length
         ? `Found ${fresh.length} new competitor${fresh.length === 1 ? "" : "s"}: ${fresh.map((f) => f.name).join(", ")}.`
-        : "No new competitors found — your rival list is up to date.",
+        : "No new competitors found. Your current list is up to date.",
       { added: fresh.length, names: fresh.map((f) => f.name) },
     );
     return { ran: true, added: fresh.length };

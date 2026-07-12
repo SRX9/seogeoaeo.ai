@@ -5,14 +5,14 @@ import { audits } from "@/lib/db/schema/visibility";
 import { renderBadge } from "@/lib/growth/badge";
 
 /**
- * V8.6 — public score badge SVG. No auth (it's meant to be embedded), cached
+ * V8.6: public score badge SVG. No auth (it's meant to be embedded), cached
  * hard, and only renders a score for domains that have a completed owned audit
- * AND whose brand opted in (`brands.badge_public`) — a customer's score must
+ * AND whose brand opted in (`brands.badge_public`): a customer's score must
  * never be publicly readable unless they chose to embed the badge. Links back
  * to the free checker via the badge markup the customer embeds.
  */
 
-/** Hostname of a URL (scheme optional — profile websites may lack one),
+/** Hostname of a URL (scheme optional: profile websites may lack one),
  * lowercased, www-stripped; null when unparsable. */
 function hostOf(url: string): string | null {
   try {
@@ -25,12 +25,12 @@ function hostOf(url: string): string | null {
 
 export async function GET(_request: Request, { params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
-  // Hostname characters only — also strips ILIKE wildcards (%/_) from the param.
+  // Hostname characters only: also strips ILIKE wildcards (%/_) from the param.
   const needle = domain.toLowerCase().replace(/^www\./, "").replace(/[^a-z0-9.-]/g, "");
   if (!needle) return new Response("Invalid domain", { status: 400 });
   const db = getDb();
 
-  // Narrow in SQL (ILIKE), then require an exact host match — substring matching
+  // Narrow in SQL (ILIKE), then require an exact host match: substring matching
   // alone would let "acme.com" hit "not-acme.com" and surface another tenant's
   // score. Owned audits only: competitor benchmarks never back a public badge.
   const rows = await db

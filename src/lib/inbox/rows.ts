@@ -9,7 +9,7 @@ import { isInstallReady } from "@/lib/visibility/fix-policy";
 import { isIntegrationOperational } from "@/lib/integrations/providers";
 
 /**
- * Pure inbox row builder — shared by ApprovalInbox, shell badge counts, and Ask.
+ * Pure inbox row builder: shared by ApprovalInbox, shell badge counts, and Ask.
  * No React; safe to import from client or server.
  */
 
@@ -83,7 +83,7 @@ export function buildInboxRows({
       what: `Review "${draft.title}"`,
       why: automation.autoPublish
         ? "I held this one back for your eyes before it goes live."
-        : "Ready to publish — approve it and I'll push it live.",
+        : "This draft is ready. Approve it and I'll publish it.",
       href: `/articles/${draft.id}`,
       cta: "Review",
       article: draft,
@@ -118,8 +118,8 @@ export function buildInboxRows({
           : `Install ${installReady.length} prepared fixes`,
       why:
         installReady.length === 1
-          ? "Ready to copy onto your site — mark done when it's live; Claudia re-checks next audit."
-          : `Starting with "${lead.title}" — copy each fix, install on your site, then mark done.`,
+          ? "Copy this fix to your site, then mark it done. Claudia will check it in the next audit."
+          : `Start with "${lead.title}". Copy each fix to your site, then mark it done.`,
       href: "/visibility/fixes",
       cta: "Review fixes",
       findings: installReady,

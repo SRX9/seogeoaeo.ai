@@ -119,11 +119,11 @@ function jobNarrative(kind: string, status: string, message: string | null): str
       if (running) return note ?? "I'm writing an article for you right now.";
       return note ?? "I finished a writing pass.";
     case "research":
-      if (failed) return note ? `Research stalled: ${note}` : "Research stalled — I can retry.";
+      if (failed) return note ? `Research stalled. ${note}` : "Research stalled. I can retry it.";
       if (running) return "I'm mining topics worth writing next.";
       return note ?? "I finished a research pass and updated your topic queue.";
     case "setup_run":
-      if (failed) return note ? `Setup hit a wall: ${note}` : "Setup hit a wall — I can retry.";
+      if (failed) return note ? `Setup stopped. ${note}` : "Setup stopped. I can retry it.";
       if (running) return "I'm setting myself up on your brand.";
       return note ?? "I'm fully set up and working.";
     case "visibility_monitor":
@@ -141,17 +141,17 @@ function jobNarrative(kind: string, status: string, message: string | null): str
       return note ?? "I reviewed article performance and updated my plan.";
     case "daily_pipeline":
     case "weekly_pipeline":
-      if (running) return "I'm on my daily pass — research, writing, and follow-ups.";
+      if (running) return "I'm on my daily pass: research, writing, and follow-ups.";
       return note ?? "I finished my daily pass.";
     default:
-      if (failed) return note ? `Something failed: ${note}` : "Something failed — I can retry.";
+      if (failed) return note ? `Something failed. ${note}` : "Something failed. I can retry it.";
       if (running) return note ?? "I'm working on this now.";
       return note ?? `I completed: ${jobLabel(kind)}.`;
   }
 }
 
 function researchNarrative(status: string, summary: string | null, topicsCreated: number | null) {
-  if (status === "failed") return summary?.trim() || "Research failed — I can retry.";
+  if (status === "failed") return summary?.trim() || "Research failed. I can retry it.";
   if (status === "running" || status === "pending") return "I'm researching topics for your brand.";
   const topics = topicsCreated ?? 0;
   if (summary?.trim()) return summary.trim();
@@ -233,7 +233,7 @@ export function toActivityFeedItems(data: ActivityResponse): ActivityFeedItem[] 
             ? "Scanning competitors"
             : "Discovered competitor suggestions",
         narrative: failed
-          ? "Competitor scan failed — I can try again from Brand settings."
+          ? "The competitor scan failed. I can try again from Brand settings."
           : running
             ? "I'm scanning competitors again."
             : "I found competitor suggestions you may want to track.",

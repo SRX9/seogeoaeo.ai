@@ -27,6 +27,24 @@ const ACTIVE_STATUSES = ["in_progress", "running"];
 const NEXT_STATUSES = ["planned", "scheduled"];
 const STALE_TASK_MS = 2 * 60 * 60 * 1000;
 
+type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Optional shared reads for composite server read models. The dashboard needs
+ * several of the same datasets as the agent state; accepting their already
+ * started promises avoids running those database queries twice while keeping
+ * this function self-contained for every other caller.
+ */
+export type AgentStatePreload = {
+  setup?: MaybePromise<Awaited<ReturnType<typeof getSetupRun>>>;
+  credits?: MaybePromise<Awaited<ReturnType<typeof getCreditBalance>>>;
+  weekly?: MaybePromise<Awaited<ReturnType<typeof getWeeklyPipelineStats>>>;
+  draftRows?: MaybePromise<Array<{ id: string; title: string }>>;
+  findings?: MaybePromise<Awaited<ReturnType<typeof getOpenFindings>>>;
+  gscRows?: MaybePromise<Awaited<ReturnType<typeof listTrafficConnections>>>;
+  integrations?: MaybePromise<Awaited<ReturnType<typeof listIntegrations>>>;
+};
+
 export function toAgentTaskView(task: typeof agentTasks.$inferSelect): AgentTaskView {
   return {
     id: task.id,
@@ -60,7 +78,11 @@ function toAgentEventView(event: typeof agentEvents.$inferSelect): AgentEventVie
 /** One focused read model for presence and plan; proof remains on granular endpoints. */
 export async function getAgentState(
   scope: BrandScope,
-  input: { brandName: string; subscriptionStatus?: string | null },
+  input: {
+    brandName: string;
+    subscriptionStatus?: string | null;
+    preload?: AgentStatePreload;
+  },
 ): Promise<AgentState> {
   const active = isActiveSubscription(input.subscriptionStatus);
   const controls = await getAgentControlState(scope.brandId);
@@ -99,18 +121,19 @@ export async function getAgentState(
       .orderBy(desc(agentEvents.createdAt))
       .limit(12),
     listPendingAgentApprovals(scope.brandId),
-    getSetupRun(scope.brandId),
-    getCreditBalance(scope.workspaceId),
-    getWeeklyPipelineStats(scope.brandId),
-    db
-      .select({ id: articles.id, title: articles.title })
-      .from(articles)
-      .where(and(eq(articles.brandId, scope.brandId), eq(articles.status, "draft")))
-      .orderBy(desc(articles.updatedAt))
-      .limit(1),
-    getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
-    listTrafficConnections(scope.brandId),
-    listIntegrations(scope.brandId),
+    input.preload?.setup ?? getSetupRun(scope.brandId),
+    input.preload?.credits ?? getCreditBalance(scope.workspaceId),
+    input.preload?.weekly ?? getWeeklyPipelineStats(scope.brandId),
+    input.preload?.draftRows ??
+      db
+        .select({ id: articles.id, title: articles.title })
+        .from(articles)
+        .where(and(eq(articles.brandId, scope.brandId), eq(articles.status, "draft")))
+        .orderBy(desc(articles.updatedAt))
+        .limit(1),
+    input.preload?.findings ?? getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
+    input.preload?.gscRows ?? listTrafficConnections(scope.brandId),
+    input.preload?.integrations ?? listIntegrations(scope.brandId),
   ]);
 
   const now = Date.now();
@@ -206,7 +229,7 @@ export async function getAgentState(
       : draftRows[0]
         ? {
             id: draftRows[0].id,
-            title: `Review “${draftRows[0].title}”`,
+            title: `Review "${draftRows[0].title}"`,
             blockedValue: "Publishing is blocked until this held-back draft is reviewed.",
             actionLabel: "Review draft",
             href: `/articles/${draftRows[0].id}`,

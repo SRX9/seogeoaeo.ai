@@ -24,7 +24,7 @@ const EMPTY_USE_CASE = { job: "", persona: "", industry: "" };
  */
 export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
   const queryClient = useQueryClient();
-  // Controlled state — HeroUI inputs don't reliably submit via native FormData.
+  // Controlled state: HeroUI inputs don't reliably submit via native FormData.
   const [fields, setFields] = useState(EMPTY_USE_CASE);
   const [regenerating, setRegenerating] = useState(false);
 
@@ -78,7 +78,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
       toast.success(
         result.added > 0
           ? `Claudia found ${result.added} new profile${result.added > 1 ? "s" : ""}.`
-          : "Nothing new — your target profiles already cover what Claudia can see.",
+          : "No new profiles found. Your current list already covers the available evidence.",
       );
     } catch (error) {
       toast.danger(getErrorMessage(error, "Could not refresh customer profiles"));

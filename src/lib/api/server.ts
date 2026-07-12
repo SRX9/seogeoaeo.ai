@@ -36,7 +36,7 @@ export async function getApiContext() {
       throw new HttpError(401, "Unauthenticated");
     }
     if (error instanceof Error && error.message === "Workspace not found") {
-      throw new HttpError(503, "Workspace is still provisioning — refresh in a moment.");
+      throw new HttpError(503, "Your workspace is still being prepared. Refresh in a moment.");
     }
     throw error;
   }
@@ -60,12 +60,12 @@ export async function requireApiBrand() {
 export async function assertNoSetupRunning(brandId: string): Promise<void> {
   const { getSetupRun, isSetupRunStale } = await import("@/lib/jobs/setup-run");
   const run = await getSetupRun(brandId);
-  // A stale `running` row means the executor died — don't let a dead run block
+  // A stale `running` row means the executor died: don't let a dead run block
   // manual work; the setup-run GET poller's self-heal resumes or finishes it.
   if (run?.status === "running" && !isSetupRunStale(run)) {
     throw new HttpError(
       409,
-      "Claudia is still setting up this brand — this runs automatically once she's done.",
+      "Claudia is still setting up this brand. This will run automatically when setup is done.",
       { code: "SETUP_IN_PROGRESS" },
     );
   }

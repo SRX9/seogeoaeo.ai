@@ -16,7 +16,7 @@ export function isActiveSubscription(status: string | null | undefined) {
 
 export type PlanId = "indie" | "startup" | "scale" | "enterprise";
 
-/** Visibility-suite plan caps (V8.4) — gate cadence + counts like article caps. */
+/** Visibility-suite plan caps (V8.4): gate cadence + counts like article caps. */
 export type VisibilityCaps = {
   /** Auto re-audit cadence for Claudia's monitoring (V7.3/V8.5). */
   monitoringCadence: "none" | "monthly" | "weekly";
@@ -43,7 +43,7 @@ export type Plan = {
   /**
    * Upper bound on how many articles the daily content agent writes per day for
    * this plan. The daily cron spreads work evenly (this many per day) instead of
-   * burning the whole month in one Monday run. Credits remain the real budget —
+   * burning the whole month in one Monday run. Credits remain the real budget.
    * whichever runs out first (this cap or the credit balance) stops writing.
    */
   dailyArticleCap: number;
@@ -95,7 +95,7 @@ const FREE_VISIBILITY_CAPS: VisibilityCaps = {
   pdfReports: false,
 };
 
-/** Visibility caps for a plan id — unknown / "free" (unsubscribed) gets nothing. */
+/** Visibility caps for a plan id: unknown / "free" (unsubscribed) gets nothing. */
 export function visibilityCapsForPlan(planId: string | null | undefined): VisibilityCaps {
   return getPlan(planId ?? "")?.visibility ?? FREE_VISIBILITY_CAPS;
 }
@@ -117,7 +117,7 @@ export function getPlan(planId: string): Plan | undefined {
 }
 
 /**
- * Daily article cap for a plan id. Unknown / "free" (unsubscribed) plans get 0 —
+ * Daily article cap for a plan id. Unknown / "free" (unsubscribed) plans get 0.
  * the daily agent only writes for active, paid plans.
  */
 export function dailyArticleCapForPlan(planId: string | null | undefined): number {
@@ -125,17 +125,17 @@ export function dailyArticleCapForPlan(planId: string | null | undefined): numbe
   return plans[planId as PlanId]?.dailyArticleCap ?? 0;
 }
 
-/** Approximate articles a plan's monthly credits buy — for display only. */
+/** Approximate articles a plan's monthly credits buy: for display only. */
 export function articlesPerMonth(monthlyCredits: number): number {
   return Math.floor(monthlyCredits / CREDIT_COSTS.article_generation);
 }
 
 /** One-line taglines per plan, shared by every pricing surface. */
 export const planTaglines: Record<PlanId, string> = {
-  indie: "Claudia part-time — one brand, monthly checks",
-  startup: "Claudia on staff — weekly content, real fixes",
-  scale: "Claudia full-time — weekly audits, more volume",
-  enterprise: "Claudia at scale — multi-brand capacity",
+  indie: "For one brand with monthly visibility checks",
+  startup: "For weekly content and ongoing site improvements",
+  scale: "For weekly audits and a larger content schedule",
+  enterprise: "For teams managing several brands",
 };
 
 const CADENCE_LABELS: Record<VisibilityCaps["monitoringCadence"], string> = {
@@ -145,8 +145,8 @@ const CADENCE_LABELS: Record<VisibilityCaps["monitoringCadence"], string> = {
 };
 
 /**
- * The full feature list a plan buys — Claudia's content autopilot, the
- * visibility suite, and publishing — shown on every pricing surface (marketing
+ * The full feature list a plan buys: Claudia's content autopilot, the
+ * visibility suite, and publishing: shown on every pricing surface (marketing
  * pricing, onboarding paywall, billing tab). Derived from the plan's real caps
  * so the copy can never drift from what's enforced.
  */
@@ -155,14 +155,14 @@ export function planFeatureList(planId: PlanId): string[] {
   const caps = plan.visibility;
   return [
     `Writes up to ${articlesPerMonth(plan.monthlyCredits)} articles/mo (${plan.dailyArticleCap}/day)`,
-    "Daily research, writing & publishing on autopilot",
-    `${CADENCE_LABELS[caps.monitoringCadence]} visibility audits (Google, answer boxes & AI)`,
-    `${caps.trackedPrompts} tracked prompts across ChatGPT, Perplexity & Gemini`,
-    `Up to ${caps.autoFixCap} safe fixes/mo included — never per-fix`,
-    `${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"} she benchmarks`,
-    ...(caps.pdfReports ? ["PDF reports in her voice"] : []),
-    "Publishes to WordPress, Ghost, dev.to, Hashnode & webhooks",
-    "Search Console proof of real traffic (free to connect)",
+    "Daily topic research and writing, with optional automatic publishing",
+    `${CADENCE_LABELS[caps.monitoringCadence]} visibility audits for Google and AI answers`,
+    `${caps.trackedPrompts} prompts tracked across ChatGPT, Perplexity, and Gemini`,
+    `Up to ${caps.autoFixCap} prepared site fixes each month`,
+    `${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"} included in benchmarks`,
+    ...(caps.pdfReports ? ["Downloadable PDF reports"] : []),
+    "Publishing to WordPress, Ghost, dev.to, Hashnode, and webhooks",
+    "Search Console traffic tracking",
   ];
 }
 

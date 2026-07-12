@@ -11,7 +11,7 @@ import {
 } from "@/lib/integrations/google-traffic";
 
 /**
- * V6.6 connect — the "Connect Search Console" surface. The OAuth redirect itself
+ * V6.6 connect: the "Connect Search Console" surface. The OAuth redirect itself
  * is handled client-side by authClient.linkSocial; this route reports connection
  * status, lists the user's GSC sites for the picker, saves the chosen
  * site/property, and disconnects. Proof is never metered.
@@ -48,7 +48,7 @@ export async function GET() {
       target.lastError = c.lastError;
     }
 
-    // Only hit Google when there's a site to pick (not already connected) — keeps
+    // Only hit Google when there's a site to pick (not already connected): keeps
     // the settings poll cheap. `granted` tells the card whether the OAuth scope is
     // present; a GoogleReconnectError means "show the Connect button".
     let sites: GscSite[] = [];

@@ -2,9 +2,9 @@ import type { BrandResult } from "./brand";
 import type { Finding, PageSnapshot } from "./types";
 
 /**
- * V5.2 — per-engine readiness for Google AI Overviews, ChatGPT, Perplexity,
+ * V5.2: per-engine readiness for Google AI Overviews, ChatGPT, Perplexity,
  * Gemini, and Bing Copilot. Sub-score breakdowns ported exactly from
- * `agents/geo-platform-analysis.md` Steps 1–5; synergies + average from Step 6.
+ * `agents/geo-platform-analysis.md` Steps 1-5; synergies + average from Step 6.
  * Scored deterministically from signals other analyzers already produced
  * (brand, citability, crawler, freshness) so the model never re-derives them.
  */

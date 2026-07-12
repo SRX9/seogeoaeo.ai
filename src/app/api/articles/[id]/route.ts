@@ -22,7 +22,7 @@ const articleSchema = z.object({
   status: z.enum(["draft", "review", "approved"]),
   // Tags accepted as an array or a comma-separated string.
   tags: z.union([z.array(z.string()), z.string()]).optional(),
-  /** Optimistic concurrency — reject if another save landed first. */
+  /** Optimistic concurrency: reject if another save landed first. */
   expectedVersion: z.number().int().positive().optional(),
 });
 
@@ -90,7 +90,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       });
     } catch (error) {
       if (error instanceof Error && error.message === "VERSION_CONFLICT") {
-        throw new HttpError(409, "This article was saved elsewhere — reload and try again.", {
+        throw new HttpError(409, "This article changed in another tab. Reload it before saving again.", {
           code: "VERSION_CONFLICT",
         });
       }

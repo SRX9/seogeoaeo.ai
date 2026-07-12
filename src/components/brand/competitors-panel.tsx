@@ -18,7 +18,7 @@ type CompetitorsPanelProps = {
 const EMPTY_COMPETITOR = { name: "", url: "", rssUrl: "", sitemapUrl: "" };
 
 export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
-  // Controlled state — HeroUI inputs don't reliably submit via native FormData.
+  // Controlled state: HeroUI inputs don't reliably submit via native FormData.
   const [fields, setFields] = useState(EMPTY_COMPETITOR);
 
   const atLimit = competitors.length >= MAX_COMPETITORS;

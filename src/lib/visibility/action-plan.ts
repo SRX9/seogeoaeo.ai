@@ -1,7 +1,7 @@
 import type { Finding, Severity } from "./types";
 
 /**
- * V2.3 — turn a flat findings list into a 30-day action plan: mechanically
+ * V2.3: turn a flat findings list into a 30-day action plan: mechanically
  * fixable "quick wins" first, then the rest grouped into up to 4 weekly themes.
  * (`inspiration-code/geo/SKILL.md` → Phase 3 Synthesis / action-plan shape.)
  */

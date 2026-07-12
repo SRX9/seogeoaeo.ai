@@ -3,7 +3,7 @@ import { getApiContext, handleApi, jsonOk, parseBody, readJson } from "@/lib/api
 import { scoreDraft } from "@/lib/visibility/score-draft";
 
 /**
- * V7.1 — live draft scoring. Deterministic citability + readability (+ optional
+ * V7.1: live draft scoring. Deterministic citability + readability (+ optional
  * AI-content), identical to the audit modules. Cheap and debounced client-side.
  */
 const schema = z.object({

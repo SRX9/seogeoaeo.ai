@@ -1,5 +1,5 @@
 /**
- * Unit tests for `sendOutOfCreditsEmail` — the credit notification gate the daily
+ * Unit tests for `sendOutOfCreditsEmail`: the credit notification gate the daily
  * cron fires through. Verifies the opt-out flag, the weekly throttle, and the
  * happy path, with the DB / send / env dependencies mocked.
  */

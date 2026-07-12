@@ -6,11 +6,11 @@ import { SUBSCORE_LABELS } from "./display";
 import type { SubScore } from "./types";
 
 /**
- * V6.4 — competitor AI-visibility benchmarking. Builds a you-vs-them grid across
+ * V6.4: competitor AI-visibility benchmarking. Builds a you-vs-them grid across
  * overall + every sub-score + per-platform readiness + Wikipedia entity, and
  * emits "catch-up" actions where a competitor leads. Lite mode (technical +
  * citability) works after V2.3; the full grid uses the V5 depth. Reuses the
- * V2–V5 modules via already-run audits.
+ * V2-V5 modules via already-run audits.
  */
 
 export interface CompetitorSummary extends AuditSummary {
@@ -48,7 +48,7 @@ export function buildCompareGrid(you: CompetitorSummary, competitors: Competitor
     // A competitor materially ahead → catch-up action.
     competitors.forEach((c, i) => {
       if (num(compVals[i]) - num(yourVal) >= 8) {
-        catchUp.push(`${c.label} leads on ${metric} (${compVals[i]} vs ${yourVal ?? "—"}). Close the gap here first.`);
+        catchUp.push(`${c.label} leads on ${metric} (${compVals[i]} vs ${yourVal ?? "Not available"}). Close the gap here first.`);
       }
     });
   };
@@ -73,7 +73,7 @@ export function buildCompareGrid(you: CompetitorSummary, competitors: Competitor
   });
   competitors.forEach((c, i) => {
     if (wikiCompetitors[i] && !you.wikipedia) {
-      catchUp.push(`${c.label} has a Wikipedia entity and you don't — pursue notability (press coverage → entry).`);
+      catchUp.push(`${c.label} has a Wikipedia entity and you don't: pursue notability (press coverage → entry).`);
     }
   });
 

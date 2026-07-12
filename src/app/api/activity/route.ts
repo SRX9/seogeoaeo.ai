@@ -16,7 +16,7 @@ function writingArticleId(job: { kind: string; metadataJson: string | null }): s
 /**
  * Activity timeline: research runs, agent jobs, and competitor discoveries for
  * the active brand, each annotated with the credits it spent. Credits are looked
- * up from the ledger by the ref each row owns — research runs by run id, writing
+ * up from the ledger by the ref each row owns: research runs by run id, writing
  * jobs by their article id. Competitor discoveries leave no job/run record, so
  * they come straight from their ledger spends.
  */

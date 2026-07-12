@@ -66,7 +66,7 @@ describe("verdictFor", () => {
     expect(verdictFor(28, { impressions: 1000, clicks: 3, position: 4 })).toBe("stalling");
   });
 
-  it("stalls when stuck in the 8–25 band", () => {
+  it("stalls when stuck in the 8-25 band", () => {
     expect(verdictFor(28, { impressions: 300, clicks: 5, position: 14 })).toBe("stalling");
   });
 

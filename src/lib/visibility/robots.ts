@@ -2,7 +2,7 @@ import { DEFAULT_HEADERS } from "./fetch-page";
 import type { AiCrawlerStatus, RobotsResult, RobotsRule } from "./types";
 
 /**
- * V0.2 — robots.txt fetcher + AI-crawler classifier. Port of
+ * V0.2: robots.txt fetcher + AI-crawler classifier. Port of
  * `fetch_robots_txt()` from `inspiration-code/scripts/fetch_page.py`,
  * including the 14-crawler list and the status state machine, verbatim.
  */
@@ -65,7 +65,7 @@ export function parseRobots(content: string, baseUrl?: string): {
   return { agentRules, sitemaps };
 }
 
-/** The exact status state machine from fetch_page.py lines 267–297. */
+/** The exact status state machine from fetch_page.py lines 267-297. */
 export function classifyCrawlers(
   agentRules: Record<string, RobotsRule[]>,
 ): Record<string, AiCrawlerStatus> {

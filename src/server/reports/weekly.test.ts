@@ -20,7 +20,7 @@ const base = (over: Partial<WeeklyReportData> = {}): WeeklyReportData => ({
   },
   content: {
     published: [{ title: "Invoice Reminders That Work", externalUrl: "https://acme.com/blog/x", thesis: null }],
-    performance: ['"Best Invoicing" is winning — #6 in search; I queued follow-ups.'],
+    performance: ['"Best Invoicing" is winning: #6 in search; I queued follow-ups.'],
     nextWeek: [{ title: "Invoice Reminder Templates", thesis: "Google shows you at #14." }],
     draftsAwaitingReview: 0,
   },
@@ -31,21 +31,21 @@ const base = (over: Partial<WeeklyReportData> = {}): WeeklyReportData => ({
 describe("renderReportLines", () => {
   it("orders the full report by the proof stack: score, answers, traffic, fixes, content", () => {
     const lines = renderReportLines(base());
-    expect(lines[0]).toContain("61 → 68 (+7)");
+    expect(lines[0]).toContain("from 61 to 68 (+7)");
     expect(lines[1]).toContain("4 of 10 tracked chatgpt answers");
     expect(lines[2]).toContain("120 clicks");
     expect(lines[2]).toContain("+20%");
     expect(lines[2]).toContain("6 visits from AI assistants");
     expect(lines.some((l) => l.includes("applied 3 fixes") && l.includes("verified 2"))).toBe(true);
     expect(lines.some((l) => l.includes('"Invoice Reminders That Work"'))).toBe(true);
-    expect(lines.at(-1)).toContain('Next up: "Invoice Reminder Templates"');
+    expect(lines.at(-1)).toContain('Next up is "Invoice Reminder Templates"');
   });
 
   it("frames a single-audit brand as the baseline week, never a zero delta", () => {
     const lines = renderReportLines(
       base({ proof: { ...base().proof, firstWeek: true, score: { current: 61, baseline: null, delta: 0 } } }),
     );
-    expect(lines[0]).toContain("baseline week");
+    expect(lines[0]).toContain("This is the baseline");
     expect(lines[0]).not.toContain("held at");
   });
 
@@ -87,7 +87,7 @@ describe("pickTheAsk", () => {
     expect(ask?.href).toBe("/articles");
   });
 
-  it("and asks for nothing when there's nothing to ask — never two asks", () => {
+  it("and asks for nothing when there's nothing to ask: never two asks", () => {
     expect(pickTheAsk(base(), true)).toBeNull();
   });
 });

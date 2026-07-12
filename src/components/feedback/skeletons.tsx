@@ -21,7 +21,7 @@ function CardFrame({ className, children }: { className?: string; children: Reac
   );
 }
 
-/** Grid of stat tiles — matches proof strip / score grids. */
+/** Grid of stat tiles: matches proof strip / score grids. */
 export function StatGridSkeleton({ tiles = 4 }: { tiles?: number }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -35,7 +35,7 @@ export function StatGridSkeleton({ tiles = 4 }: { tiles?: number }) {
   );
 }
 
-/** Title + description + a few body lines — for cards and form sections. */
+/** Title + description + a few body lines: for cards and form sections. */
 export function CardSkeleton({ lines = 3, className }: { lines?: number; className?: string }) {
   return (
     <CardFrame className={className}>

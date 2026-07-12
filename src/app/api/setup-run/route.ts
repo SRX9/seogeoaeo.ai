@@ -11,9 +11,9 @@ import {
 
 /**
  * Ignition (AP2): start Claudia's one-time Setup Run for the active brand.
- * Paid-first — requires an active subscription (Stripe `trialing` counts).
- * Idempotent: an existing run is returned as-is; a failed run — or one stranded
- * in `running` by a killed executor — is resumed. Execution happens in a
+ * Paid-first: requires an active subscription (Stripe `trialing` counts).
+ * Idempotent: an existing run is returned as-is; a failed run: or one stranded
+ * in `running` by a killed executor: is resumed. Execution happens in a
  * durable `SetupRunWorkflow` instance (see `triggerSetupRun`), so this request
  * returns immediately and the client polls GET.
  */
@@ -34,7 +34,7 @@ export async function POST() {
 }
 
 /**
- * Setup Run status for the active brand — powers the live progress card. Also
+ * Setup Run status for the active brand: powers the live progress card. Also
  * self-heals: a run stranded in `running` (executor killed before any step
  * persisted) is resumed here, so the poller itself un-wedges the run instead
  * of showing an eternal spinner.

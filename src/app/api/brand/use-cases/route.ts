@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   });
 }
 
-/** Regenerate the inventory from the current profile. Additive — user rows and
+/** Regenerate the inventory from the current profile. Additive: user rows and
  * edits are never touched. */
 export async function PUT() {
   return handleApi(async () => {

@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { audits } from "@/lib/db/schema/visibility";
 import { buildReport, toMarkdown } from "@/lib/visibility/report";
 
-/** V6.1 — report model + Markdown export for one audit. */
+/** V6.1: report model + Markdown export for one audit. */
 export async function GET(_request: Request, { params }: { params: Promise<{ auditId: string }> }) {
   return handleApi(async () => {
     const { workspace } = await getApiContext();

@@ -6,10 +6,10 @@ import { fetchRobots } from "./robots";
 import type { Finding, Severity } from "./types";
 
 /**
- * V1.5 — 60-second quick snapshot: one homepage fetch + robots + llms.txt,
- * then the deterministic V1.1–V1.4 analyzers and homepage schema/SSR presence.
+ * V1.5: 60-second quick snapshot: one homepage fetch + robots + llms.txt,
+ * then the deterministic V1.1-V1.4 analyzers and homepage schema/SSR presence.
  * Mirrors `/geo quick` (inspiration-code/docs/commands-reference.md). The
- * score is an approximation — the full audit computes the real one. A slot is
+ * score is an approximation: the full audit computes the real one. A slot is
  * reserved for the V2.1 hero-block citability read once that ships.
  */
 
@@ -22,7 +22,7 @@ export interface QuickResult {
   url: string;
   domain: string;
   fetchedAt: string;
-  /** Always true — this is an estimate; run the full audit for the real score. */
+  /** Always true: this is an estimate; run the full audit for the real score. */
   estimate: true;
   score: number;
   signals: {
@@ -33,7 +33,7 @@ export interface QuickResult {
     schema: { jsonLdCount: number };
     ssr: { hasSsrContent: boolean };
   };
-  /** Top 3–5 gaps, most severe first — feeds the public result + CRM flow. */
+  /** Top 3-5 gaps, most severe first: feeds the public result + CRM flow. */
   topGaps: Finding[];
   error?: string;
 }
@@ -108,7 +108,7 @@ export async function quickSnapshot(
       severity: "critical",
       title: "AI assistants can't read this page",
       recommendation:
-        "The page renders client-side only. AI crawlers don't run JavaScript — enable server-side rendering or prerendering.",
+        "The page renders client-side only. AI crawlers don't run JavaScript: enable server-side rendering or prerendering.",
       fix_capability: "guided",
     });
   }

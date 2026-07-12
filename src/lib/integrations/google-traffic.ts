@@ -7,7 +7,7 @@ import { syncGa4 } from "@/lib/integrations/ga4";
 import { isQueryDataStale, syncGsc, syncGscQueries } from "@/lib/integrations/gsc";
 
 /**
- * V6.6 connect — the glue between better-auth's Google grant and the existing
+ * V6.6 connect: the glue between better-auth's Google grant and the existing
  * GSC/GA4 sync functions. The OAuth tokens live in better-auth's `account` table;
  * `getAccessToken` refreshes them for us. We only map a brand to the site/property
  * it pulls from (in `traffic_connections`) and drive the sync. Proof is never metered.
@@ -41,7 +41,7 @@ export async function getGoogleToken(userId: string): Promise<string> {
     return res.accessToken;
   } catch (error) {
     if (error instanceof GoogleReconnectError) throw error;
-    // No linked Google account, revoked grant, or refresh failure — all "reconnect".
+    // No linked Google account, revoked grant, or refresh failure: all "reconnect".
     throw new GoogleReconnectError();
   }
 }
@@ -52,7 +52,7 @@ export interface GscSite {
 }
 
 /**
- * Keep only sites the user actually has read access to — Search Console returns
+ * Keep only sites the user actually has read access to: Search Console returns
  * `siteUnverifiedUser` entries the API can't query. Pure so it's unit-testable.
  */
 export function filterGscSites(
@@ -127,7 +127,7 @@ export interface TrafficSyncResult {
 
 /**
  * Best-effort: pull traffic proof for every connected source of a brand. Never
- * throws — a failed source stamps `last_error` and the others still run. Unmetered.
+ * throws: a failed source stamps `last_error` and the others still run. Unmetered.
  * A connection that's saved but not fully configured (no site/property) is skipped.
  */
 export async function syncTrafficForBrand(
@@ -145,7 +145,7 @@ export async function syncTrafficForBrand(
       if (source === "gsc" && conn.siteUrl) {
         days = await syncGsc(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
         // C2: the query×page report refreshes weekly, riding the daily sync's
-        // token. Best-effort — a failed report never fails the daily pull.
+        // token. Best-effort: a failed report never fails the daily pull.
         try {
           if (await isQueryDataStale(scope.brandId)) {
             await syncGscQueries(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });

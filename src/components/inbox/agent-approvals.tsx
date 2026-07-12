@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, toast } from "@heroui/react";
+import { Button, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiPatch, getErrorMessage } from "@/lib/api/fetcher";
 import {
@@ -11,6 +11,8 @@ import {
 function serialized(value: unknown) {
   return value == null ? "Not recorded" : JSON.stringify(value, null, 2);
 }
+
+const RISK_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 export function AgentApprovals({ approvals }: { approvals: AgentApprovalView[] }) {
   const queryClient = useQueryClient();
@@ -28,24 +30,29 @@ export function AgentApprovals({ approvals }: { approvals: AgentApprovalView[] }
   });
 
   if (!approvals.length) return null;
-  const riskRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
   const ordered = approvals.toSorted(
-    (left, right) => (riskRank[left.riskLevel] ?? 9) - (riskRank[right.riskLevel] ?? 9),
+    (left, right) => (RISK_RANK[left.riskLevel] ?? 9) - (RISK_RANK[right.riskLevel] ?? 9),
   );
 
   return (
     <section className="space-y-4" aria-labelledby="agent-decisions-title">
       <div>
-        <h2 id="agent-decisions-title" className="text-xl text-foreground">Decisions</h2>
+        <p className="text-xs font-medium text-muted">Authority requests</p>
+        <h2
+          id="agent-decisions-title"
+          className="mt-1 text-xl font-semibold tracking-[-0.02em] text-foreground"
+        >
+          Decisions
+        </h2>
         <p className="mt-1 text-sm leading-6 text-muted">
           Exact authority or resource changes that Claudia cannot decide alone.
         </p>
       </div>
-      <div className="space-y-3">
+      <div className="divide-y divide-separator/70 overflow-hidden rounded-2xl border border-border/70 bg-surface">
         {ordered.map((approval) => {
           const pending = decide.isPending && decide.variables?.approvalId === approval.id;
           return (
-            <Card key={approval.id} className="p-5">
+            <div key={approval.id} className="p-5 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-foreground">{approval.actionType}</p>
@@ -74,7 +81,7 @@ export function AgentApprovals({ approvals }: { approvals: AgentApprovalView[] }
                   </Button>
                 </div>
               </div>
-              <details className="mt-4 rounded-xl bg-surface-secondary p-3">
+              <details className="mt-5 border-t border-separator/70 pt-4">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">
                   Inspect proposed change
                 </summary>
@@ -102,7 +109,7 @@ export function AgentApprovals({ approvals }: { approvals: AgentApprovalView[] }
                   Decline change
                 </Button>
               </details>
-            </Card>
+            </div>
           );
         })}
       </div>

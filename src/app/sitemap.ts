@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/site";
 
 /**
  * Public, indexable routes only. App routes (dashboard, settings, etc.) and the
- * sign-in page are intentionally excluded — they're gated or marked noindex.
+ * sign-in page are intentionally excluded: they're gated or marked noindex.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();

@@ -75,7 +75,7 @@ export const topics = pgTable(
 
 /**
  * C1 competitor content index: every post we've seen on a competitor's blog,
- * classified once and diffed incrementally — new rows since the last crawl are
+ * classified once and diffed incrementally: new rows since the last crawl are
  * themselves a signal ("they just started covering X"). Only the topic and
  * intent ever reach a writing prompt, never their text.
  */
@@ -105,7 +105,7 @@ export const competitorContent = pgTable(
 );
 
 /**
- * C2 — the brand's Search Console query×page report, refreshed weekly (28-day
+ * C2: the brand's Search Console query×page report, refreshed weekly (28-day
  * window, top rows by impressions). Feeds the striking-distance/CTR-gap/family
  * topic mining plays and C4's article performance checkpoints. Rows for a
  * period are replaced wholesale on sync; the unique index backstops races.
@@ -139,7 +139,7 @@ export const searchQueries = pgTable(
 );
 
 /**
- * C4 — article performance checkpoints. Each published article is read at
+ * C4: article performance checkpoints. Each published article is read at
  * day 7 / 28 / 90 from the C2 `search_queries` report (page + target-query
  * family) and given a verdict that drives the loop: winner → follow-up
  * topics; stalling → title/meta + answer-block fixes; dead → deprioritize
@@ -158,7 +158,7 @@ export const performanceCheckpoints = pgTable(
     articleId: uuid("article_id")
       .notNull()
       .references(() => articles.id, { onDelete: "cascade" }),
-    /** 7 | 28 | 90 — days since first publish. */
+    /** 7 | 28 | 90: days since first publish. */
     day: integer("day").notNull(),
     impressions: integer("impressions"),
     clicks: integer("clicks"),
@@ -176,7 +176,7 @@ export const performanceCheckpoints = pgTable(
 );
 
 /**
- * C4 — learned per-source topic weights (bounded 0.5–2.0, shrink toward 1 on
+ * C4: learned per-source topic weights (bounded 0.5-2.0, shrink toward 1 on
  * small samples). Multiplied into research scoring so sources that keep
  * producing winners for this brand rise and dead-end sources sink.
  */
@@ -189,7 +189,7 @@ export const topicSourceWeights = pgTable(
       .references(() => brands.id, { onDelete: "cascade" }),
     source: text("source").notNull(),
     weight: real("weight").notNull().default(1),
-    /** Checkpoints behind the weight — shown in the backlog UI for transparency. */
+    /** Checkpoints behind the weight: shown in the backlog UI for transparency. */
     sample: integer("sample").notNull().default(0),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -216,7 +216,7 @@ export const articles = pgTable(
     version: integer("version").notNull().default(1),
     // C3: the shape the outline step picked (direct-answer, tutorial, ...).
     shape: text("shape"),
-    // C3 gate results (JSON array of { gate, passed, detail }) — shown in the
+    // C3 gate results (JSON array of { gate, passed, detail }): shown in the
     // editor; a failing set means the draft was flagged for human review.
     gateResultsJson: text("gate_results_json"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -224,7 +224,7 @@ export const articles = pgTable(
   },
   (table) => [
     index("articles_brand_id_idx").on(table.brandId),
-    // One article per topic — prevents concurrent generate races from double-writing.
+    // One article per topic: prevents concurrent generate races from double-writing.
     uniqueIndex("articles_topic_id_unique_idx")
       .on(table.topicId)
       .where(sql`${table.topicId} is not null`),

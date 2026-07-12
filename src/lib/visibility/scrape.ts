@@ -1,9 +1,9 @@
 import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
 
 /**
- * V0.1 (v3) — resilient content scraping. Plain `fetch` (fetch-page.ts) sees only
+ * V0.1 (v3): resilient content scraping. Plain `fetch` (fetch-page.ts) sees only
  * the raw HTML AI crawlers get and is blocked by bot protection (Cloudflare
- * challenges, DataDome, PerimeterX) — which is fatal for competitor/off-site
+ * challenges, DataDome, PerimeterX): which is fatal for competitor/off-site
  * pages and even some owned sites, since Workers egress from datacenter IPs. This
  * escalates to managed scrapers that render JS and rotate proxies: context.dev
  * first (cheaper, returns markdown + metadata + JSON-LD), Firecrawl second

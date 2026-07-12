@@ -16,11 +16,11 @@ const KEYS: VisibilitySubScoreKey[] = [
   "platform",
 ];
 
-const fmt = (n: number | null | undefined) => (n == null ? "—" : `${Math.round(n)}`);
+const fmt = (n: number | null | undefined) => (n == null ? "N/A" : `${Math.round(n)}`);
 
 /**
- * Overview visibility snapshot — the "is it working?" proof. A big radial gauge
- * for the 0–100 score (never bare: delta vs last audit + industry baseline),
+ * Overview visibility snapshot: the "is it working?" proof. A big radial gauge
+ * for the 0-100 score (never bare: delta vs last audit + industry baseline),
  * six sub-score circle gauges, and deep links to the report, fix queue, and AI
  * answers. Empty state hands off to /visibility where Claudia runs the first audit.
  */
@@ -123,7 +123,7 @@ export function VisibilitySnapshot({ summary }: { summary: VisibilitySummary }) 
         ) : (
           <div className="flex flex-col items-center gap-5 py-2 text-center sm:flex-row sm:text-left">
             <ScoreGauge value={null} size={120} barSize={9}>
-              <span className="text-2xl font-semibold text-default-400">—</span>
+              <span className="text-2xl font-semibold text-default-400">N/A</span>
             </ScoreGauge>
             <div className="space-y-3">
               <div>
@@ -131,8 +131,8 @@ export function VisibilitySnapshot({ summary }: { summary: VisibilitySummary }) 
                   No visibility reading yet
                 </p>
                 <p className="mt-1 max-w-md text-sm leading-relaxed text-muted">
-                  Claudia runs your first audit during setup — one 0–100 score for how easily
-                  people and AI assistants can find and cite your site, plus a prioritized fix list.
+                  Claudia runs your first audit during setup. You will get a 0-100 visibility
+                  score and a fix list ordered by impact.
                 </p>
               </div>
               <Link href="/visibility" className="inline-block">

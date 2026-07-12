@@ -7,7 +7,7 @@ import { logError, logInfo, logWarn } from "@/lib/logging/logger";
  * coming from the writer the customer hired rather than a faceless no-reply.
  * `email` must be an address on the verified sending domain; `name` is the
  * display name Gmail (and other clients) show in place of the raw address.
- * The Cloudflare `send_email` binding needs this as a structured object — a
+ * The Cloudflare `send_email` binding needs this as a structured object: a
  * single "Name <addr>" string is treated as a bare address and the name is
  * dropped. Change these two fields to rename the sender.
  */
@@ -33,7 +33,7 @@ export function isEmailConfigured(): boolean {
 /**
  * Send one transactional email through the Cloudflare `send_email` binding. The
  * binding is only bound on the Workers runtime, so in local `next dev` this
- * no-ops. Never throws — callers treat email as best-effort and must not let it
+ * no-ops. Never throws: callers treat email as best-effort and must not let it
  * break the surrounding work.
  */
 export async function sendEmail(input: SendEmailInput): Promise<boolean> {

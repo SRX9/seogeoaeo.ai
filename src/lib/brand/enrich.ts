@@ -30,7 +30,7 @@ const FIELD_LIMITS = {
   seedKeywords: 1000,
 } as const;
 
-// Sites that are never genuine competitors — filtered in both the LLM and the
+// Sites that are never genuine competitors: filtered in both the LLM and the
 // keyless fallback path.
 const EXCLUDED_HOST_PARTS = [
   "g2.com",
@@ -357,7 +357,7 @@ function serperContext(results: SerperResult[]): string {
     const kg = result.knowledgeGraph;
     if (kg && (kg.title || kg.description)) {
       lines.push(
-        `Knowledge graph: ${[kg.title, kg.type, kg.description].filter(Boolean).join(" — ")}`,
+        `Knowledge graph: ${[kg.title, kg.type, kg.description].filter(Boolean).join(": ")}`,
       );
     }
     for (const item of result.organic.slice(0, 5)) {
@@ -456,14 +456,14 @@ type Candidate = {
   snippet: string;
   /** How many distinct search queries surfaced this host. */
   sources: number;
-  /** Appeared in a "{brand} vs …" result — the highest-precision signal. */
+  /** Appeared in a "{brand} vs …" result: the highest-precision signal. */
   vs: boolean;
 };
 
 /**
  * Gather evidence for competitor discovery from a query fan-out. Excluded hosts
  * (G2, Capterra, Reddit, …) are never candidates themselves, but their result
- * titles/snippets are kept as "listicle" evidence — "Top 10 X alternatives"
+ * titles/snippets are kept as "listicle" evidence: "Top 10 X alternatives"
  * pages name real competitors in text.
  */
 async function gatherEvidence(brand: CompetitorDiscoveryInput, ownHost: string | null) {
@@ -581,7 +581,7 @@ export async function discoverCompetitors(
   }
 
   const evidenceLabel = (c: Candidate) =>
-    `- ${c.title} (${c.host}) — seen in ${c.sources} search${c.sources === 1 ? "" : "es"}${c.vs ? ", comparison page" : ""}`;
+    `- ${c.title} (${c.host}): seen in ${c.sources} search${c.sources === 1 ? "" : "es"}${c.vs ? ", comparison page" : ""}`;
   const prompt = competitorDiscoveryPrompt(
     brand,
     {
@@ -616,7 +616,7 @@ export async function discoverCompetitors(
     const providedUrl = typeof item.url === "string" ? item.url.trim() : "";
     const evaluatedUrl = evaluateCompetitorUrl(providedUrl, ownHost, brand.name);
     let url = evaluatedUrl.url;
-    // The LLM may name a competitor it found only in listicle/answer text —
+    // The LLM may name a competitor it found only in listicle/answer text.
     // resolve its homepage with a bounded number of extra searches.
     if (
       !url &&

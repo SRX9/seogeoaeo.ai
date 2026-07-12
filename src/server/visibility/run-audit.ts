@@ -33,7 +33,7 @@ import { SCORER_VERSION } from "@/lib/visibility/version";
 import { analyzers } from "./analyzers";
 
 /**
- * V0.3 — audit orchestrator: Discovery → Analysis → Synthesis, mirroring the
+ * V0.3: audit orchestrator: Discovery → Analysis → Synthesis, mirroring the
  * inspiration skill's 3-phase flow (`inspiration-code/geo/SKILL.md` →
  * "Orchestration Logic"). Analyzers are stubs until V2+.
  */
@@ -59,7 +59,7 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * One robots rule against a path, honoring the REP pattern syntax: `*` matches
  * any run of characters and a trailing `$` anchors the end. A plain rule is the
  * usual prefix match. Treating patterns literally (the old `startsWith`) made
- * rules like `Disallow: /*?` never match — and we'd crawl disallowed pages.
+ * rules like `Disallow: /*?` never match: and we'd crawl disallowed pages.
  */
 export function robotsRuleMatches(rulePath: string, pathname: string): boolean {
   if (!rulePath.includes("*") && !rulePath.endsWith("$")) {
@@ -150,7 +150,7 @@ async function persistOffSiteSignals(
   platforms: ReturnType<typeof analyzePlatforms>,
 ): Promise<void> {
   const db = getDb();
-  // Drizzle throws "No values to insert" on `.values([])`, so guard each insert —
+  // Drizzle throws "No values to insert" on `.values([])`, so guard each insert.
   // brands with no detected social presence yield empty arrays.
   if (brand.platforms.length) {
     await db.insert(brandSignals).values(
@@ -212,7 +212,7 @@ export async function deleteAudit(auditId: string): Promise<void> {
 }
 
 /**
- * Run the 3 stages for an existing audit row. Never throws — failures land in the
+ * Run the 3 stages for an existing audit row. Never throws: failures land in the
  * row. Returns `true` only when the audit completed, so callers can charge credits
  * for successful work and skip charging for failures.
  */
@@ -228,7 +228,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
 
   // Retry-safe under at-least-once Workflow delivery: a retry after a lost
   // response must not redo a settled audit (full re-scrape + LLM spend), and a
-  // retry after a mid-run kill must not accumulate duplicate detail rows —
+  // retry after a mid-run kill must not accumulate duplicate detail rows.
   // wipe partials and start clean. (Findings are already deduped downstream by
   // persistNewFindings.)
   if (auditRow?.status === "complete") return true;
@@ -293,7 +293,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
       }
     }
 
-    // Off-site signals (V5.1/V5.2) — computed once and shared by both analyzers.
+    // Off-site signals (V5.1/V5.2): computed once and shared by both analyzers.
     const brand = await scanBrand(siteHints(homepage).name, new URL(siteUrl).host, {
       sameAsUrls: collectSameAs(homepage.structured_data),
     });
@@ -309,7 +309,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     await persistOffSiteSignals(auditId, brand, platforms);
 
     // ── Analysis (parallel, mirrors the 6 subagents) ─────────────────────
-    // PageSpeed runs a full Lighthouse pass (~10–30s) — start it alongside
+    // PageSpeed runs a full Lighthouse pass (~10-30s): start it alongside
     // the analyzers so it never adds wall-clock time to the audit.
     const [analyzerResults, psi] = await Promise.all([
       Promise.all(
@@ -333,7 +333,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
 
     const findings = analyzerResults.flatMap((r) => r.findings);
 
-    // ── Site Health checklist (V9) — never fails the audit ───────────────
+    // ── Site Health checklist (V9): never fails the audit ───────────────
     let siteHealth: SiteHealthSnapshot | null = null;
     try {
       const health = await buildSiteHealth({
@@ -365,7 +365,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
         title: "Live page blocked non-browser requests",
         recommendation:
           "A plain request to your page was met with a bot-protection challenge. AI crawlers " +
-          "(GPTBot, ClaudeBot, PerplexityBot) fetch like plain requests too — allowlist them in your " +
+          "(GPTBot, ClaudeBot, PerplexityBot) fetch like plain requests too: allowlist them in your " +
           "WAF / Bot Fight Mode, or they'll see a challenge page instead of your content.",
         fix_capability: "guided",
       });
@@ -379,8 +379,8 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
 
     // Seed each Toolbox tool's latest run from this audit's data so the tool
     // pages open on Claudia's results (setup run and recurring audits alike).
-    // Owned sites only — a competitor's results must never populate the
-    // owner's tools — and never fatal to the audit.
+    // Owned sites only: a competitor's results must never populate the
+    // owner's tools: and never fatal to the audit.
     if (workspaceId && !isBenchmark) {
       try {
         await seedToolRunsFromAudit({
@@ -418,7 +418,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
       .where(eq(audits.id, auditId));
     return true;
   } catch (error) {
-    // Server-side signal for ops dashboards — the failed row alone is silent.
+    // Server-side signal for ops dashboards: the failed row alone is silent.
     logError("visibility.audit_failed", {
       auditId,
       siteUrl,

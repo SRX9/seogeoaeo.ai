@@ -1,6 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 
-/** Bindings/vars this Worker needs — it talks to the app over HTTP, no DB. */
+/** Bindings/vars this Worker needs: it talks to the app over HTTP, no DB. */
 type Env = {
   /** Shared bearer token the app's /api/agent/* routes check. */
   CRON_SECRET: string;

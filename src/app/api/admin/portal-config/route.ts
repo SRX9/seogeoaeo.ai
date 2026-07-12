@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     if (priceIds.length === 0) {
       return NextResponse.json(
-        { error: "No price ids — set the STRIPE_PRICE_* secrets or pass priceIds" },
+        { error: "No price ids: set the STRIPE_PRICE_* secrets or pass priceIds" },
         { status: 400 },
       );
     }

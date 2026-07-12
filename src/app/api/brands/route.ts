@@ -21,6 +21,10 @@ import {
 import { createUseCase, listUseCases } from "@/lib/brand/use-cases";
 import { brandOnboardingSchema } from "@/lib/brand/schemas";
 import {
+  isBrandIntelligenceConfigured,
+  refreshBrandIntelligence,
+} from "@/lib/brand/intelligence";
+import {
   isSetupRunStale,
   startSetupRun,
   triggerSetupRun,
@@ -71,8 +75,6 @@ const createBrandSchema = brandOnboardingSchema.extend({
   resumeExisting: z.boolean().optional().default(false),
   checkoutSessionId: z.string().max(255).optional(),
 });
-
-const RESUME_EXISTING_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 function hasValues(values: Record<string, string>) {
   return Object.values(values).some((value) => value.trim().length > 0);
@@ -208,8 +210,7 @@ async function canResumeExistingBrand(
       checkoutSession.status === "complete" &&
       checkoutSession.metadata?.workspaceId === workspaceId &&
       checkoutSession.metadata?.userId === userId &&
-      brandCreatedAt >= sessionCreatedAt &&
-      Date.now() - brandCreatedAt <= RESUME_EXISTING_WINDOW_MS
+      brandCreatedAt >= sessionCreatedAt
     );
   } catch {
     return false;
@@ -267,8 +268,19 @@ export async function POST(request: Request) {
       seedKeywords: data.seedKeywords ?? "",
     });
 
+    // The prefill route normally warmed the 30-day domain cache, making this a
+    // cheap local read. If it did not run, do one best-effort Context.dev lookup
+    // now so the first dashboard already carries the customer's visual identity.
+    if (data.website && isBrandIntelligenceConfigured()) {
+      try {
+        await refreshBrandIntelligence(scope, data.website);
+      } catch (error) {
+        console.error("[brands] brand intelligence enrichment failed", error);
+      }
+    }
+
     // Competitors picked from onboarding's AI discovery (plus any legacy single
-    // entry), deduped by host and bulk-inserted. Best-effort enrichment — a
+    // entry), deduped by host and bulk-inserted. Best-effort enrichment: a
     // failure here must never fail brand creation.
     const competitorInputs = [
       ...(data.competitors ?? []),
@@ -284,7 +296,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Customer/user profiles confirmed on onboarding's autofill step — seed the
+    // Customer/user profiles confirmed on onboarding's autofill step: seed the
     // C1 inventory so BOFU topic mining has target profiles from day one.
     if (data.useCases.length > 0) {
       try {

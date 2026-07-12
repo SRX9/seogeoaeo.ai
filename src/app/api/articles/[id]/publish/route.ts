@@ -23,7 +23,7 @@ export async function POST(_request: Request, { params }: RouteProps) {
       await assertWorkspaceRateLimit(workspace.id, "publish_article", 30, ONE_HOUR_MS);
     } catch (error) {
       if (error instanceof RateLimitError) {
-        throw new HttpError(429, "Too many publishes — try again later", { code: "RATE_LIMITED" });
+        throw new HttpError(429, "Several publish requests are already running. Wait a moment and try again.", { code: "RATE_LIMITED" });
       }
       throw error;
     }
@@ -37,7 +37,7 @@ export async function POST(_request: Request, { params }: RouteProps) {
         articleId: id,
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      throw new HttpError(502, "Publishing failed — check your integrations and try again");
+      throw new HttpError(502, "Publishing failed. Check your connections and try again.");
     }
 
     const published = results.filter((r) => r.result.ok && !r.result.skipped).length;
@@ -49,7 +49,7 @@ export async function POST(_request: Request, { params }: RouteProps) {
       published,
       skipped,
       failed,
-      // True when every destination was already up to date — nothing was sent.
+      // True when every destination was already up to date: nothing was sent.
       unchanged: published === 0 && failed === 0 && skipped > 0,
     });
   });

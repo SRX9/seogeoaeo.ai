@@ -1,6 +1,6 @@
 /**
  * Step enter/exit for hire-onboarding. Spatial consistency (same path forward/back),
- * critically damped spring — no bounce on form screens.
+ * critically damped spring: no bounce on form screens.
  * `custom` is +1 forward / −1 back.
  */
 
@@ -22,5 +22,5 @@ export const onboardingStepVariants = {
   }),
 };
 
-/** 0.36s ≈ --duration-soft — multi-step flow can settle a hair longer than snappy UI. */
+/** 0.36s ≈ --duration-soft: multi-step flow can settle a hair longer than snappy UI. */
 export const onboardingStepSpring = { type: "spring" as const, bounce: 0, duration: 0.36 };

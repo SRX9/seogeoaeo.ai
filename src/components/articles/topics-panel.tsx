@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Button, Card, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
+import { Button, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
 import { Segment } from "@heroui-pro/react";
 import type { Key } from "react-aria-components";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +31,7 @@ const filters = [
   { id: "manual", label: "Manual" },
 ] as const;
 
-// Owner language for where a topic idea came from — never the raw enum.
+// Owner language for where a topic idea came from: never the raw enum.
 const SOURCE_BADGES: Record<string, string> = {
   use_case: "Customer profiles",
   competitor_gap: "Competitor gap",
@@ -64,7 +64,7 @@ function sourceBadge(topic: Topic): string | null {
 const EMPTY_TOPIC = { title: "", angle: "", keywords: "" };
 
 export function ManualTopicForm() {
-  // Controlled state — HeroUI inputs don't reliably submit via native FormData.
+  // Controlled state: HeroUI inputs don't reliably submit via native FormData.
   const [fields, setFields] = useState(EMPTY_TOPIC);
 
   const set =
@@ -118,7 +118,7 @@ export function ManualTopicForm() {
   }
 
   return (
-    <Card className="material-panel gap-0 p-7 sm:p-9">
+    <section className="border-y border-separator/70 py-7 sm:py-9">
       {/* Header */}
       <div className="flex items-start gap-3.5">
         <PenIcon className="mt-1 size-5 shrink-0 text-foreground" />
@@ -135,7 +135,7 @@ export function ManualTopicForm() {
         <div className="space-y-2">
           <Label htmlFor="title">Topic title</Label>
           <Input id="title" name="title" value={fields.title} onChange={set("title")} required placeholder="How to automate SEO blog production" variant="secondary" fullWidth />
-          <p className="text-xs leading-relaxed text-muted">The headline idea — what the article is about.</p>
+          <p className="text-xs leading-relaxed text-muted">Enter the main idea for the article.</p>
         </div>
 
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
@@ -159,7 +159,7 @@ export function ManualTopicForm() {
           <p className="text-xs leading-relaxed text-muted">Appears at the top of your topic queue.</p>
         </div>
       </form>
-    </Card>
+    </section>
   );
 }
 
@@ -185,12 +185,12 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
           <Segment
             aria-label="Filter topics by source"
             size="sm"
+            variant="ghost"
             selectedKey={filter}
             onSelectionChange={(key: Key) => setFilter(String(key))}
           >
             {filters.map((item) => (
               <Segment.Item key={item.id} id={item.id}>
-                <Segment.Separator />
                 {item.label}
               </Segment.Item>
             ))}
@@ -236,7 +236,7 @@ const SOURCE_WEIGHT_LABELS: Record<string, string> = {
 
 /**
  * C4 transparency: when the performance loop has learned a meaningful weight
- * for a source, say so — the backlog ranking shouldn't feel arbitrary.
+ * for a source, say so: the backlog ranking shouldn't feel arbitrary.
  */
 function SourceWeightsNote({ weights }: { weights?: Record<string, number> }) {
   if (!weights) return null;
@@ -289,22 +289,22 @@ function TopicList({
   });
 
   return (
-    <ul className="material-panel divide-y divide-border/50 overflow-hidden rounded-2xl">
+    <ul className="divide-y divide-separator/70 border-y border-separator/70">
       {topics.map((topic) => {
         const isGenerating = generate.isPending && generate.variables === topic.id;
         return (
           <li
             key={topic.id}
-            className="surface-interactive flex items-start justify-between gap-3 rounded-none p-4"
+            className="flex items-start justify-between gap-4 py-5 sm:py-6"
           >
-            {/* Title, subtitle, and details — stacked so the row never needs horizontal scroll */}
+            {/* Title, subtitle, and details: stacked so the row never needs horizontal scroll */}
             <div className="min-w-0 flex-1 space-y-2">
               <div className="space-y-1">
                 <p className="font-medium leading-snug tracking-tight text-foreground">
                   {topic.title}
                 </p>
                 {/* The thesis is the one line that says why this will drive
-                    traffic — always preferred over the generic rationale. */}
+                    traffic: always preferred over the generic rationale. */}
                 {topic.thesis || topic.rationale ? (
                   <p className="line-clamp-2 text-xs leading-relaxed text-muted">
                     {topic.thesis ?? topic.rationale}
@@ -348,7 +348,7 @@ function TopicList({
                   <Tooltip.Content>
                     <p>
                       {settingUp
-                        ? "Claudia is setting up your brand — generation unlocks when she's done."
+                        ? "Claudia is setting up your brand. You can generate an article when setup is done."
                         : `Generate article · ${articleCost} credits`}
                     </p>
                   </Tooltip.Content>

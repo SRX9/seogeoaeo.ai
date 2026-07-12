@@ -34,7 +34,7 @@ const heroPreviewPillars = [
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft/35 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-accent-soft-foreground">
+    <span className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
       <span className="size-1.5 rounded-full bg-accent" aria-hidden />
       {children}
     </span>
@@ -45,14 +45,14 @@ export function Hero() {
   return (
     <section className="relative mx-auto max-w-6xl px-4 pb-20 pt-24 sm:pt-32">
       <div className="mx-auto max-w-3xl text-center">
-        <SectionEyebrow>Hire an AI employee — not another dashboard</SectionEyebrow>
+        <SectionEyebrow>Your SEO and AI visibility hire</SectionEyebrow>
         <h1 className="type-display mt-7 text-4xl text-foreground sm:text-6xl sm:leading-[1.02]">
-          Meet <span className="text-accent">Claudia</span> — she keeps your brand findable
+          Meet <span className="text-accent">Claudia</span>. She keeps your brand findable.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted sm:text-xl sm:leading-relaxed">
-          Claudia audits you on Google and AI assistants, fixes what she can, writes and
-          publishes content that moves the score, and checks in weekly. You pay, connect, and
-          approve — she does the rest.
+          Claudia checks how your brand shows up in Google and AI answers, prepares site fixes,
+          and writes content in your voice. Each week, she tells you what changed and what needs
+          your attention.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link href="/login" className={buttonVariants({ size: "lg" })}>
@@ -84,7 +84,7 @@ export function Hero() {
 function HeroPreview() {
   return (
     <div className="mx-auto mt-16 max-w-4xl">
-      <Card className="material-panel overflow-hidden border-border/50">
+      <Card variant="transparent" className="rounded-none border-y border-border/60 py-8">
         <div className="grid gap-6 p-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-8">
           <div>
             <p className="text-sm font-medium tracking-[0.01em] text-muted">Visibility score</p>
@@ -115,17 +115,17 @@ function HeroPreview() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/40 bg-background/50 p-4 backdrop-blur-sm">
+          <div className="border-y border-border/50 py-4">
             <p className="text-sm font-medium tracking-[0.01em] text-muted">Claudia this week</p>
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 divide-y divide-border/40">
               {[
-                { title: "Published “How AI assistants pick sources”", status: "Done" },
+                { title: 'Published "How AI assistants pick sources"', status: "Done" },
                 { title: "Fixed schema on 3 key pages", status: "Done" },
                 { title: "Drafting comparison page for Perplexity gap", status: "Working" },
               ].map((row) => (
                 <li
                   key={row.title}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-surface/60 px-3.5 py-2.5"
+                  className="flex items-center justify-between gap-3 py-3"
                 >
                   <span className="truncate text-sm text-foreground">{row.title}</span>
                   <span
@@ -170,7 +170,7 @@ const publishTargets = [
 
 export function TrustBar() {
   return (
-    <section className="border-y border-border/40 bg-surface/40 backdrop-blur-sm">
+    <section className="border-y border-border/50">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-9 sm:flex-row sm:justify-between">
         <p className="text-sm font-medium tracking-[0.01em] text-muted">
           She publishes where your audience already is
@@ -195,21 +195,21 @@ const pillars = [
     icon: SearchIcon,
     name: "SEO",
     full: "Search Engine Optimization",
-    blurb: "Rank in the classic blue links on Google and Bing.",
+    blurb: "Improve how your pages rank in Google and Bing.",
     points: ["Technical & on-page audit", "Core Web Vitals risk", "Schema & rich results"],
   },
   {
     icon: SparklesIcon,
     name: "AEO",
     full: "Answer Engine Optimization",
-    blurb: "Become the answer in featured snippets and AI Overviews.",
+    blurb: "Give search engines clear answers they can quote.",
     points: ["Passage citability scoring", "FAQ & speakable schema", "Answer-block rewrites"],
   },
   {
     icon: GlobeIcon,
     name: "GEO",
     full: "Generative Engine Optimization",
-    blurb: "Get cited by ChatGPT, Claude, Perplexity & Gemini.",
+    blurb: "Help ChatGPT, Claude, Perplexity, and Gemini find and cite your brand.",
     points: ["AI-crawler access checks", "llms.txt generator", "Brand & entity authority"],
   },
 ];
@@ -221,9 +221,9 @@ const capabilities = [
     blurb:
       "Claudia scores how findable you are on Google and AI assistants, queues fixes by impact, and prepares ready-to-install artifacts you deploy on your site.",
     points: [
-      "Score with delta — never a vanity number alone",
-      "One inbox of ready fixes, not 35 tools",
-      "Re-audits on schedule to prove the gain",
+      "A score that shows what changed",
+      "Prepared fixes in one inbox",
+      "Scheduled audits that track progress",
     ],
   },
   {
@@ -232,9 +232,9 @@ const capabilities = [
     blurb:
       "She learns your voice, picks topics with a traffic thesis, writes human-sounding pieces, and ships them to the CMS you connect.",
     points: [
-      "Evidence-backed topic queue",
-      "Brand-tuned, citation-ready drafts",
-      "Publish on Autopilot or after your OK",
+      "Topic ideas tied to search evidence",
+      "Drafts written in your brand voice",
+      "Automatic publishing or review first",
     ],
   },
 ];
@@ -246,18 +246,18 @@ export function Features() {
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>What she does every week</SectionEyebrow>
           <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-            One employee. Both halves of the job.
+            One employee for visibility and content
           </h2>
           <p className="mt-4 text-pretty leading-relaxed text-muted">
-            Most products are toolboxes you operate. Claudia is the hire who operates them —
-            visibility and content, closed-loop, in your brand&apos;s voice.
+            Claudia handles the recurring work: audits, fixes, research, writing, and reporting.
+            You can follow every task without spending your week inside another SEO tool.
           </p>
         </div>
 
         <div className="mt-14 grid gap-5 lg:grid-cols-2">
           {capabilities.map((cap) => (
-            <Card key={cap.title} className="material-panel border-border/50">
-              <div className="flex size-11 items-center justify-center rounded-2xl border border-accent/25 bg-accent-soft/25 text-accent">
+            <Card key={cap.title} variant="transparent" className="rounded-none border-y border-border/50 px-0 py-7">
+              <div className="flex size-9 items-center justify-center text-accent">
                 <cap.icon className="size-6" />
               </div>
               <h3 className="mt-5 text-xl font-semibold tracking-tight text-foreground">
@@ -279,18 +279,18 @@ export function Features() {
         <div className="mt-16">
           <div className="mx-auto max-w-2xl text-center">
             <h3 className="type-title text-2xl text-foreground sm:text-3xl">
-              Optimized for all three engines
+              Built for search and AI answers
             </h3>
             <p className="mt-3 leading-relaxed text-muted">
-              Search, answer engines, and AI assistants each rank you differently. We cover the
-              signals that matter for every one.
+              Google, answer boxes, and AI assistants look for different signals. Claudia checks
+              each one and explains what to fix.
             </p>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {pillars.map((pillar) => (
-              <Card key={pillar.name} className="material-panel border-border/50">
+              <Card key={pillar.name} variant="transparent" className="rounded-none border-y border-border/50 px-0 py-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-xl border border-border/50 bg-surface/70 text-accent">
+                  <div className="flex size-9 items-center justify-center text-accent">
                     <pillar.icon className="size-5" />
                   </div>
                   <div>
@@ -323,25 +323,25 @@ const steps = [
     icon: PlugIcon,
     title: "You hire her (3 minutes)",
     blurb:
-      "Share your site. She reads the brand, proposes voice and competitors, and you confirm — almost no typing.",
+      "Share your site. She drafts your brand voice, audience, and competitor list for you to confirm.",
   },
   {
     icon: GaugeIcon,
     title: "She onboards herself",
     blurb:
-      "First audit, AI-answer check, topic research, quick-win fixes, first article, and a Day-0 brief. You can watch or leave.",
+      "She runs the first audit, checks AI answers, researches topics, and prepares the first useful work.",
   },
   {
     icon: SparklesIcon,
     title: "She works the standing loop",
     blurb:
-      "Daily writing within plan caps, cadence audits, fix dispatch, and answer tracking — logged in plain language.",
+      "She writes, audits, and follows up on a schedule. Every task appears in the work log.",
   },
   {
     icon: RocketIcon,
     title: "You only decide exceptions",
     blurb:
-      "Approve article drafts on Copilot, install prepared site fixes, connect GSC/CMS once, read her weekly memo. Autopilot auto-publishes articles.",
+      "Review drafts when you want to, install prepared site fixes, and read the weekly report. Autopilot can publish approved work for you.",
   },
 ];
 
@@ -352,19 +352,20 @@ export function HowItWorks() {
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>How she works</SectionEyebrow>
           <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-            Onboard an employee — not a project plan
+            Set her up once, then let her work
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
-            Your job: pay, connect, approve. Hers: measure, fix, write, publish, prove.
+            Connect your site and choose how much Claudia can do on her own. She takes it from
+            there and asks when she needs a decision.
           </p>
         </div>
 
         <ol className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <li key={step.title} className="relative">
-              <Card className="material-panel h-full border-border/50">
+              <Card variant="transparent" className="h-full rounded-none border-t border-border/60 px-0 py-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-xl border border-accent/25 bg-accent-soft/25 text-accent">
+                  <div className="flex size-9 items-center justify-center text-accent">
                     <step.icon className="size-5" />
                   </div>
                   <span className="text-3xl font-semibold tabular-nums tracking-tight text-border">
@@ -385,27 +386,27 @@ export function HowItWorks() {
 }
 
 const employeePerks = [
-  { icon: CalendarIcon, text: "Shows up daily with research, drafts, and publishes" },
-  { icon: RefreshIcon, text: "Re-audits and prepares ready fixes on your plan cadence" },
-  { icon: ChartBarIcon, text: "Weekly memo: score delta, AI mentions, traffic proof" },
-  { icon: BoltIcon, text: "Never sleeps, never invents work you can't verify in the log" },
+  { icon: CalendarIcon, text: "Researches topics and writes on your plan schedule" },
+  { icon: RefreshIcon, text: "Runs new audits and prepares the next fixes" },
+  { icon: ChartBarIcon, text: "Sends a weekly report with scores, AI mentions, and traffic" },
+  { icon: BoltIcon, text: "Keeps a work log so you can check every claim" },
 ];
 
 export function ContentEmployee() {
   return (
     <section className="border-t border-border/40 px-4 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl">
-        <Card className="material-panel overflow-hidden border-accent/25 bg-accent-soft/10">
+        <Card variant="transparent" className="overflow-hidden rounded-none border-y border-border/60 py-9">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
               <SectionEyebrow>Meet Claudia</SectionEyebrow>
               <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-                Your autonomous visibility &amp; content hire
+                Your visibility and content specialist
               </h2>
               <p className="mt-4 leading-relaxed text-muted">
-                Not a sidebar of tools you have to operate. An employee who already knows the
-                job — search, answer boxes, AI assistants, and the content that moves them —
-                and checks in like a great hire on Monday morning.
+                Claudia handles the work that usually gets pushed to next week. She checks search
+                and AI visibility, prepares fixes, writes useful content, and reports back every
+                Monday.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/login" className={buttonVariants()}>
@@ -420,13 +421,13 @@ export function ContentEmployee() {
               </div>
             </div>
 
-            <ul className="grid gap-3">
+            <ul className="divide-y divide-border/50 border-y border-border/50">
               {employeePerks.map((perk) => (
                 <li
                   key={perk.text}
-                  className="flex items-center gap-4 rounded-2xl border border-border/40 bg-surface/55 p-4 backdrop-blur-sm"
+                  className="flex items-center gap-4 py-4"
                 >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent-soft/25 text-accent">
+                  <div className="flex size-9 shrink-0 items-center justify-center text-accent">
                     <perk.icon className="size-5" />
                   </div>
                   <span className="text-sm leading-snug text-foreground/90">{perk.text}</span>
@@ -459,14 +460,14 @@ export function Publish() {
             Connect your platforms and ship
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
-            Connect once. On Autopilot she publishes for you; on Copilot she waits for your OK —
-            or export Markdown and take it anywhere.
+            Connect once. Autopilot can publish for you, while Copilot waits for your approval.
+            You can also export clean Markdown whenever you need it.
           </p>
         </div>
 
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {integrations.map((integration) => (
-            <Card key={integration.name} className="material-panel border-border/50">
+            <Card key={integration.name} variant="transparent" className="rounded-none border-y border-border/50 px-0 py-5">
               <div className="flex items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-surface/70 text-accent">
                   <LayersIcon className="size-5" />
@@ -489,13 +490,13 @@ export function Publish() {
 const freeTeaser = [
   "Meet Claudia & set up the brand",
   "She pre-fills voice, competitors & use cases",
-  "Free visibility snapshot to see the gap",
+  "A free visibility snapshot for your site",
 ];
 
 const paidTeaser = [
   "Claudia works every day on your brand",
-  "Articles, audits, and safe fixes included in plan",
-  "Weekly memo + proof stack (score, AI answers, traffic)",
+  "Articles, audits, and prepared fixes included",
+  "A weekly report with scores, AI answers, and traffic",
 ];
 
 export function Pricing() {
@@ -506,16 +507,16 @@ export function Pricing() {
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>Plans</SectionEyebrow>
           <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-            Salary for an employee — not a taxi meter
+            Pick a plan that fits the workload
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
-            Try the free check to see the gap. Hire Claudia on a plan so she can write, fix, and
-            report — safe fixes are included, never charged per click.
+            Start with a free site check. A paid plan gives Claudia a monthly budget for writing,
+            audits, fixes, and reporting.
           </p>
         </div>
 
         <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2">
-          <Card className="material-panel flex flex-col border-border/50">
+          <Card variant="transparent" className="flex flex-col rounded-none border-y border-border/60 px-0 py-7">
             <div className="flex items-baseline gap-2">
               <Card.Title>Preview</Card.Title>
               <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
@@ -524,7 +525,7 @@ export function Pricing() {
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
-              See who she is and where you stand — no card required.
+              Set up your brand and check your site. No card required.
             </Card.Description>
             <ul className="mt-5 flex-1 space-y-2.5">
               {freeTeaser.map((item) => (
@@ -539,7 +540,7 @@ export function Pricing() {
             </Link>
           </Card>
 
-          <Card className="material-panel flex flex-col border-accent/35 bg-accent-soft/10 ring-2 ring-accent/50">
+          <Card variant="transparent" className="flex flex-col rounded-none border-y-2 border-accent/60 px-0 py-7">
             <div className="flex items-baseline gap-2">
               <Card.Title>Hire Claudia</Card.Title>
               <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
@@ -548,7 +549,7 @@ export function Pricing() {
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
-              Four capacity tiers — she works; you glance and approve.
+              Choose how much work Claudia can take on each month.
             </Card.Description>
             <ul className="mt-5 flex-1 space-y-2.5">
               {paidTeaser.map((item) => (
@@ -581,27 +582,27 @@ export function Pricing() {
 const faqs = [
   {
     q: "Is this another SEO dashboard?",
-    a: "No. The product is Claudia — an autonomous employee. Your day-to-day is her status, inbox, and weekly memo. The full scorecard and toolbox live under Workshop for power users, not as the default.",
+    a: "Claudia is the main product. Most days, you only need her status, inbox, and weekly report. The detailed scorecard and individual tools are still available in Workshop when you need them.",
   },
   {
     q: "What does Claudia actually do?",
-    a: "She measures how findable you are on Google (search), answer boxes, and AI assistants; prepares ready site fixes; researches topics with a traffic thesis; writes and can publish articles; and reports score delta, AI mentions, and real traffic when Search Console is connected.",
+    a: "She checks how your brand appears in Google, answer boxes, and AI assistants. She then prepares site fixes, researches topics, writes articles, and can publish them. Connect Search Console and her reports will also include real traffic.",
   },
   {
     q: "Do I need to be technical?",
-    a: "No. Share your site, confirm what she inferred, pick Autopilot or Copilot, and start a plan. Findings use owner language — not jargon — and many fixes are copy-and-install ready.",
+    a: "No. Share your site, check the brand details Claudia found, and choose Autopilot or Copilot. She explains issues in plain language and gives you copy-ready files or code when a fix cannot be applied directly.",
   },
   {
     q: "Autopilot vs Copilot?",
-    a: "Autopilot: she publishes articles to your CMS without a review step and prepares ready site fixes in your inbox. Copilot: she prepares the same work and waits for your OK before publishing articles. Site artifacts (robots, schema, meta) you install; she re-checks next audit. Switch anytime.",
+    a: "Autopilot publishes articles to your CMS. Copilot waits for your approval first. Both modes prepare site fixes in your inbox, and you can switch modes whenever you like.",
   },
   {
     q: "What are credits?",
-    a: "Credits budget heavy AI work (articles, research, audits). Preparing site fixes is plan-included — never metered per fix. You copy ready artifacts onto your site; she re-checks next audit. Top-up packs never expire if you need more volume.",
+    a: "Credits pay for heavier work such as articles, research, and audits. Your plan includes a monthly allowance for prepared site fixes. If you need more volume, top-up credits do not expire.",
   },
   {
     q: "Can I try before hiring her?",
-    a: "Yes. Free brand setup and a visibility snapshot show the gap. Paid plans put Claudia on the standing loop so she can write, fix, and report every week.",
+    a: "Yes. You can set up your brand and run a visibility snapshot for free. A paid plan starts Claudia's regular writing, audit, and reporting schedule.",
   },
 ];
 
@@ -640,17 +641,17 @@ export function FinalCta() {
   return (
     <section className="px-4 py-24">
       <div className="mx-auto max-w-4xl">
-        <Card className="material-panel overflow-hidden border-accent/25 bg-accent-soft/12 text-center">
+        <Card variant="transparent" className="overflow-hidden rounded-none border-y border-border/60 py-10 text-center">
           <div className="mx-auto max-w-2xl px-2 py-10">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-accent/25 bg-accent-soft/25 text-accent">
+            <div className="mx-auto flex size-10 items-center justify-center text-accent">
               <UsersIcon className="size-6" />
             </div>
             <h2 className="type-title mt-6 text-3xl text-foreground sm:text-4xl">
-              Hire the employee who already knows the job
+              Put Claudia to work on your site
             </h2>
             <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted">
-              Share your site. Claudia sets herself up, starts working, and only pings you when
-              something needs a human.
+              Share your site and review the brand details Claudia finds. She can start with the
+              audit and tell you exactly what needs your decision.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3 justify-center">
               <Link href="/login" className={buttonVariants({ size: "lg" })}>

@@ -81,8 +81,8 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
           </EmptyState.Media>
           <EmptyState.Title>No work logged yet</EmptyState.Title>
           <EmptyState.Description>
-            Once I start researching, writing, and checking visibility, every job shows up
-            here — with credits spent and one-click retries.
+            Once I start working, every job appears here with its credit cost and a retry button
+            when something fails.
           </EmptyState.Description>
         </EmptyState.Header>
         <EmptyState.Content>
@@ -137,7 +137,7 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
                         -{item.credits.toLocaleString()}
                       </span>
                     ) : (
-                      <span className="text-muted">—</span>
+                      <span className="text-muted">0</span>
                     )}
                   </Table.Cell>
                   <Table.Cell>

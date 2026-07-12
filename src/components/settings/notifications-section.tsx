@@ -22,7 +22,7 @@ function NotificationsPanel({ enabled }: { enabled: boolean }) {
       toast.success(
         next
           ? "You'll get an email when your content agent runs low on credits."
-          : "Credit emails are off — your agent won't email you about credits.",
+          : "Credit emails are off. Claudia will not email you when your balance runs low.",
       );
     },
     onError: (error, next) => {

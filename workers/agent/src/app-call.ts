@@ -4,7 +4,7 @@
  * One home so the auth header and retry policy can't drift between Workflows.
  */
 
-/** Bindings/vars every callback Workflow needs — it talks to the app over HTTP, no DB. */
+/** Bindings/vars every callback Workflow needs: it talks to the app over HTTP, no DB. */
 export type AppEnv = {
   /** Shared bearer token the app's /api/agent/* routes check. */
   CRON_SECRET: string;

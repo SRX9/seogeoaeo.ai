@@ -7,6 +7,8 @@ export type BrandContext = {
   tone?: string | null;
   website?: string | null;
   seedKeywords?: string | null;
+  slogan?: string | null;
+  industries?: string | null;
   /** Rendered voice-doc block (words we use/avoid, stance, learned rules). */
   voice?: string | null;
 };
@@ -31,6 +33,8 @@ function brandBlock(brand: BrandContext) {
     brand.tone ? `Tone: ${brand.tone}` : null,
     brand.website ? `Website: ${brand.website}` : null,
     brand.seedKeywords ? `Seed keywords: ${brand.seedKeywords}` : null,
+    brand.slogan ? `Brand slogan: ${brand.slogan}` : null,
+    brand.industries ? `Industries: ${brand.industries}` : null,
     brand.voice ? `Brand voice:\n${brand.voice}` : null,
   ]
     .filter(Boolean)
@@ -38,17 +42,18 @@ function brandBlock(brand: BrandContext) {
 }
 
 /**
- * The C3 style covenant — verbatim in every generation system prompt. This is
+ * The C3 style covenant: verbatim in every generation system prompt. This is
  * the writer's contract; `style-lint.ts` machine-checks the parts it can.
  */
-export const STYLE_COVENANT = `Writing covenant — every rule is binding:
-1. The first sentence earns the read — an answer, a number, or a claim. Never throat-clearing. If the first sentence works without the second, keep it.
+export const STYLE_COVENANT = `Writing covenant: every rule is binding:
+1. The first sentence earns the read: an answer, a number, or a claim. Never throat-clearing. If the first sentence works without the second, keep it.
 2. Short by default: 600-1,200 words unless the evidence says the query deserves depth. Every paragraph must move the reader forward; cut the ones that only add length.
 3. Write like a person on the team: first person, contractions, specific numbers and examples from this brand's world, actual opinions. Address the reader as "you".
 4. No summary conclusions. Never restate what was just said. End with the next step or the sharpest take. "In conclusion" is banned outright.
 5. Vary the rhythm: mixed sentence lengths, sections of different sizes, no heading every 100 words. Perfect symmetry is an AI tell.
 6. Concrete beats abstract: "a freelancer invoicing 4 clients loses ~3 hours/month", not "many professionals face challenges". If a sentence works for any product, it doesn't belong in this article.
 7. One idea per article. If the outline wants two, that's two articles and an internal link. Short and pointed beats long and complete.
+8. Do not use long dash punctuation. Split the thought into sentences or use a comma, colon, or parentheses.
 Banned phrases (never use): "delve", "in today's ... landscape/world", "it's important to note", "unlock/unleash the power", "game-changer", "elevate", "seamlessly", "whether you're a ... or a ...", "in conclusion", "let's dive in".`;
 
 function shapeBlock(shape: ArticleShape) {
@@ -78,7 +83,7 @@ export function outlinePrompt(
 ) {
   return {
     system:
-      "You are a senior editor planning one article. The shape is fixed — never fall back to " +
+      "You are a senior editor planning one article. The shape is fixed. Do not fall back to " +
       "intro/sections/conclusion. Plan only the sections the shape calls for, sized unevenly by " +
       "what each deserves. One idea per article.",
     user: `Outline this article in Markdown (headings + one-line notes per section).
@@ -119,7 +124,7 @@ ${brandBlock(brand) || "No brand profile yet."}
 Outline:
 ${outline}
 
-Never invent statistics, quotes, or customer stories. Real specifics only — when you don't have one, make the claim without a fake number.`,
+Never invent statistics, quotes, or customer stories. Real specifics only: when you don't have one, make the claim without a fake number.`,
   };
 }
 
@@ -128,7 +133,7 @@ export function seoEditPrompt(draft: string, keywords?: string | null) {
     system:
       "You are an SEO editor. Improve headings, keyword placement, and clarity without changing " +
       "the voice, the opinions, or the structure. Never add filler, a conclusion section, or " +
-      "generic phrasing — if in doubt, leave the sentence alone. Cutting is allowed; padding is not.",
+      "generic phrasing: if in doubt, leave the sentence alone. Cutting is allowed; padding is not.",
     user: `Edit this Markdown article for SEO. Return only the revised Markdown.
 
 Target keywords: ${keywords ?? "Use the article's natural keywords"}
@@ -147,7 +152,7 @@ export function styleRewritePrompt(draft: string, hits: LintHit[]) {
     .map((hit) => `- ${hit.message}${hit.excerpt ? `\n  Flagged span: "${hit.excerpt}"` : ""}`)
     .join("\n");
   return {
-    system: `You are the same writer revising your own draft. Fix ONLY the flagged problems — rewrite the offending spans and restructure only where a problem demands it. Everything else stays word-for-word. Return the complete revised Markdown.
+    system: `You are the same writer revising your own draft. Fix ONLY the flagged problems: rewrite the offending spans and restructure only where a problem demands it. Everything else stays word-for-word. Return the complete revised Markdown.
 
 ${STYLE_COVENANT}`,
     user: `Problems found by the style linter:
@@ -169,7 +174,7 @@ export function brandPrefillPrompt(
       "audience (string, who the brand serves), tone (string, 2-4 comma-separated brand-voice adjectives), " +
       "seedKeywords (string, 4-8 comma-separated SEO keywords). " +
       "Ground productDescription in the search results and leave it empty only if truly unknown. " +
-      "Always provide audience, tone, and seedKeywords — infer them from the product, nature, and industry of the " +
+      "Always provide audience, tone, and seedKeywords: infer them from the product, nature, and industry of the " +
       "brand even when they are not stated outright. Never leave audience or tone empty.",
     user: `Brand name: ${brand.name}
 Website: ${brand.website || "Unknown"}
@@ -191,7 +196,7 @@ export function competitorDiscoveryPrompt(
       "ordered strongest competitor first. Weigh the evidence: brands named in AI assistant answers are the " +
       "strongest signal, then comparison ('vs') pages, then 'alternatives' listicle text, then candidates " +
       "corroborated by multiple searches. You may include a competitor named only in listicle or AI-answer " +
-      'text — set its url to "" if you do not know its real homepage. Include only genuine competing ' +
+      'text: set its url to "" if you do not know its real homepage. Include only genuine competing ' +
       "products/companies. Exclude the brand itself, review aggregators (g2, capterra, trustpilot), " +
       "marketplaces, social networks, news, and wikis. Use real homepage URLs (https://domain). " +
       "Never return a blog, article, docs, resource, or support URL; convert evidence pages to the " +
@@ -228,7 +233,7 @@ export function seedTrackedPromptsPrompt(
       "You write the questions real buyers ask AI assistants (ChatGPT, Perplexity, Gemini) when shopping in a " +
       `product category. Return JSON with key prompts: an array of at most ${limit} strings. ` +
       'Mix category questions ("best X for Y"), buyer-situation questions, and comparison questions a buyer of this ' +
-      "product would plausibly ask. Never mention the brand by name — these prompts measure whether AI answers " +
+      "product would plausibly ask. Never mention the brand by name: these prompts measure whether AI answers " +
       "surface the brand unprompted. Keep each under 15 words, plain language, no numbering.",
     user: `Brand name: ${brand.name}
 Website: ${brand.website || "Unknown"}
@@ -252,15 +257,15 @@ ${factsBlock}`,
   };
 }
 
-/** AP3 — the standing Overview brief, regenerated by the daily job from run data. */
+/** AP3: the standing Overview brief, regenerated by the daily job from run data. */
 export function agentBriefPrompt(brandName: string, factsBlock: string) {
   return {
     system:
       "You are Claudia, the user's SEO/AEO/GEO employee, writing the short status brief that greets " +
       "the owner on their dashboard. Write 2-4 sentences, first person, plain owner language (no jargon, " +
-      "no bare scores without context — always say what a number means or how it moved). Cover: what you " +
+      "no bare scores without context: always say what a number means or how it moved). Cover: what you " +
       "did recently, the one thing that matters most right now, and what you're doing next. Only claim " +
-      "things the facts below support — never invent work. Be concrete and warm, never salesy. " +
+      "things the facts below support. Never invent work. Be concrete and warm without sounding salesy. " +
       "Return JSON with key brief: the string.",
     user: `Brand: ${brandName}
 
@@ -306,7 +311,7 @@ export function competitorContentClassifyPrompt(
   return {
     system:
       "You classify competitor blog posts for content-gap analysis. For each post return its " +
-      'topic cluster (2-4 lowercase words, e.g. "invoicing for agencies" — reuse the same ' +
+      'topic cluster (2-4 lowercase words, e.g. "invoicing for agencies": reuse the same ' +
       "cluster name for posts about the same thing), buyer intent (bofu = choosing a tool, " +
       "mofu = evaluating approaches, tofu = learning), and article shape (tutorial, comparison, " +
       'direct-answer, opinion, checklist, teardown). Return JSON {"posts": [{ "url", "topic", ' +

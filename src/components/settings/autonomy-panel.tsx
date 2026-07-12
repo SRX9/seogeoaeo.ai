@@ -27,8 +27,8 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
       queryClient.invalidateQueries({ queryKey: queryKeys.brandAutonomy });
       toast.success(
         autonomyMode === "FULL_AUTO"
-          ? "Autopilot on — Claudia publishes articles and prepares ready site fixes."
-          : "Copilot on — Claudia prepares everything and asks before publishing.",
+          ? "Autopilot is on. Claudia publishes articles and prepares site fixes."
+          : "Copilot is on. Claudia prepares the work and asks before publishing.",
       );
     },
     onError: (error, autonomyMode) => {
@@ -59,7 +59,7 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
       <Card.Header>
         <Card.Title className="tracking-tight">How Claudia works</Card.Title>
         <Card.Description className="leading-relaxed">
-          One dial for both halves of her job — writing and fixing. Each brand is set
+          One dial for both halves of her job: writing and fixing. Each brand is set
           independently; fine-tune individual areas below.
         </Card.Description>
       </Card.Header>

@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       }
     } catch (error) {
       if (error instanceof RateLimitError) {
-        throw new HttpError(429, "Too many retries — try again later", { code: "RATE_LIMITED" });
+        throw new HttpError(429, "You have started several retries. Wait a moment and try again.", { code: "RATE_LIMITED" });
       }
       if (error instanceof InsufficientCreditsError) {
         throw new HttpError(402, "Not enough credits to retry this job", {

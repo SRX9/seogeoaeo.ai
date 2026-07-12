@@ -2,7 +2,7 @@ import { gaugeColor } from "@/lib/visibility/report-pdf";
 import { scoreBand } from "@/lib/visibility/display";
 
 /**
- * V8.6 — opt-in public score badge (SVG). Every proud customer is a referral —
+ * V8.6: opt-in public score badge (SVG). Every proud customer is a referral.
  * the badge links back to the free checker. Colors follow the 80/60/40 bands.
  */
 export function renderBadge(domain: string, score: number): string {

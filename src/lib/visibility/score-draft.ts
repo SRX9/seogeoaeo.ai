@@ -3,9 +3,9 @@ import { analyzeReadability, detectAiContent, type AiContentResult, type Readabi
 import type { HeadingEntry, PageSnapshot } from "./types";
 
 /**
- * V7.1 — live editor scoring. Runs the SAME deterministic V2.1 citability +
+ * V7.1: live editor scoring. Runs the SAME deterministic V2.1 citability +
  * V4.2 readability modules the audit uses, so the editor score always equals the
- * audit score for identical content. Fast, no LLM — safe to call on debounce.
+ * audit score for identical content. Fast, no LLM: safe to call on debounce.
  * The optional deep pass adds the V4.3 AI-content check (still deterministic).
  */
 

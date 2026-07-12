@@ -8,7 +8,11 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { authClient } from "@/lib/auth/client";
 import type { SessionUser } from "@/lib/auth/session";
 
-type BrandOption = { id: string; name: string };
+type BrandOption = {
+  id: string;
+  name: string;
+  identity?: { logoUrl: string | null; colors: Array<{ hex: string }> } | null;
+};
 
 function initials(name: string) {
   return (

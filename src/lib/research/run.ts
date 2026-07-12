@@ -33,7 +33,7 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
 
   // Idempotent reuse. A finished run for this key short-circuits. A stale partial
   // attempt (failed before completing) has its pending topics cleared and its row
-  // reused — the unique index forbids inserting a second run with the same key.
+  // reused: the unique index forbids inserting a second run with the same key.
   let run: Awaited<ReturnType<typeof createResearchRun>> | null = null;
   if (idempotencyKey) {
     const existing = await getResearchRunByKey(brandId, idempotencyKey);
@@ -99,7 +99,7 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
                 .then((findings) => ({ provider: provider.id, findings }))
                 .catch((error) => {
                   // One provider failing (transient LLM/DB/network error) must not
-                  // sink the whole run — drop its findings and keep the rest.
+                  // sink the whole run: drop its findings and keep the rest.
                   logError("research.provider_failed", {
                     workspaceId,
                     provider: provider.id,
@@ -122,7 +122,7 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
     );
 
     // C4: sources with a winning track record for this brand score higher.
-    // (Never throws — a failed read degrades to unweighted scoring and logs.)
+    // (Never throws: a failed read degrades to unweighted scoring and logs.)
     const sourceWeights = await getSourceWeights(brandId);
     const { topics: scoredTopics, tokenUsage } = await scoreFindings(novelFindings, context, {
       sourceWeights,
@@ -155,7 +155,7 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
     // Store a user-friendly summary (shown in the activity feed); keep the raw
     // error in the logs only.
     const detail = error instanceof Error ? error.message : "Unknown error";
-    const friendly = "Research failed — retry to try again.";
+    const friendly = "Research failed: retry to try again.";
     await completeResearchRun(run.id, {
       status: "failed",
       summary: friendly,

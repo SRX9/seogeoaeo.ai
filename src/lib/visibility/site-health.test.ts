@@ -74,7 +74,7 @@ const imageFetch = vi.fn(
   async () => new Response("", { status: 200, headers: { "content-type": "image/png" } }),
 ) as unknown as typeof fetch;
 
-/** fetchImpl where nothing resolves — every probe 404s. */
+/** fetchImpl where nothing resolves: every probe 404s. */
 const brokenFetch = vi.fn(async () => new Response("", { status: 404 })) as unknown as typeof fetch;
 
 function input(overrides: Partial<SiteHealthInput> = {}): SiteHealthInput {
@@ -100,7 +100,7 @@ describe("buildSiteHealth", () => {
     const good = await buildSiteHealth(
       input({
         homepage: snapshot({
-          title: "Acme Analytics — product analytics for busy dev teams",
+          title: "Acme Analytics: product analytics for busy dev teams",
           html: '<html lang="en"><body><p>hello</p></body></html>',
         }),
       }),
@@ -220,7 +220,7 @@ describe("buildSiteHealth", () => {
     const llmsCheck = health.checks.find((c) => c.id === "ai.llms_txt");
     expect(llmsCheck?.status).toBe("fail");
     expect(llmsCheck?.finding?.title).toBe("Missing llms.txt");
-    // Embedded only — llms/schema queue rows are owned by their analyzers/tools.
+    // Embedded only: llms/schema queue rows are owned by their analyzers/tools.
     expect(findings.some((f) => f.category === "llms_txt")).toBe(false);
 
     const schemaCheck = health.checks.find((c) => c.id === "schema.present");

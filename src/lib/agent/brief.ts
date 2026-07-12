@@ -13,13 +13,13 @@ import { logWarn } from "@/lib/logging/logger";
 import { DAILY_RUN_SCHEDULE_LABEL } from "@/lib/workspace/settings";
 
 /**
- * AP3 — Claudia's standing brief: the short first-person narrative on the
+ * AP3: Claudia's standing brief: the short first-person narrative on the
  * Overview ("this week I published 2 articles, fixed 3 schema issues, your
- * score moved 61 → 68 — next I'm …"). Assembled from structured run data,
+ * score moved 61 → 68: next I'm …"). Assembled from structured run data,
  * written by the light LLM tier, refreshed by the daily job after each brand's
  * run settles. Cached in KV (derived + regenerated daily → never Postgres);
  * a KV miss falls back to a deterministic composition so the card always
- * renders. Unmetered — the brief is proof, and proof is never metered.
+ * renders. Unmetered: the brief is proof, and proof is never metered.
  */
 
 export type AgentBrief = {
@@ -47,7 +47,7 @@ type BriefFacts = {
   pendingTopics: number;
 };
 
-/** Structured run data for the brief — pure reads, cheap enough to run daily. */
+/** Structured run data for the brief: pure reads, cheap enough to run daily. */
 async function collectBriefFacts(scope: BrandScope): Promise<BriefFacts> {
   const db = getDb();
   const weekAgo = new Date(Date.now() - WEEK_MS);
@@ -57,7 +57,7 @@ async function collectBriefFacts(scope: BrandScope): Promise<BriefFacts> {
       getUsageTotals(scope.brandId),
       listPendingTopicsForWriting(scope.brandId, 50),
       db.query.brandProfiles.findFirst({ where: eq(brandProfiles.brandId, scope.brandId) }),
-      // kind = "owned" — a competitor benchmark must never narrate as the owner's
+      // kind = "owned": a competitor benchmark must never narrate as the owner's
       // score. Fetched with siteUrl so multi-brand/multi-site workspaces can be
       // narrowed to THIS brand's site below (another site's score must never
       // narrate as this brand's).
@@ -73,7 +73,7 @@ async function collectBriefFacts(scope: BrandScope): Promise<BriefFacts> {
         )
         .orderBy(desc(audits.createdAt))
         .limit(20),
-      // Findings carry no brand column — workspace-wide is the finest scope here.
+      // Findings carry no brand column: workspace-wide is the finest scope here.
       db
         .select({ id: auditFindings.id })
         .from(auditFindings)
@@ -154,7 +154,7 @@ function deterministicBrief(facts: BriefFacts): string {
 /**
  * Rebuild the brand's brief from fresh run data and cache it. Called by the
  * daily job after settle (best-effort) and by the API on a cold cache. Never
- * throws — a failed LLM call falls back to the deterministic composition.
+ * throws: a failed LLM call falls back to the deterministic composition.
  */
 export async function refreshAgentBrief(
   scope: BrandScope,

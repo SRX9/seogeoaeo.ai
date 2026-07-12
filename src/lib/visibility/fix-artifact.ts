@@ -1,7 +1,7 @@
 import { escapeHtml as esc } from "@/lib/html";
 
 /**
- * Pure fix-artifact builder — turns a finding's stored `fix_payload` into the
+ * Pure fix-artifact builder: turns a finding's stored `fix_payload` into the
  * thing the owner actually uses: a paste-ready snippet, a downloadable file, or
  * an applicable rewrite. Client-safe (no db imports) so the fix queue can render
  * artifacts inline; the server's `apply-fix.ts` consumes the same builder.
@@ -29,7 +29,7 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         mode: "snippet",
         content: `<script type="application/ld+json">\n${JSON.stringify(p.jsonLd ?? p, null, 2).replace(/</g, "\\u003c")}\n</script>`,
         instructions:
-          "Copy and paste this into your page <head> (or CMS custom-code field). When it's live, mark the finding done — Claudia re-checks on the next audit.",
+          "Copy and paste this into your page <head> (or CMS custom-code field). When it's live, mark the finding done: Claudia re-checks on the next audit.",
       };
     case "llms_txt":
       return {
@@ -72,7 +72,7 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         mode: "snippet",
         content: psiOpportunityList(p),
         instructions:
-          "Lighthouse opportunities on this page, biggest savings first — implement in your codebase in order, then mark done.",
+          "Lighthouse opportunities on this page, biggest savings first: implement in your codebase in order, then mark done.",
       };
     default:
       return {
@@ -80,7 +80,7 @@ export function buildFixArtifact(payload: unknown): FixArtifact {
         mode: "snippet",
         content: "",
         instructions:
-          "Follow the recommendation on the finding — no ready-made snippet for this one. Mark done after you've fixed it on the site.",
+          "Follow the recommendation on the finding: no ready-made snippet for this one. Mark done after you've fixed it on the site.",
       };
   }
 }

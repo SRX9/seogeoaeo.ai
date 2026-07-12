@@ -12,7 +12,7 @@ import { AUTONOMY_CATEGORY_LABELS } from "@/lib/visibility/display";
 import { getAutonomyOverrides, setAutonomyLevel } from "@/server/visibility/autonomy";
 
 /**
- * AP4 — per-category autonomy for the standing loop. GET returns each fix
+ * AP4: per-category autonomy for the standing loop. GET returns each fix
  * category's *effective* level (explicit override, else the Autopilot/Copilot
  * dial's default) plus what the agent did in that category on its last monitor
  * cycle; PATCH upserts one category's override.

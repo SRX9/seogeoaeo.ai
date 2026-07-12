@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 /**
- * V4.1 / V4.3 — Zod schemas for the LLM JSON outputs. Shapes mirror the
- * `agents/geo-content.md` "Output Format" E-E-A-T table (Steps 2–5) and the
+ * V4.1 / V4.3: Zod schemas for the LLM JSON outputs. Shapes mirror the
+ * `agents/geo-content.md` "Output Format" E-E-A-T table (Steps 2-5) and the
  * Step 7 AI-content red-flag table + 4 assessment labels.
  */
 

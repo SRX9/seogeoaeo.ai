@@ -66,7 +66,7 @@ export async function getAgentJob(brandId: string, jobId: string) {
 }
 
 /**
- * The `visibility_monitor` job's metadata contract — written by
+ * The `visibility_monitor` job's metadata contract: written by
  * `finishReaudit` (cron.ts), read by the weekly report and the autonomy
  * settings API. One type ties producer and consumers together so a renamed
  * field breaks the build instead of silently zeroing the receipts.
@@ -80,7 +80,7 @@ export type VisibilityMonitorMeta = {
   verified?: Array<{ category: string; title: string }>;
   regressed?: Array<{ category: string; title: string }>;
   alerted?: boolean;
-  /** Delta/competitor blobs — recorded for the activity log, not read back. */
+  /** Delta/competitor blobs: recorded for the activity log, not read back. */
   overallDelta?: unknown;
   categoryDeltas?: unknown;
   competitor?: unknown;
@@ -88,7 +88,7 @@ export type VisibilityMonitorMeta = {
 
 /**
  * The brand's most recent monitor cycle (optionally within a window), with its
- * metadata parsed. A direct kind-filtered query — never a scan of recent jobs,
+ * metadata parsed. A direct kind-filtered query: never a scan of recent jobs,
  * which goes blind once other job kinds crowd the window.
  */
 export async function latestVisibilityMonitorMeta(

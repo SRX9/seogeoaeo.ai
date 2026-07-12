@@ -9,9 +9,8 @@ export const SITE_URL = "https://seogeoaeo.ai";
 export const SITE_NAME = "seogeoaeo.ai";
 
 export const SITE_DESCRIPTION =
-  "Hire Claudia — an autonomous AI employee who audits your visibility across " +
-  "Google and AI assistants, fixes what she can, writes brand-tuned content, " +
-  "and proves the gain. You pay, connect, and approve.";
+  "Claudia checks how your brand appears in Google and AI answers, prepares site fixes, " +
+  "writes content in your voice, and reports what changed each week.";
 
 /** Primary marketing nav, used by the public site header. */
 export const NAV_LINKS = [

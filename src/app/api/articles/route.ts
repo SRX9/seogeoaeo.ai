@@ -9,7 +9,7 @@ export async function GET() {
     const { brand } = await requireApiBrand();
     const [articles, verdicts] = await Promise.all([
       listArticles(brand.id),
-      latestVerdicts(brand.id), // never throws — degrades to {} and logs
+      latestVerdicts(brand.id), // never throws: degrades to {} and logs
     ]);
     return jsonOk({
       articles: articles.map((article) => ({

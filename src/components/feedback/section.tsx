@@ -5,7 +5,7 @@ import { Component, type ReactNode } from "react";
 import { ApiError, getErrorMessage } from "@/lib/api/fetcher";
 import type { QueryLike } from "@/lib/api/queries";
 
-/** The workspace has no brand yet (mid-onboarding) — a transient state, not a
+/** The workspace has no brand yet (mid-onboarding): a transient state, not a
  * failure: render the skeleton instead of an error card. */
 function isNoBrandError(error: unknown): boolean {
   return (
@@ -20,7 +20,7 @@ function isNoBrandError(error: unknown): boolean {
 /**
  * Per-section async wrapper. Renders one page section independently: a skeleton
  * while its data loads, a scoped error card (with retry) if its fetch fails, and
- * the content once data is present — so one slow or failing section never blanks
+ * the content once data is present: so one slow or failing section never blanks
  * the whole page. A render-time error inside the section is caught by an internal
  * error boundary and shown the same way, isolated to this section.
  *
@@ -87,7 +87,7 @@ export function Section<T>({
   if (query.error != null && query.data === undefined && !isNoBrandError(query.error)) {
     return <SectionError error={query.error} label={errorLabel} onRetry={() => query.refetch()} />;
   }
-  // Still loading (no data yet) — show the section's skeleton.
+  // Still loading (no data yet): show the section's skeleton.
   if (query.data === undefined) {
     return <>{skeleton}</>;
   }

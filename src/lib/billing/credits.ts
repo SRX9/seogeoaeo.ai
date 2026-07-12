@@ -7,7 +7,7 @@ export const CREDIT_COSTS = {
   article_generation: 100,
   research_run: 20,
   competitor_discovery: 15,
-  // Visibility suite (V8.4). Users buy outcomes, not tool access. No per-fix key —
+  // Visibility suite (V8.4). Users buy outcomes, not tool access. No per-fix key.
   // Fix preparation is plan-included with a monthly cap ("salaried, not a taxi meter").
   visibility_audit: 50,
   answer_run: 10,
@@ -45,7 +45,7 @@ export type CreditPack = {
 
 /**
  * One-time top-up packs. Purchased credits never expire and stack on top of the
- * monthly plan allowance — overage capacity for subscribers who burn through
+ * monthly plan allowance: overage capacity for subscribers who burn through
  * their monthly grant.
  */
 export const creditPacks: Record<CreditPackId, CreditPack> = {

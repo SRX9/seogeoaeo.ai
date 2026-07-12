@@ -2,9 +2,9 @@ import { handleApi, jsonOk, requireApiBrand } from "@/lib/api/server";
 import { getStoredAgentBrief, refreshAgentBrief } from "@/lib/agent/brief";
 
 /**
- * AP3 — Claudia's standing Overview brief. Normally a KV read (the daily job
+ * AP3: Claudia's standing Overview brief. Normally a KV read (the daily job
  * refreshes it after each run); a cold cache regenerates once and re-primes.
- * Unmetered — the brief is proof, and proof is never metered.
+ * Unmetered: the brief is proof, and proof is never metered.
  */
 export async function GET() {
   return handleApi(async () => {

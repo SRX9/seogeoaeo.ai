@@ -1,6 +1,6 @@
 /**
  * Escape a value for interpolation into HTML. Covers attribute context too
- * (`"` and `'`), so one hardened helper serves both text nodes and attributes —
+ * (`"` and `'`), so one hardened helper serves both text nodes and attributes.
  * especially the fix-snippet path that writes markup destined for customer sites.
  */
 export function escapeHtml(value: unknown): string {

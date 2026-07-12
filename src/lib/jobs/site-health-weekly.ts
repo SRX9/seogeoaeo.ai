@@ -11,8 +11,8 @@ import {
 /**
  * Weekly autonomous Site Health check (autopilot). Once every
  * SITE_HEALTH_INTERVAL_DAYS the daily pipeline re-verifies every on-site
- * essential — speed (one PageSpeed call), meta, social previews, crawler
- * access, schema — and queues fixes for anything that slipped. Together with
+ * essential: speed (one PageSpeed call), meta, social previews, crawler
+ * access, schema: and queues fixes for anything that slipped. Together with
  * the capped manual rechecks this bounds account-wide PageSpeed usage at one
  * scheduled call per brand per week. The cadence gate is the most recent
  * `site_health_check` agent job (created before the run, so a failed check
@@ -59,16 +59,16 @@ export async function maybeRunWeeklySiteHealth(
       job.id,
       "completed",
       needsWork === 0
-        ? `Checked ${pass} things on your site — everything looks great.`
-        : `Checked ${pass + needsWork} things on your site — ${needsWork} need${needsWork === 1 ? "s" : ""} attention; the fixes are in your queue.`,
+        ? `Checked ${pass} things on your site: everything looks great.`
+        : `Checked ${pass + needsWork} things on your site: ${needsWork} need${needsWork === 1 ? "s" : ""} attention; the fixes are in your queue.`,
       { pass, warn, fail },
     );
     return { ran: true, pass, warn, fail };
   } catch (error) {
-    // An unreachable site is a normal outcome (down, bot-blocked) — record it
+    // An unreachable site is a normal outcome (down, bot-blocked): record it
     // and wait out the interval rather than surfacing a pipeline error.
     if (error instanceof SiteUnreachableError) {
-      await finishAgentJob(job.id, "failed", `Couldn't reach ${website} — ${error.message}`);
+      await finishAgentJob(job.id, "failed", `Couldn't reach ${website}: ${error.message}`);
       return { ran: false, reason: "site_unreachable" };
     }
     await finishAgentJob(job.id, "failed", "Site health check failed.");

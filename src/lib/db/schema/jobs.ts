@@ -26,7 +26,7 @@ export const agentJobs = pgTable(
  * Claudia's one-time Setup Run (AP2): the ignition pipeline that onboards a new
  * brand without user steps. One row per brand; `stepsJson` holds the ordered
  * per-step statuses the progress UI renders, and the row is the idempotency
- * anchor — a re-fired run resumes from the first non-done step.
+ * anchor: a re-fired run resumes from the first non-done step.
  */
 export const setupRuns = pgTable(
   "setup_runs",
@@ -71,7 +71,7 @@ export const usageCounters = pgTable(
 
 /**
  * One row per brand per UTC day, written by the daily content-agent cron. It is
- * the source of truth for "what did the agent do today" — used to enforce the
+ * the source of truth for "what did the agent do today": used to enforce the
  * per-plan daily article cap idempotently (so a re-fired cron can't double-write)
  * and to surface the agent's current state on the dashboard.
  */

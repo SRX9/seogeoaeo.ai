@@ -3,9 +3,9 @@ import { AiContentSchema, type AiContentLabel, EeatSchema } from "./eeat-schema"
 import type { Finding, PageSnapshot } from "./types";
 
 /**
- * V4 — content quality & E-E-A-T. Ports `agents/geo-content.md`: readability &
+ * V4: content quality & E-E-A-T. Ports `agents/geo-content.md`: readability &
  * depth (Step 6), AI-content red flags (Step 7), topical authority (Steps 8,10),
- * freshness (Step 9), E-E-A-T signal tables + 0–25 bands (Steps 2–5), and the
+ * freshness (Step 9), E-E-A-T signal tables + 0-25 bands (Steps 2-5), and the
  * Step 10 content-score weighting. Deterministic analyzers run live in the
  * editor (V7.1); the E-E-A-T judgement is LLM-first with a heuristic fallback.
  */
@@ -51,7 +51,7 @@ function schemaTypeSet(structuredData: unknown[]): Set<string> {
   return types;
 }
 
-// ════════════════════════ V4.2 — Readability & depth ════════════════════════
+// ════════════════════════ V4.2: Readability & depth ════════════════════════
 export type WordCountTier = "thin" | "short" | "standard" | "long" | "deep-dive";
 
 export interface ReadabilityResult {
@@ -137,7 +137,7 @@ export function analyzeReadability(snapshot: PageSnapshot): ReadabilityResult {
       category: "content_depth",
       severity: "medium",
       title: `Thin content (${wordCount} words)`,
-      recommendation: "Expand with specifics, examples, and answers — under 300 words rarely ranks or gets cited.",
+      recommendation: "Expand with specifics, examples, and answers: under 300 words rarely ranks or gets cited.",
       fix_capability: "guided",
     });
   }
@@ -167,7 +167,7 @@ export function analyzeReadability(snapshot: PageSnapshot): ReadabilityResult {
       category: "readability",
       severity: "low",
       title: `${wallOfTextCount} "wall of text" paragraph(s)`,
-      recommendation: "Break paragraphs over 150 words into 40–80-word chunks — easier to read and to quote.",
+      recommendation: "Break paragraphs over 150 words into 40-80-word chunks: easier to read and to quote.",
       fix_capability: "guided",
     });
   }
@@ -177,7 +177,7 @@ export function analyzeReadability(snapshot: PageSnapshot): ReadabilityResult {
     tier,
     flesch,
     fleschLevel,
-    fleschNote: "Approximation from paragraph sampling — not a certified reading-level measurement.",
+    fleschNote: "Approximation from paragraph sampling: not a certified reading-level measurement.",
     avgParagraphWords,
     wallOfTextCount,
     headings: { h1Count, total: hs.length, skippedLevels, wordsPerSubheading },
@@ -186,7 +186,7 @@ export function analyzeReadability(snapshot: PageSnapshot): ReadabilityResult {
   };
 }
 
-// ════════════════════════ V4.5 — Content freshness ══════════════════════════
+// ════════════════════════ V4.5: Content freshness ══════════════════════════
 export interface FreshnessResult {
   published: string | null;
   modified: string | null;
@@ -262,7 +262,7 @@ export function analyzeFreshness(snapshot: PageSnapshot, now: Date = new Date())
       category: "freshness",
       severity: ymyl ? "high" : "medium",
       title: `Stale ${ymyl ? "YMYL " : ""}content (${Math.floor((ageDays ?? 0) / 365)}+ years old)`,
-      recommendation: "Refresh facts, stats, and the updated date — time-sensitive pages lose trust and rankings as they age.",
+      recommendation: "Refresh facts, stats, and the updated date: time-sensitive pages lose trust and rankings as they age.",
       fix_capability: "guided",
     });
   } else if (ageDays == null && snapshot.word_count > 300) {
@@ -271,7 +271,7 @@ export function analyzeFreshness(snapshot: PageSnapshot, now: Date = new Date())
       category: "freshness",
       severity: "low",
       title: "No visible publish/updated date",
-      recommendation: "Show a publish and last-updated date — a freshness and trust signal for search and AI.",
+      recommendation: "Show a publish and last-updated date: a freshness and trust signal for search and AI.",
       fix_capability: "guided",
     });
   }
@@ -289,7 +289,7 @@ export function analyzeFreshness(snapshot: PageSnapshot, now: Date = new Date())
   };
 }
 
-// ═════════════════════ V4.4 — Topical authority ═════════════════════════════
+// ═════════════════════ V4.4: Topical authority ═════════════════════════════
 export interface TopicalAuthorityResult {
   pageCount: number;
   internalLinks: number;
@@ -316,7 +316,7 @@ export function analyzeTopicalAuthority(
       severity: "medium",
       title: `Shallow topic coverage (${pageCount} pages)`,
       recommendation:
-        "Publish a hub page plus supporting cluster articles on your core topic — breadth builds the authority AI rewards.",
+        "Publish a hub page plus supporting cluster articles on your core topic: breadth builds the authority AI rewards.",
       fix_capability: "guided",
     });
   } else if (internalLinks < 3 && snapshot.word_count > 300) {
@@ -351,7 +351,7 @@ export async function suggestContentGaps(topic: string, existingTitles: string[]
   }
 }
 
-// ═════════════════════ V4.3 — AI-content detector ═══════════════════════════
+// ═════════════════════ V4.3: AI-content detector ═══════════════════════════
 export interface AiContentResult {
   redFlags: { indicator: string; evidence?: string }[];
   label: AiContentLabel;
@@ -437,7 +437,7 @@ export function detectAiContent(snapshot: PageSnapshot): AiContentResult {
   return { redFlags, label, score: LABEL_SCORE[label], findings };
 }
 
-// ═══════════════════════════ V4.1 — E-E-A-T ═════════════════════════════════
+// ═══════════════════════════ V4.1: E-E-A-T ═════════════════════════════════
 export interface EeatDimension {
   score: number;
   evidence: string[];
@@ -509,7 +509,7 @@ function eeatFindings(e: Omit<EeatResult, "findings" | "source">): Finding[] {
       category: "eeat_trust",
       severity: "high",
       title: "Weak trust signals",
-      recommendation: "Add visible contact info, a privacy policy, inline sourcing, and content dates — trust is Google's top E-E-A-T dimension.",
+      recommendation: "Add visible contact info, a privacy policy, inline sourcing, and content dates: trust is Google's top E-E-A-T dimension.",
       fix_capability: "guided",
     });
   }
@@ -529,7 +529,7 @@ function eeatFindings(e: Omit<EeatResult, "findings" | "source">): Finding[] {
       category: "eeat_experience",
       severity: "medium",
       title: "Little first-hand experience shown",
-      recommendation: "Add original data, case studies, screenshots, or 'what we did' narratives — the newest E-E-A-T signal.",
+      recommendation: "Add original data, case studies, screenshots, or 'what we did' narratives: the newest E-E-A-T signal.",
       fix_capability: "guided",
     });
   }
@@ -538,8 +538,8 @@ function eeatFindings(e: Omit<EeatResult, "findings" | "source">): Finding[] {
 
 const EEAT_SYSTEM = [
   "You score a web page on Google's E-E-A-T framework from observable signals only.",
-  "Rate Experience, Expertise, Authoritativeness, and Trustworthiness each 0–25 using these bands:",
-  "0–5 none · 6–10 minimal · 11–15 moderate · 16–20 strong · 21–25 exceptional.",
+  "Rate Experience, Expertise, Authoritativeness, and Trustworthiness each 0-25 using these bands:",
+  "0-5 none · 6-10 minimal · 11-15 moderate · 16-20 strong · 21-25 exceptional.",
   "Trustworthiness is the most important dimension (HTTPS, contact info, sourcing, dating, policies).",
   'Return JSON: {"experience":{"score":N,"evidence":[...]},"expertise":{...},"authoritativeness":{...},"trustworthiness":{...}}.',
 ].join(" ");
@@ -568,13 +568,13 @@ export async function analyzeEeat(snapshot: PageSnapshot): Promise<EeatResult> {
   return { ...h, source: "heuristic", findings: eeatFindings(h) };
 }
 
-// ══════════════════════ Step 10 — content score ═════════════════════════════
+// ══════════════════════ Step 10: content score ═════════════════════════════
 export function computeContentScore(p: {
-  eeatTotal: number; // 0–100 (sum of four 0–25 dims)
-  contentMetrics: number; // 0–100
-  aiContent: number; // 0–100
+  eeatTotal: number; // 0-100 (sum of four 0-25 dims)
+  contentMetrics: number; // 0-100
+  aiContent: number; // 0-100
   topicalModifier: number; // −5..10
-  freshness: number; // 0–100
+  freshness: number; // 0-100
 }): number {
   const eeatPts = (p.eeatTotal / 100) * 60; // four dims → 15% each = 60
   const metricsPts = (p.contentMetrics / 100) * 15;

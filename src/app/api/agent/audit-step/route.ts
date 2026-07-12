@@ -7,11 +7,11 @@ import { createAudit, executeAudit } from "@/server/visibility/run-audit";
 
 type AuditStepBody = {
   /**
-   * "manual"  — user-triggered audit: execute + charge credits on success.
-   * "create"  — monitor: insert the new audit row, return its id.
-   * "execute" — monitor: run the audit for an existing row.
-   * "finish"  — monitor: autonomy dispatch + verification + delta + alert.
-   * "answers" — monitor: the AP4 cadence answer check (credit-gated, non-fatal).
+   * "manual" : user-triggered audit: execute + charge credits on success.
+   * "create" : monitor: insert the new audit row, return its id.
+   * "execute": monitor: run the audit for an existing row.
+   * "finish" : monitor: autonomy dispatch + verification + delta + alert.
+   * "answers": monitor: the AP4 cadence answer check (credit-gated, non-fatal).
    */
   step: "manual" | "create" | "execute" | "finish" | "answers";
   workspaceId: string;
@@ -24,7 +24,7 @@ type AuditStepBody = {
 /**
  * Steps are delivered at-least-once, so "create" must not mint a second row
  * when only the response was lost: any `running` row for the same site this
- * young is the previous attempt's — reuse it. (Also folds a concurrent manual
+ * young is the previous attempt's: reuse it. (Also folds a concurrent manual
  * audit of the same site into one run instead of racing it.)
  */
 const REUSABLE_RUNNING_MS = 30 * 60 * 1000;
@@ -50,7 +50,7 @@ async function createReauditRow(workspaceId: string, siteUrl: string): Promise<s
 
 /**
  * Workflow step callback: one phase of a visibility audit run. Called by the
- * `AuditRunWorkflow` Worker. `executeAudit` never throws — a failed audit is
+ * `AuditRunWorkflow` Worker. `executeAudit` never throws: a failed audit is
  * persisted on its row and comes back as `{ ok: false }` (terminal, no retry);
  * a thrown error here returns 500 and the Workflow retries the step.
  */

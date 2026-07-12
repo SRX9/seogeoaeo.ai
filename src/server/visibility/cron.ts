@@ -31,7 +31,7 @@ import { getAutonomyOverrides, resolveBrandForSite } from "./autonomy";
 import { createAudit, executeAudit } from "./run-audit";
 
 /**
- * V7.3 — scheduled re-audits & alerts. A monthly (staggered) cron re-audits each
+ * V7.3: scheduled re-audits & alerts. A monthly (staggered) cron re-audits each
  * active site, stores a new run_version, computes the V6.3 delta, and alerts on a
  * score drop or a new Critical finding. Orchestration reuses V2.3 + V6.3.
  *
@@ -74,7 +74,7 @@ export interface DueSite {
 export type DispatchSummary = FixDispatchSummary;
 
 /**
- * AP4 — per-category autonomy dispatch after a scheduled re-audit. Shared
+ * AP4: per-category autonomy dispatch after a scheduled re-audit. Shared
  * policy in `dispatchOpenFindings`: monthly `autoFixCap` covers new prepares
  * and live-applies; Level 0 queues; no brand → no-op.
  */
@@ -120,7 +120,7 @@ const APPLIED_RESOLUTIONS = ["auto_applied", "user_applied", "completed"] as con
  * re-detection lands on the original row, whatever audit it came from), so:
  * - *verified*  = applied before this audit ran (`resolvedAt` predates it,
  *   dismissals excluded by `resolution`) and still resolved after the audit
- *   persisted — the fix held. Stamped `verifiedAt`, reported once.
+ *   persisted: the fix held. Stamped `verifiedAt`, reported once.
  * - *regressed* = rows reopened by a re-detection since the baseline audit.
  */
 async function verifyAppliedFixes(
@@ -223,7 +223,7 @@ async function competitorGap(
 /**
  * Count criticals in the new audit that weren't already critical in the baseline
  * (matched by category + title), so a persistent critical doesn't re-alert every
- * cycle — only genuinely new ones do.
+ * cycle: only genuinely new ones do.
  */
 async function countNewCriticals(baselineId: string, currentId: string): Promise<number> {
   const db = getDb();
@@ -237,7 +237,7 @@ async function countNewCriticals(baselineId: string, currentId: string): Promise
 }
 
 /**
- * Latest owned audit per (workspace, site) — the baseline for each re-audit.
+ * Latest owned audit per (workspace, site): the baseline for each re-audit.
  * Scoped in SQL (DISTINCT ON, not a full-table scan into Worker memory) to:
  * - kind = "owned": competitor benchmark audits are one-off comparisons, never
  *   re-audited on cadence;
@@ -248,7 +248,7 @@ async function latestAuditPerSite() {
   const db = getDb();
   // Prefer the latest complete audit that finished its monitor cycle. A scrape
   // that completed without `finish` must not advance the cadence window.
-  // Manual/setup audits never set monitorFinishedAt — treat them as valid baselines
+  // Manual/setup audits never set monitorFinishedAt: treat them as valid baselines
   // so a user-triggered audit still resets the re-audit clock.
   return db
     .selectDistinctOn([audits.workspaceId, audits.siteUrl], {
@@ -278,8 +278,8 @@ async function latestAuditPerSite() {
 }
 
 /**
- * Every site *due* on its plan's monitoring cadence (weekly / monthly —
- * `dueForReaudit`). Safe to compute daily: the cadence gate makes any higher
+ * Every site due on its plan's weekly or monthly monitoring cadence. Safe to
+ * compute daily because `dueForReaudit` makes any higher
  * firing frequency a no-op.
  */
 export async function listDueSites(): Promise<DueSite[]> {
@@ -303,7 +303,7 @@ export async function listDueSites(): Promise<DueSite[]> {
 }
 
 /**
- * Post-audit phase of one scheduled re-audit — AP4's standing-loop core:
+ * Post-audit phase of one scheduled re-audit: AP4's standing-loop core:
  * verify last cycle's applied fixes, dispatch this cycle's findings by
  * per-category autonomy, compute the V6.3 delta, alert immediately on a
  * material drop or new critical, and write one attribution row (`agent_jobs`
@@ -312,7 +312,7 @@ export async function listDueSites(): Promise<DueSite[]> {
  * called after the audit completed. Retry-tolerant: applies only touch
  * `isResolved = false`, proposes/verifications only stamp null timestamps;
  * only the alert email can double-send in the narrow window where a sent
- * mail's response is lost — accepted rather than building an idempotency
+ * mail's response is lost: accepted rather than building an idempotency
  * ledger for it. Returns whether it alerted.
  */
 export async function finishReaudit(args: {
@@ -359,13 +359,13 @@ export async function finishReaudit(args: {
   }
 
   // Stamp finish before attribution so a lost response on the job write still
-  // advances cadence correctly — finish work itself is retry-safe.
+  // advances cadence correctly: finish work itself is retry-safe.
   await getDb()
     .update(audits)
     .set({ monitorFinishedAt: new Date() })
     .where(and(eq(audits.id, args.newAuditId), isNull(audits.monitorFinishedAt)));
 
-  // Attribution — best-effort, after all idempotent writes (daily.ts pattern):
+  // Attribution: best-effort, after all idempotent writes (daily.ts pattern):
   // a failed log line never fails (or re-runs) the re-audit itself.
   if (brand) {
     try {
@@ -404,11 +404,11 @@ export async function finishReaudit(args: {
 }
 
 /**
- * AP4 — the cadence answer check, run as the (non-fatal) `answers` step of a
+ * AP4: the cadence answer check, run as the (non-fatal) `answers` step of a
  * monitor `AuditRunWorkflow` after `finish`. Credit-gated with the audit id as
  * the ledger refId, so an at-least-once step retry never double-charges; skips
- * quietly (and says why) when the brand has no prompts or the tank is empty —
- * degrade gracefully, never fail the cycle.
+ * quietly, with a reason, when the brand has no prompts or the tank is empty.
+ * It degrades gracefully and never fails the cycle.
  */
 export async function runScheduledAnswerCheck(args: {
   workspaceId: string;
@@ -434,7 +434,7 @@ export async function runScheduledAnswerCheck(args: {
   // refId keys both the credit spend AND the answer-run rows: a workflow step
   // retry replaces its own rows instead of double-counting the week's share.
   const result = await runAnswerCheck(brand.brandId, { refId: args.newAuditId });
-  // No cells = no active prompts (or every engine failed) — nothing to bill.
+  // No cells = no active prompts (or every engine failed): nothing to bill.
   if (result.cells.length === 0) return { ran: false, reason: "no prompts or engine results" };
 
   await spendForVisibilityJob(args.workspaceId, "answer_run", args.newAuditId, brand.brandId);
@@ -452,7 +452,7 @@ export async function runScheduledAnswerCheck(args: {
  * Audits stranded in `running` past any legitimate execution window (the
  * Workflow's execute step tops out well under an hour including retries) are
  * settled `failed` in bulk. The GET-poll self-heal only reaches audits a user
- * actively watches; this sweep — fired from the daily cron — also settles
+ * actively watches; this sweep: fired from the daily cron: also settles
  * monitor, setup, and benchmark rows, so nothing stays `running` forever.
  */
 const STALE_AUDIT_SWEEP_MS = 2 * 60 * 60 * 1000;
@@ -477,7 +477,7 @@ export async function settleStaleAudits(): Promise<number> {
 }
 
 /**
- * One full re-audit end-to-end — the inline fallback when the AUDIT_WORKFLOW
+ * One full re-audit end-to-end: the inline fallback when the AUDIT_WORKFLOW
  * binding is unavailable. On Cloudflare each due site runs as its own durable
  * Workflow instance instead, so one slow site can't starve the rest.
  */

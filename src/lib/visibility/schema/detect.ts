@@ -1,7 +1,7 @@
 import type { PageSnapshot } from "../types";
 
 /**
- * V3.1 — structured-data detector. JSON-LD is already parsed server-side by
+ * V3.1: structured-data detector. JSON-LD is already parsed server-side by
  * V0.1 into `snapshot.structured_data` (WebFetch strips `<head>`, which is why
  * `fetch_page.py`/V0.1 fetch raw HTML). This also scans the raw HTML for
  * Microdata and RDFa. Ports `agents/geo-schema.md` Step 1.

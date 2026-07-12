@@ -64,6 +64,7 @@ if (!worker.includes("async scheduled(")) {
         // event.cron is the exact expression that fired; map it to a route so
         // adding a cron is just a new entry here + in wrangler.jsonc.
         const cronRoutes = {
+            "0 7 * * *": "/api/cron/brand-intelligence",
             "0 8 * * *": "/api/cron/daily",
             "0 9 * * *": "/api/cron/visibility",
             "0 10 * * 1": "/api/cron/digest",

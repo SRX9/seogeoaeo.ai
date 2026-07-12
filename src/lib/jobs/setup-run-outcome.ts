@@ -1,7 +1,7 @@
 import type { SetupStep, SetupStepKey } from "./setup-run-types";
 
 /**
- * Steps that mean Claudia actually produced value — not just "skipped for no
+ * Steps that mean Claudia actually produced value: not just "skipped for no
  * website / no credits". A run with only skips/failures is `failed` so the
  * hero shows Resume instead of a false "all set".
  */

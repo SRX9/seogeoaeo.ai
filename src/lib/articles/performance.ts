@@ -20,11 +20,11 @@ import type { Finding } from "@/lib/visibility/types";
 export type { SearchQueryRow };
 
 /**
- * C4 — the performance loop. Published articles are read at day 7 / 28 / 90
+ * C4: the performance loop. Published articles are read at day 7 / 28 / 90
  * against the brand's own Search Console query report (C2's `search_queries`),
  * given a verdict, and the verdict acts: winners spawn follow-up topics in the
  * same query family, stallers get a title/meta rescue in the fix queue, dead
- * families get deprioritized — and monthly, each topic *source* earns a scoring
+ * families get deprioritized: and monthly, each topic *source* earns a scoring
  * weight from its track record. Deterministic throughout (no LLM).
  */
 
@@ -102,7 +102,7 @@ export function targetQueriesForTopic(topic: {
 /**
  * Aggregate the report rows that belong to this article: its page's rows plus
  * rows for its target queries (Google sometimes routes a target query to
- * another page — that still tells us how the family is doing). Position is the
+ * another page: that still tells us how the family is doing). Position is the
  * impression-weighted average of the page's own rows.
  */
 export function readPageMetrics(
@@ -128,10 +128,10 @@ export function readPageMetrics(
 
 /**
  * The verdict rules (pure):
- * - watching — no GSC data (null metrics), or too little signal before day 90;
- * - winner   — page 1, or impressions growing ≥1.5× vs the prior checkpoint;
- * - stalling — real impressions but stuck at 8–25, or page-1 with a weak CTR;
- * - dead     — day 90 only, with negligible impressions.
+ * - watching: no GSC data (null metrics), or too little signal before day 90;
+ * - winner  : page 1, or impressions growing ≥1.5× vs the prior checkpoint;
+ * - stalling: real impressions but stuck at 8-25, or page-1 with a weak CTR;
+ * - dead    : day 90 only, with negligible impressions.
  */
 export function verdictFor(
   day: CheckpointDay,
@@ -166,7 +166,7 @@ export function verdictFor(
   return "watching";
 }
 
-/** Bounded 0.5–2.0 source weight from a win rate, shrunk toward 1 on small samples. */
+/** Bounded 0.5-2.0 source weight from a win rate, shrunk toward 1 on small samples. */
 export function boundedWeight(winRate: number, sample: number): number {
   const confidence = Math.min(sample / PERFORMANCE.weight.fullConfidenceSample, 1);
   // winRate 0.5 is neutral; map [0,1] → [min,max] around 1, then shrink.
@@ -241,7 +241,7 @@ async function listDueCheckpoints(
     for (const day of CHECKPOINT_DAYS) {
       if (ageDays >= day && !have.has(`${article.articleId}:${day}`)) {
         due.push({ article, day });
-        break; // one checkpoint per article per run — oldest missing day first
+        break; // one checkpoint per article per run: oldest missing day first
       }
     }
   }
@@ -251,7 +251,7 @@ async function listDueCheckpoints(
 /**
  * Winner → queue follow-up topics from the family's uncovered queries.
  * `existingTitles` is the brand's lowercased topic-title set, fetched once per
- * run by the caller (and updated here as inserts land) — not re-scanned per
+ * run by the caller (and updated here as inserts land): not re-scanned per
  * winner. Family bucketing uses C2's shared `familyHead`.
  */
 async function queueFollowUps(
@@ -288,7 +288,7 @@ async function queueFollowUps(
         keywords: c.query,
         score: PERFORMANCE.followUpScore,
         rationale: `Follow-up to "${article.title}", which is winning its query family.`,
-        answerFit: "Extends a proven winner — interlink both pieces.",
+        answerFit: "Extends a proven winner: interlink both pieces.",
         evidenceJson: JSON.stringify({
           source: "gsc",
           sourceType: "gsc_query",
@@ -298,7 +298,7 @@ async function queueFollowUps(
         status: "pending",
         source: "performance_followup",
         intentTier: "mofu",
-        thesis: `Following up "${article.title}" — it reached page 1; "${c.query}" (${c.impressions} impressions/mo) is the same family, uncovered.`,
+        thesis: `"${article.title}" reached page 1. The related query "${c.query}" gets ${c.impressions} impressions each month and has no dedicated article yet.`,
       })
       .returning({ id: topics.id });
     if (row) inserted.push(row.id);
@@ -319,13 +319,13 @@ async function queueStallFix(
     category: "search_ctr",
     severity: "medium",
     title: `"${article.title}" is stalling in search`,
-    recommendation: `The piece sits at position ${metrics.position != null ? Math.round(metrics.position) : "—"} with ${metrics.impressions} impressions/mo but isn't converting them to clicks. Refresh the title and meta description around "${query}", and tighten the opening answer block — don't rewrite the article.`,
+    recommendation: `The piece sits at position ${metrics.position != null ? Math.round(metrics.position) : "Not available"} with ${metrics.impressions} impressions/mo but isn't converting them to clicks. Refresh the title and meta description around "${query}", and tighten the opening answer block: don't rewrite the article.`,
     fix_capability: "auto",
     fix_payload: {
       kind: "meta_tags",
       url: article.externalUrl,
       suggested: {
-        title: `${query.replace(/\b[a-z]/g, (ch) => ch.toUpperCase())} — answered`.slice(0, 60),
+        title: `${query.replace(/\b[a-z]/g, (ch) => ch.toUpperCase())}: answered`.slice(0, 60),
         description:
           `${article.title}: the direct answer, with steps and examples. Updated for ${new Date().getFullYear()}.`.slice(
             0,
@@ -353,7 +353,7 @@ async function deprioritizeFamily(scope: BrandScope, primaryQuery: string | null
       .update(topics)
       .set({
         score: Math.round((t.score ?? 0) * PERFORMANCE.deadFamilyPenalty),
-        rationale: `${t.rationale ?? ""} Deprioritized — this topic family showed no traction after 90 days.`.trim(),
+        rationale: `${t.rationale ?? ""} This topic family moved down the queue after 90 days without traction.`.trim(),
         updatedAt: new Date(),
       })
       .where(eq(topics.id, t.id));
@@ -383,7 +383,7 @@ export async function runDueCheckpoints(
   if (due.length === 0) return result;
 
   const db = getDb();
-  // Latest period only — the table retains ~13 weekly periods for trend reads,
+  // Latest period only: the table retains ~13 weekly periods for trend reads,
   // and summing them would inflate every metric by the period count (turning
   // dead articles into "winners" as history accumulates).
   const rows = await loadLatestQueryRows(scope.brandId);
@@ -512,7 +512,7 @@ const VERDICT_VALUE: Record<Verdict, number | null> = {
   winner: 1,
   stalling: 0.5,
   dead: 0,
-  watching: null, // no signal — excluded
+  watching: null, // no signal: excluded
 };
 
 /** Re-learn per-source weights from checkpoint outcomes (bounded, monthly). */
@@ -564,7 +564,7 @@ export async function updateSourceWeights(brandId: string): Promise<Record<strin
 /**
  * Current learned weights for a brand (empty when nothing learned yet).
  * Never throws: weights only ever *inform* scoring and list decoration, so a
- * read failure degrades to "nothing learned" — but it's logged here, once,
+ * read failure degrades to "nothing learned": but it's logged here, once,
  * instead of being silently `.catch(() => ({}))`-ed at every call site.
  */
 export async function getSourceWeights(brandId: string): Promise<Record<string, number>> {
@@ -601,7 +601,7 @@ export async function maybeUpdateSourceWeights(scope: BrandScope): Promise<boole
 }
 
 /**
- * Latest checkpoint per article, for the articles list UI. Never throws —
+ * Latest checkpoint per article, for the articles list UI. Never throws.
  * verdict chips are decoration, so a read failure degrades to "no verdicts"
  * (logged here rather than swallowed per call site).
  */

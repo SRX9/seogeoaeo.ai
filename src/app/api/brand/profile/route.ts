@@ -3,6 +3,12 @@ import { getBrandProfile, upsertBrandProfile } from "@/lib/brand/repository";
 import { brandProfileSchema } from "@/lib/brand/schemas";
 import { listUseCases, syncUseCases } from "@/lib/brand/use-cases";
 import { logWarn } from "@/lib/logging/logger";
+import {
+  clearBrandIntelligence,
+  domainFromWebsite,
+  isBrandIntelligenceConfigured,
+  refreshBrandIntelligence,
+} from "@/lib/brand/intelligence";
 
 /** Get the active brand's profile (always returns string fields, never null). */
 export async function GET() {
@@ -35,9 +41,27 @@ export async function PUT(request: Request) {
       seedKeywords: data.seedKeywords ?? "",
     });
 
+    const previousDomain = domainFromWebsite(previous?.website ?? "");
+    const nextDomain = domainFromWebsite(data.website ?? "");
+    if (previousDomain !== nextDomain) {
+      if (nextDomain && isBrandIntelligenceConfigured()) {
+        try {
+          await refreshBrandIntelligence(scope, data.website ?? "", { force: true });
+        } catch (error) {
+          await clearBrandIntelligence(brand.id);
+          logWarn("brand_intelligence.website_refresh_failed", {
+            brandId: brand.id,
+            reason: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      } else {
+        await clearBrandIntelligence(brand.id);
+      }
+    }
+
     // C1: Claudia finds target customer/user profiles right after the profile is
     // saved (onboarding) and refreshes them when the description changes.
-    // Additive — user rows and edits are preserved. Never fail the save over it.
+    // Additive: user rows and edits are preserved. Never fail the save over it.
     const descriptionChanged =
       (previous?.productDescription ?? "") !== (data.productDescription ?? "");
     if (data.productDescription && (descriptionChanged || previous === null)) {

@@ -12,7 +12,7 @@ import { getStripe } from "@/lib/billing/stripe";
 type CheckoutBody = {
   planId?: PlanId;
   packId?: CreditPackId;
-  /** Where to send the browser back after Checkout — onboarding resumes brand creation. */
+  /** Where to send the browser back after Checkout: onboarding resumes brand creation. */
   returnTo?: "onboarding" | "billing";
 };
 
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // Reuse a saved customer when we have one; otherwise let Checkout create the
     // customer from the email. Skipping a pre-emptive `customers.create` removes
-    // a second sequential Stripe round trip on a user's first purchase — the
+    // a second sequential Stripe round trip on a user's first purchase: the
     // customer id is captured from the webhook instead (the subscription sync and
     // the topup branch both persist it).
     const customerId = subscription?.stripeCustomerId ?? undefined;
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
         mode: "payment",
         ...customerTarget,
         // When Checkout creates the customer (no saved id), force a real Customer
-        // — not a guest — so the topup webhook can persist it for reuse.
+        //: not a guest: so the topup webhook can persist it for reuse.
         ...(customerId ? {} : { customer_creation: "always" as const }),
         line_items: [{ price: packPriceId, quantity: 1 }],
         // Surface Stripe's "Add promotion code" field so handed-out coupon codes
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         },
       };
     } else {
-      // Already on a live subscription — plan changes go through the portal so
+      // Already on a live subscription: plan changes go through the portal so
       // we never create a second Stripe subscription that keeps billing after
       // the local row is overwritten.
       if (
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
         ...customerTarget,
         line_items: [{ price: stripePriceId, quantity: 1 }],
         // Surface Stripe's "Add promotion code" field so handed-out coupon codes
-        // can be redeemed at checkout. No trials — discounts are the only lever.
+        // can be redeemed at checkout. No trials: discounts are the only lever.
         allow_promotion_codes: true,
         success_url: successUrl,
         cancel_url: cancelUrl,

@@ -75,7 +75,7 @@ export interface OgImageCheck {
   /** null when no og:image is declared (nothing to probe). */
   reachable: boolean | null;
   contentType: string | null;
-  /** From og:image:width/height meta tags — we don't sniff image bytes. */
+  /** From og:image:width/height meta tags: we don't sniff image bytes. */
   declaredWidth: number | null;
   declaredHeight: number | null;
 }
@@ -139,7 +139,7 @@ const LOGO_IMG = /<img\b[^>]*\b(?:src|alt|class)\s*=\s*["'][^"']*logo[^"']*["'][
 /**
  * Where would Google / an AI assistant get this brand's logo? Prefers the
  * explicit Organization schema declaration, falls back to og:image, then a
- * logo-looking <img> in the header. Pure — no network.
+ * logo-looking <img> in the header. Pure: no network.
  */
 export function detectLogo(snapshot: PageSnapshot): LogoCheck {
   for (const node of snapshot.structured_data) {

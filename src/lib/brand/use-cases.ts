@@ -11,7 +11,7 @@ import { logInfo, logWarn } from "@/lib/logging/logger";
 /**
  * C1 target-profile inventory: the customer and user profiles most likely to
  * need this product, plus the situation they need solved. User-facing in Brand
- * settings from day one — auto-generated at onboarding, human-reviewable, and
+ * settings from day one: auto-generated at onboarding, human-reviewable, and
  * the seed for every BOFU article the profile-driven research provider proposes.
  */
 
@@ -22,7 +22,7 @@ export type UseCaseInput = {
   evidence?: string | null;
 };
 
-/** The minimal profile the generator needs — works with or without a saved brand. */
+/** The minimal profile the generator needs: works with or without a saved brand. */
 export type UseCaseProfile = {
   name?: string | null;
   productDescription?: string | null;
@@ -103,7 +103,7 @@ async function generateUseCaseInputs(
 
 /**
  * Onboarding preview: find target profiles from the entered/AI-prefilled
- * profile, before any brand row exists. No DB writes, no dedup — the client
+ * profile, before any brand row exists. No DB writes, no dedup: the client
  * confirms the rows and they're persisted when the brand is created.
  */
 export async function previewUseCases(profile: UseCaseProfile): Promise<UseCaseInput[]> {
@@ -143,7 +143,7 @@ export async function createUseCase(
   return row;
 }
 
-/** Edit or enable/disable a row. Any user edit marks it as owned — regeneration
+/** Edit or enable/disable a row. Any user edit marks it as owned: regeneration
  * will never touch it again. */
 export async function updateUseCase(
   brandId: string,
@@ -172,7 +172,7 @@ function rowKey(job: string, persona: string) {
 
 /**
  * Generate (or refresh) the inventory from the brand profile, published
- * articles, and web search — grounded like brand enrichment, never fetching
+ * articles, and web search: grounded like brand enrichment, never fetching
  * user URLs directly. Additive: new rows are inserted, existing rows (and
  * anything the user edited or wrote) are left exactly as they are.
  */

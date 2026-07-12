@@ -4,12 +4,12 @@ import { auditFindings } from "@/lib/db/schema/visibility";
 import { buildFixArtifact, type FixArtifact } from "@/lib/visibility/fix-artifact";
 
 /**
- * V7.2 — resolve a finding after its fix is installed (or claimed installed).
+ * V7.2: resolve a finding after its fix is installed (or claimed installed).
  *
  * Reality check: we cannot write robots.txt / llms.txt / JSON-LD / meta onto the
  * customer's origin without a host or CMS channel. Until that exists:
  * - The agent standing loop **proposes** ready-to-install artifacts (see
- *   `canLiveApply` in visibility-agent) — it does not call this for site fixes.
+ *   `canLiveApply` in visibility-agent): it does not call this for site fixes.
  * - Owner "apply" means "I installed this on my site; mark the finding done"
  *   (`user_applied`). Next re-audit verifies; re-detection reopens the finding.
  *
@@ -37,7 +37,7 @@ async function loadOwnedFinding(findingId: string, workspaceId: string) {
  * - `"user"` → owner confirmed they installed the artifact (`user_applied`)
  * - `"agent"` → live channel pushed the fix (`auto_applied`, counts against
  *   monthly autoFixCap). Callers must only use `"agent"` when
- *   `canLiveApply` is true — otherwise the standing loop proposes instead.
+ *   `canLiveApply` is true: otherwise the standing loop proposes instead.
  *
  * Verified on the next scheduled re-audit; re-detection reopens the row.
  */

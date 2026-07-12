@@ -2,7 +2,7 @@ import { serperSearch } from "@/lib/research/serper";
 import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
 
 /**
- * V5.1 (v3) — real off-site brand presence. The original brand scanner inferred
+ * V5.1 (v3): real off-site brand presence. The original brand scanner inferred
  * Reddit/YouTube/LinkedIn presence from the site's *own* declared `sameAs`
  * links, which measured schema hygiene, not authority. This gathers actual
  * signals: Reddit's free public JSON search (mention volume + recency), and
@@ -129,8 +129,8 @@ export async function gatherOffsiteSignals(
 
   const brandLower = normalizeBrand(brand);
 
-  // Reddit / YouTube / web presence are independent lookups — run them together.
-  // Reddit: free JSON first (richest — dates + subreddits), Serper as fallback.
+  // Reddit / YouTube / web presence are independent lookups: run them together.
+  // Reddit: free JSON first (richest: dates + subreddits), Serper as fallback.
   const webQuery = domain ? `${quoted(brand)} -site:${domain}` : quoted(brand);
   const [redditJson, yt, web] = await Promise.all([
     fetchRedditJson(brand, fetchImpl, now),

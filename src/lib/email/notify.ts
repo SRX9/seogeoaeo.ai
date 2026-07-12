@@ -54,7 +54,7 @@ export async function sendOutOfCreditsEmail(notice: OutOfCreditsNotice): Promise
       .where(eq(subscriptions.workspaceId, notice.workspaceId))
       .limit(1);
 
-    // Owner opted out of credit emails — skip without touching the throttle.
+    // Owner opted out of credit emails: skip without touching the throttle.
     if (sub && !sub.creditEmailsEnabled) return;
 
     const last = sub?.lastLowCreditEmailAt;

@@ -27,7 +27,7 @@ export async function syncSubscriptionFromStripe(
   const active = ACTIVE_SUBSCRIPTION_STATUSES.has(stripeSubscription.status);
 
   // A paid subscription whose price we can't map means a misconfigured
-  // STRIPE_PRICE_* env — the customer would silently be granted zero credits.
+  // STRIPE_PRICE_* env: the customer would silently be granted zero credits.
   // Surface it loudly instead of failing quietly.
   if (active && !plan) {
     logWarn("stripe.subscription.unmapped_price", { workspaceId, priceId });
@@ -47,7 +47,7 @@ export async function syncSubscriptionFromStripe(
     return;
   }
 
-  // Never invent "indie" for an unmapped price — leave the prior planId and
+  // Never invent "indie" for an unmapped price: leave the prior planId and
   // grant nothing until env is fixed.
   const resolvedPlanId = planId ?? undefined;
 
@@ -71,7 +71,7 @@ export async function syncSubscriptionFromStripe(
   // period, so it's a no-op within a billing cycle but fires once per renewal
   // (period advances) and once per plan change (price changes). resetMonthlyCredits
   // dedups on this refId under a row lock, so duplicate/out-of-order webhooks can't
-  // double-grant — and because nothing here pre-empts the call, a transiently
+  // double-grant: and because nothing here pre-empts the call, a transiently
   // failed refill is simply retried by Stripe rather than lost.
   if (grant > 0 && periodEnd && planId) {
     await resetMonthlyCredits(workspaceId, grant, {

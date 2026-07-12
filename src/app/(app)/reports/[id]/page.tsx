@@ -16,7 +16,7 @@ export default function ReportDetailPage() {
   const report = useReport(params.id);
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-7">
+    <div className="mx-auto w-full max-w-4xl space-y-9">
       <Link
         href="/reports"
         className="pressable inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm text-muted hover-fine:bg-surface-secondary hover-fine:text-foreground"
@@ -32,24 +32,24 @@ export default function ReportDetailPage() {
           const appeared = proof.answerShare.reduce((total, row) => total + row.appeared, 0);
           const answerPercent = totalAnswers ? Math.round((appeared / totalAnswers) * 100) : null;
           return (
-            <article className="overflow-hidden rounded-[1.75rem] bg-surface shadow-surface">
-              <header className="p-6 sm:p-9">
+            <article>
+              <header className="pb-10">
                 <p className="text-sm font-medium text-muted">{weekLabel(data.report.weekStart)}</p>
-                <h1 className="mt-3 max-w-3xl text-3xl text-foreground sm:text-4xl">
+                <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.035em] text-foreground sm:text-4xl">
                   {data.report.subject}
                 </h1>
-                <div className="mt-7 grid gap-5 sm:grid-cols-3">
-                  <Outcome label="Visibility" value={score?.current ?? "—"} delta={score?.delta ?? null} />
-                  <Outcome label="AI answer share" value={answerPercent == null ? "—" : `${answerPercent}%`} />
-                  <Outcome label="Search clicks" value={proof.traffic?.clicks ?? "—"} delta={proof.traffic ? proof.traffic.clicks - proof.traffic.prevClicks : null} />
+                <div className="mt-8 grid gap-6 border-y border-separator/70 py-6 sm:grid-cols-3 sm:divide-x sm:divide-separator/70">
+                  <Outcome label="Visibility" value={score?.current ?? "Not available"} delta={score?.delta ?? null} />
+                  <Outcome label="AI answer share" value={answerPercent == null ? "Not available" : `${answerPercent}%`} />
+                  <Outcome label="Search clicks" value={proof.traffic?.clicks ?? "Not available"} delta={proof.traffic ? proof.traffic.clicks - proof.traffic.prevClicks : null} />
                 </div>
               </header>
 
-              <div className="space-y-0 border-t border-separator/60">
+              <div className="space-y-0">
                 <StorySection number="01" title="Work completed">
                   <p>{fixes.applied || fixes.verified ? `Applied ${fixes.applied} fix${fixes.applied === 1 ? "" : "es"} and verified ${fixes.verified}.` : "No live site fixes were claimed this week."}</p>
                   {content.published.map((article) => (
-                    <p key={article.title}>Published “{article.title}”{article.thesis ? ` — ${article.thesis}` : ""}</p>
+                    <p key={article.title}>Published &quot;{article.title}&quot;{article.thesis ? `: ${article.thesis}` : ""}</p>
                   ))}
                   {!content.published.length && !fixes.applied && !fixes.verified ? <p>Claudia spent this week gathering evidence and preparing work.</p> : null}
                 </StorySection>
@@ -60,10 +60,10 @@ export default function ReportDetailPage() {
                 </StorySection>
 
                 <StorySection number="03" title="Next direction">
-                  {content.nextWeek.length ? content.nextWeek.map((item) => <p key={item.title}>“{item.title}”{item.thesis ? ` — ${item.thesis}` : ""}</p>) : <p>The next task will be selected from the freshest audit, answer-share, and traffic evidence.</p>}
+                  {content.nextWeek.length ? content.nextWeek.map((item) => <p key={item.title}>&quot;{item.title}&quot;{item.thesis ? `: ${item.thesis}` : ""}</p>) : <p>The next task will be selected from the freshest audit, answer-share, and traffic evidence.</p>}
                 </StorySection>
 
-                <div className="p-6 sm:p-9">
+                <div className="py-8 sm:pl-[7.25rem]">
                   {data.ask ? (
                     <div className="rounded-2xl bg-warning-soft p-5 text-warning-soft-foreground">
                       <p className="font-medium">One thing from you</p>
@@ -87,7 +87,7 @@ export default function ReportDetailPage() {
 
 function Outcome({ label, value, delta }: { label: string; value: string | number; delta?: number | null }) {
   return (
-    <div>
+    <div className="sm:px-5 sm:first:pl-0">
       <p className="text-sm font-medium text-muted">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-foreground tabular-nums">{value}</p>
       {delta != null ? (
@@ -102,10 +102,10 @@ function Outcome({ label, value, delta }: { label: string; value: string | numbe
 
 function StorySection({ number, title, children }: { number: string; title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-4 border-b border-separator/60 p-6 sm:grid-cols-[5rem_1fr] sm:p-9">
+    <section className="grid gap-4 border-b border-separator/70 py-8 sm:grid-cols-[5rem_1fr] sm:gap-9">
       <p className="text-sm text-muted tabular-nums">{number}</p>
       <div>
-        <h2 className="text-xl text-foreground">{title}</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{title}</h2>
         <div className="mt-4 space-y-3 text-sm leading-7 text-muted">{children}</div>
       </div>
     </section>

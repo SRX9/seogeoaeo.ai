@@ -1,10 +1,12 @@
 import { getApiContext, handleApi, jsonOk } from "@/lib/api/server";
 import { getLlmConfig } from "@/lib/llm/client";
+import { listBrandIdentitySummaries } from "@/lib/brand/intelligence";
 
 /** Current session: user, workspace, subscription, brands, and active brand. */
 export async function GET() {
   return handleApi(async () => {
     const ctx = await getApiContext();
+    const identities = await listBrandIdentitySummaries(ctx.workspace.id);
     return jsonOk({
       user: ctx.session.user,
       llmReady: Boolean(getLlmConfig()),
@@ -32,6 +34,7 @@ export async function GET() {
         name: brand.name,
         autonomyMode: brand.autonomyMode,
         badgePublic: brand.badgePublic ?? false,
+        identity: identities.get(brand.id) ?? null,
       })),
       activeBrandId: ctx.brand?.id ?? null,
     });

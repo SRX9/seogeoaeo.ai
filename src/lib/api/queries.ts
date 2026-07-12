@@ -1,10 +1,10 @@
 "use client";
 
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getAgentPresence, isAgentLive } from "@/lib/agent/presence";
 import type { AgentState as AgentOperatingState } from "@/lib/agent/types";
 import { apiGet } from "@/lib/api/fetcher";
+import type { BrandIdentitySummary, BrandIntelligenceData } from "@/lib/brand/intelligence-types";
 import type { ConnectorCapability } from "@/lib/integrations/capabilities";
 import type {
   IntegrationConfig,
@@ -20,6 +20,7 @@ import type {
 /** Central query keys so mutations can invalidate the right caches. */
 export const queryKeys = {
   me: ["me"] as const,
+  dashboard: ["dashboard", "overview"] as const,
   automation: ["dashboard", "automation"] as const,
   agentBrief: ["dashboard", "brief"] as const,
   agentState: ["agent", "state"] as const,
@@ -28,6 +29,7 @@ export const queryKeys = {
   onboarding: ["onboarding"] as const,
   brands: ["brands"] as const,
   brandProfile: ["brand", "profile"] as const,
+  brandIntelligence: ["brand", "intelligence"] as const,
   competitors: ["brand", "competitors"] as const,
   useCases: ["brand", "use-cases"] as const,
   topics: ["topics"] as const,
@@ -90,8 +92,34 @@ export type MeResponse = {
     hasStripeCustomer: boolean;
     creditEmailsEnabled: boolean;
   } | null;
-  brands: { id: string; name: string; autonomyMode: string; badgePublic: boolean }[];
+  brands: {
+    id: string;
+    name: string;
+    autonomyMode: string;
+    badgePublic: boolean;
+    identity: BrandIdentitySummary | null;
+  }[];
   activeBrandId: string | null;
+};
+
+/** All read-only data needed to render the Overview in one request. */
+export type DashboardData = {
+  brand: { id: string; name: string; identity: BrandIdentitySummary | null };
+  setup: SetupRunResponse;
+  agent: AgentOperatingState;
+  summary: VisibilitySummary;
+  answers: VisibilityAnswers;
+  traffic: VisibilityTraffic;
+  articles: Article[];
+  findings: VisibilityFinding[];
+  integrations: IntegrationView[];
+  automation: AutomationStats;
+  inboxCount: number;
+};
+
+export type BrandIntelligenceResponse = {
+  identity: BrandIdentitySummary | null;
+  data: BrandIntelligenceData | null;
 };
 
 export type OnboardingStep = {
@@ -124,7 +152,7 @@ export type AutomationStats = {
   writtenToday: number;
   /** Scored topics queued and waiting to be written. */
   pendingTopics: number;
-  /** C4 — the next topic she'll write and its traffic thesis. */
+  /** C4: the next topic she'll write and its traffic thesis. */
   nextTopic: { title: string; thesis: string | null } | null;
   /** When the workspace (its content agent) was created. */
   workingSince: string;
@@ -190,7 +218,7 @@ export type Article = {
   slug: string;
   metaDescription: string | null;
   tags: string | null;
-  /** Full body — present on detail GET; empty/absent on list. */
+  /** Full body: present on detail GET; empty/absent on list. */
   bodyMarkdown: string;
   /** char_length of body from list endpoint (list omits bodyMarkdown payload). */
   bodyLength?: number;
@@ -200,7 +228,7 @@ export type Article = {
   gateResultsJson: string | null;
   updatedAt: string;
   createdAt: string;
-  /** C4 — latest performance checkpoint verdict, when one has run. */
+  /** C4: latest performance checkpoint verdict, when one has run. */
   performance?: { verdict: "winner" | "stalling" | "dead" | "watching"; day: number; position: number | null } | null;
 };
 
@@ -301,6 +329,10 @@ const agentBriefQueryOptions = () => ({
   queryKey: queryKeys.agentBrief,
   queryFn: () => apiGet<{ brief: AgentBrief }>("/api/dashboard/brief"),
 });
+const dashboardQueryOptions = () => ({
+  queryKey: queryKeys.dashboard,
+  queryFn: () => apiGet<DashboardData>("/api/dashboard"),
+});
 const agentStateQueryOptions = () => ({
   queryKey: queryKeys.agentState,
   queryFn: () => apiGet<AgentOperatingState>("/api/agent/state"),
@@ -335,7 +367,7 @@ export type QueryLike<T> = {
 };
 
 // `infer D` greedily keeps the `| undefined` from `QueryLike.data`, so strip it
-// — once `combineQueries` resolves, every element is guaranteed present.
+//: once `combineQueries` resolves, every element is guaranteed present.
 type DataOf<Q> = Q extends QueryLike<infer D> ? Exclude<D, undefined> : never;
 
 /**
@@ -364,7 +396,7 @@ export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: () => apiGet<MeResponse>("/api/me") });
 }
 
-/** Active brand id from the workspace bootstrap — null while `me` loads or the
+/** Active brand id from the workspace bootstrap: null while `me` loads or the
  * workspace has no brand yet (mid-onboarding). */
 export function useActiveBrandId(): string | null {
   return useMe().data?.activeBrandId ?? null;
@@ -372,11 +404,36 @@ export function useActiveBrandId(): string | null {
 
 /**
  * Gate for brand-scoped queries. Every section endpoint 404s (`NO_BRAND`) when
- * the workspace has no brand — during onboarding of the first brand that's the
+ * the workspace has no brand: during onboarding of the first brand that's the
  * normal state, so brand-scoped hooks must not fire until a brand exists.
  */
 function useHasBrand(): boolean {
   return Boolean(useActiveBrandId());
+}
+
+export function useDashboard(options: { enabled?: boolean } = {}) {
+  const hasBrand = useHasBrand();
+  return useQuery({
+    ...dashboardQueryOptions(),
+    enabled: options.enabled !== false && hasBrand,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      const lastRun = data.automation.lastRun?.status;
+      if (
+        data.setup.run?.status === "running" ||
+        data.agent.presence.id === "working_now" ||
+        lastRun === "running" ||
+        lastRun === "pending"
+      ) {
+        return 8_000;
+      }
+      if (["paused", "scheduled", "on_duty"].includes(data.agent.presence.id)) {
+        return 60_000;
+      }
+      return false;
+    },
+  });
 }
 
 export function useAutomation() {
@@ -391,17 +448,18 @@ export function useAutomation() {
   });
 }
 
-/** AP3 — Claudia's standing Overview brief, refreshed by the daily job. */
+/** AP3: Claudia's standing Overview brief, refreshed by the daily job. */
 export type AgentBrief = { text: string; generatedAt: string };
 
 export function useAgentBrief() {
   return useQuery({ ...agentBriefQueryOptions(), enabled: useHasBrand() });
 }
 
-export function useAgentState() {
+export function useAgentState(enabled = true) {
+  const hasBrand = useHasBrand();
   return useQuery({
     ...agentStateQueryOptions(),
-    enabled: useHasBrand(),
+    enabled: enabled && hasBrand,
     refetchInterval: (query) => {
       const presence = query.state.data?.presence.id;
       if (presence === "working_now") return 8_000;
@@ -472,6 +530,15 @@ export function useBrandProfile() {
   });
 }
 
+export function useBrandIntelligence() {
+  return useQuery({
+    queryKey: queryKeys.brandIntelligence,
+    queryFn: () => apiGet<BrandIntelligenceResponse>("/api/brand/intelligence"),
+    enabled: useHasBrand(),
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 export function useCompetitors() {
   return useQuery({
     queryKey: queryKeys.competitors,
@@ -518,7 +585,7 @@ export function activityHasInFlight(data: ActivityResponse | undefined): boolean
 
 /**
  * Activity / work stream. Auto-polls every 8s while any job/run is in flight,
- * then stops — no permanent websocket needed for Phase 3.
+ * then stops: no permanent websocket needed for Phase 3.
  */
 export function useActivity() {
   return useQuery({
@@ -529,7 +596,7 @@ export function useActivity() {
 }
 
 /**
- * True when Setup is running or the activity feed shows in-flight work —
+ * True when Setup is running or the activity feed shows in-flight work.
  * UI "live" chrome on the work stream. Uses the same signals as `getAgentPresence`.
  */
 export function useAgentIsLive(): boolean {
@@ -549,7 +616,7 @@ export function useAgentIsLive(): boolean {
   });
 }
 
-/** Combined inbox data for home + /inbox — one place to update inputs. */
+/** Combined inbox data for home + /inbox: one place to update inputs. */
 export function useInboxData() {
   const articles = useArticles();
   const findings = useVisibilityFindings();
@@ -566,12 +633,13 @@ export function useInboxData() {
   };
 }
 
-/** Shell badge only — cheap count endpoint, not full article payloads. */
-export function useInboxSummaryCount(): number {
+/** Shell badge only: cheap count endpoint, not full article payloads. */
+export function useInboxSummaryCount(enabled = true): number {
+  const hasBrand = useHasBrand();
   const q = useQuery({
     queryKey: queryKeys.inboxSummary,
     queryFn: () => apiGet<{ count: number }>("/api/inbox/summary"),
-    enabled: useHasBrand(),
+    enabled: enabled && hasBrand,
     staleTime: 30_000,
   });
   return q.data?.count ?? 0;
@@ -596,34 +664,6 @@ export function useAgentStatusLabel(): string | null {
     // lastRun running/pending is enough for shell; avoid activity poll site-wide.
     activityInFlight: false,
   })?.label ?? null;
-}
-
-/**
- * Warm the caches for the primary nav destinations once the workspace has
- * loaded, so switching pages renders from cache instead of a spinner.
- */
-export function usePrefetchAppData(enabled: boolean) {
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    if (!enabled) return;
-    // Dashboard sections (each loads independently from its own endpoint).
-    queryClient.prefetchQuery(creditsQueryOptions());
-    queryClient.prefetchQuery(automationQueryOptions());
-    queryClient.prefetchQuery(agentBriefQueryOptions());
-    queryClient.prefetchQuery(agentStateQueryOptions());
-    queryClient.prefetchQuery(onboardingQueryOptions());
-    queryClient.prefetchQuery(researchQueryOptions());
-    queryClient.prefetchQuery(visibilitySummaryQueryOptions());
-    // Visibility pages, so sidebar navigation renders instantly from cache.
-    queryClient.prefetchQuery(visibilityFindingsQueryOptions());
-    queryClient.prefetchQuery(siteHealthQueryOptions());
-    queryClient.prefetchQuery(visibilityAnswersQueryOptions());
-    queryClient.prefetchQuery(visibilityTrafficQueryOptions());
-    // Shared across pages.
-    queryClient.prefetchQuery(topicsQueryOptions());
-    queryClient.prefetchQuery(articlesQueryOptions());
-    queryClient.prefetchQuery(activityQueryOptions());
-  }, [enabled, queryClient]);
 }
 
 export function useResearch() {
@@ -670,7 +710,7 @@ export function useCredits() {
   return useQuery({ ...creditsQueryOptions(), enabled: useHasBrand() });
 }
 
-/** AP4 — one fix category's effective autonomy level for the standing loop. */
+/** AP4: one fix category's effective autonomy level for the standing loop. */
 export type AutonomyCategoryState = {
   category: string;
   label: string;
@@ -686,7 +726,7 @@ export type BrandAutonomyState = {
   lastRun: { message: string | null; at: string } | null;
 };
 
-/** AP5 — one archived weekly report row. */
+/** AP5: one archived weekly report row. */
 export type WeeklyReportRow = {
   id: string;
   weekStart: string;
@@ -749,7 +789,7 @@ export type VisibilitySubScoreKey =
   | "platform";
 
 /** Latest audit + its six sub-scores, the previous score (for the delta), and
- * the industry baseline — the payload behind the Overview visibility snapshot. */
+ * the industry baseline: the payload behind the Overview visibility snapshot. */
 export type VisibilitySummary = {
   hasAudit: boolean;
   latest: {
@@ -786,7 +826,7 @@ export function useVisibilityFindings() {
   return useQuery({ ...visibilityFindingsQueryOptions(), enabled: useHasBrand() });
 }
 
-/** Site Health checklist (V9) — freshest of last audit's snapshot vs a manual refresh. */
+/** Site Health checklist (V9): freshest of last audit's snapshot vs a manual refresh. */
 export type SiteHealthResponse = {
   hasData: boolean;
   snapshot: import("@/lib/visibility/site-health").SiteHealthSnapshot | null;
@@ -868,7 +908,7 @@ export type ToolRunFinding = {
   isResolved: boolean;
 };
 
-/** Latest stored run of one Toolbox tool (V8.3) — what the tool page opens on. */
+/** Latest stored run of one Toolbox tool (V8.3): what the tool page opens on. */
 export type ToolRunDetail = {
   id: string;
   score: number | null;
@@ -904,7 +944,7 @@ export type SetupRunResponse = {
   labels: Record<string, string>;
 };
 
-/** Claudia's one-time Setup Run — polled while running so the Overview hero can
+/** Claudia's one-time Setup Run: polled while running so the Overview hero can
  * show her steps checking off live. */
 export function useSetupRun() {
   return useQuery({

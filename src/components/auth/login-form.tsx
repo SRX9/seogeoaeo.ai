@@ -9,10 +9,10 @@ import { authClient } from "@/lib/auth/client";
 import { ArrowLeftIcon, CircleCheckIcon, SgaLogo } from "@/components/icons";
 
 const valueProps = [
-  "Audit your visibility across SEO, AEO & GEO",
-  "Generate brand-tuned, search-optimized articles",
-  "Publish to dev.to, WordPress, Ghost & Hashnode",
-  "Start free — no credit card required",
+  "See how your brand appears in search and AI answers",
+  "Get article drafts written in your brand voice",
+  "Publish to dev.to, WordPress, Ghost, or Hashnode",
+  "Start free with no credit card",
 ];
 
 const PROVIDER_LABELS: Record<"google" | "github", string> = {
@@ -69,19 +69,19 @@ export function LoginForm() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Brand / value panel — hidden on small screens */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border/40 bg-surface/50 p-12 backdrop-blur-md lg:flex">
+      {/* Brand / value panel: hidden on small screens */}
+      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border/50 bg-surface/30 p-12 lg:flex">
         <Link href="/" aria-label="seogeoaeo.ai home" className="pressable w-fit rounded-lg">
           <SgaLogo />
         </Link>
 
         <div className="max-w-md">
           <h2 className="type-display text-3xl text-foreground sm:text-4xl">
-            Get found across search and AI.
+            Help customers find you in search and AI answers
           </h2>
           <p className="mt-4 text-base leading-relaxed text-muted">
-            Set up your brand once, and your content employee handles the rest — measuring,
-            writing, and publishing on autopilot.
+            Set up your brand once. Claudia can run the audits, research topics, write articles,
+            and publish them on your schedule.
           </p>
           <ul className="mt-8 space-y-3.5">
             {valueProps.map((prop) => (
@@ -107,7 +107,7 @@ export function LoginForm() {
             </Link>
           </div>
 
-          <Card className="material-panel w-full">
+          <Card variant="transparent" className="w-full rounded-none border-y border-border/60 px-0 py-8">
             <Card.Header>
               <Card.Title className="tracking-tight">Sign in to seogeoaeo.ai</Card.Title>
               <Card.Description className="leading-relaxed">

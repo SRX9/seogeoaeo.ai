@@ -1,6 +1,6 @@
 export type AutonomyMode = "FULL_AUTO" | "REVIEW";
 
-/** Human-readable labels for autonomy modes — never show the raw enum in the UI. */
+/** Human-readable labels for autonomy modes: never show the raw enum in the UI. */
 const AUTONOMY_LABELS: Record<AutonomyMode, string> = {
   REVIEW: "Review mode",
   FULL_AUTO: "Auto-publish",
@@ -18,7 +18,7 @@ export function getWeekStart(date = new Date()) {
   return utc.toISOString().slice(0, 10);
 }
 
-/** UTC calendar-day key, "YYYY-MM-DD" — the per-day bucket the daily agent uses. */
+/** UTC calendar-day key, "YYYY-MM-DD": the per-day bucket the daily agent uses. */
 export function getUtcDayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }

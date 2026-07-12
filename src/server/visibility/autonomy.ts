@@ -6,7 +6,7 @@ import type { AutonomyLevel, AutonomyMode } from "@/lib/jobs/visibility-agent";
 import { apexDomain } from "@/lib/visibility/answers";
 
 /**
- * AP4 — per-category autonomy overrides. The brand's `autonomyMode` dial
+ * AP4: per-category autonomy overrides. The brand's `autonomyMode` dial
  * (Autopilot / Copilot) sets the defaults; rows here are explicit per-category
  * departures from it (the V8.5 `agent_autonomy` table, now in service).
  */

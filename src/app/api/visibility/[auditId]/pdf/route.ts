@@ -8,7 +8,7 @@ import { buildReport } from "@/lib/visibility/report";
 import { renderReportPdf } from "@/lib/visibility/report-pdf";
 
 /**
- * V6.2 — download the audit report. Returns a PDF when a Browser Rendering
+ * V6.2: download the audit report. Returns a PDF when a Browser Rendering
  * binding is available, otherwise a print-ready HTML document. Plan-gated
  * (`visibility.pdfReports`) and metered once per audit: the charge's refId is
  * the audit id, so re-downloading the same report is free (ledger idempotency).
@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ aud
     }
     const model = await buildReport(auditId);
     const { body, contentType } = await renderReportPdf(model);
-    // Charge only after the render succeeded — failed work never burns credits.
+    // Charge only after the render succeeded: failed work never burns credits.
     try {
       await spendForVisibilityJob(workspace.id, "pdf_report", auditId);
     } catch (error) {

@@ -3,12 +3,12 @@ import type { PassageScore } from "./citability";
 import { CitabilityJudgeSchema } from "./citability-judge-schema";
 
 /**
- * V2.1 (v3) — LLM semantic-citability judge. The deterministic scorer measures
+ * V2.1 (v3): LLM semantic-citability judge. The deterministic scorer measures
  * structure (answer-first, self-contained, fact-dense); this measures *meaning*
- * — would an AI assistant actually cite this passage to answer a question. One
+ *: would an AI assistant actually cite this passage to answer a question. One
  * batched `light` call over ≤10 pre-selected blocks. Best-effort: returns null
  * when the LLM is unavailable or the response doesn't validate, so the audit
- * degrades to the deterministic score alone. Never feeds the 0–100 sub-score.
+ * degrades to the deterministic score alone. Never feeds the 0-100 sub-score.
  */
 
 export const MAX_JUDGE_BLOCKS = 10;
@@ -29,7 +29,7 @@ const SYSTEM = [
   "You judge how likely an AI assistant (ChatGPT, Claude, Perplexity) is to CITE each passage",
   "when answering a user's question. A highly citable passage directly answers a specific question,",
   "is self-contained (understandable without surrounding context), states concrete verifiable facts,",
-  "and is quotable as-is. Score each passage 0–100 and give up to 3 short reasons.",
+  "and is quotable as-is. Score each passage 0-100 and give up to 3 short reasons.",
   'Return JSON: {"blocks":[{"index":N,"semantic_score":0-100,"reasons":["..."]}]} using the given indices.',
 ].join(" ");
 

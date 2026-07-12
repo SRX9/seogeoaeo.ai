@@ -3,8 +3,8 @@
  *
  * This is a throwaway local database (plain Maps, reset between tests) plus mock
  * implementations of every data/IO seam the article pipeline touches. Wiring
- * these mocks via `vi.mock` lets the REAL orchestration code — article
- * generation, publishing, and the weekly pipeline — run end-to-end with no
+ * these mocks via `vi.mock` lets the REAL orchestration code: article
+ * generation, publishing, and the weekly pipeline: run end-to-end with no
  * Postgres and no network, so we can drive it through every scenario.
  *
  * The store is a module singleton shared between the `vi.mock` factories and the
@@ -112,7 +112,7 @@ type Store = {
   counters: Map<string, { generated: number; published: number }>;
   publications: Map<string, PublicationRow>;
   dailyRuns: Map<string, DailyRunRow>;
-  /** (workspace:reason:refId) tuples already charged — models the ledger unique index. */
+  /** (workspace:reason:refId) tuples already charged: models the ledger unique index. */
   creditRefs: Set<string>;
   seq: number;
 };
@@ -213,7 +213,7 @@ export function resetStore() {
 
   // The final-article fixture must pass the C3 style lint (no banned phrases,
   // and a ≥25-word opening paragraph so direct-answer shapes keep their
-  // answer-first block) — otherwise every e2e run triggers rewrite passes.
+  // answer-first block): otherwise every e2e run triggers rewrite passes.
   llm.textResponses = [
     "Concise summary of the topic.",
     "## Outline\n- Answer\n- Steps\n- Pitfalls",
@@ -394,7 +394,7 @@ export function countersFor(workspaceId: string) {
 
 export const dbMock = {
   getDb() {
-    throw new Error("getDb() must not be called in e2e tests — a data seam is unmocked");
+    throw new Error("getDb() must not be called in e2e tests: a data seam is unmocked");
   },
   createDb() {
     throw new Error("createDb() must not be called in e2e tests");
@@ -533,8 +533,8 @@ export const brandRepo = {
   },
   async getBrand(workspaceId: string, brandId: string) {
     // Autonomy is per-brand in production. Tests still express it via
-    // seedWorkspace({ autonomyMode }) — and use a single brand whose id equals
-    // the workspace id — so mirror the seeded workspace's mode onto the brand.
+    // seedWorkspace({ autonomyMode }): and use a single brand whose id equals
+    // the workspace id: so mirror the seeded workspace's mode onto the brand.
     return {
       id: brandId,
       workspaceId,

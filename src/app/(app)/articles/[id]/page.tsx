@@ -12,7 +12,7 @@ export default function ArticlePage() {
   const me = useMe();
   const { data, isLoading, error, refetch, isPlaceholderData } = useArticle(id);
 
-  // keepPreviousData keeps the prior article visible while the next loads — treat
+  // keepPreviousData keeps the prior article visible while the next loads: treat
   // that as loading so we never mount the editor with A under B's route id.
   if (isLoading || isPlaceholderData || me.isLoading) {
     return <PageLoader label="Loading article…" />;
@@ -24,7 +24,7 @@ export default function ArticlePage() {
   const canPublish = isActiveSubscription(me.data?.subscription?.status);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-7">
+    <div className="mx-auto w-full max-w-4xl space-y-10">
       <div>
         <h1 className="type-title text-2xl text-foreground">Edit article</h1>
         <p className="mt-1.5 text-sm leading-relaxed text-muted">

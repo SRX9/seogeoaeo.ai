@@ -20,7 +20,7 @@ export type DailyRunInput = {
 
 /**
  * Write (or overwrite) the brand's row for `runDate`. Values are absolute, not
- * deltas — the daily engine computes the day's running totals and passes them in,
+ * deltas: the daily engine computes the day's running totals and passes them in,
  * so a re-fired cron converges on the correct numbers instead of double-counting.
  */
 export async function upsertDailyRun(scope: BrandScope, runDate: string, input: DailyRunInput) {

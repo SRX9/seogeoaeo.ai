@@ -6,9 +6,9 @@ import { PILLAR_LABELS, scoreBand, SUBSCORE_LABELS } from "./display";
 import type { Finding, Pillar, Severity, SubScore } from "./types";
 
 /**
- * V6.1 — client report generator. Aggregates stored audit data into one
+ * V6.1: client report generator. Aggregates stored audit data into one
  * business-language model (in-app view + Markdown export) with the 12 sections
- * from commands-reference.md "/geo report". Owner language throughout — the
+ * from commands-reference.md "/geo report". Owner language throughout: the
  * SEO/AEO/GEO taxonomy never surfaces (labels come from display.ts).
  */
 
@@ -81,17 +81,17 @@ export async function buildReport(auditId: string): Promise<ReportModel> {
         : overall >= 75
           ? "Your site is well-positioned to be found and cited. Hold the line and close the remaining gaps."
           : overall >= 60
-            ? "Solid foundation with clear upside — the quick wins below should move the needle within weeks."
+            ? "The basics are in place. Start with the quick fixes below and check the score again after the next crawl."
             : "Meaningful gaps are costing you visibility. The prioritized plan targets the highest-impact fixes first.",
   };
 }
 
-const line = (score: number | null) => (score == null ? "—" : `${Math.round(score)}/100`);
+const line = (score: number | null) => (score == null ? "N/A" : `${Math.round(score)}/100`);
 
-/** Deterministic Markdown export — the 12-section client report. */
+/** Deterministic Markdown export: the 12-section client report. */
 export function toMarkdown(m: ReportModel): string {
   const out: string[] = [];
-  out.push(`# Visibility report — ${m.site}`, "");
+  out.push(`# Visibility report: ${m.site}`, "");
   out.push(`_Generated ${m.generatedAt.slice(0, 10)}${m.businessType ? ` · ${m.businessType}` : ""}_`, "");
 
   out.push("## 1. Executive summary", "");
@@ -127,12 +127,12 @@ export function toMarkdown(m: ReportModel): string {
 
   out.push("## 10. Prioritized action plan", "");
   out.push("### Quick wins", "");
-  for (const f of m.quickWins) out.push(`- **${f.title}** — ${f.recommendation}`);
-  if (m.quickWins.length === 0) out.push("- None outstanding — nice.");
+  for (const f of m.quickWins) out.push(`- **${f.title}**: ${f.recommendation}`);
+  if (m.quickWins.length === 0) out.push("- None outstanding: nice.");
   out.push("");
   for (const theme of m.themes) {
     out.push(`### Week ${theme.week}: ${theme.title}`, "");
-    for (const f of theme.findings) out.push(`- **${f.title}** — ${f.recommendation}`);
+    for (const f of theme.findings) out.push(`- **${f.title}**: ${f.recommendation}`);
     out.push("");
   }
 
@@ -140,7 +140,7 @@ export function toMarkdown(m: ReportModel): string {
   out.push("_Run a competitor benchmark to populate this section._", "");
 
   out.push("## 12. Glossary", "");
-  for (const [pillar, label] of Object.entries(PILLAR_LABELS)) out.push(`- **${label}** — ${pillar.toUpperCase()} signals.`);
+  for (const [pillar, label] of Object.entries(PILLAR_LABELS)) out.push(`- **${label}**: ${pillar.toUpperCase()} signals.`);
   out.push("");
 
   return out.join("\n");
@@ -148,5 +148,5 @@ export function toMarkdown(m: ReportModel): string {
 
 function section(findings: Finding[]): string {
   if (findings.length === 0) return "No issues found.";
-  return findings.map((f) => `- **${f.title}** (${f.severity}) — ${f.recommendation}`).join("\n");
+  return findings.map((f) => `- **${f.title}** (${f.severity}): ${f.recommendation}`).join("\n");
 }

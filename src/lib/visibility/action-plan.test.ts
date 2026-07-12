@@ -19,7 +19,7 @@ describe("buildActionPlan", () => {
       f({ severity: "high", fix_capability: "guided", title: "guided" }),
     ]);
     expect(plan.quickWins.map((q) => q.title)).toEqual(["auto", "art"]);
-    // Guided finding is not a quick win — it becomes a weekly theme.
+    // Guided finding is not a quick win: it becomes a weekly theme.
     expect(plan.themes.some((t) => t.findings.some((x) => x.title === "guided"))).toBe(true);
   });
 

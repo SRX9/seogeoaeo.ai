@@ -25,12 +25,14 @@ export type LlmConfig = {
 };
 
 /**
- * Strip em dashes from model output. Applied at every chat-completion
- * boundary so callers never need to reimplement this. Surrounding whitespace
- * is collapsed so "word — word" and "word—word" both become "word, word".
+ * Strip long dash punctuation from model output at every chat-completion
+ * boundary. This keeps generated copy consistent even when a provider ignores
+ * the writing instructions in a prompt.
  */
 export function sanitizeLlmText(text: string): string {
-  return text.replace(/\s*\u2014\s*/g, ", ");
+  return text
+    .replace(/\s*[\u2013\u2014]\s*/g, ", ")
+    .replace(/\s+--\s+/g, ", ");
 }
 
 export function getLlmConfig(): LlmConfig | null {
@@ -115,7 +117,7 @@ export async function generateText(tier: ModelTier, messages: LlmMessage[]) {
  * Parse a model's "JSON" output tolerantly: some providers ignore
  * `response_format` and wrap the payload in a ```json fence (or add prose
  * around it). Try verbatim first, then the fenced block, then the outermost
- * JSON object/array — a genuinely malformed payload still throws.
+ * JSON object/array: a genuinely malformed payload still throws.
  */
 export function parseModelJson<T>(text: string): T {
   const trimmed = text.trim();

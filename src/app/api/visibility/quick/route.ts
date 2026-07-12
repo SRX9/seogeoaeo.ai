@@ -5,7 +5,7 @@ import { assertIpRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { quickSnapshot, type QuickResult } from "@/lib/visibility/quick";
 
 /**
- * V1.5 — public quick-snapshot endpoint (no auth: it's the lead-gen tool).
+ * V1.5: public quick-snapshot endpoint (no auth: it's the lead-gen tool).
  * Rate-limited per IP; results cached in KV per domain (short TTL) and per
  * token (longer TTL) so the finding carries into signup/onboarding (V8.6).
  */
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
     const result = await quickSnapshot(url);
     if (result.error) {
-      throw new HttpError(422, `Couldn't check that site: ${result.error}`);
+      throw new HttpError(422, `The site check failed. ${result.error}`);
     }
 
     const stored: StoredSnapshot = { token: crypto.randomUUID(), result };

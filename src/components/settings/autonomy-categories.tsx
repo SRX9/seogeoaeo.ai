@@ -14,7 +14,7 @@ import {
 } from "@/lib/visibility/fix-policy";
 
 /**
- * AP4 — per-category autonomy levels beneath the Autopilot/Copilot dial.
+ * AP4: per-category autonomy levels beneath the Autopilot/Copilot dial.
  * Watch (0): report only. Prepare (1): ready-to-install artifact in inbox.
  * Live-apply (2): only when a site channel exists (`isLiveApplyAvailable`).
  */
@@ -26,7 +26,7 @@ const LEVEL_LABELS: Record<AutonomyLevel, string> = {
 };
 
 const LEVEL_HELP: Record<AutonomyLevel, string> = {
-  0: "She reports what she finds — nothing else.",
+  0: "She reports what she finds: nothing else.",
   1: "She prepares a ready-to-install fix and surfaces it in your inbox.",
   2: "She pushes the fix to your connected site when a channel is available.",
 };
@@ -104,9 +104,9 @@ export function AutonomyCategories({ brandId }: { brandId: string }) {
               Fine-tune each area she works on. The mode above sets the defaults
               {data.mode === "FULL_AUTO"
                 ? live
-                  ? " — on Autopilot she live-applies where a channel exists and prepares the rest."
-                  : " — on Autopilot she prioritizes preparing ready-to-install fixes for each area."
-                : " — on Copilot she prepares everything and always asks before publishing articles."}
+                  ? ": on Autopilot she live-applies where a channel exists and prepares the rest."
+                  : ": on Autopilot she prioritizes preparing ready-to-install fixes for each area."
+                : ": on Copilot she prepares everything and always asks before publishing articles."}
               {!live
                 ? " Site artifacts are always owner-installed until a host/CMS push channel ships."
                 : null}

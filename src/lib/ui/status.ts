@@ -37,7 +37,7 @@ const STATUS_TEXT: Record<string, string> = {
 };
 
 /**
- * Design rule: no Chip/pill badges — statuses render as plain colored text.
+ * Design rule: no Chip/pill badges: statuses render as plain colored text.
  * Maps a domain status to its text color class (grey for neutral states).
  */
 export function statusTextClass(status: string): string {

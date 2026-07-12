@@ -75,7 +75,7 @@ export async function createBrand(workspaceId: string, name: string, autonomyMod
     throw new BrandExistsError(trimmed);
   }
   // Inherit autonomy from the workspace's most recent brand so a new brand runs
-  // the way the rest already do — preserving the pre-per-brand behaviour where
+  // the way the rest already do: preserving the pre-per-brand behaviour where
   // all brands shared one mode. The very first brand falls back to the column
   // default (FULL_AUTO).
   const [sibling] = await getDb()

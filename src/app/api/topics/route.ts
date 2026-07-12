@@ -15,7 +15,7 @@ export async function GET() {
     const { brand } = await requireApiBrand();
     const [topics, sourceWeights] = await Promise.all([
       listTopics(brand.id),
-      getSourceWeights(brand.id), // never throws — degrades to {} and logs
+      getSourceWeights(brand.id), // never throws: degrades to {} and logs
     ]);
     return jsonOk({ topics, sourceWeights });
   });

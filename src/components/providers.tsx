@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 
 /**
  * Client-side data layer. The whole app fetches through React Query talking
- * directly to /api routes — there is no server-component data fetching.
+ * directly to /api routes: there is no server-component data fetching.
  */
 export function Providers({ children }: { children: ReactNode }) {
   const router = useRouter();

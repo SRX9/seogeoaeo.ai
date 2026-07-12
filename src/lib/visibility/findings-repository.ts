@@ -7,7 +7,7 @@ import type { Finding, FixCapability, Pillar, Severity } from "./types";
 export type FindingResolution = "auto_applied" | "user_applied" | "completed" | "dismissed";
 
 /**
- * V8.2 — the fix queue's data layer. ONE severity-ranked queue merging every
+ * V8.2: the fix queue's data layer. ONE severity-ranked queue merging every
  * finding from every analyzer (audits, Toolbox runs, agent runs), deduped across
  * runs so the same issue found twice is one row. Shared with V7.3.
  */
@@ -46,8 +46,8 @@ export function dedupeFindings(rows: OpenFinding[]): OpenFinding[] {
 
 /**
  * Persist analyzer findings into the shared fix queue. Deduped by
- * (category, title) per workspace — repeat audits/tool runs/answer runs never
- * pile up duplicates — with resolution-aware semantics:
+ * (category, title) per workspace: repeat audits/tool runs/answer runs never
+ * pile up duplicates: with resolution-aware semantics:
  * - already OPEN → skip (one row per issue);
  * - DISMISSED → skip (never resurrect a finding the owner said won't-fix);
  * - resolved any other way (applied/completed) → the fix REGRESSED: reopen the

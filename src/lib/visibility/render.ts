@@ -2,7 +2,7 @@ import { scrapeUrl, type ScrapeFn } from "./scrape";
 import type { PageSnapshot } from "./types";
 
 /**
- * V2.2 (v3) — true SSR check. `fetch-page.ts` only sees the raw HTML AI crawlers
+ * V2.2 (v3): true SSR check. `fetch-page.ts` only sees the raw HTML AI crawlers
  * receive; this compares that to a real JS-rendered scrape (context.dev /
  * Firecrawl via `scrape.ts`) of the same URL. A large word gap means the main
  * content is JavaScript-injected and therefore invisible to GPTBot/ClaudeBot/
@@ -16,7 +16,7 @@ export interface RenderComparison {
   available: boolean;
   raw_word_count: number;
   rendered_word_count: number | null;
-  /** raw / rendered — <1 means the raw HTML is missing content the scraper rendered. */
+  /** raw / rendered: <1 means the raw HTML is missing content the scraper rendered. */
   ratio: number | null;
   /** Rendered has real content (≥200 words) the raw HTML largely lacks (ratio <0.7). */
   missing_content: boolean;
@@ -33,7 +33,7 @@ export function unavailableComparison(rawWords: number): RenderComparison {
     ratio: null,
     missing_content: false,
     severe: false,
-    note: "Rendered comparison unavailable — SSR assessed from static HTML heuristics.",
+    note: "Rendered comparison unavailable: SSR assessed from static HTML heuristics.",
   };
 }
 
@@ -53,7 +53,7 @@ export function buildComparison(rawWords: number, renderedWords: number): Render
     severe,
     note: missing
       ? `Rendered page has ${renderedWords} words but only ${rawWords} are in the raw HTML AI crawlers receive.`
-      : "Raw HTML contains the rendered content — good for AI crawlers.",
+      : "Raw HTML contains the rendered content: good for AI crawlers.",
   };
 }
 

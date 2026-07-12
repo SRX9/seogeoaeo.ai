@@ -1,13 +1,12 @@
 "use client";
 
-import { Card } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { scoreBand } from "@/lib/visibility/display";
 
 /**
- * V8.3 — renders one Toolbox run as a readable result instead of raw JSON:
+ * V8.3: renders one Toolbox run as a readable result instead of raw JSON:
  * score + band, the findings it raised, and a generic key/value view of the
  * analyzer's data payload (raw JSON stays available behind a disclosure).
  */
@@ -40,8 +39,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function keyedValues(values: unknown[]): Array<{ item: unknown; key: string }> {
+  const seen = new Map<string, number>();
+  return values.map((item) => {
+    const base = JSON.stringify(item) ?? String(item);
+    const occurrence = seen.get(base) ?? 0;
+    seen.set(base, occurrence + 1);
+    return { item, key: `${base}:${occurrence}` };
+  });
+}
+
 function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNode {
-  if (value == null || value === "") return <span className="text-default-400">—</span>;
+  if (value == null || value === "") return <span className="text-default-400">No result</span>;
   if (typeof value === "boolean") {
     return value ? (
       <span className="text-success">Yes</span>
@@ -69,8 +78,8 @@ function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNo
     }
     return (
       <div className="space-y-2">
-        {value.map((item, i) => (
-          <div key={i} className="rounded-xl border border-border/50 bg-surface/40 p-2.5">
+        {keyedValues(value).map(({ item, key }) => (
+          <div key={key} className="border-l border-separator/70 py-1 pl-3">
             <DataValue value={item} depth={depth + 1} />
           </div>
         ))}
@@ -79,7 +88,7 @@ function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNo
   }
   if (isPlainObject(value)) {
     const entries = Object.entries(value).filter(([, v]) => v !== undefined);
-    if (entries.length === 0) return <span className="text-default-400">—</span>;
+    if (entries.length === 0) return <span className="text-default-400">No result</span>;
     return (
       <div
         className={
@@ -117,7 +126,7 @@ export function ToolResultCard({
   freshRun: boolean;
 }) {
   return (
-    <Card className="material-panel space-y-5 p-5">
+    <section className="space-y-7 border-y border-separator/70 py-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           {score != null ? (
@@ -142,10 +151,11 @@ export function ToolResultCard({
           <p className="text-sm font-semibold tracking-tight text-default-600">
             What to fix ({findings.length})
           </p>
-          {findings.map((f, i) => (
+          <div className="divide-y divide-separator/70 border-y border-separator/70">
+          {findings.map((f) => (
             <div
-              key={i}
-              className="rounded-2xl border border-border/50 bg-surface/50 p-3.5"
+              key={`${f.severity}:${f.title}:${f.recommendation}`}
+              className="py-4"
             >
               <p className="flex items-center gap-2 text-sm font-medium tracking-tight">
                 <span className={`size-2 rounded-full ${SEVERITY_DOT[f.severity]}`} aria-hidden />
@@ -154,6 +164,7 @@ export function ToolResultCard({
               <p className="mt-1 text-sm leading-relaxed text-default-500">{f.recommendation}</p>
             </div>
           ))}
+          </div>
           <Link
             href="/visibility/fixes"
             className={buttonVariants({ size: "sm", variant: "secondary" })}
@@ -179,6 +190,6 @@ export function ToolResultCard({
           </details>
         </div>
       )}
-    </Card>
+    </section>
   );
 }

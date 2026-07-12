@@ -20,7 +20,7 @@ const previewSchema = z.object({
  * Onboarding competitor autofill: discover rivals from the entered/AI-prefilled
  * profile, before any brand row exists. Free (Claudia runs this once during
  * onboarding) but rate-limited per workspace since each call spends LLM + Serper
- * budget. Returns suggestions only — the client shows a checklist and the picked
+ * budget. Returns suggestions only: the client shows a checklist and the picked
  * ones are persisted when the brand is created.
  */
 export async function POST(request: Request) {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       await assertWorkspaceRateLimit(workspace.id, "competitors_preview", 10, ONE_HOUR_MS);
     } catch (error) {
       if (error instanceof RateLimitError) {
-        throw new HttpError(429, "Too many attempts — try again later", { code: "RATE_LIMITED" });
+        throw new HttpError(429, "You have made several attempts. Wait a moment and try again.", { code: "RATE_LIMITED" });
       }
       throw error;
     }

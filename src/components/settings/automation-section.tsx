@@ -28,7 +28,7 @@ export function AutomationSection() {
         }
 
         // Key by brand so the panels remount (and re-seed their toggles) when
-        // the user switches brands — both settings are per brand. The brand id
+        // the user switches brands: both settings are per brand. The brand id
         // is passed explicitly so the write targets this brand regardless of
         // the active-brand cookie.
         return (

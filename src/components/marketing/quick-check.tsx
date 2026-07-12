@@ -9,7 +9,7 @@ import { PILLAR_LABELS, QUICK_SIGNAL_LABELS, scoreBand } from "@/lib/visibility/
 import type { QuickResult } from "@/lib/visibility/quick";
 
 /**
- * V1.5 — public "check your site" form (top of the growth funnel). Calls the
+ * V1.5: public "check your site" form (top of the growth funnel). Calls the
  * unauthenticated quick-snapshot route and renders the estimate + top gaps;
  * the signup CTA carries the domain + result token into onboarding.
  */
@@ -49,7 +49,7 @@ function signalRows(result: QuickResult) {
     {
       label: QUICK_SIGNAL_LABELS.ssr,
       ok: ssr.hasSsrContent,
-      detail: ssr.hasSsrContent ? "Readable without JavaScript" : "Requires JavaScript — invisible to AI",
+      detail: ssr.hasSsrContent ? "Readable without JavaScript" : "AI crawlers cannot read this page without JavaScript",
     },
   ];
 }
@@ -86,7 +86,7 @@ export function QuickCheck() {
 
   return (
     <section id="quick-check" className="mx-auto max-w-6xl px-4 pb-20">
-      <div className="material-panel mx-auto max-w-2xl rounded-2xl p-6 sm:p-8">
+      <div className="mx-auto max-w-2xl border-y border-border/60 py-8 sm:py-10">
         <h2 className="type-title text-center text-2xl text-foreground sm:text-3xl">
           How visible is your site to AI?
         </h2>
@@ -122,14 +122,14 @@ export function QuickCheck() {
               </span>
             </div>
             <p className="mt-1.5 text-center text-xs tracking-[0.01em] text-muted">
-              Estimate — run the full audit for the real score.
+              This is an estimate. Run the full audit for a complete score.
             </p>
 
-            <ul className="mt-6 space-y-2">
+            <ul className="mt-6 divide-y divide-border/50 border-y border-border/50">
               {signalRows(state.result).map((row) => (
                 <li
                   key={row.label}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-surface/40 px-3.5 py-2.5 text-sm"
+                  className="flex items-center justify-between gap-3 py-3 text-sm"
                 >
                   <span className="flex items-center gap-2 text-foreground">
                     <span
@@ -167,7 +167,7 @@ export function QuickCheck() {
                 Fix these gaps automatically
               </Link>
               <p className="mt-2.5 text-xs tracking-[0.01em] text-muted">
-                Sign up free — we&apos;ll carry this result into your workspace.
+                Create a free account and this result will be waiting in your workspace.
               </p>
             </div>
           </div>

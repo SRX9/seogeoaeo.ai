@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { workspaces } from "./app";
+import type { BrandIntelligenceData } from "@/lib/brand/intelligence-types";
 
 export const brands = pgTable(
   "brands",
@@ -14,7 +15,7 @@ export const brands = pgTable(
     // "REVIEW" leaves them as drafts. Each brand (site) runs independently;
     // billing is the only setting shared across a workspace's brands.
     autonomyMode: text("autonomy_mode").notNull().default("FULL_AUTO"),
-    // V8.6 — opt-in for the public score badge. The /api/public/badge endpoint
+    // V8.6: opt-in for the public score badge. The /api/public/badge endpoint
     // only renders a score for domains whose brand flipped this on; default off
     // so a customer's audit score is never publicly readable unless they chose
     // to embed the badge.
@@ -46,12 +47,47 @@ export const brandProfiles = pgTable(
     seedKeywords: text("seed_keywords"),
     // C3 structured voice doc (JSON: words we use/avoid, stance, examples,
     // rules learned from the user's edits). Grows via voice.ts, never via the
-    // profile form — upsertBrandProfile must not touch it.
+    // profile form: upsertBrandProfile must not touch it.
     voiceJson: text("voice_json"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [uniqueIndex("brand_profiles_brand_id_idx").on(table.brandId)],
+);
+
+/**
+ * Context.dev's durable brand identity snapshot. The JSON payload retains every
+ * extracted field while the small projected columns keep shell/dashboard reads
+ * cheap. One row per brand is refreshed no more than once every 30 days.
+ */
+export const brandIntelligence = pgTable(
+  "brand_intelligence",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    title: text("title"),
+    description: text("description"),
+    slogan: text("slogan"),
+    primaryLogoUrl: text("primary_logo_url"),
+    primaryBackdropUrl: text("primary_backdrop_url"),
+    data: jsonb("data").$type<BrandIntelligenceData>().notNull(),
+    source: text("source").notNull().default("context.dev"),
+    lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }).notNull(),
+    nextRefreshAt: timestamp("next_refresh_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("brand_intelligence_brand_id_idx").on(table.brandId),
+    index("brand_intelligence_workspace_id_idx").on(table.workspaceId),
+    index("brand_intelligence_next_refresh_idx").on(table.nextRefreshAt),
+  ],
 );
 
 export const competitors = pgTable(

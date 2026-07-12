@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getApiContext, handleApi, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { applyFix, revertFix } from "@/lib/visibility/apply-fix";
 
-/** V7.2 — apply or revert a finding's fix. */
+/** V7.2: apply or revert a finding's fix. */
 const schema = z.object({
   findingId: z.string().uuid(),
   action: z.enum(["apply", "revert"]).default("apply"),

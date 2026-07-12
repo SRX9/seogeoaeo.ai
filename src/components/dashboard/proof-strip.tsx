@@ -61,12 +61,17 @@ function Metric({
   href: string;
 }) {
   return (
-    <Link href={href} className="group min-w-0 rounded-xl p-3 hover-fine:bg-surface-secondary">
+    <Link
+      href={href}
+      className="group min-w-0 border-t border-separator/70 py-4 first:border-t-0 sm:border-l sm:border-t-0 sm:px-5 sm:first:border-l-0 sm:first:pl-0 sm:last:pr-0"
+    >
       <span className="inline-flex items-center gap-1 text-sm font-medium text-muted">
         {label}
-        <ChevronRightIcon className="size-3 opacity-0 group-hover-fine:opacity-100" />
+        <ChevronRightIcon className="size-3 opacity-50 group-hover-fine:opacity-100" />
       </span>
-      <div className="mt-2 text-3xl font-semibold tracking-tight text-foreground tabular-nums">{value}</div>
+      <div className="mt-3 text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground tabular-nums">
+        {value}
+      </div>
       <div className="mt-1 text-sm leading-6 text-muted">{context}</div>
     </Link>
   );
@@ -105,11 +110,11 @@ export function ProofStrip({
       : "The first visibility baseline is still being established";
 
   return (
-    <section className="rounded-[1.75rem] bg-surface p-5 shadow-surface sm:p-7" aria-labelledby="proof-story-title">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <section aria-labelledby="proof-story-title">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
-          <p className="text-sm font-medium text-muted">Outcome story</p>
-          <h2 id="proof-story-title" className="mt-2 text-xl text-foreground sm:text-2xl">
+          <p className="text-xs font-medium text-muted">Outcome story</p>
+          <h2 id="proof-story-title" className="mt-2 text-xl font-semibold tracking-[-0.02em] text-foreground sm:text-2xl">
             {headline}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
@@ -122,7 +127,7 @@ export function ProofStrip({
             viewBox="0 0 100 40"
             role="img"
             aria-label="Recent daily search click trend"
-            className="h-16 w-full max-w-64 overflow-visible text-accent"
+            className="h-14 w-full max-w-52 overflow-visible text-accent"
             preserveAspectRatio="none"
           >
             <polyline
@@ -136,11 +141,11 @@ export function ProofStrip({
         ) : null}
       </div>
 
-      <div className="mt-6 grid gap-2 sm:grid-cols-3">
+      <div className="mt-6 grid border-y border-separator/70 sm:grid-cols-3">
         <Metric
           label="Visibility score"
           href={summary.latest ? `/visibility/${summary.latest.id}` : "/visibility"}
-          value={overall != null ? Math.round(overall) : "—"}
+          value={overall != null ? Math.round(overall) : "No data"}
           context={
             scoreDelta != null ? <Delta value={scoreDelta} suffix="points" /> : "First audit pending"
           }
@@ -148,13 +153,13 @@ export function ProofStrip({
         <Metric
           label="AI answer share"
           href="/visibility/answers"
-          value={answerShare != null ? `${answerShare}%` : "—"}
+          value={answerShare != null ? `${answerShare}%` : "No data"}
           context={answerSlots > 0 ? `${appeared} of ${answerSlots} tracked answers` : "First answer check pending"}
         />
         <Metric
           label="Search clicks"
           href={traffic.connected.gsc ? "/visibility" : "/settings?tab=integrations"}
-          value={clicks ? clicks.current.toLocaleString() : "—"}
+          value={clicks ? clicks.current.toLocaleString() : "No data"}
           context={
             clicks
               ? clicks.previous > 0

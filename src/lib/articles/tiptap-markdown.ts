@@ -3,21 +3,21 @@ import { StarterKit } from "@tiptap/starter-kit";
 import { markdownToHtml } from "@/lib/publishing/markdown-html";
 
 // StarterKit (v3) bundles paragraph, heading, lists, blockquote, code/codeBlock,
-// bold/italic/strike, link, and underline — every node and mark the editor
-// toolbar can produce — so parsing HTML with it yields a document the editor
+// bold/italic/strike, link, and underline: every node and mark the editor
+// toolbar can produce: so parsing HTML with it yields a document the editor
 // renders faithfully.
 const seedExtensions = [StarterKit];
 
 /**
  * Builds the Tiptap JSON document the RichTextEditor seeds its content from.
  * The editor is JSON-first: initial content must be supplied via its
- * `defaultValue` prop as a JSON document — an HTML string passed through
+ * `defaultValue` prop as a JSON document: an HTML string passed through
  * `editorOptions.content` is overwritten by the wrapper's own (empty) content,
  * which is why the body rendered blank. We reuse the same Markdown -> HTML
  * converter used for publishing so the seeded content matches what we persist.
  *
  * Note: relies on the DOM (Tiptap parses HTML via the browser parser), so it
- * must only run client-side — which the editor already is (`ssr: false`).
+ * must only run client-side: which the editor already is (`ssr: false`).
  */
 export function markdownToTiptapDoc(markdown: string | null | undefined): JSONContent {
   return generateJSON(markdownToHtml(markdown ?? ""), seedExtensions);
@@ -26,7 +26,7 @@ export function markdownToTiptapDoc(markdown: string | null | undefined): JSONCo
 /**
  * Serializes a Tiptap document (the rich-text editor's JSON value) back to the
  * Markdown we persist in `bodyMarkdown`. Only the marks/nodes the editor toolbar
- * can produce are handled — and only those Markdown can represent — so the
+ * can produce are handled: and only those Markdown can represent: so the
  * round-trip with `markdownToHtml` stays stable.
  */
 
