@@ -1,48 +1,42 @@
 "use client";
 
-import { Meter } from "@heroui/react/meter";
-import { Table } from "@heroui/react/table";
+import { Accordion, Alert, Button, Card, Meter } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { BillingActions } from "@/components/billing/billing-actions";
+import { ToneText } from "@/components/ui/status-text";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
-import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
-import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
+import { ChevronRightIcon } from "@/components/icons";
+import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { combineQueries, queryKeys, useCredits, useMe } from "@/lib/api/queries";
+import { getPlan, isActiveSubscription } from "@/lib/billing/plans";
+import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
 
 const billingSkeleton = (
-  <div className="space-y-10">
-    <CardSkeleton lines={3} />
-    <CardSkeleton lines={3} />
+  <div className="space-y-4">
+    <CardSkeleton lines={3} className="min-h-56 rounded-2xl" />
+    <CardSkeleton lines={2} className="min-h-28 rounded-2xl" />
+    <CardSkeleton lines={3} className="min-h-36 rounded-2xl" />
   </div>
 );
+const BILLING_REASONS = new Set(["monthly_grant", "topup_purchase"]);
 
-const REASON_LABELS: Record<string, string> = {
-  signup_grant: "Signup bonus",
-  monthly_grant: "Monthly refill",
-  monthly_expire: "Monthly reset",
-  topup_purchase: "Credit pack",
-  article_generation: "Article generated",
-  research_run: "Research run",
-  competitor_discovery: "Competitor discovery",
-  refund: "Refund",
-  adjustment: "Adjustment",
-};
-
-const COST_LABELS: Record<string, string> = {
-  article_generation: "Generate an article",
-  research_run: "Run topic research",
-  competitor_discovery: "Discover competitors",
-};
-
-function formatReason(reason: string) {
-  return REASON_LABELS[reason] ?? reason;
+function formatDate(value: string | null, withYear = false) {
+  if (!value) return "Not available";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+    ...(withYear ? { year: "numeric" } : {}),
+  });
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "Not available";
-  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function daysUntil(value: string | null) {
+  if (!value) return null;
+  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000));
 }
 
 export function BillingSection() {
@@ -51,14 +45,11 @@ export function BillingSection() {
   const checkout = searchParams.get("checkout");
   const sessionId = searchParams.get("session_id");
   const queryClient = useQueryClient();
-  const router = useRouter();
-  const me = useMe();
-  const credits = useCredits();
-  const query = combineQueries(me, credits);
+  const router = useProgressRouter();
+  const query = combineQueries(useMe(), useCredits());
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
 
-  // Back from Stripe: confirm the session server-side (idempotent with the
-  // webhook) so the new plan / top-up credits show up immediately, then strip
-  // the checkout params from the URL.
   useCheckoutConfirm({
     sessionId,
     enabled: checkout === "success",
@@ -69,165 +60,172 @@ export function BillingSection() {
     },
   });
 
+  async function openPortal() {
+    setPortalError(null);
+    setPortalLoading(true);
+    try {
+      const data = await apiPost<{ url: string }>("/api/billing/portal");
+      window.location.href = data.url;
+    } catch (error) {
+      setPortalError(getErrorMessage(error, "Could not open the billing portal. Please try again."));
+      setPortalLoading(false);
+    }
+  }
+
   return (
-    <Section
-      query={query}
-      errorLabel="Couldn't load billing."
-      skeleton={billingSkeleton}
-    >
+    <Section query={query} errorLabel="Couldn't load billing." skeleton={billingSkeleton}>
       {([meData, creditsData]) => {
         const subscription = meData.subscription;
         const active = isActiveSubscription(subscription?.status);
         const plan = active && subscription?.planId ? getPlan(subscription.planId) : null;
         const balance = creditsData.balance;
-        const costs = creditsData.costs;
-        const ledger = creditsData.ledger;
         const grant = subscription?.monthlyCreditGrant ?? 0;
-        const pct = grant > 0 ? (balance.monthly / grant) * 100 : 0;
-        const meterColor =
-          balance.total <= 0 ? "danger" : grant > 0 && pct <= 20 ? "warning" : "success";
+        const monthlyLeft = Math.min(balance.monthly, grant);
+        const usedCredits = grant > 0 ? Math.max(0, grant - monthlyLeft) : 0;
+        const usedPercent = grant > 0 ? Math.min(100, Math.round((usedCredits / grant) * 100)) : 0;
+        const billingEntries = creditsData.ledger
+          .filter((entry) => BILLING_REASONS.has(entry.reason))
+          .slice(0, 3);
+        const resetDays = daysUntil(subscription?.currentPeriodEnd ?? null);
 
         return (
-          <div className="space-y-10">
-      {!active && upgrade ? (
-        <p className="rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm leading-relaxed text-warning-soft-foreground">
-          You need a plan or more credits to continue. Pick a plan or grab a top-up pack below.
-        </p>
-      ) : null}
-
-      {/* Credit balance */}
-      <div className="material-panel space-y-4 rounded-2xl p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span
-              className={`text-sm font-medium capitalize tracking-[0.01em] ${active ? "text-success" : "text-muted"}`}
-            >
-              {active ? (subscription?.status ?? "active") : "Free"}
-            </span>
-            {plan ? (
-              <span className="text-sm tracking-tight text-foreground">
-                {plan.name} · {plan.monthlyCredits.toLocaleString()} credits/mo
-              </span>
+          <div className="space-y-6">
+            {!active && upgrade ? (
+              <Alert status="warning">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Plan Required</Alert.Title>
+                  <Alert.Description>You need a plan or more credits to continue.</Alert.Description>
+                </Alert.Content>
+              </Alert>
             ) : null}
-          </div>
-          <div className="text-right">
-            <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-              {balance.total.toLocaleString()}
-            </span>
-            <span className="ml-1 text-sm text-muted">credits</span>
-          </div>
-        </div>
+            {portalError ? (
+              <Alert status="danger">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>Couldn&apos;t Open Billing</Alert.Title>
+                  <Alert.Description>{portalError}</Alert.Description>
+                </Alert.Content>
+              </Alert>
+            ) : null}
 
-        {grant > 0 ? (
-          <div>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-muted">
-                Monthly credits{" "}
-                {subscription?.currentPeriodEnd
-                  ? `· resets ${formatDate(subscription.currentPeriodEnd)}`
-                  : ""}
-              </span>
-              <span className="text-foreground tabular-nums">
-                {balance.monthly.toLocaleString()} / {grant.toLocaleString()}
-              </span>
-            </div>
-            <Meter
-              aria-label="Monthly credits remaining"
-              className="mt-2"
-              color={meterColor}
-              size="sm"
-              value={balance.monthly}
-              maxValue={grant}
+            <Card>
+              <Card.Header className="flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Card.Title>{plan?.name ?? "Free"} Plan</Card.Title>
+                    <ToneText tone={active ? "success" : "default"}>
+                      {active ? "Active" : "Free"}
+                    </ToneText>
+                  </div>
+                  <Card.Description>
+                    {active && subscription?.currentPeriodEnd
+                      ? `Renews ${formatDate(subscription.currentPeriodEnd, true)}`
+                      : "Upgrade when you are ready for more automation."}
+                  </Card.Description>
+                </div>
+                <Button
+                  className="w-full sm:w-auto"
+                  variant="secondary"
+                  isPending={portalLoading}
+                  isDisabled={!subscription?.hasStripeCustomer}
+                  onPress={openPortal}
+                >
+                  Manage Plan
+                </Button>
+              </Card.Header>
+              <Card.Content className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-surface-secondary p-4">
+                  <p className="text-xs text-muted">Plan Price</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums">
+                    ${plan?.price ?? 0}<span className="text-sm font-normal text-muted"> / mo</span>
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-secondary p-4">
+                  <p className="text-xs text-muted">Credits Included</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums">
+                    {grant.toLocaleString()}<span className="text-sm font-normal text-muted"> / mo</span>
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-secondary p-4">
+                  <p className="text-xs text-muted">Credits Reset</p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums">
+                    {resetDays === null ? "—" : resetDays}
+                    <span className="text-sm font-normal text-muted"> {resetDays === 1 ? "day" : "days"}</span>
+                  </p>
+                </div>
+              </Card.Content>
+            </Card>
+
+            <Card>
+              <Card.Header className="flex-row items-start justify-between gap-4">
+                <div>
+                  <Card.Title>Usage This Month</Card.Title>
+                  <Card.Description>{monthlyLeft.toLocaleString()} credits left</Card.Description>
+                </div>
+                <strong className="text-xl font-semibold tabular-nums">{usedPercent}%</strong>
+              </Card.Header>
+              <Card.Content>
+                <Meter
+                  aria-label="Monthly credits used"
+                  color={usedPercent >= 90 ? "danger" : usedPercent >= 80 ? "warning" : "accent"}
+                  size="sm"
+                  value={usedCredits}
+                  maxValue={Math.max(1, grant)}
+                >
+                  <Meter.Track><Meter.Fill /></Meter.Track>
+                </Meter>
+                <p className="mt-3 text-sm text-muted">
+                  <span className="font-medium text-foreground tabular-nums">{usedCredits.toLocaleString()}</span>
+                  {` of ${grant.toLocaleString()} credits used`}
+                  {balance.purchased > 0 ? ` · ${balance.purchased.toLocaleString()} top-up credits available` : ""}
+                </p>
+              </Card.Content>
+            </Card>
+
+            <Card>
+              <Card.Header>
+                <Card.Title>Latest Invoices</Card.Title>
+                <Card.Description>Recent plan grants and credit purchases.</Card.Description>
+              </Card.Header>
+              <Card.Content className="divide-y divide-separator">
+                {billingEntries.length ? billingEntries.map((entry) => (
+                  <div key={entry.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {entry.reason === "monthly_grant" ? `${plan?.name ?? "Plan"} Renewal` : "Credit Top-Up"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">{formatDate(entry.createdAt, true)}</p>
+                    </div>
+                    <span className="text-sm font-medium tabular-nums">
+                      {entry.reason === "monthly_grant" && plan ? `$${plan.price.toFixed(2)}` : `${entry.delta.toLocaleString()} credits`}
+                    </span>
+                    {subscription?.hasStripeCustomer ? (
+                      <Button size="sm" variant="secondary" isPending={portalLoading} onPress={openPortal}>Open</Button>
+                    ) : null}
+                  </div>
+                )) : <p className="py-8 text-center text-sm text-muted">No invoices yet.</p>}
+              </Card.Content>
+            </Card>
+
+            <Accordion
+              variant="surface"
+              defaultExpandedKeys={!active || Boolean(upgrade) ? ["plans"] : []}
             >
-              <Meter.Track>
-                <Meter.Fill />
-              </Meter.Track>
-            </Meter>
-          </div>
-        ) : null}
-
-        <p className="text-sm leading-relaxed text-muted">
-          {balance.purchased.toLocaleString()} top-up credits (never expire)
-          {active ? "" : " · subscribe for a monthly allowance and auto-publishing"}
-        </p>
-      </div>
-
-      {/* What credits buy */}
-      <div>
-        <h3 className="text-sm font-semibold tracking-tight text-foreground">What credits buy</h3>
-        <Table className="mt-3">
-          <Table.Content aria-label="Credit costs">
-            <Table.Header>
-              <Table.Column id="action" isRowHeader>
-                Action
-              </Table.Column>
-              <Table.Column id="cost">Credits</Table.Column>
-            </Table.Header>
-            <Table.Body>
-              {Object.entries(costs).map(([key, value]) => (
-                <Table.Row key={key} id={key}>
-                  <Table.Cell>{COST_LABELS[key] ?? key}</Table.Cell>
-                  <Table.Cell>
-                    <span className="tabular-nums text-foreground">{value}</span>
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Content>
-        </Table>
-      </div>
-
-      {/* Recent activity */}
-      {ledger.length > 0 ? (
-        <div>
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            Recent credit activity
-          </h3>
-          <Table className="mt-3">
-            <Table.ScrollContainer>
-              <Table.Content aria-label="Credit history" className="min-w-[420px]">
-                <Table.Header>
-                  <Table.Column id="reason" isRowHeader>
-                    Activity
-                  </Table.Column>
-                  <Table.Column id="date">Date</Table.Column>
-                  <Table.Column id="delta">Change</Table.Column>
-                  <Table.Column id="balance">Balance</Table.Column>
-                </Table.Header>
-                <Table.Body>
-                  {ledger.map((entry) => (
-                    <Table.Row key={entry.id} id={entry.id}>
-                      <Table.Cell>{formatReason(entry.reason)}</Table.Cell>
-                      <Table.Cell>
-                        <span className="text-muted">{formatDate(entry.createdAt)}</span>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <span
-                          className={`tabular-nums ${entry.delta >= 0 ? "text-success" : "text-foreground"
-                            }`}
-                        >
-                          {entry.delta >= 0 ? "+" : ""}
-                          {entry.delta.toLocaleString()}
-                        </span>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <span className="tabular-nums text-muted">
-                          {entry.balanceAfter?.toLocaleString() ?? "Not available"}
-                        </span>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Content>
-            </Table.ScrollContainer>
-          </Table>
-        </div>
-      ) : null}
-
-            <BillingActions
-              currentPlanId={plan?.id ?? null}
-              hasCustomer={Boolean(subscription?.hasStripeCustomer)}
-            />
+              <Accordion.Item id="plans">
+                <Accordion.Heading>
+                  <Accordion.Trigger>
+                    {active ? "Plan Details" : "Plans and Credit Packs"}
+                    <Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator>
+                  </Accordion.Trigger>
+                </Accordion.Heading>
+                <Accordion.Panel>
+                  <Accordion.Body>
+                    <BillingActions currentPlanId={plan?.id ?? null} hasCustomer={Boolean(subscription?.hasStripeCustomer)} />
+                  </Accordion.Body>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
           </div>
         );
       }}

@@ -2,8 +2,7 @@
 
 import { Kbd } from "@heroui/react";
 import { Command } from "@heroui-pro/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import {
   ActivityIcon,
   ChartBarIcon,
@@ -34,29 +33,23 @@ const WORKSHOP_ICONS = {
   activity: ActivityIcon,
 } as const;
 
-export function AgentCommandMenu() {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setOpen((value) => !value);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+export function AgentCommandMenu({
+  isOpen,
+  onOpenChange,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useProgressRouter();
 
   function navigate(key: React.Key) {
-    setOpen(false);
+    onOpenChange(false);
     router.push(String(key));
   }
 
   return (
     <Command>
-      <Command.Backdrop isOpen={open} variant="blur" onOpenChange={setOpen}>
+      <Command.Backdrop isOpen={isOpen} variant="blur" onOpenChange={onOpenChange}>
         <Command.Container size="lg">
           <Command.Dialog>
             <Command.InputGroup>

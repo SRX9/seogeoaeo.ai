@@ -4,813 +4,159 @@
 @import "@heroui-pro/react/themes/glass";
 
 /*
- * HeroUI Pro: Glass theme as the token base.
- *
- * Apple Design (WWDC fluid interfaces) is layered on top as motion, materials,
- * and typography discipline: not a second color system. Springs are modeled
- * with critically damped curves (no bounce by default); translucent chrome
- * uses backdrop-filter; tracking tightens with display size.
- *
- * Inter is wired via `--font-inter` (layout.tsx); Cal Sans is title hierarchy.
- *
- * Motion vocabulary (single source of truth):
- *   Tailwind: duration-snappy | duration-ui | duration-soft | duration-press
- *             ease-out-strong | ease-in-out-strong
- *             hover-fine: | group-hover-fine:
- *   CSS comps: --spring-snappy | --spring-default | --spring-soft | --press-*
+ * HeroUI Pro Theme
+ * @see https://heroui.com/docs/react/getting-started/theming
  */
 
-/* ── Tailwind theme: motion utilities (no more cubic-bezier drift) ───── */
-@theme {
-  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
-  --duration-press: 100ms;
-  --duration-snappy: 220ms;
-  --duration-ui: 280ms;
-  --duration-soft: 360ms;
-}
-
-/*
- * Hover that only fires for fine pointers (mouse/trackpad).
- * Avoids sticky :hover after tap on touch. Use for lifts / bg / translate.
- * Stack as: hover-fine:bg-… group-hover-fine:translate-x-0.5
- */
-@custom-variant hover-fine {
-  @media (hover: hover) and (pointer: fine) {
-    &:hover {
-      @slot;
-    }
-  }
-}
-
-@custom-variant group-hover-fine {
-  @media (hover: hover) and (pointer: fine) {
-    &:is(:where(.group):hover *) {
-      @slot;
-    }
-  }
-}
-
-/* ── Component motion + material tokens ─────────────────────────────── */
-:root {
-  /*
-   * Product UI stays snappy (Emil: under ~300ms). Soft is marketing /
-   * onboarding only: rare, so a slightly longer settle is fine.
-   */
-  --spring-snappy: var(--duration-snappy) var(--ease-out-strong);
-  --spring-default: var(--duration-ui) var(--ease-out-strong);
-  --spring-soft: var(--duration-soft) var(--ease-out-strong);
-  /* Instant press (Apple §1: feedback on pointer-down) */
-  --press-duration: var(--duration-press);
-  --press-ease: ease-out;
-  --press-scale: 0.97;
-  /* Materials: blur + saturate ≈ system materials */
-  --material-blur: 20px;
-  --material-blur-heavy: 28px;
-  --material-saturate: 180%;
-  --material-edge: color-mix(in oklab, var(--foreground) 8%, transparent);
-  --material-edge-bright: color-mix(in oklab, white 40%, transparent);
-  --material-fill: color-mix(in oklab, var(--surface) 72%, transparent);
-  --material-fill-heavy: color-mix(in oklab, var(--surface) 88%, transparent);
-  --material-shadow: 0 1px 0 var(--material-edge), 0 8px 32px color-mix(in oklab, black 6%, transparent);
-  --material-shadow-float: 0 1px 0 var(--material-edge), 0 12px 40px color-mix(in oklab, black 10%, transparent);
-}
-
-/*
- * Paint Glass's ambient gradient over the base canvas. `fixed` keeps the glow
- * anchored so translucent materials refract against a stable backdrop.
- */
 html {
-  /* Ease theme swaps so dark↔light never hard-cuts (Apple §14) */
-  color-scheme: light dark;
-  transition: background-color var(--duration-ui) ease, color var(--duration-ui) ease;
+  font-synthesis: none;
+  font-optical-sizing: auto;
 }
 
 body {
-  --font-title: var(--font-cal-sans), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  background-image: var(--background-gradient);
-  background-attachment: fixed;
-  /* Body: comfortable leading, platform-tuned face (Apple §15) */
+  --font-app: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-cal-sans), var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-app);
+  font-family: var(--font-app);
   line-height: 1.5;
-  font-optical-sizing: auto;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  transition: background-color var(--duration-ui) ease, color var(--duration-ui) ease;
 }
 
-/*
- * The authenticated product is a quiet operational canvas. Marketing and
- * onboarding may keep the ambient Glass backdrop; work surfaces stay opaque
- * so hierarchy comes from spacing and information, not decorative refraction.
- */
-.app-shell {
-  --font-title: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  min-height: 100dvh;
-  background: var(--app-canvas, var(--background));
-  background-image: none;
-  isolation: isolate;
-}
-
-.glass-light .app-shell,
-html[data-theme="glass-light"] .app-shell {
-  --app-canvas: oklch(97.2% 0.0025 264);
-}
-
-.glass-dark .app-shell,
-html[data-theme="glass-dark"] .app-shell {
-  --app-canvas: oklch(12.5% 0.006 255);
-}
-
-.app-shell small,
-.app-shell .text-xs,
-.app-shell .text-sm {
-  letter-spacing: 0;
-}
-
-@layer base {
+:where(
   h1,
   h2,
   h3,
   h4,
   h5,
   h6,
-  .font-title {
-    font-family: var(--font-title);
-    font-weight: 600;
-    font-kerning: normal;
-    font-optical-sizing: auto;
-    /* Large text: negative tracking + tight leading (Apple §15) */
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-  }
-
-  h1 {
-    letter-spacing: -0.025em;
-    line-height: 1.05;
-  }
-
-  h2 {
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-  }
-
-  h3 {
-    letter-spacing: -0.015em;
-    line-height: 1.2;
-  }
-
-  /* Small UI labels stay near zero tracking for legibility */
-  small,
-  .text-xs,
-  .text-sm {
-    letter-spacing: 0.01em;
-  }
+  [data-slot="card-title"],
+  [data-slot="kpi-title"],
+  [data-slot="empty-state-title"],
+  [data-slot="modal-heading"],
+  [data-slot="drawer-heading"],
+  [data-slot="alert-dialog-heading"]
+) {
+  font-family: var(--font-app);
+  font-synthesis: none;
 }
 
-@layer components {
-  .textarea {
-    resize: none;
-  }
-
-  /*
-   * Press feedback on every pressable (Apple §1, §10).
-   * Highlight on pointer-down: instant scale, transform-only, GPU-composited.
-   */
-  .button,
-  .toggle-button,
-  .close-button {
-    transition:
-      transform var(--press-duration) var(--press-ease),
-      background-color 150ms ease,
-      color 150ms ease,
-      border-color 150ms ease,
-      opacity 150ms ease,
-      box-shadow 150ms ease;
-  }
-  .button:active,
-  .button[data-pressed="true"],
-  .toggle-button:active,
-  .close-button:active {
-    transform: scale(var(--press-scale));
-  }
-
-  /*
-   * Generic pressable for chips, nav links, list rows: same physical press
-   * language as buttons, without stealing HeroUI's button styles.
-   */
-  .pressable {
-    transition:
-      transform var(--press-duration) var(--press-ease),
-      background-color 180ms ease,
-      color 180ms ease,
-      border-color 180ms ease,
-      opacity 180ms ease,
-      box-shadow var(--spring-snappy);
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-  .pressable:active {
-    transform: scale(var(--press-scale));
-  }
-
-  /*
-   * Cards: materialize in (opacity + short rise), not a plain fade.
-   * Critically damped: no overshoot on enter (Apple §4 defaults).
-   * Soft material elevation so stock HeroUI Cards match the Apple surface language
-   * even when a surface forgets the explicit `.material-panel` utility.
-   */
-  .card {
-    border-color: var(--material-edge);
-    box-shadow: var(--material-shadow);
-    border-radius: 1rem; /* 16px: soft Apple surface, matches rounded-2xl language */
-    /* Enter uses snappy: cards remount often on dashboard */
-    transition:
-      opacity var(--spring-snappy),
-      transform var(--spring-snappy),
-      box-shadow var(--spring-default),
-      border-color 200ms ease,
-      background-color 200ms ease;
-    @starting-style {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-  }
-
-  .app-shell .card {
-    border-color: color-mix(in oklab, var(--border) 72%, transparent);
-    border-radius: 0.875rem;
-    box-shadow: none;
-    transition:
-      background-color 160ms ease,
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-
-    @starting-style {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  /* Tables / dense lists: softer row separators instead of harsh chrome */
-  .table,
-  table {
-    border-color: color-mix(in oklab, var(--border) 70%, transparent);
-  }
-
-  /*
-   * Floating chrome: nav / sticky headers / toolbars (Apple §12).
-   * Content scrolls underneath; material weight from blur + semi-opaque fill.
-   * Bright top edge reads as light catching the material surface.
-   */
-  .material-chrome {
-    background: var(--material-fill);
-    backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
-    -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
-    box-shadow: var(--material-shadow);
-    border-bottom: 1px solid var(--material-edge);
-  }
-
-  /* Structural regions (sidebars): heavier material, more separation */
-  .material-rail {
-    background: var(--material-fill-heavy);
-    backdrop-filter: blur(var(--material-blur-heavy)) saturate(var(--material-saturate));
-    -webkit-backdrop-filter: blur(var(--material-blur-heavy)) saturate(var(--material-saturate));
-    border-right: 1px solid var(--material-edge);
-  }
-
-  /* Floating panels / hero cards: thicker surface, deeper shadow */
-  .material-panel {
-    background: color-mix(in oklab, var(--surface) 78%, transparent);
-    backdrop-filter: blur(16px) saturate(var(--material-saturate));
-    -webkit-backdrop-filter: blur(16px) saturate(var(--material-saturate));
-    box-shadow: var(--material-shadow-float);
-    border: 1px solid var(--material-edge);
-  }
-
-  .app-shell .material-panel {
-    background: var(--surface);
-    border-color: color-mix(in oklab, var(--border) 72%, transparent);
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  /*
-   * Scroll-edge soft mask instead of a hard 1px divider under sticky chrome
-   * (Apple §12). Pair with a translucent header so content fades under it.
-   */
-  .scroll-edge::after {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -12px;
-    height: 12px;
-    background: linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--background) 55%, transparent),
-      transparent
-    );
-  }
-
-  /* Display / marketing titles: extra optical tightening */
-  .type-display {
-    font-family: var(--font-title);
-    font-weight: 600;
-    font-optical-sizing: auto;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-    text-wrap: balance;
-  }
-
-  .type-title {
-    font-family: var(--font-title);
-    font-weight: 600;
-    font-optical-sizing: auto;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    text-wrap: balance;
-  }
-
-  /*
-   * Vibrancy over translucent surfaces: slightly heavier weight + tracking
-   * so muted text stays legible on blur (Apple §12 vibrancy).
-   */
-  .text-vibrant {
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: color-mix(in oklab, var(--foreground) 72%, var(--muted));
-  }
-
-  /* Interactive surface lift: continuous feedback during intent */
-  .surface-interactive {
-    transition:
-      transform var(--press-duration) var(--press-ease),
-      background-color 200ms ease,
-      border-color 200ms ease,
-      box-shadow var(--spring-snappy);
-  }
-  /* Touch devices sticky-hover without fine pointer: gate the lift */
-  @media (hover: hover) and (pointer: fine) {
-    .surface-interactive:hover {
-      background-color: color-mix(in oklab, var(--surface) 92%, var(--foreground));
-    }
-  }
-  .surface-interactive:active {
-    transform: scale(var(--press-scale));
-  }
-
-  .app-shell .surface-interactive {
-    transition:
-      background-color 160ms ease,
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
-  .app-shell .surface-interactive:active {
-    transform: none;
-  }
-
-  /* Chip / pill controls used for filters and intents */
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 9999px;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    line-height: 1.25;
-    transition:
-      transform var(--press-duration) var(--press-ease),
-      background-color 180ms ease,
-      color 180ms ease,
-      box-shadow 180ms ease;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-  .chip:active:not(:disabled) {
-    transform: scale(var(--press-scale));
-  }
-  .chip:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+.font-title {
+  font-family: var(--font-app);
+  font-weight: 600;
 }
 
-/*
- * Reduced motion: drop vestibular motion (slides, springs, scale loops).
- * Keep short opacity/color feedback so the UI still feels responsive (Emil /
- * Apple §14: reduced ≠ zero).
- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-  }
-
-  /* Kill transform/layout transitions globally */
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-  }
-
-  /* Restore brief comprehension feedback on interactive chrome */
-  .button,
-  .toggle-button,
-  .close-button,
-  .pressable,
-  .chip,
-  .surface-interactive,
-  a,
-  button {
-    transition-property: color, background-color, border-color, opacity, box-shadow !important;
-    transition-duration: 120ms !important;
-    transition-timing-function: ease !important;
-  }
-
-  .card {
-    @starting-style {
-      opacity: 0;
-      transform: none;
-    }
-  }
-
-  .onboarding-step {
-    animation: none;
-  }
-
-  .competitor-radar__sweep,
-  .competitor-radar__placeholder {
-    animation: none !important;
-  }
+.type-title {
+  font-family: var(--font-app);
+  font-weight: 600;
+  text-wrap: balance;
 }
 
-/*
- * Reduced transparency: frostier / solid materials for legibility (Apple §14).
- */
-@media (prefers-reduced-transparency: reduce) {
-  :root {
-    --material-fill: var(--surface);
-    --material-fill-heavy: var(--surface);
-    --material-blur: 0px;
-    --material-blur-heavy: 0px;
-  }
-
-  .material-chrome,
-  .material-rail,
-  .material-panel {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: var(--surface);
-  }
+.type-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-wrap: balance;
 }
 
-/*
- * Prefer more contrast: solid surfaces + defined borders (Apple §14).
- */
-@media (prefers-contrast: more) {
-  .material-chrome,
-  .material-rail,
-  .material-panel {
-    background: var(--surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    border-color: var(--border);
-  }
+.type-title {
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
-/*
- * Light mode: calm neutral "lunar grey" canvas so white glass floats clearly.
- * `--accent` stays Glass black/white on purpose.
- */
 .glass-light,
-html[data-theme="glass-light"] {
-  --background: oklch(96% 0.003 264);
-  --background-gradient: linear-gradient(
-    180deg,
-    oklch(98% 0.003 264) 0%,
-    oklch(93.5% 0.004 264) 100%
-  );
-  --material-fill: color-mix(in oklab, white 72%, transparent);
-  --material-fill-heavy: color-mix(in oklab, white 86%, transparent);
-  --material-edge: color-mix(in oklab, black 6%, transparent);
-  --material-edge-bright: color-mix(in oklab, white 55%, transparent);
-  --material-shadow: 0 1px 0 color-mix(in oklab, white 50%, transparent),
-    0 8px 28px color-mix(in oklab, black 5%, transparent);
-  --material-shadow-float: 0 1px 0 color-mix(in oklab, white 55%, transparent),
-    0 16px 48px color-mix(in oklab, black 8%, transparent);
-  --chart-1: oklch(55% 0.17 255);
-  --chart-2: oklch(60% 0.12 185);
-  --chart-3: oklch(55% 0.16 300);
-  --chart-4: oklch(70% 0.13 75);
-  --chart-5: oklch(60% 0.17 350);
+[data-theme="glass-light"] {
+  /* Theme Colors */
+  --muted: oklch(55.17% 0.0060 253.83);
+  --scrollbar: oklch(87.10% 0.0030 253.83);
+  --border: oklch(90.00% 0.0030 253.83);
 }
 
-/*
- * Dark mode: softer body text hierarchy + aurora for glass refraction.
- */
 .glass-dark,
-html[data-theme="glass-dark"] {
-  --foreground: oklch(87% 0.008 255);
-  --muted: oklch(63% 0.016 255);
-  --background-gradient: linear-gradient(
-    oklch(48% 0.15 265 / 0.28) 0%,
-    oklch(60% 0.09 200 / 0.08) 50%,
-    oklch(60% 0.09 180 / 0) 100%
-  );
-  --material-fill: color-mix(in oklab, oklch(18% 0.01 255) 72%, transparent);
-  --material-fill-heavy: color-mix(in oklab, oklch(16% 0.01 255) 88%, transparent);
-  --material-edge: color-mix(in oklab, white 10%, transparent);
-  --material-edge-bright: color-mix(in oklab, white 18%, transparent);
-  --material-shadow: 0 1px 0 color-mix(in oklab, white 8%, transparent),
-    0 12px 36px color-mix(in oklab, black 35%, transparent);
-  --material-shadow-float: 0 1px 0 color-mix(in oklab, white 10%, transparent),
-    0 20px 56px color-mix(in oklab, black 45%, transparent);
-  --chart-1: oklch(70% 0.14 250);
-  --chart-2: oklch(76% 0.11 180);
-  --chart-3: oklch(70% 0.14 300);
-  --chart-4: oklch(80% 0.13 80);
-  --chart-5: oklch(72% 0.15 350);
+[data-theme="glass-dark"] {
+  color-scheme: dark;
+  /* Theme Colors */
+  --muted: oklch(70.50% 0.0060 253.83);
+  --scrollbar: oklch(70.50% 0.0030 253.83);
+  --surface-secondary-foreground: oklch(25.70% 0.0000 253.83);
+  --surface-tertiary-foreground: oklch(27.21% 0.0000 253.83);
+  --field-placeholder: oklch(70.50% 0.0000 253.83);
+  --segment: oklch(39.64% 0.0030 253.83);
+  --border: oklch(28.00% 0.0030 253.83);
 }
 
-::selection {
-  background: color-mix(in oklab, var(--accent) 30%, transparent);
+.app-navbar {
+  background: var(--background);
+  background: color-mix(in oklab, var(--background) 84%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
 }
 
-/*
- * Onboarding canvas: static paint-only depth. No JavaScript, parallax, or
- * continuously moving gradient, so the long brief and checkout stay cheap to
- * scroll even on lower-power devices.
- */
-.onboarding-canvas {
-  background:
-    radial-gradient(
-      circle at 8% 4%,
-      color-mix(in oklab, var(--accent) 8%, transparent),
-      transparent 28rem
-    ),
-    radial-gradient(
-      circle at 96% 38%,
-      color-mix(in oklab, var(--foreground) 5%, transparent),
-      transparent 32rem
-    );
+@media (prefers-reduced-transparency: reduce) {
+  .app-navbar {
+    background: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
-.onboarding-canvas::before {
-  content: "";
+@media (prefers-contrast: more) {
+  .app-navbar {
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Immediate, low-noise feedback while the App Router resolves a new page. */
+.navigation-progress {
   position: fixed;
-  z-index: -1;
-  inset: 0;
+  z-index: 100;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(color-mix(in oklab, var(--border) 32%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, var(--border) 32%, transparent) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(to bottom, black, transparent 42%);
-  opacity: 0.22;
-  contain: paint;
+  transition: opacity 120ms ease;
 }
 
-/*
- * Onboarding step enter: rare, explanatory state change. It uses only
- * transform and opacity and is removed under reduced-motion preferences.
- */
-.onboarding-step {
-  animation: onboarding-step-in var(--duration-soft) var(--ease-out-strong) both;
+.navigation-progress[data-visible="true"] {
+  opacity: 1;
 }
 
-@keyframes onboarding-step-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+.navigation-progress__bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 45%, transparent);
+  transform-origin: left center;
+  transition: transform 420ms linear;
+  will-change: transform;
+}
+
+.navigation-progress[data-completing="true"] .navigation-progress__bar {
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-progress {
+    transition-duration: 100ms;
   }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 
-/* Competitor discovery radar: transform/opacity only */
-.competitor-radar {
-  background:
-    radial-gradient(circle at center, color-mix(in oklab, var(--accent) 55%, transparent) 0 2px, transparent 3px),
-    repeating-radial-gradient(
-      circle at center,
-      transparent 0 26%,
-      color-mix(in oklab, var(--border) 65%, transparent) 27% 28%,
-      transparent 29% 44%
-    ),
-    linear-gradient(
-      90deg,
-      transparent calc(50% - 0.5px),
-      color-mix(in oklab, var(--border) 70%, transparent) 50%,
-      transparent calc(50% + 0.5px)
-    ),
-    linear-gradient(
-      0deg,
-      transparent calc(50% - 0.5px),
-      color-mix(in oklab, var(--border) 70%, transparent) 50%,
-      transparent calc(50% + 0.5px)
-    );
-}
-
-.competitor-radar__sweep {
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg 260deg,
-    color-mix(in oklab, var(--accent) 34%, transparent) 310deg,
-    transparent 360deg
-  );
-  animation: competitor-radar-spin 2s linear infinite;
-}
-
-.competitor-radar__blip {
-  transform: translate(-50%, -50%);
-  animation: competitor-radar-blip var(--duration-snappy) var(--ease-out-strong) both;
-}
-
-.competitor-radar__placeholder {
-  transform: translate(-50%, -50%);
-  animation: competitor-radar-pulse 1.4s ease-in-out infinite;
-}
-
-.competitor-result-card {
-  animation: competitor-result-in var(--duration-ui) var(--ease-out-strong) both;
-}
-
-@keyframes competitor-radar-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
+  .navigation-progress__bar {
+    transform: scaleX(1) !important;
+    transition: none;
+    will-change: auto;
   }
 }
 
-@keyframes competitor-radar-blip {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes competitor-radar-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: translate(-50%, -50%) scale(0.9);
-  }
-  50% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.25);
-  }
-}
-
-@keyframes competitor-result-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/*
- * Authenticated shell with compact floating navigation.
- * Floating brand and dock materials preserve context without framing the page.
- */
-.app-shell-content {
-  min-height: 100dvh;
-  padding-bottom: calc(7.75rem + env(safe-area-inset-bottom));
-}
-
-.brand-capsule {
-  position: fixed;
-  z-index: 45;
-  top: max(0.75rem, env(safe-area-inset-top));
-  left: max(0.75rem, env(safe-area-inset-left));
-  display: flex;
-  align-items: center;
-  gap: 0.125rem;
-  max-width: calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right));
-  padding: 0.1875rem;
-  border: 1px solid var(--material-edge);
-  border-radius: 0.875rem;
-  background: var(--material-fill-heavy);
-  box-shadow: var(--material-shadow);
-  backdrop-filter: blur(var(--material-blur-heavy)) saturate(var(--material-saturate));
-  -webkit-backdrop-filter: blur(var(--material-blur-heavy)) saturate(var(--material-saturate));
-}
-
-.agent-dock {
-  position: fixed;
-  z-index: 50;
-  right: 0;
-  bottom: max(0.75rem, env(safe-area-inset-bottom));
-  left: 0;
-  display: flex;
-  justify-content: center;
-  padding-inline: max(0.75rem, env(safe-area-inset-left));
-  pointer-events: none;
-}
-
-.agent-dock__surface {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(4.25rem, 1fr));
-  gap: 0.125rem;
-  width: min(100%, 24rem);
-  padding: 0.25rem;
-  border: 1px solid var(--material-edge);
-  border-radius: 1rem;
-  background: var(--material-fill-heavy);
-  box-shadow: var(--material-shadow-float);
-  backdrop-filter: blur(var(--material-blur-heavy)) saturate(var(--material-saturate));
-  -webkit-backdrop-filter: blur(var(--material-blur-heavy)) saturate(var(--material-saturate));
-  pointer-events: auto;
-}
-
-.agent-dock__item {
-  position: relative;
-  display: flex;
-  min-height: 3rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  border-radius: 0.75rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 550;
-  line-height: 1;
-  white-space: nowrap;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease;
-}
-
-.agent-dock__item--active {
-  color: var(--foreground);
-  background: color-mix(in oklab, var(--surface) 88%, transparent);
-  box-shadow: 0 1px 0 var(--material-edge-bright);
-}
-
-.agent-dock__item:active {
-  transform: none;
-}
-
-.agent-dock__item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.agent-dock__state-dot {
-  position: absolute;
-  right: -0.125rem;
-  bottom: -0.125rem;
-  width: 0.4375rem;
-  height: 0.4375rem;
-  border: 1.5px solid var(--surface);
-  border-radius: 999px;
-}
-
-.agent-dock__badge {
-  position: absolute;
-  top: -0.5rem;
-  right: -0.75rem;
-  display: inline-flex;
-  min-width: 1.125rem;
-  height: 1.125rem;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 0.25rem;
-  border-radius: 999px;
-  background: var(--warning);
-  color: var(--warning-foreground);
-  font-size: 0.625rem;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 420px) {
-  .agent-dock__surface {
-    grid-template-columns: repeat(4, 1fr);
+@media (prefers-contrast: more) {
+  .navigation-progress {
+    height: 3px;
   }
 
-  .agent-dock__item {
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding-inline: 0.25rem;
+  .navigation-progress__bar {
+    box-shadow: none;
   }
 }

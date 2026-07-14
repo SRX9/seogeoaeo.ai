@@ -1,5 +1,6 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getAgentState } from "@/lib/agent/state";
+import { listPendingAgentApprovals } from "@/lib/agent/events";
 import { getBrandIdentitySummary } from "@/lib/brand/intelligence";
 import { listArticles, listTopics } from "@/lib/articles/repository";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
@@ -254,6 +255,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const connectionsPromise = listTrafficConnections(brand.id);
   const integrationsPromise = listIntegrations(brand.id);
   const identityPromise = getBrandIdentitySummary(brand.id);
+  const approvalsPromise = listPendingAgentApprovals(brand.id);
 
   const setupDataPromise = setupPromise.then(async (run) => {
     if (run && isActiveSubscription(subscription?.status) && isSetupRunStale(run)) {
@@ -283,6 +285,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
       findings: findingsPromise,
       gscRows: connectionsPromise,
       integrations: integrationsPromise,
+      approvals: approvalsPromise,
     },
   });
 
@@ -294,7 +297,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const answersPromise = getVisibilityAnswers(brand.id);
   const trafficPromise = getVisibilityTraffic(brand.id, connectionsPromise);
 
-  const [setup, agent, automation, summary, answers, traffic, articleRows, rawFindings, integrations, identity] =
+  const [setup, agent, automation, summary, answers, traffic, articleRows, rawFindings, integrations, identity, approvalRows] =
     await Promise.all([
       setupDataPromise,
       agentPromise,
@@ -306,6 +309,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
       findingsPromise,
       integrationsPromise,
       identityPromise,
+      approvalsPromise,
     ]);
 
   const articles = toDashboardArticles(articleRows);
@@ -320,7 +324,9 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     fixPayload: finding.fixPayload,
     proposedAt: finding.proposedAt?.toISOString() ?? null,
   }));
-  const inboxCount = buildInboxRows({ articles, findings, traffic, integrations, automation }).length;
+  const inboxCount =
+    approvalRows.length +
+    buildInboxRows({ articles, findings, traffic, integrations, automation }).length;
 
   return {
     brand: { id: brand.id, name: brand.name, identity },
@@ -333,6 +339,18 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     findings,
     integrations,
     automation,
+    approvals: approvalRows.map((approval) => ({
+      id: approval.id,
+      taskId: approval.taskId,
+      actionType: approval.actionType,
+      resourceRef: approval.resourceRef,
+      beforeState: approval.beforeState,
+      afterState: approval.afterState,
+      riskLevel: approval.riskLevel,
+      expectedBenefit: approval.expectedBenefit,
+      expiresAt: approval.expiresAt?.toISOString() ?? null,
+      createdAt: approval.createdAt.toISOString(),
+    })),
     inboxCount,
   };
 }

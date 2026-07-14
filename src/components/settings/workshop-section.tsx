@@ -1,3 +1,4 @@
+import { Card } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import {
@@ -43,38 +44,38 @@ export function WorkshopSection() {
 
   return (
     <section className="space-y-6">
-      <div className="border-y border-separator/70 py-5">
-        <p className="text-sm leading-relaxed text-foreground">
-          <span className="font-medium tracking-tight">
-            Advanced tools for checks you want to run yourself
-          </span>{" "}
-          <span className="text-muted">
-            These are my workshop tools for technical founders. Most brand owners only use
-            Claudia, Inbox, and Reports. Engine contracts are unchanged: same audits, same
-            fix payloads, same publish path.
-          </span>
-        </p>
-        <Link
-          href="/dashboard"
-          className={`${buttonVariants({ size: "sm", variant: "secondary" })} mt-3`}
-        >
-          Back to Claudia
-        </Link>
-      </div>
+      <Card variant="secondary">
+        <Card.Header className="gap-3">
+          <span className="text-sm font-medium text-accent">Advanced</span>
+          <Card.Title>Manual Tools</Card.Title>
+          <Card.Description className="max-w-3xl leading-6">
+            Run focused checks yourself when you need a closer look. Claudia, Inbox, and Reports
+            remain the fastest path for everyday work.
+          </Card.Description>
+        </Card.Header>
+        <Card.Footer>
+          <Link
+            href="/dashboard"
+            className={buttonVariants({ size: "sm", variant: "secondary" })}
+          >
+            Back to Claudia
+          </Link>
+        </Card.Footer>
+      </Card>
 
       {groups.map(({ group, label, links }) => (
-        <div key={group} className="space-y-2">
-          <h3 className="text-xs font-medium text-muted">
-            {label}
-          </h3>
-          <div className="divide-y divide-separator/70 border-y border-separator/70">
+        <Card key={group} className="overflow-hidden p-0">
+          <Card.Header className="px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
+            <Card.Title>{label}</Card.Title>
+          </Card.Header>
+          <Card.Content className="divide-y divide-separator p-0">
             {links.map((link) => {
               const Icon = ICONS[link.icon] ?? WorkshopIcon;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="group flex min-h-20 items-center gap-3 py-4"
+                  className="group flex min-h-20 items-center gap-3 px-5 py-4 no-underline outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus sm:px-6"
                 >
                   <div className="flex items-start gap-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
@@ -91,8 +92,8 @@ export function WorkshopSection() {
                 </Link>
               );
             })}
-          </div>
-        </div>
+          </Card.Content>
+        </Card>
       ))}
     </section>
   );

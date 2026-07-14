@@ -1,8 +1,10 @@
 "use client";
 
-import { Card, Chip } from "@heroui/react";
+import { Accordion, Card } from "@heroui/react";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
+import { ChevronRightIcon } from "@/components/icons";
+import { ToneText } from "@/components/ui/status-text";
 import { useAgentActions } from "@/lib/api/queries";
 
 function json(value: unknown) {
@@ -24,42 +26,50 @@ export function ActionHistory() {
           {data.actions.length ? (
             <div className="space-y-3">
               {data.actions.map((action) => (
-                <Card key={action.id} className="p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                <Card key={action.id}>
+                  <Card.Header className="flex-row flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium capitalize text-foreground">{action.actionType}</p>
-                      <p className="mt-1 break-words text-sm text-muted">{action.resourceRef}</p>
+                      <Card.Title className="capitalize">{action.actionType}</Card.Title>
+                      <Card.Description className="break-words">{action.resourceRef}</Card.Description>
                     </div>
-                    <Chip
-                      size="sm"
-                      color={action.verificationStatus === "verified" ? "success" : "warning"}
-                      variant="soft"
+                    <ToneText
+                      tone={action.verificationStatus === "verified" ? "success" : "warning"}
+                      className="text-xs capitalize"
                     >
                       {action.verificationStatus}
-                    </Chip>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                    </ToneText>
+                  </Card.Header>
+                  <Card.Content>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                     <span>{action.capability}</span>
                     <span>{action.rollbackSupported ? "Rollback available" : "No connector rollback"}</span>
                     <time dateTime={action.createdAt} suppressHydrationWarning>
                       {new Date(action.createdAt).toLocaleString()}
                     </time>
                   </div>
-                  <details className="mt-4 rounded-xl bg-surface-secondary p-3">
-                    <summary className="cursor-pointer text-sm font-medium text-foreground">
-                      Inspect change
-                    </summary>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-muted">Before</p>
-                        <pre className="max-h-52 overflow-auto whitespace-pre-wrap text-xs">{json(action.beforeState)}</pre>
-                      </div>
-                      <div>
-                        <p className="mb-1 text-xs font-medium text-muted">Applied</p>
-                        <pre className="max-h-52 overflow-auto whitespace-pre-wrap text-xs">{json(action.appliedChange)}</pre>
-                      </div>
-                    </div>
-                  </details>
+                  <Accordion className="mt-4">
+                    <Accordion.Item id={`change-${action.id}`}>
+                      <Accordion.Heading>
+                        <Accordion.Trigger>
+                          Inspect Change
+                          <Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator>
+                        </Accordion.Trigger>
+                      </Accordion.Heading>
+                      <Accordion.Panel>
+                        <Accordion.Body className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="mb-1 text-xs font-medium text-muted">Before</p>
+                            <pre className="max-h-52 overflow-auto whitespace-pre-wrap text-xs">{json(action.beforeState)}</pre>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-xs font-medium text-muted">Applied</p>
+                            <pre className="max-h-52 overflow-auto whitespace-pre-wrap text-xs">{json(action.appliedChange)}</pre>
+                          </div>
+                        </Accordion.Body>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  </Accordion>
+                  </Card.Content>
                 </Card>
               ))}
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
-import { Card } from "@heroui/react/card";
+import { Button, Card } from "@heroui/react";
 import { EmptyState } from "@heroui-pro/react/empty-state";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -112,7 +112,7 @@ export function WorkStream({
     return (
       <section className={cn("space-y-3", className)}>
         <StreamHeader live={live} activeCount={0} />
-        <EmptyState className="material-panel rounded-2xl border-dashed">
+        <EmptyState>
           <EmptyState.Header>
             <EmptyState.Media variant="icon">
               <ActivityIcon />
@@ -153,31 +153,27 @@ export function WorkStream({
             if (chip.id !== "all" && count === 0) return null;
             const selected = filter === chip.id;
             return (
-              <button
+              <Button
                 key={chip.id}
-                type="button"
-                onClick={() => setFilter(chip.id)}
-                className={cn(
-                  "chip",
-                  selected
-                    ? "bg-accent text-accent-foreground shadow-sm"
-                    : "bg-surface-secondary text-muted hover-fine:bg-default/60 hover-fine:text-foreground",
-                )}
+                size="sm"
+                variant={selected ? "secondary" : "ghost"}
+                aria-pressed={selected}
+                onPress={() => setFilter(chip.id)}
               >
                 {chip.label}
                 <span className="ml-1 tabular-nums opacity-70">{count}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
       ) : null}
 
       {visible.length === 0 ? (
-        <Card className="material-panel p-5">
+        <Card className="p-5">
           <p className="text-sm leading-relaxed text-muted">Nothing in this filter right now.</p>
         </Card>
       ) : (
-        <Card className="material-panel divide-y divide-border/50 p-0">
+        <Card className="divide-y divide-separator p-0">
           {visible.map((item) => {
             const Icon = eventIcon(item);
             const itemLive = isItemLive(item);
@@ -339,8 +335,7 @@ function StreamHeader({ live, activeCount }: { live: boolean; activeCount: numbe
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="type-title text-lg text-foreground">What I&apos;ve been doing</h2>
         {live ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-medium tracking-[0.01em] text-success-soft-foreground">
-            <span className="size-1.5 animate-pulse rounded-full bg-success" aria-hidden />
+          <span className="text-xs font-medium tracking-[0.01em] text-success">
             Live
             {activeCount > 0 ? ` · ${activeCount}` : ""}
           </span>

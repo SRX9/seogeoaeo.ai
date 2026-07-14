@@ -1,9 +1,22 @@
 "use client";
 
-import { Card, Chip, Input, Label, Switch, toast } from "@heroui/react";
-import { buttonVariants } from "@heroui/react/button";
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  Label,
+  ListBox,
+  Switch,
+  Tooltip,
+  toast,
+  type Selection,
+} from "@heroui/react";
 import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
+import { ShieldIcon, XIcon } from "@/components/icons";
+import { ToneText } from "@/components/ui/status-text";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiDelete, apiPatch, apiPut, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
@@ -32,141 +45,164 @@ function patchIntegration(
   };
 }
 
-type IntegrationsPanelProps = {
-  integrations: IntegrationView[];
-};
+type IntegrationsPanelProps = { integrations: IntegrationView[] };
 
 export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
+  const initialProvider =
+    integrations.find((item) => item.provider === "wordpress" && item.enabled)?.provider ??
+    integrations.find((item) => item.enabled)?.provider ??
+    integrations.find((item) => item.provider === "wordpress")?.provider ??
+    integrations.find((item) => item.status === "available")?.provider ??
+    null;
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(initialProvider);
+  const selected = integrations.find((item) => item.provider === selectedProvider) ?? null;
+  const available = integrations.filter((item) => item.status === "available");
+  const planned = integrations.filter((item) => item.status !== "available");
+
+  function changeSelection(keys: Selection) {
+    if (keys === "all") return;
+    const next = Array.from(keys)[0];
+    setSelectedProvider(next == null ? null : String(next));
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="material-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3">
-        <div>
-          <p className="text-sm font-medium tracking-tight text-foreground">Need setup help?</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted">
-            Follow the integration guide for required fields, saved secrets, and
-            troubleshooting.
-          </p>
-        </div>
-        <Link
-          href="/help/integrations"
-          className={buttonVariants({ size: "sm", variant: "secondary" })}
-        >
-          View guide
-        </Link>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
+      <div className="min-w-0 space-y-6">
+        <Card className="overflow-hidden p-0">
+          <Card.Header className="px-5 pt-5 sm:px-6 sm:pt-6">
+            <Card.Title>Publishing Destinations</Card.Title>
+            <Card.Description>Select a destination to review or update its connection.</Card.Description>
+          </Card.Header>
+          <Card.Content className="p-2">
+            <ListBox
+              aria-label="Publishing destinations"
+              selectionMode="single"
+              selectedKeys={selectedProvider ? new Set([selectedProvider]) : new Set()}
+              onSelectionChange={changeSelection}
+            >
+              {available.map((integration) => (
+                <ListBox.Item key={integration.provider} id={integration.provider} textValue={integration.name}>
+                  <ProviderMark provider={integration.provider} name={integration.name} />
+                  <div className="min-w-0 flex-1">
+                    <Label className="truncate">{integration.name}</Label>
+                    <p className="mt-0.5 truncate text-xs text-muted">{capabilityLabel(integration)}</p>
+                  </div>
+                  <ToneText
+                    tone={integration.enabled ? "success" : integration.requirementsMet ? "accent" : "warning"}
+                    className="text-xs"
+                  >
+                    {integration.enabled ? "Connected" : integration.requirementsMet ? "Ready" : "Setup"}
+                  </ToneText>
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Card.Content>
+        </Card>
+
+        {planned.length ? (
+          <Card variant="secondary">
+            <Card.Header>
+              <Card.Title>Planned Destinations</Card.Title>
+              <Card.Description>Additional publishing paths on the roadmap.</Card.Description>
+            </Card.Header>
+            <Card.Content className="space-y-3">
+              {planned.slice(0, 4).map((integration) => (
+                <div key={integration.provider} className="flex items-center gap-3 rounded-xl bg-background p-3">
+                  <ProviderMark provider={integration.provider} name={integration.name} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{integration.name}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted">{capabilityLabel(integration)}</p>
+                  </div>
+                  <ToneText className="text-xs">Coming Soon</ToneText>
+                </div>
+              ))}
+            </Card.Content>
+          </Card>
+        ) : null}
+
+        <Alert>
+          <Alert.Indicator><ShieldIcon className="size-4" /></Alert.Indicator>
+          <Alert.Content>
+            <Alert.Title>Credentials Stay Protected</Alert.Title>
+            <Alert.Description>
+              Credentials are encrypted, and Claudia never publishes outside your authority settings.
+            </Alert.Description>
+          </Alert.Content>
+          <Link href="/help/integrations" className="text-sm font-medium text-link no-underline">Learn more</Link>
+        </Alert>
       </div>
 
-      {integrations.map((integration) => (
-        <Card key={integration.provider} className="material-panel">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <Card.Title className="tracking-tight">{integration.name}</Card.Title>
-              <Card.Description className="leading-relaxed">
-                {integration.description}
-              </Card.Description>
+      {selected ? (
+        <Card className="sticky top-6" aria-label={`${selected.name} connection settings`}>
+          <Card.Header className="flex-row items-start gap-3">
+            <ProviderMark provider={selected.provider} name={selected.name} large />
+            <div className="min-w-0 flex-1">
+              <Card.Title>{selected.name}</Card.Title>
+              <ToneText tone={selected.enabled ? "success" : "warning"} className="text-xs">
+                {selected.enabled ? "Connected" : "Setup Required"}
+              </ToneText>
             </div>
-            <div className="flex items-center gap-3 text-xs font-medium tracking-[0.01em]">
-              <StatusText integration={integration} />
-              {integration.enabled ? <span className="text-success">Enabled</span> : null}
-            </div>
-          </div>
-
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            {integration.requirements.summary}
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-muted">
-            {integration.requirements.helpText}
-          </p>
-
-          <div className="mt-3">
-            <p className="text-xs font-medium text-muted">Declared live capabilities</p>
-            {integration.capabilities.length ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {integration.capabilities.map((capability) => (
-                  <Chip key={capability} size="sm" variant="soft">
-                    {capability}
-                  </Chip>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-1 text-xs leading-5 text-muted">
-                No live action capability. Claudia will not offer Live-apply for this connection.
-              </p>
-            )}
-          </div>
-
-          {integration.status === "available" ? (
-            <IntegrationForm integration={integration} />
-          ) : (
-            <div className="mt-4 rounded-xl border border-border/50 bg-surface-muted/80 px-3 py-2 text-sm leading-relaxed text-muted">
-              This destination is not configurable yet. No credentials are needed here.
-            </div>
-          )}
+            <Tooltip delay={250}>
+              <Button isIconOnly variant="ghost" aria-label="Close connection details" onPress={() => setSelectedProvider(null)}>
+                <XIcon />
+              </Button>
+              <Tooltip.Content>Close details</Tooltip.Content>
+            </Tooltip>
+          </Card.Header>
+          <Card.Content>
+            <p className="text-sm leading-6 text-muted">{selected.description}</p>
+            <IntegrationForm integration={selected} />
+          </Card.Content>
         </Card>
-      ))}
+      ) : (
+        <Card variant="secondary" className="sticky top-6">
+          <Card.Content className="py-10 text-center text-sm text-muted">
+            Select a destination to view its setup.
+          </Card.Content>
+        </Card>
+      )}
     </div>
   );
 }
 
-/** Labelled on/off switch for an integration: enable/disable is a state, not an action. */
-function EnableSwitch({
-  name,
-  enabled,
-  disabled,
-  onToggle,
-}: {
-  name: string;
-  enabled: boolean;
-  disabled: boolean;
-  onToggle: (next: boolean) => void;
-}) {
+function capabilityLabel(integration: IntegrationView) {
+  if (integration.publishMode === "webhook") return "Send content via POST";
+  if (integration.publishMode === "export") return "Export .md files";
+  if (integration.publishMode === "social_post") return "Publish social posts";
+  return integration.provider === "wordpress" ? "Publish posts and pages" : "Publish articles";
+}
+
+function ProviderMark({ provider, name, large = false }: { provider: string; name: string; large?: boolean }) {
+  const short = provider === "wordpress" ? "W" : provider === "markdown_export" ? "MD" : name.slice(0, 2);
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-surface-muted/80 px-3 py-2.5">
+    <span className={`${large ? "size-11 text-sm" : "size-9 text-xs"} grid shrink-0 place-items-center rounded-xl bg-surface-secondary font-semibold text-foreground`} aria-hidden>
+      {short.toUpperCase()}
+    </span>
+  );
+}
+
+function EnableSwitch({ name, enabled, disabled, onToggle }: { name: string; enabled: boolean; disabled: boolean; onToggle: (next: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-secondary px-4 py-3">
       <div>
-        <p className="text-sm font-medium tracking-tight text-foreground">
-          {enabled ? "Enabled" : "Disabled"}
-        </p>
-        <p className="text-xs leading-relaxed text-muted">
-          {enabled
-            ? `Claudia publishes to ${name}.`
-            : `Turn on to let Claudia publish to ${name}.`}
+        <p className="text-sm font-medium text-foreground">{enabled ? "Enabled" : "Disabled"}</p>
+        <p className="mt-1 text-xs leading-5 text-muted">
+          {enabled ? `Claudia publishes to ${name}.` : `Turn on to let Claudia publish to ${name}.`}
         </p>
       </div>
-      <Switch
-        aria-label={`Enable ${name}`}
-        isSelected={enabled}
-        isDisabled={disabled}
-        onChange={onToggle}
-      >
-        <Switch.Content>
-          <Switch.Control>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch.Content>
+      <Switch aria-label={`Enable ${name}`} isSelected={enabled} isDisabled={disabled} onChange={onToggle}>
+        <Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control></Switch.Content>
       </Switch>
     </div>
   );
 }
 
-function StatusText({ integration }: { integration: IntegrationView }) {
-  if (integration.status === "available") {
-    return <span className="text-success">Available</span>;
-  }
-  if (integration.status === "gated") {
-    return <span className="text-warning">Gated</span>;
-  }
-  return <span className="text-danger">Unavailable</span>;
-}
-
-type DraftState = {
-  config: Record<string, string>;
-  secrets: Record<string, string>;
-};
+type DraftState = { config: Record<string, string>; secrets: Record<string, string> };
 
 function initialDraft(integration: IntegrationView): DraftState {
   return {
-    config: Object.fromEntries(
-      integration.fields.map((field) => [field.key, integration.config[field.key] ?? ""]),
-    ),
+    config: Object.fromEntries(integration.fields.map((field) => [field.key, integration.config[field.key] ?? ""])),
     secrets: Object.fromEntries(integration.secrets.map((secret) => [secret.key, ""])),
   };
 }
@@ -181,58 +217,34 @@ function draftSecrets(integration: IntegrationView, draft: DraftState) {
   const secrets: Partial<Record<IntegrationSecretKey, string>> = {};
   for (const secret of integration.secrets) {
     const value = draft.secrets[secret.key]?.trim();
-    if (value) {
-      secrets[secret.key] = value;
-    }
+    if (value) secrets[secret.key] = value;
   }
   return secrets;
 }
 
-function draftSecretStates(
-  integration: IntegrationView,
-  draft: DraftState,
-): IntegrationSecretStates {
+function draftSecretStates(integration: IntegrationView, draft: DraftState): IntegrationSecretStates {
   const enteredSecretStates: IntegrationSecretStates = {};
   for (const secret of integration.secrets) {
-    if (draft.secrets[secret.key]?.trim()) {
-      enteredSecretStates[secret.key] = true;
-    }
+    if (draft.secrets[secret.key]?.trim()) enteredSecretStates[secret.key] = true;
   }
-
-  return {
-    ...integration.secretStates,
-    ...enteredSecretStates,
-  };
+  return { ...integration.secretStates, ...enteredSecretStates };
 }
 
 function IntegrationForm({ integration }: { integration: IntegrationView }) {
   const [draft, setDraft] = useState<DraftState>(() => initialDraft(integration));
-
   const setConfig =
     (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) =>
-      setDraft((prev) => ({
-        ...prev,
-        config: { ...prev.config, [key]: event.target.value },
-      }));
-
+    (event) => setDraft((prev) => ({ ...prev, config: { ...prev.config, [key]: event.target.value } }));
   const setSecret =
     (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) =>
-      setDraft((prev) => ({
-        ...prev,
-        secrets: { ...prev.secrets, [key]: event.target.value },
-      }));
+    (event) => setDraft((prev) => ({ ...prev, secrets: { ...prev.secrets, [key]: event.target.value } }));
 
   const toggle = useOptimisticMutation<unknown, boolean, IntegrationsCache>({
-    mutationFn: (enabled) =>
-      apiPatch("/api/integrations", { provider: integration.provider, enabled }),
+    mutationFn: (enabled) => apiPatch("/api/integrations", { provider: integration.provider, enabled }),
     queryKey: queryKeys.integrations,
-    optimisticUpdate: (current, enabled) =>
-      patchIntegration(current, integration.provider, (item) => ({ ...item, enabled })),
+    optimisticUpdate: (current, enabled) => patchIntegration(current, integration.provider, (item) => ({ ...item, enabled })),
     invalidateKeys: [queryKeys.onboarding],
-    onSuccess: (_data, enabled) =>
-      toast.success(enabled ? `${integration.name} enabled` : `${integration.name} disabled`),
+    onSuccess: (_data, enabled) => toast.success(enabled ? `${integration.name} enabled` : `${integration.name} disabled`),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not update integration")),
   });
 
@@ -241,39 +253,35 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
     { config: IntegrationConfig; secrets: Partial<Record<IntegrationSecretKey, string>> },
     IntegrationsCache
   >({
-    mutationFn: (payload) =>
-      apiPut("/api/integrations", { provider: integration.provider, ...payload }),
+    mutationFn: (payload) => apiPut("/api/integrations", { provider: integration.provider, ...payload }),
     queryKey: queryKeys.integrations,
-    optimisticUpdate: (current, payload) =>
-      patchIntegration(current, integration.provider, (item) => {
-        const secretStates = {
-          ...item.secretStates,
-          ...Object.fromEntries(Object.keys(payload.secrets).map((key) => [key, true])),
-        };
-        return {
-          ...item,
-          config: { ...item.config, ...payload.config },
-          secretStates,
-          requirementsMet: integrationRequirements(item, payload.config, secretStates).met,
-        };
-      }),
+    optimisticUpdate: (current, payload) => patchIntegration(current, integration.provider, (item) => {
+      const secretStates = {
+        ...item.secretStates,
+        ...Object.fromEntries(Object.keys(payload.secrets).map((key) => [key, true])),
+      };
+      return {
+        ...item,
+        config: { ...item.config, ...payload.config },
+        secretStates,
+        requirementsMet: integrationRequirements(item, payload.config, secretStates).met,
+      };
+    }),
     invalidateKeys: [queryKeys.onboarding],
     onSuccess: () => toast.success(`${integration.name} connection saved`),
     onError: (error) => toast.danger(getErrorMessage(error, "Could not save connection")),
   });
 
   const clear = useOptimisticMutation<unknown, void, IntegrationsCache>({
-    mutationFn: () =>
-      apiDelete(`/api/integrations?provider=${encodeURIComponent(integration.provider)}`),
+    mutationFn: () => apiDelete(`/api/integrations?provider=${encodeURIComponent(integration.provider)}`),
     queryKey: queryKeys.integrations,
-    optimisticUpdate: (current) =>
-      patchIntegration(current, integration.provider, (item) => ({
-        ...item,
-        enabled: false,
-        config: {},
-        secretStates: emptySecretStates(item),
-        requirementsMet: integrationRequirements(item, {}, emptySecretStates(item)).met,
-      })),
+    optimisticUpdate: (current) => patchIntegration(current, integration.provider, (item) => ({
+      ...item,
+      enabled: false,
+      config: {},
+      secretStates: emptySecretStates(item),
+      requirementsMet: integrationRequirements(item, {}, emptySecretStates(item)).met,
+    })),
     invalidateKeys: [queryKeys.onboarding],
     onSuccess: () => {
       setDraft(initialDraft({ ...integration, config: {}, secretStates: emptySecretStates(integration) }));
@@ -296,19 +304,14 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
 
   if (!hasSetupFields) {
     return (
-      <div className="mt-4">
-        <EnableSwitch
-          name={integration.name}
-          enabled={integration.enabled}
-          disabled={busy}
-          onToggle={(next) => toggle.mutate(next)}
-        />
+      <div className="mt-5">
+        <EnableSwitch name={integration.name} enabled={integration.enabled} disabled={busy} onToggle={(next) => toggle.mutate(next)} />
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSave} className="mt-4 space-y-3">
+    <Form aria-label={`${integration.name} connection`} onSubmit={handleSave} className="mt-5 space-y-4">
       {integration.fields.map((field) => (
         <Field
           key={field.key}
@@ -323,7 +326,6 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
           helpText={field.helpText}
         />
       ))}
-
       {integration.secrets.map((secret) => (
         <SecretField
           key={secret.key}
@@ -337,100 +339,32 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
           helpText={secret.helpText}
         />
       ))}
-
-      <EnableSwitch
-        name={integration.name}
-        enabled={integration.enabled}
-        disabled={busy || !canToggle}
-        onToggle={(next) => toggle.mutate(next)}
-      />
-
-      <div className="flex flex-wrap gap-2">
-        <LoadingButton
-          type="submit"
-          isPending={save.isPending}
-          pendingLabel="Saving..."
-          isDisabled={busy}
-        >
-          Save connection
-        </LoadingButton>
-        <LoadingButton
-          variant="secondary"
-          isPending={clear.isPending}
-          pendingLabel="Clearing..."
-          isDisabled={busy}
-          onPress={() => clear.mutate()}
-        >
-          Clear connection
-        </LoadingButton>
+      <EnableSwitch name={integration.name} enabled={integration.enabled} disabled={busy || !canToggle} onToggle={(next) => toggle.mutate(next)} />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <LoadingButton type="submit" isPending={save.isPending} pendingLabel="Saving..." isDisabled={busy}>Save connection</LoadingButton>
+        <LoadingButton variant="secondary" isPending={clear.isPending} pendingLabel="Clearing..." isDisabled={busy} onPress={() => clear.mutate()}>Clear connection</LoadingButton>
       </div>
-
-      {!canToggle ? (
-        <p className="text-sm text-muted">
-          Add {requirements.missing.join(", ")} before enabling this integration.
-        </p>
-      ) : null}
-    </form>
+      {!canToggle ? <p className="text-sm text-muted">Add {requirements.missing.join(", ")} before enabling this integration.</p> : null}
+    </Form>
   );
 }
 
-function Field({
-  id,
-  label,
-  name,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required,
-  helpText,
-}: {
-  id: string;
-  label: string;
-  name: string;
-  value: string;
-  onChange: ChangeEventHandler<HTMLInputElement>;
-  placeholder?: string;
-  type?: string;
-  required?: boolean;
-  helpText?: string;
+function Field({ id, label, name, value, onChange, placeholder, type = "text", required, helpText }: {
+  id: string; label: string; name: string; value: string; onChange: ChangeEventHandler<HTMLInputElement>;
+  placeholder?: string; type?: string; required?: boolean; helpText?: string;
 }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{required ? `${label} *` : label}</Label>
-      <Input
-        id={id}
-        name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        variant="secondary"
-        fullWidth
-      />
+      <Input id={id} name={name} type={type} value={value} onChange={onChange} placeholder={placeholder} variant="secondary" fullWidth />
       {helpText ? <p className="text-xs text-muted">{helpText}</p> : null}
     </div>
   );
 }
 
-function SecretField({
-  id,
-  label,
-  hasSecret,
-  value,
-  onChange,
-  placeholder,
-  required,
-  helpText,
-}: {
-  id: string;
-  label: string;
-  hasSecret: boolean;
-  value: string;
-  onChange: ChangeEventHandler<HTMLInputElement>;
-  placeholder?: string;
-  required?: boolean;
-  helpText?: string;
+function SecretField({ id, label, hasSecret, value, onChange, placeholder, required, helpText }: {
+  id: string; label: string; hasSecret: boolean; value: string; onChange: ChangeEventHandler<HTMLInputElement>;
+  placeholder?: string; required?: boolean; helpText?: string;
 }) {
   return (
     <div className="space-y-2">

@@ -13,9 +13,9 @@ import {
   PenIcon,
   PlugIcon,
   RefreshIcon,
-  RocketIcon,
+  LaunchIcon,
   SearchIcon,
-  SparklesIcon,
+  InsightIcon,
   UsersIcon,
 } from "@/components/icons";
 import { plans } from "@/lib/billing/plans";
@@ -199,7 +199,7 @@ const pillars = [
     points: ["Technical & on-page audit", "Core Web Vitals risk", "Schema & rich results"],
   },
   {
-    icon: SparklesIcon,
+    icon: InsightIcon,
     name: "AEO",
     full: "Answer Engine Optimization",
     blurb: "Give search engines clear answers they can quote.",
@@ -245,7 +245,7 @@ export function Features() {
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>What she does every week</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             One employee for visibility and content
           </h2>
           <p className="mt-4 text-pretty leading-relaxed text-muted">
@@ -332,13 +332,13 @@ const steps = [
       "She runs the first audit, checks AI answers, researches topics, and prepares the first useful work.",
   },
   {
-    icon: SparklesIcon,
+    icon: InsightIcon,
     title: "She works the standing loop",
     blurb:
       "She writes, audits, and follows up on a schedule. Every task appears in the work log.",
   },
   {
-    icon: RocketIcon,
+    icon: LaunchIcon,
     title: "You only decide exceptions",
     blurb:
       "Review drafts when you want to, install prepared site fixes, and read the weekly report. Autopilot can publish approved work for you.",
@@ -351,7 +351,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>How she works</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             Set her up once, then let her work
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
@@ -400,7 +400,7 @@ export function ContentEmployee() {
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
               <SectionEyebrow>Meet Claudia</SectionEyebrow>
-              <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+              <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
                 Your visibility and content specialist
               </h2>
               <p className="mt-4 leading-relaxed text-muted">
@@ -456,7 +456,7 @@ export function Publish() {
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>Publish anywhere</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             Connect your platforms and ship
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
@@ -506,7 +506,7 @@ export function Pricing() {
       <div className="mx-auto max-w-5xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>Plans</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             Pick a plan that fits the workload
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
@@ -612,7 +612,7 @@ export function Faq() {
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
           <SectionEyebrow>FAQ</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             Questions, answered
           </h2>
         </div>
@@ -646,7 +646,7 @@ export function FinalCta() {
             <div className="mx-auto flex size-10 items-center justify-center text-accent">
               <UsersIcon className="size-6" />
             </div>
-            <h2 className="type-title mt-6 text-3xl text-foreground sm:text-4xl">
+            <h2 className="type-display mt-6 text-3xl text-foreground sm:text-4xl">
               Put Claudia to work on your site
             </h2>
             <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted">

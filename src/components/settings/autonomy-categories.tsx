@@ -95,7 +95,7 @@ export function AutonomyCategories({ brandId }: { brandId: string }) {
       errorLabel="Couldn't load Claudia's per-area permissions."
     >
       {(data) => (
-        <Card className="material-panel">
+        <Card>
           <Card.Header>
             <Card.Title className="tracking-tight">
               What Claudia may prepare on her own

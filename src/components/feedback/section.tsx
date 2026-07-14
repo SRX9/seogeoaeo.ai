@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import { Component, type ReactNode } from "react";
 import { ApiError, getErrorMessage } from "@/lib/api/fetcher";
 import type { QueryLike } from "@/lib/api/queries";
@@ -39,14 +39,17 @@ function SectionError({
 }) {
   const message = getErrorMessage(error, label ?? "Couldn't load this section.");
   return (
-    <div className="material-panel flex flex-col items-start gap-3 rounded-2xl p-4">
-      <p className="text-sm leading-relaxed text-muted">{message}</p>
+    <Card>
+      <Card.Header>
+        <Card.Title>Couldn’t Load This Section</Card.Title>
+        <Card.Description>{message}</Card.Description>
+      </Card.Header>
       {onRetry ? (
-        <Button variant="secondary" size="sm" onPress={onRetry}>
-          Try again
-        </Button>
+        <Card.Footer>
+          <Button variant="secondary" size="sm" onPress={onRetry}>Try Again</Button>
+        </Card.Footer>
       ) : null}
-    </div>
+    </Card>
   );
 }
 

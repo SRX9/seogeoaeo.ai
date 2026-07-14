@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import type { ReactNode } from "react";
 import { getErrorMessage } from "@/lib/api/fetcher";
 
@@ -16,17 +16,19 @@ export function PageError({
 }) {
   const message = getErrorMessage(error, "Something went wrong loading this page.");
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-4 text-center">
-      <div className="material-panel max-w-md space-y-3 rounded-2xl p-6">
-        <p className="type-title text-base text-foreground">Something went wrong</p>
-        <p className="text-sm leading-relaxed text-muted">{message}</p>
-        {children}
+    <div className="flex min-h-[50vh] items-center justify-center px-4">
+      <Card className="w-full max-w-md text-center">
+        <Card.Header>
+          <Card.Title>Something Went Wrong</Card.Title>
+          <Card.Description>{message}</Card.Description>
+        </Card.Header>
+        {children ? <Card.Content>{children}</Card.Content> : null}
         {onRetry ? (
-          <Button variant="secondary" size="sm" onPress={onRetry}>
-            Try again
-          </Button>
+          <Card.Footer className="justify-center">
+            <Button variant="secondary" size="sm" onPress={onRetry}>Try Again</Button>
+          </Card.Footer>
         ) : null}
-      </div>
+      </Card>
     </div>
   );
 }

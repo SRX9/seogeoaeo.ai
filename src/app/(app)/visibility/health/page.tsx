@@ -1,137 +1,143 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
+import { Button, Card, Disclosure, Skeleton } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
-import { EmptyState } from "@heroui-pro/react/empty-state";
+import { EmptyState } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
-import { CircleCheckIcon } from "@/components/icons";
+import { CheckIcon, CircleCheckIcon, RefreshIcon } from "@/components/icons";
+import { ToneText } from "@/components/ui/status-text";
 import { Section } from "@/components/feedback/section";
-import { TableSkeleton } from "@/components/feedback/skeletons";
-import { PageHeader } from "@/components/layout/page-header";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useBrandProfile, useSiteHealth, type SiteHealthResponse } from "@/lib/api/queries";
-import { HEALTH_GROUP_LABELS } from "@/lib/visibility/display";
 import { buildFixPrompt } from "@/lib/visibility/fix-prompt";
-import type {
-  HealthCheck,
-  HealthGroup,
-  SiteHealthSnapshot,
-} from "@/lib/visibility/site-health";
+import type { HealthCheck, HealthStatus, SiteHealthSnapshot } from "@/lib/visibility/site-health";
 
-/**
- * V9: Site Health: every check the site should pass to look its best in
- * Google and AI assistants, grouped by area. Passing rows confirm what's done;
- * failing rows open into a copy-paste prompt for the owner's AI coding
- * assistant, and also live in the fix queue.
- */
-
-const GROUP_ORDER: HealthGroup[] = [
-  "performance",
-  "search_listing",
-  "social_preview",
-  "crawler_access",
-  "structured_data",
-  "ai_readiness",
-  "security",
-];
-
-const STATUS_DOT: Record<HealthCheck["status"], string> = {
-  pass: "bg-success",
-  warn: "bg-warning",
-  fail: "bg-danger",
+const STATUS_ORDER: HealthStatus[] = ["fail", "warn", "pass"];
+const STATUS_COPY: Record<HealthStatus, { title: string; summaryLabel: string }> = {
+  fail: { title: "Falling Behind", summaryLabel: "Failing" },
+  warn: { title: "Needs Improvement", summaryLabel: "Improve" },
+  pass: { title: "All Good", summaryLabel: "Passing" },
 };
+
+function colorFor(status: HealthStatus): "danger" | "warning" | "success" {
+  return status === "fail" ? "danger" : status === "warn" ? "warning" : "success";
+}
+
+function statusMarkClass(status: HealthStatus) {
+  if (status === "fail") return "bg-danger-soft text-danger-soft-foreground";
+  if (status === "warn") return "bg-warning-soft text-warning-soft-foreground";
+  return "bg-success-soft text-success-soft-foreground";
+}
+
+function impactLabel(check: HealthCheck) {
+  const severity = check.finding?.severity;
+  if (severity === "critical" || severity === "high") return "High Impact";
+  if (severity === "medium") return "Medium Impact";
+  return "Low Impact";
+}
 
 function CopyPromptButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      size="sm"
-      variant="primary"
-      onPress={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch {
-          // Clipboard access denied: nothing to do
-        }
-      }}
-    >
-      {copied ? "Copied ✓" : "Copy prompt"}
-    </Button>
-  );
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+  return <Button size="sm" variant="secondary" onPress={() => void copyPrompt()}>{copied ? "Copied" : "Copy Prompt"}</Button>;
 }
 
-function CheckRow({ check, website }: { check: HealthCheck; website: string | null }) {
-  const [open, setOpen] = useState(false);
+function CheckRow({ check, website, initiallyOpen = false }: { check: HealthCheck; website: string | null; initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
   const finding = check.finding;
   const expandable = check.status !== "pass" && finding != null;
+  const title = finding?.title ?? check.label;
+
+  const summary = (
+    <>
+        <span className={`mt-1 flex size-5 shrink-0 items-center justify-center rounded-full ${statusMarkClass(check.status)}`} aria-hidden>
+          {check.status === "pass" ? <CheckIcon className="size-3" /> : <span className="text-xs font-semibold">{check.status === "warn" ? "–" : "!"}</span>}
+        </span>
+        <span className="min-w-0 flex-1">
+          <strong className="block text-sm font-medium text-foreground">{title}</strong>
+          <span className="mt-1 block text-sm leading-relaxed text-muted">{check.detail}</span>
+        </span>
+        {check.status !== "pass" ? <ToneText tone={colorFor(check.status)} className="text-xs">{impactLabel(check)}</ToneText> : null}
+    </>
+  );
+
+  if (!expandable || !finding) {
+    return <article className="flex items-start gap-3 border-t border-separator px-1 py-4 first:border-t-0">{summary}</article>;
+  }
 
   return (
-    <div className="border-t border-border/50 first:border-t-0">
-      <div className="flex items-start gap-3 py-3">
-        <span className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[check.status]}`} aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium tracking-tight">{check.label}</p>
-          <p className="truncate text-sm leading-relaxed text-default-500">{check.detail}</p>
-        </div>
-        {expandable && (
-          <Button size="sm" variant="outline" onPress={() => setOpen(!open)}>
-            {open ? "Hide fix" : "Show fix"}
+    <article className="border-t border-separator first:border-t-0">
+      <Disclosure isExpanded={open} onExpandedChange={setOpen}>
+        <Disclosure.Heading>
+          <Button slot="trigger" variant="ghost" fullWidth className="h-auto justify-start gap-3 px-1 py-4 text-left">
+            {summary}
+            <Disclosure.Indicator className="mt-1 shrink-0" />
           </Button>
-        )}
-      </div>
-      {open && finding && (
-        <div className="mb-3 ml-5 space-y-2 rounded-2xl border border-border/50 bg-surface-muted/80 p-3.5">
-          <p className="text-sm leading-relaxed text-default-600">{finding.recommendation}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <CopyPromptButton
-              text={buildFixPrompt(
-                {
-                  pillar: finding.pillar,
-                  category: finding.category,
-                  severity: finding.severity,
-                  title: finding.title,
-                  recommendation: finding.recommendation,
-                  fixPayload: finding.fix_payload,
-                },
-                website,
-              )}
-            />
-            <Link
-              href="/visibility/fixes"
-              className={buttonVariants({ size: "sm", variant: "outline" })}
-            >
-              Open fix queue
-            </Link>
-          </div>
-          <p className="text-xs leading-relaxed tracking-[0.01em] text-default-400">
-            Paste the prompt into Cursor, Claude Code, or Copilot inside your website project.
-            It includes the audit details and the requested change.
-          </p>
-        </div>
-      )}
-    </div>
+        </Disclosure.Heading>
+        <Disclosure.Content>
+          <Disclosure.Body className="mb-4 ml-8 rounded-xl bg-surface-secondary p-4">
+            <p className="text-sm leading-relaxed text-foreground">{finding.recommendation}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <CopyPromptButton text={buildFixPrompt({ pillar: finding.pillar, category: finding.category, severity: finding.severity, title: finding.title, recommendation: finding.recommendation, fixPayload: finding.fix_payload }, website)} />
+              <Link href="/visibility/fixes" className={buttonVariants({ size: "sm", variant: "primary" })}>Open Fix Queue</Link>
+            </div>
+          </Disclosure.Body>
+        </Disclosure.Content>
+      </Disclosure>
+    </article>
   );
 }
 
-const SOURCE_LABEL: Record<SiteHealthSnapshot["source"], string> = {
-  audit: "from your last audit",
-  refresh: "manual refresh",
-  agent: "Claudia's weekly check",
-};
+function StatusSection({ status, checks, website }: { status: HealthStatus; checks: HealthCheck[]; website: string | null }) {
+  const [open, setOpen] = useState(status !== "pass");
+  return (
+    <Card>
+      <Disclosure isExpanded={open} onExpandedChange={setOpen}>
+        <Disclosure.Heading>
+          <Button slot="trigger" variant="ghost" fullWidth className="justify-start px-1 text-left">
+            <span className="text-base font-semibold text-foreground">{STATUS_COPY[status].title}</span>
+            <ToneText tone={colorFor(status)} className="tabular-nums">{checks.length}</ToneText>
+            <Disclosure.Indicator className="ml-auto" />
+          </Button>
+        </Disclosure.Heading>
+        <Disclosure.Content>
+          <Disclosure.Body className="mt-3">
+            {checks.length ? checks.map((check, index) => <CheckRow key={check.id} check={check} website={website} initiallyOpen={status === "fail" && index === 0} />) : <p className="py-4 text-sm text-muted">No checks in this group.</p>}
+          </Disclosure.Body>
+        </Disclosure.Content>
+      </Disclosure>
+    </Card>
+  );
+}
 
-function SummaryHeader({
-  snapshot,
-  refreshCooldownUntil,
-  refreshesLeft,
-}: {
-  snapshot: SiteHealthSnapshot;
-  refreshCooldownUntil: string | null;
-  refreshesLeft: number;
-}) {
+function SummaryStrip({ snapshot }: { snapshot: SiteHealthSnapshot }) {
+  const speed = snapshot.scores?.performance;
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Site health summary">
+      {(["pass", "warn", "fail"] as const).map((status) => (
+        <Card key={status} variant="secondary">
+          <Card.Content>
+            <p className="text-xs text-muted">{STATUS_COPY[status].summaryLabel}</p>
+            <p className="mt-2 text-3xl font-semibold leading-none text-foreground tabular-nums">{snapshot.summary[status]}</p>
+          </Card.Content>
+        </Card>
+      ))}
+      <Card variant="secondary"><Card.Content><p className="text-xs text-muted">Speed</p><p className="mt-2 text-3xl font-semibold leading-none text-foreground tabular-nums">{speed ?? "—"}</p></Card.Content></Card>
+    </section>
+  );
+}
+
+function RefreshButton({ data }: { data: SiteHealthResponse }) {
   const queryClient = useQueryClient();
   const refresh = useMutation({
     mutationFn: () => apiPost<{ snapshot: SiteHealthSnapshot }>("/api/visibility/site-health"),
@@ -141,145 +147,56 @@ function SummaryHeader({
       queryClient.invalidateQueries({ queryKey: queryKeys.credits });
     },
   });
-  const coolingDown = Boolean(
-    refreshCooldownUntil && new Date(refreshCooldownUntil).getTime() > Date.now(),
-  );
-  const outOfRefreshes = refreshesLeft <= 0;
-
-  const stats: Array<{ value: string; label: string }> = [
-    { value: String(snapshot.summary.pass), label: "passing" },
-    { value: String(snapshot.summary.warn), label: "to improve" },
-    { value: String(snapshot.summary.fail), label: "failing" },
-  ];
-  if (snapshot.psiAvailable && snapshot.scores?.performance != null) {
-    stats.push({ value: `${snapshot.scores.performance}/100`, label: "Lighthouse speed" });
-  }
-
+  const coolingDown = Boolean(data.refreshCooldownUntil);
+  const outOfRefreshes = data.refreshesLeft <= 0;
+  const disabledReason = coolingDown ? "Recently checked. Try again in a few minutes." : outOfRefreshes ? "This week's manual rechecks are used." : undefined;
   return (
-    <Card variant="transparent" className="rounded-none border-y border-separator/70 px-0 py-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap divide-x divide-separator/70">
-          {stats.map((s) => (
-            <div key={s.label} className="px-4 first:pl-0">
-              <p className="text-lg font-semibold leading-tight tracking-tight tabular-nums">
-                {s.value}
-              </p>
-              <p className="text-xs tracking-[0.01em] text-default-500">{s.label}</p>
-            </div>
-          ))}
-        </div>
-        <div className="shrink-0 space-y-1 sm:text-right">
-          <Button
-            size="sm"
-            variant="secondary"
-            isDisabled={refresh.isPending || coolingDown || outOfRefreshes}
-            onPress={() => refresh.mutate()}
-          >
-            {refresh.isPending ? "Checking your site… (up to a minute)" : "Refresh checks · 5 credits"}
-          </Button>
-          <p className="text-xs text-default-400">
-            {coolingDown
-              ? "Recently checked. You can refresh again in a few minutes."
-              : outOfRefreshes
-                ? "You have used this week's manual rechecks. Claudia will still check the site automatically."
-                : `Checked ${new Date(snapshot.generatedAt).toLocaleString()} · ${SOURCE_LABEL[snapshot.source]}${
-                    refreshesLeft <= 3
-                      ? ` · ${refreshesLeft} recheck${refreshesLeft === 1 ? "" : "s"} left this week`
-                      : ""
-                  }`}
-          </p>
-        </div>
-      </div>
-      {refresh.isError && (
-        <p className="mt-2 text-sm text-danger">
-          {getErrorMessage(refresh.error, "Couldn't refresh the checks. Try again.")}
-        </p>
-      )}
-      {!snapshot.psiAvailable && (
-        <p className="mt-3 text-xs text-default-400">
-          The speed score is an estimate because PageSpeed data is not configured yet.
-        </p>
-      )}
-    </Card>
+    <div>
+      <Button isPending={refresh.isPending} isDisabled={coolingDown || outOfRefreshes} onPress={() => refresh.mutate()}>
+        <RefreshIcon className="size-4" aria-hidden />Refresh · 5 cr
+      </Button>
+      {disabledReason ? <p className="mt-2 max-w-xs text-pretty text-xs text-muted">{disabledReason}</p> : null}
+      {refresh.isError ? <p className="mt-2 text-sm text-danger" role="alert">{getErrorMessage(refresh.error, "Couldn't refresh the checks.")}</p> : null}
+    </div>
   );
 }
 
-function Checklist({ data, website }: { data: SiteHealthResponse; website: string | null }) {
+function HealthCanvas({ data, website }: { data: SiteHealthResponse; website: string | null }) {
   const snapshot = data.snapshot;
   if (!data.hasData || !snapshot) {
     return (
-      <EmptyState className="material-panel rounded-2xl border-dashed">
-        <EmptyState.Header>
-          <EmptyState.Media variant="icon">
-            <CircleCheckIcon />
-          </EmptyState.Media>
-          <EmptyState.Title>No health checks yet</EmptyState.Title>
-          <EmptyState.Description>
-            Run a visibility audit and Claudia checks everything on this list: speed, search
-            listing, social previews, crawler access, and more.
-          </EmptyState.Description>
-        </EmptyState.Header>
-        <EmptyState.Content>
-          <Link href="/visibility" className={buttonVariants({ size: "sm", variant: "secondary" })}>
-            Open visibility
-          </Link>
-        </EmptyState.Content>
-      </EmptyState>
+      <Card className="mx-auto mt-16 max-w-xl">
+        <EmptyState className="py-10">
+          <EmptyState.Header>
+            <EmptyState.Media variant="icon"><CircleCheckIcon className="text-muted" aria-hidden /></EmptyState.Media>
+            <EmptyState.Title>No Health Checks Yet</EmptyState.Title>
+            <EmptyState.Description>Run a visibility audit to check speed, search listings, crawler access, and structured data.</EmptyState.Description>
+          </EmptyState.Header>
+          <EmptyState.Content><Link href="/visibility" className={buttonVariants({ variant: "primary" })}>Open Visibility</Link></EmptyState.Content>
+        </EmptyState>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <SummaryHeader
-        snapshot={snapshot}
-        refreshCooldownUntil={data.refreshCooldownUntil}
-        refreshesLeft={data.refreshesLeft}
-      />
-      {GROUP_ORDER.map((group) => {
-        const checks = snapshot.checks.filter((c) => c.group === group);
-        if (checks.length === 0) return null;
-        const failing = checks.filter((c) => c.status !== "pass").length;
-        return (
-          <Card
-            key={group}
-            variant="transparent"
-            className="rounded-none border-y border-separator/70 px-0 py-5"
-          >
-            <div className="mb-2.5 flex items-baseline justify-between gap-2">
-              <h2 className="type-title text-sm">{HEALTH_GROUP_LABELS[group]}</h2>
-              <p className="text-xs tracking-[0.01em] text-default-400">
-                {failing === 0 ? "All good" : `${failing} to fix`}
-              </p>
-            </div>
-            <div>
-              {checks.map((check) => (
-                <CheckRow key={check.id} check={check} website={website} />
-              ))}
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="sr-only">Site Health</h1><p className="text-sm text-muted">Technical checks that affect search and AI discovery.</p></div>
+        <RefreshButton data={data} />
+      </header>
+      <SummaryStrip snapshot={snapshot} />
+      {!snapshot.psiAvailable ? <p className="rounded-xl bg-surface-secondary px-4 py-3 text-sm text-muted">Speed will appear after PageSpeed data is available.</p> : null}
+      <div className="space-y-4">{STATUS_ORDER.map((status) => <StatusSection key={status} status={status} checks={snapshot.checks.filter((check) => check.status === status)} website={website} />)}</div>
+    </main>
   );
+}
+
+function SiteHealthSkeleton() {
+  return <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4" aria-label="Loading site health"><Skeleton className="h-20 rounded-2xl" /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[0,1,2,3].map((i)=><Skeleton key={i} className="h-28 rounded-2xl" />)}</div>{[0,1,2].map((i)=><Skeleton key={i} className="h-32 rounded-2xl" />)}</div>;
 }
 
 export default function SiteHealthPage() {
   const health = useSiteHealth();
   const website = useBrandProfile().data?.profile.website?.trim() || null;
-
-  return (
-    <div className="mx-auto w-full max-w-4xl space-y-12">
-      <PageHeader
-        title="Site health"
-        description="Technical checklist under the score. Green is good; open a row for the exact fix."
-      />
-      <Section
-        query={health}
-        skeleton={<TableSkeleton rows={8} />}
-        errorLabel="Couldn't load your site health checks."
-      >
-        {(data) => <Checklist data={data} website={website} />}
-      </Section>
-    </div>
-  );
+  return <Section query={health} skeleton={<SiteHealthSkeleton />} errorLabel="Couldn't load your site health checks.">{(data) => <HealthCanvas data={data} website={website} />}</Section>;
 }

@@ -7,6 +7,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
+import {
+  ArticlesIcon,
+  ChevronRightIcon,
+  LinkIcon,
+  PlugIcon,
+} from "@/components/icons";
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
   queryKeys,
@@ -23,7 +29,7 @@ import {
   notifyPublishResult,
 } from "@/lib/articles/notify-publish";
 import { authClient } from "@/lib/auth/client";
-import { buildInboxRows } from "@/lib/inbox/rows";
+import { buildInboxRows, type InboxRow } from "@/lib/inbox/rows";
 import { GOOGLE_TRAFFIC_SCOPES } from "@/lib/integrations/google-scopes";
 import { buildFixArtifact } from "@/lib/visibility/fix-artifact";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
@@ -31,12 +37,23 @@ import { cn } from "@/lib/cn";
 
 export { buildInboxRows } from "@/lib/inbox/rows";
 
+function inboxRowPresentation(row: InboxRow) {
+  if (row.kind === "draft") {
+    return { Icon: ArticlesIcon, category: "Content approval" };
+  }
+  if (row.kind === "fixes") {
+    return { Icon: LinkIcon, category: "Visibility opportunity" };
+  }
+  return { Icon: PlugIcon, category: "Connection needed" };
+}
+
 /**
  * AP3 + Phase 2: "What does she need from me?": ONE queue that ever asks
  * anything, with inline actions so the owner rarely leaves Claudia / Inbox.
  */
 
 function invalidateInbox(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.inbox });
   void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
   void queryClient.invalidateQueries({ queryKey: queryKeys.articles });
   void queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
@@ -184,18 +201,16 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
             className="rounded-xl border border-border/50 bg-surface-secondary/30 px-3 py-2.5"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <button
-                type="button"
-                className="pressable min-w-0 flex-1 rounded-lg text-left"
-                onClick={() => setExpandedId(open ? null : finding.id)}
+              <Button
+                variant="ghost"
+                className="h-auto min-w-0 flex-1 justify-start whitespace-normal rounded-lg p-0 text-left"
+                onPress={() => setExpandedId(open ? null : finding.id)}
               >
-                <p className="text-sm font-medium tracking-tight text-foreground">
-                  {finding.title}
-                </p>
-                <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted">
-                  {finding.recommendation}
-                </p>
-              </button>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium tracking-tight text-foreground">{finding.title}</span>
+                  <span className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted">{finding.recommendation}</span>
+                </span>
+              </Button>
               <div className="flex shrink-0 flex-wrap gap-1.5">
                 {hasArtifact ? (
                   <Button
@@ -222,7 +237,7 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
               </div>
             </div>
             {open && hasArtifact ? (
-              <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-default-100 p-2 text-[11px] leading-relaxed">
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-background p-3 text-xs leading-relaxed text-foreground">
                 {artifact.content}
               </pre>
             ) : null}
@@ -341,6 +356,8 @@ export function ApprovalInbox({
   integrations,
   automation,
   showHeader = true,
+  showEmptyState = true,
+  presentation = "default",
   maxRows,
 }: {
   articles: Article[];
@@ -349,6 +366,8 @@ export function ApprovalInbox({
   integrations: IntegrationView[];
   automation: AutomationStats;
   showHeader?: boolean;
+  showEmptyState?: boolean;
+  presentation?: "default" | "inbox-page";
   maxRows?: number;
 }) {
   const rows = useMemo(
@@ -369,13 +388,66 @@ export function ApprovalInbox({
     typeof maxRows === "number" && rows.length > maxRows ? rows.length - maxRows : 0;
   const isCompact = typeof maxRows === "number";
 
+  if (presentation === "inbox-page") {
+    if (rows.length === 0) {
+      return showEmptyState ? (
+        <p className="text-center text-sm leading-relaxed text-muted">Nothing needed from you.</p>
+      ) : null;
+    }
+
+    return (
+      <section className="space-y-3" aria-label="Operational decisions">
+        {visible.map((row) => {
+          const isOpen = openKey === row.key;
+          const isOverflowDraft = row.key === "drafts-more";
+          const { Icon, category } = inboxRowPresentation(row);
+          return (
+            <Card key={row.key} className="p-0">
+              <Button
+                variant="ghost"
+                className="h-auto min-h-16 w-full justify-start gap-3 rounded-2xl px-4 py-3 text-left sm:px-5"
+                aria-expanded={isOpen}
+                onPress={() => setOpenKey(isOpen ? null : row.key)}
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                  <Icon />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">{row.what}</span>
+                  <span className="mt-0.5 block text-xs text-muted">{category}</span>
+                </span>
+                <ChevronRightIcon
+                  className={cn("size-4 shrink-0 text-muted", isOpen && "rotate-90")}
+                  aria-hidden
+                />
+              </Button>
+              {isOpen ? (
+                <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+                  {row.kind === "draft" ? (
+                    <DraftActions article={row.article} isOverflow={isOverflowDraft} />
+                  ) : row.kind === "fixes" ? (
+                    <FixActions findings={row.findings} />
+                  ) : row.kind === "unlock-gsc" ? (
+                    <GscConnectActions />
+                  ) : (
+                    <CmsConnectActions integrations={integrations} />
+                  )}
+                </div>
+              ) : null}
+            </Card>
+          );
+        })}
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-3.5">
       {showHeader ? (
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-medium text-muted">Owner decisions</p>
-            <h2 className="mt-1 text-lg font-semibold tracking-[-0.015em] text-foreground">Needs you</h2>
+            <p className="text-xs font-medium text-muted">Owner Decisions</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">Needs You</h2>
             <p className="mt-1 text-sm leading-relaxed text-muted">
               The only things Claudia can&apos;t do without you.
             </p>
@@ -392,20 +464,17 @@ export function ApprovalInbox({
         </div>
       ) : null}
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && showEmptyState ? (
         <p className="text-sm leading-relaxed text-muted">Nothing needed from you.</p>
-      ) : (
+      ) : rows.length > 0 ? (
         <Card
-          className={cn(
-            "divide-y divide-border/50 border border-border/70 bg-surface p-0 shadow-none",
-            isCompact && "border-warning/20 bg-warning-soft/25",
-          )}
+          className={cn("divide-y divide-separator p-0", isCompact && "bg-warning-soft")}
         >
           {visible.map((row) => {
             const isOpen = openKey === row.key;
             const isOverflowDraft = row.key === "drafts-more";
             return (
-              <div key={row.key} className="p-4">
+              <div key={row.key} className="p-4 sm:p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="font-medium tracking-tight text-foreground">{row.what}</p>
@@ -454,7 +523,7 @@ export function ApprovalInbox({
             </div>
           ) : null}
         </Card>
-      )}
+      ) : null}
     </section>
   );
 }

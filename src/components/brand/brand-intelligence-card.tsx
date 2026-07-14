@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, Button, Card, Chip, toast } from "@heroui/react";
+import { Avatar, Button, Card, ColorSwatch, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
@@ -41,7 +41,7 @@ export function BrandIntelligenceCard({
   ].filter((fact): fact is string => Boolean(fact));
 
   return (
-    <Card className="material-panel overflow-hidden">
+    <Card className="overflow-hidden">
       <Card.Header className="flex-row items-start gap-4">
         <Avatar className="size-14 shrink-0 rounded-2xl border border-border/60 bg-background">
           {identity?.logoUrl ? (
@@ -75,13 +75,10 @@ export function BrandIntelligenceCard({
                 <p className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted">Palette</p>
                 <div className="flex flex-wrap gap-2">
                   {identity.colors.map((color) => (
-                    <Chip key={color.hex} size="sm" variant="soft">
-                      <span
-                        className="size-3 rounded-full border border-black/10"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      <Chip.Label>{color.name || color.hex}</Chip.Label>
-                    </Chip>
+                    <span key={color.hex} className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
+                      <ColorSwatch aria-label={color.name ? `${color.name}, ${color.hex}` : color.hex} color={color.hex} colorName={color.name || undefined} size="xs" />
+                      {color.name || color.hex}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -89,9 +86,7 @@ export function BrandIntelligenceCard({
             {facts.length > 0 ? (
               <div className="flex flex-wrap gap-2" aria-label="Public brand facts">
                 {facts.map((fact) => (
-                  <Chip key={fact} size="sm" variant="soft">
-                    <Chip.Label>{fact}</Chip.Label>
-                  </Chip>
+                  <span key={fact} className="text-xs font-medium text-muted">{fact}</span>
                 ))}
               </div>
             ) : null}

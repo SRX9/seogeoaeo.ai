@@ -1,25 +1,24 @@
+import type { ReactNode } from "react";
+import { Card } from "@heroui/react";
 import Link from "next/link";
-import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon } from "@/components/icons";
-import { cn } from "@/lib/cn";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  LinkIcon,
+  SearchIcon,
+  InsightIcon,
+} from "@/components/icons";
 import type { AgentEventView } from "@/lib/agent/types";
 import type {
   VisibilityAnswers,
   VisibilitySummary,
   VisibilityTraffic,
 } from "@/lib/api/queries";
+import { cn } from "@/lib/cn";
 
 const DAY_MS = 86_400_000;
 const WINDOW_DAYS = 28;
-
-function Delta({ value, suffix }: { value: number; suffix: string }) {
-  if (value === 0) return <span className="text-muted">Holding steady</span>;
-  return (
-    <span className={cn("inline-flex items-center gap-1 tabular-nums", value > 0 ? "text-success" : "text-danger")}>
-      {value > 0 ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
-      {Math.abs(value)} {suffix}
-    </span>
-  );
-}
 
 function clicksWindows(gsc: VisibilityTraffic["gsc"]) {
   const now = Date.now();
@@ -35,45 +34,79 @@ function clicksWindows(gsc: VisibilityTraffic["gsc"]) {
   return { current, previous };
 }
 
-function sparklinePoints(values: number[]) {
-  if (values.length < 2) return "";
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(1, max - min);
-  return values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * 100;
-      const y = 36 - ((value - min) / range) * 30;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+function MetricDelta({ value, emptyLabel, suffix = "" }: { value: number | null; emptyLabel: string; suffix?: string }) {
+  if (value == null) return <span>{emptyLabel}</span>;
+  if (value === 0) return <span>Holding Steady</span>;
+  return (
+    <span className={cn("inline-flex items-center gap-1", value > 0 ? "text-success" : "text-danger")}>
+      {value > 0 ? <ArrowUpIcon className="size-3.5" /> : <ArrowDownIcon className="size-3.5" />}
+      {Math.abs(value).toLocaleString()}{suffix}
+    </span>
+  );
 }
 
-function Metric({
-  label,
-  value,
-  context,
-  href,
-}: {
-  label: string;
-  value: React.ReactNode;
-  context: React.ReactNode;
-  href: string;
-}) {
+function Metric({ label, value, detail, href }: { label: string; value: ReactNode; detail: ReactNode; href: string }) {
   return (
-    <Link
-      href={href}
-      className="group min-w-0 border-t border-separator/70 py-4 first:border-t-0 sm:border-l sm:border-t-0 sm:px-5 sm:first:border-l-0 sm:first:pl-0 sm:last:pr-0"
-    >
-      <span className="inline-flex items-center gap-1 text-sm font-medium text-muted">
-        {label}
-        <ChevronRightIcon className="size-3 opacity-50 group-hover-fine:opacity-100" />
-      </span>
-      <div className="mt-3 text-3xl font-semibold leading-none tracking-[-0.03em] text-foreground tabular-nums">
-        {value}
-      </div>
-      <div className="mt-1 text-sm leading-6 text-muted">{context}</div>
+    <Link href={href} className="group block min-w-0 rounded-2xl bg-surface-secondary p-5 no-underline outline-none focus-visible:ring-2 focus-visible:ring-focus">
+      <span className="text-sm font-medium text-muted">{label}</span>
+      <strong className="mt-3 block text-3xl font-semibold leading-none tracking-tight text-foreground tabular-nums">{value}</strong>
+      <small className="mt-2 block text-xs leading-5 text-muted group-hover:text-foreground">{detail}</small>
     </Link>
+  );
+}
+
+function relativeLabel(iso: string) {
+  const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function EventIcon({ type }: { type: string }) {
+  if (type === "artifact_created") return <LinkIcon className="size-4" />;
+  if (type === "completed" || type === "verified") return <CheckIcon className="size-4" />;
+  if (type === "discovered") return <SearchIcon className="size-4" />;
+  return <InsightIcon className="size-4" />;
+}
+
+function RecentWork({ events }: { events: AgentEventView[] }) {
+  const visible = events.slice(0, 4);
+  return (
+    <Card>
+      <Card.Header className="flex-row items-start justify-between gap-4">
+        <div>
+          <Card.Title>Recent Work</Card.Title>
+          <Card.Description>Latest completed actions and evidence.</Card.Description>
+        </div>
+        <Link href="/activity" className="shrink-0 text-sm font-medium text-foreground no-underline">View Log</Link>
+      </Card.Header>
+      <Card.Content>
+        {visible.length ? (
+          <div className="space-y-1">
+            {visible.map((event) => (
+              <div key={event.id} className="flex min-w-0 items-start gap-3 rounded-2xl px-3 py-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                  <EventIcon type={event.type} />
+                </span>
+                <p className="min-w-0 flex-1 text-sm leading-6 text-foreground">{event.summary}</p>
+                <time className="shrink-0 pt-0.5 text-xs text-muted tabular-nums" dateTime={event.createdAt} suppressHydrationWarning>
+                  {relativeLabel(event.createdAt)}
+                </time>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-2xl bg-surface-secondary p-4">
+            <InsightIcon className="size-5 text-muted" aria-hidden />
+            <div>
+              <p className="text-sm font-medium text-foreground">No Recorded Work Yet</p>
+              <p className="mt-0.5 text-xs text-muted">Completed work will appear here.</p>
+            </div>
+          </div>
+        )}
+      </Card.Content>
+    </Card>
   );
 }
 
@@ -89,102 +122,45 @@ export function ProofStrip({
   events?: AgentEventView[];
 }) {
   const overall = summary.latest?.overall ?? null;
-  const scoreDelta =
-    overall != null && summary.previousOverall != null
-      ? Math.round(overall - summary.previousOverall)
-      : null;
+  const scoreDelta = overall != null && summary.previousOverall != null ? Math.round(overall - summary.previousOverall) : null;
   const answerSlots = answers.share.reduce((total, row) => total + row.prompts, 0);
   const appeared = answers.share.reduce((total, row) => total + row.appeared, 0);
   const answerShare = answerSlots > 0 ? Math.round((appeared / answerSlots) * 100) : null;
   const clicks = traffic.connected.gsc ? clicksWindows(traffic.gsc) : null;
-  const trend = traffic.gsc.slice(-24).map((point) => point.clicks);
-  const annotations = events
-    .filter((event) => ["applied", "verified", "artifact_created", "completed"].includes(event.type))
-    .slice(0, 3);
-
-  const headline =
-    overall != null
-      ? scoreDelta != null && scoreDelta !== 0
-        ? `Visibility is ${scoreDelta > 0 ? "up" : "down"} ${Math.abs(scoreDelta)} points since the prior audit`
-        : `Visibility is holding at ${Math.round(overall)} while Claudia gathers the next signal`
-      : "The first visibility baseline is still being established";
+  const clickDelta = clicks && clicks.previous > 0 ? Math.round(((clicks.current - clicks.previous) / clicks.previous) * 100) : null;
 
   return (
-    <section aria-labelledby="proof-story-title">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl">
-          <p className="text-xs font-medium text-muted">Outcome story</p>
-          <h2 id="proof-story-title" className="mt-2 text-xl font-semibold tracking-[-0.02em] text-foreground sm:text-2xl">
-            {headline}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            These signals are shown alongside recorded work. They suggest direction without claiming
-            that one action caused every movement.
-          </p>
-        </div>
-        {trend.length > 1 ? (
-          <svg
-            viewBox="0 0 100 40"
-            role="img"
-            aria-label="Recent daily search click trend"
-            className="h-14 w-full max-w-52 overflow-visible text-accent"
-            preserveAspectRatio="none"
-          >
-            <polyline
-              points={sparklinePoints(trend)}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-        ) : null}
-      </div>
-
-      <div className="mt-6 grid border-y border-separator/70 sm:grid-cols-3">
-        <Metric
-          label="Visibility score"
-          href={summary.latest ? `/visibility/${summary.latest.id}` : "/visibility"}
-          value={overall != null ? Math.round(overall) : "No data"}
-          context={
-            scoreDelta != null ? <Delta value={scoreDelta} suffix="points" /> : "First audit pending"
-          }
-        />
-        <Metric
-          label="AI answer share"
-          href="/visibility/answers"
-          value={answerShare != null ? `${answerShare}%` : "No data"}
-          context={answerSlots > 0 ? `${appeared} of ${answerSlots} tracked answers` : "First answer check pending"}
-        />
-        <Metric
-          label="Search clicks"
-          href={traffic.connected.gsc ? "/visibility" : "/settings?tab=integrations"}
-          value={clicks ? clicks.current.toLocaleString() : "No data"}
-          context={
-            clicks
-              ? clicks.previous > 0
-                ? <Delta value={clicks.current - clicks.previous} suffix={`vs prior ${WINDOW_DAYS} days`} />
-                : `Last ${WINDOW_DAYS} days`
-              : "Connect Search Console for real traffic"
-          }
-        />
-      </div>
-
-      {annotations.length ? (
-        <div className="mt-6 flex flex-col gap-3 border-t border-separator/60 pt-5 sm:flex-row">
-          {annotations.map((event) => (
-            <div key={event.id} className="flex min-w-0 flex-1 items-start gap-2.5">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-              <div className="min-w-0">
-                <p className="line-clamp-2 text-sm text-foreground">{event.summary}</p>
-                <time dateTime={event.createdAt} className="mt-1 block text-xs text-muted" suppressHydrationWarning>
-                  {new Date(event.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}
-                </time>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]" aria-labelledby="performance-title">
+      <Card>
+        <Card.Header className="flex-row items-start justify-between gap-4">
+          <div>
+            <Card.Title id="performance-title">Performance</Card.Title>
+            <Card.Description>Your latest visibility and traffic signals.</Card.Description>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-muted">Last 28 Days</span>
+        </Card.Header>
+        <Card.Content className="grid gap-3 sm:grid-cols-3">
+          <Metric
+            label="Visibility"
+            value={overall != null ? Math.round(overall) : "—"}
+            detail={<MetricDelta value={scoreDelta} emptyLabel={overall == null ? "Run First Audit" : "First Benchmark"} />}
+            href={summary.latest ? `/visibility/${summary.latest.id}` : "/visibility"}
+          />
+          <Metric
+            label="Answer Share"
+            value={answerShare != null ? `${answerShare}%` : "—"}
+            detail={answerSlots > 0 ? <span>{appeared} of {answerSlots} Checks</span> : <span>No Checks Yet</span>}
+            href="/visibility/answers"
+          />
+          <Metric
+            label="Clicks"
+            value={clicks ? clicks.current.toLocaleString() : "—"}
+            detail={<MetricDelta value={clickDelta} suffix="%" emptyLabel={traffic.connected.gsc ? "Awaiting Comparison" : "Connect Search Console"} />}
+            href={traffic.connected.gsc ? "/visibility" : "/settings?tab=integrations"}
+          />
+        </Card.Content>
+      </Card>
+      <RecentWork events={events} />
     </section>
   );
 }

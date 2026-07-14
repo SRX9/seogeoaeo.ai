@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/feedback/toaster";
 
-const inter = Inter({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-geist",
+  display: "swap",
 });
 
 const calSans = localFont({
-  src: "../../font/CalSans-SemiBold.ttf",
+  src: "../../font/CalSans-SemiBold.woff2",
   variable: "--font-cal-sans",
   weight: "600",
   style: "normal",
@@ -50,11 +51,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Runs before paint to set the Glass theme classes from the saved preference
-// (or the OS setting), avoiding a light/dark flash on load.
-// We apply BOTH the base mode class (`light`/`dark`: supplies the foreground
-// text palette) and the Glass mode class (`glass-*`: refines surfaces); the
-// Glass theme deliberately omits `--foreground`, so the base class is required.
+// Apply the base HeroUI mode and its matching Glass theme before first paint.
+// Glass refines the surfaces while the base mode supplies the full text palette.
 const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var e=document.documentElement;e.classList.remove("light","dark","glass-light","glass-dark");e.classList.add(t,t==="dark"?"glass-dark":"glass-light");}catch(e){}})();`;
 
 export default function RootLayout({
@@ -73,7 +71,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SeoGeoAeo AI" />
       </head>
       <body
-        className={`${inter.variable} ${calSans.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
+        className={`${geist.variable} ${calSans.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
         <Providers>{children}</Providers>
         <Toaster />

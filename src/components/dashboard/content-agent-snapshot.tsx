@@ -62,7 +62,7 @@ function Tile({
   hint?: React.ReactNode;
 }) {
   return (
-    <Card className="material-panel">
+    <Card>
       <p className="text-sm font-medium tracking-[0.01em] text-muted">{label}</p>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
         {value}

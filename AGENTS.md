@@ -22,6 +22,14 @@ Postgres. v1 is complete on `main` per `docs/v1-implementation-phases.md`.
 
 Do not start the local dev server unless the user explicitly asks for it.
 
+## UI design rules
+
+These are hard requirements for every new or modified interface:
+
+- Never use pills, chips, badges, or pill-shaped text containers. Render status and metadata as plain text, using semantic text color for emphasis. Reserve circular geometry for genuinely circular elements such as avatars, progress rings, and small status marks.
+- Use the free Hugeicons stroke packages for interface icons: `@hugeicons/react` with `@hugeicons/core-free-icons`. Do not add custom inline SVG icons, emojis, sparkles, stars, magic wands, or other AI-cliche iconography. Choose a literal, task-specific icon and inherit color through `currentColor`.
+- Never use a HeroUI Button variant containing `soft`, including destructive soft variants. Use the appropriate primary, secondary, outline, ghost, or danger treatment instead.
+
 ## Services
 
 | Service | Required? | Notes |

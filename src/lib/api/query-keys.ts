@@ -1,0 +1,43 @@
+/**
+ * Stable cache identities shared by client hooks and Server Component
+ * hydration. Keep these free of React/client imports so server loaders can
+ * seed the exact entries the browser will consume.
+ */
+export const queryKeys = {
+  me: ["me"] as const,
+  dashboard: ["dashboard", "overview"] as const,
+  automation: ["dashboard", "automation"] as const,
+  agentBrief: ["dashboard", "brief"] as const,
+  agentState: ["agent", "state"] as const,
+  agentApprovals: ["agent", "approvals"] as const,
+  agentActions: ["agent", "actions"] as const,
+  onboarding: ["onboarding"] as const,
+  brands: ["brands"] as const,
+  brandProfile: ["brand", "profile"] as const,
+  brandIntelligence: ["brand", "intelligence"] as const,
+  competitors: ["brand", "competitors"] as const,
+  useCases: ["brand", "use-cases"] as const,
+  topics: ["topics"] as const,
+  articles: ["articles"] as const,
+  article: (id: string) => ["articles", id] as const,
+  activity: ["activity"] as const,
+  research: ["research"] as const,
+  integrations: ["integrations"] as const,
+  googleTraffic: ["integrations", "google"] as const,
+  brandAutonomy: ["brand", "autonomy"] as const,
+  reports: ["reports"] as const,
+  report: (id: string) => ["reports", id] as const,
+  credits: ["credits"] as const,
+  visibilitySummary: ["visibility", "summary"] as const,
+  visibilityFindings: ["visibility", "findings"] as const,
+  siteHealth: ["visibility", "site-health"] as const,
+  visibilityAnswers: ["visibility", "answers"] as const,
+  visibilityTraffic: ["visibility", "traffic"] as const,
+  visibilityReport: (auditId: string) => ["visibility", "report", auditId] as const,
+  setupRun: ["setup-run"] as const,
+  toolLatestRuns: ["tools", "latest"] as const,
+  toolRun: (slug: string) => ["tools", "run", slug] as const,
+  inboxSummary: ["inbox", "summary"] as const,
+  inbox: ["inbox", "page"] as const,
+};
+

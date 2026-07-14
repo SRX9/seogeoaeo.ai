@@ -43,6 +43,7 @@ export type AgentStatePreload = {
   findings?: MaybePromise<Awaited<ReturnType<typeof getOpenFindings>>>;
   gscRows?: MaybePromise<Awaited<ReturnType<typeof listTrafficConnections>>>;
   integrations?: MaybePromise<Awaited<ReturnType<typeof listIntegrations>>>;
+  approvals?: MaybePromise<Awaited<ReturnType<typeof listPendingAgentApprovals>>>;
 };
 
 export function toAgentTaskView(task: typeof agentTasks.$inferSelect): AgentTaskView {
@@ -85,11 +86,15 @@ export async function getAgentState(
   },
 ): Promise<AgentState> {
   const active = isActiveSubscription(input.subscriptionStatus);
-  const controls = await getAgentControlState(scope.brandId);
-  const { mission, plan } = await ensureWeeklyPlan(scope, { brandName: input.brandName });
+  const [controls, { mission, plan }] = await Promise.all([
+    getAgentControlState(scope.brandId),
+    ensureWeeklyPlan(scope, { brandName: input.brandName }),
+  ]);
   if (active && !controls.paused) {
-    await setFutureAgentTasksPaused(scope, false);
-    await ensureNextDailyTask(scope, input.brandName);
+    await Promise.all([
+      setFutureAgentTasksPaused(scope, false),
+      ensureNextDailyTask(scope, input.brandName),
+    ]);
   }
 
   const db = getDb();
@@ -120,7 +125,7 @@ export async function getAgentState(
       .where(eq(agentEvents.brandId, scope.brandId))
       .orderBy(desc(agentEvents.createdAt))
       .limit(12),
-    listPendingAgentApprovals(scope.brandId),
+    input.preload?.approvals ?? listPendingAgentApprovals(scope.brandId),
     input.preload?.setup ?? getSetupRun(scope.brandId),
     input.preload?.credits ?? getCreditBalance(scope.workspaceId),
     input.preload?.weekly ?? getWeeklyPipelineStats(scope.brandId),

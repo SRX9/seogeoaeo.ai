@@ -1,12 +1,13 @@
 "use client";
 
-import { Skeleton } from "@heroui/react";
+import { Card, Skeleton } from "@heroui/react";
 import { cn } from "@/lib/cn";
 
 /**
  * Section-shaped skeleton placeholders. Each mirrors the real layout (frame,
  * grid, row heights) so swapping the live content in causes no layout shift.
- * Material frames match Apple-style floating panels used across the app.
+ * Only content-shaped elements shimmer. The surrounding frames stay transparent
+ * so loading never introduces temporary card backgrounds or borders.
  */
 
 /** A single sized shimmer box. */
@@ -14,11 +15,9 @@ function Box({ className }: { className?: string }) {
   return <Skeleton className={cn("rounded-lg", className)} />;
 }
 
-/** Card surface frame matching material-panel cards. */
+/** Transparent layout frame matching card padding without drawing its surface. */
 function CardFrame({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <div className={cn("material-panel rounded-2xl p-4", className)}>{children}</div>
-  );
+  return <Card variant="transparent" className={cn("p-4", className)}>{children}</Card>;
 }
 
 /** Grid of stat tiles: matches proof strip / score grids. */
@@ -57,27 +56,11 @@ export function TableSkeleton({ rows = 5, className }: { rows?: number; classNam
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="material-panel flex items-center justify-between gap-4 rounded-xl p-4"
+          className="flex items-center justify-between gap-4 p-4"
         >
           <Box className="h-4 w-1/2" />
-          <Box className="h-4 w-16 rounded-full" />
+          <Box className="h-4 w-16 rounded-lg" />
         </div>
-      ))}
-    </div>
-  );
-}
-
-/** A single text line; pass a width via className. */
-function ChipSkeleton({ className }: { className?: string }) {
-  return <Box className={cn("h-6 w-20 rounded-full", className)} />;
-}
-
-/** A row of chip placeholders, for a `PageHeader` meta row. */
-export function ChipRowSkeleton({ count = 2 }: { count?: number }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {Array.from({ length: count }).map((_, i) => (
-        <ChipSkeleton key={i} />
       ))}
     </div>
   );

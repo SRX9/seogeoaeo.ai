@@ -1,51 +1,36 @@
-"use client";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { AppLayoutClient } from "@/components/layout/app-layout-client";
+import { getMeData } from "@/lib/account/read-model";
+import { queryKeys } from "@/lib/api/query-keys";
+import { queryPolicy } from "@/lib/api/query-policy";
+import { createServerQueryClient } from "@/lib/api/server-query-client";
+import { getActiveBrandContext } from "@/lib/brand/context";
 
-import { redirect, usePathname } from "next/navigation";
-import { type ReactNode } from "react";
-import { AppShell } from "@/components/layout/app-shell";
-import { PageError, PageLoader } from "@/components/feedback/states";
-import { ApiError } from "@/lib/api/fetcher";
-import { useMe } from "@/lib/api/queries";
-
-export default function AppLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const { data, isLoading, error, refetch } = useMe();
-
-  const unauthenticated = error instanceof ApiError && error.status === 401;
-  const needsOnboarding = Boolean(data && data.brands.length === 0 && pathname !== "/onboarding");
-
-  if (unauthenticated) {
-    redirect("/login");
+/**
+ * Resolve the authenticated workspace during the RSC request and hydrate it
+ * into TanStack Query. Brand-scoped page queries can now start on the first
+ * client render instead of waiting for an extra `/api/me` round trip.
+ */
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  let context: Awaited<ReturnType<typeof getActiveBrandContext>>;
+  try {
+    context = await getActiveBrandContext();
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHENTICATED") {
+      redirect("/login");
+    }
+    throw error;
   }
 
-  if (needsOnboarding) {
-    redirect("/onboarding");
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen">
-        <PageLoader label="Loading your workspace…" />
-      </div>
-    );
-  }
-
-  // Onboarding is a fullscreen, distraction-free flow: no sidebar/shell.
-  if (error || !data) {
-    return (
-      <div className="min-h-screen">
-        <PageError error={error} onRetry={() => refetch()} />
-      </div>
-    );
-  }
-
-  if (pathname === "/onboarding") {
-    return <>{children}</>;
-  }
+  const me = await getMeData(context);
+  const queryClient = createServerQueryClient(queryPolicy.configuration);
+  queryClient.setQueryData(queryKeys.me, me);
 
   return (
-    <AppShell user={data.user} brands={data.brands} activeBrandId={data.activeBrandId}>
-      {children}
-    </AppShell>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <AppLayoutClient>{children}</AppLayoutClient>
+    </HydrationBoundary>
   );
 }

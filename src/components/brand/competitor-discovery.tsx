@@ -112,7 +112,7 @@ export function CompetitorDiscovery() {
   const picked = suggestions.filter((s) => selected.has(s.url));
 
   return (
-    <Card className="material-panel">
+    <Card>
       <Card.Header>
         <Card.Title className="tracking-tight">Find competitors with AI</Card.Title>
         <Card.Description className="leading-relaxed">

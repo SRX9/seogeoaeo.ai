@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { CardSkeleton } from "@/components/feedback/skeletons";
 import { PageHeader } from "@/components/layout/page-header";
 import { BillingSection } from "@/components/settings/billing-section";
 import { NotificationsSection } from "@/components/settings/notifications-section";
@@ -11,16 +12,18 @@ import { NotificationsSection } from "@/components/settings/notifications-sectio
 // Suspense boundary.
 function AccountContent() {
   return (
-    <div className="mx-auto max-w-3xl space-y-9">
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <PageHeader
-        title="Billing"
-        description="Your plan, credits, and payment details."
+        title="Account"
+        description="Manage your plan, monthly usage, invoices, and account-level notifications."
       />
-      <Suspense fallback={null}>
+      <Suspense fallback={<CardSkeleton lines={6} className="min-h-80" />}>
         <BillingSection />
       </Suspense>
-      <NotificationsSection />
-    </div>
+      <div id="credit-alert-settings">
+        <NotificationsSection />
+      </div>
+    </main>
   );
 }
 

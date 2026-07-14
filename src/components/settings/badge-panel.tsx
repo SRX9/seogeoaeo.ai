@@ -55,7 +55,7 @@ export function BadgePanel({ brandId, initialEnabled }: BadgePanelProps) {
     : null;
 
   return (
-    <Card className="material-panel">
+    <Card>
       <Card.Header>
         <Card.Title className="tracking-tight">Public score badge</Card.Title>
         <Card.Description className="leading-relaxed">

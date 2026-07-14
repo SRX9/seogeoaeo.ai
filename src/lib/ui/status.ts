@@ -1,15 +1,11 @@
-import type { ComponentProps } from "react";
-import type { Chip } from "@heroui/react";
-
-type ChipColor = NonNullable<ComponentProps<typeof Chip>["color"]>;
+export type StatusTone = "default" | "accent" | "success" | "warning" | "danger";
 
 /**
- * Maps a domain status string to a HeroUI Chip color. Lunar Grey is
- * monochromatic, so neutral states render as the grey `default` chip and the
- * semantic colors (success / warning / danger) are reserved for real meaning:
+ * Maps a domain status string to a semantic text tone. Neutral states stay
+ * muted, while success / warning / danger are reserved for real meaning:
  * a finished run, a failure, an action that needs attention.
  */
-export function statusColor(status: string): ChipColor {
+export function statusColor(status: string): StatusTone {
   switch (status) {
     case "completed":
     case "published":
@@ -29,7 +25,8 @@ export function statusColor(status: string): ChipColor {
   }
 }
 
-const STATUS_TEXT: Record<string, string> = {
+const STATUS_TEXT: Record<StatusTone, string> = {
+  default: "text-muted",
   success: "text-success",
   danger: "text-danger",
   warning: "text-warning",
@@ -41,5 +38,9 @@ const STATUS_TEXT: Record<string, string> = {
  * Maps a domain status to its text color class (grey for neutral states).
  */
 export function statusTextClass(status: string): string {
-  return STATUS_TEXT[statusColor(status)] ?? "text-muted";
+  return toneTextClass(statusColor(status));
+}
+
+export function toneTextClass(tone: StatusTone): string {
+  return STATUS_TEXT[tone];
 }

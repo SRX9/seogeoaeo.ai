@@ -1,16 +1,26 @@
 "use client";
 
-import { Button, Chip } from "@heroui/react";
+import { Button, Card, ProgressBar, buttonVariants } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ClaudiaAvatar } from "@/components/dashboard/claudia-avatar";
+import { AgentPlan } from "@/components/dashboard/agent-plan";
 import { SteerClaudia } from "@/components/dashboard/steer-claudia";
-import { CheckIcon, MinusIcon, XIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  MinusIcon,
+  SearchIcon,
+  SettingsIcon,
+  ShieldIcon,
+  InsightIcon,
+  XIcon,
+} from "@/components/icons";
 import { CardSkeleton } from "@/components/feedback/skeletons";
+import { ToneText } from "@/components/ui/status-text";
 import { apiPost } from "@/lib/api/fetcher";
 import {
   queryKeys,
   useMe,
+  type IntegrationView,
   type SetupRunResponse,
   type SetupStep,
 } from "@/lib/api/queries";
@@ -18,42 +28,318 @@ import type { AgentState } from "@/lib/agent/types";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { cn } from "@/lib/cn";
 
-function SetupStepIcon({ status }: { status: SetupStep["status"] }) {
-  if (status === "done") return <CheckIcon className="size-3.5 text-success" />;
-  if (status === "skipped") return <MinusIcon className="size-3.5 text-muted" />;
-  if (status === "failed") return <XIcon className="size-3.5 text-danger" />;
+const SETUP_COPY: Record<string, { title: string; description: string }> = {
+  first_audit: { title: "First Audit", description: "Site, indexation, and technical baseline" },
+  seed_prompts: { title: "Buyer Questions", description: "Map the questions your buyers ask" },
+  answer_check: { title: "AI Answer Check", description: "Find where AI answers pull from today" },
+  competitor_baseline: { title: "Competitor Baseline", description: "See who ranks and what they cover" },
+  topic_research: { title: "Topic Research", description: "Find high-intent topics and gaps" },
+  quick_win_fixes: { title: "Quick Wins", description: "Prepare titles, FAQs, and schema" },
+  first_article: { title: "First Article", description: "Draft your cornerstone article" },
+  day0_brief: { title: "Baseline Brief", description: "Summarize the baseline and plan" },
+};
+
+function SetupStepIcon({ status, index }: { status: SetupStep["status"]; index: number }) {
+  if (status === "done") return <CheckIcon className="size-4" />;
+  if (status === "skipped") return <MinusIcon className="size-4" />;
+  if (status === "failed") return <XIcon className="size-4" />;
   if (status === "running") {
-    return <span className="size-2 rounded-full bg-accent" aria-label="Running" />;
+    return <span className="size-2 animate-pulse rounded-full bg-accent motion-reduce:animate-none" />;
   }
-  return <span className="size-2 rounded-full border border-border" aria-hidden />;
+  return <span className="text-xs tabular-nums">{index + 1}</span>;
 }
 
-function HeroShell({ children }: { children: React.ReactNode }) {
+function statusLabel(status: SetupStep["status"]) {
+  if (status === "done") return "Complete";
+  if (status === "running") return "Running";
+  if (status === "failed") return "Stopped";
+  if (status === "skipped") return "Skipped";
+  return "Pending";
+}
+
+function statusTone(status: SetupStep["status"]): "success" | "warning" | "danger" | "default" {
+  if (status === "done") return "success";
+  if (status === "running") return "warning";
+  if (status === "failed") return "danger";
+  return "default";
+}
+
+function setupTitle(step: SetupStep, labels: Record<string, string>) {
+  return SETUP_COPY[step.key]?.title ?? labels[step.key] ?? step.key;
+}
+
+function SetupChecklist({ steps, labels }: { steps: SetupStep[]; labels: Record<string, string> }) {
   return (
-    <section className="relative p-6 sm:p-8 lg:p-10">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">{children}</div>
+    <ol className="grid gap-3 lg:grid-cols-2" aria-live="polite">
+      {steps.map((step, index) => (
+        <li
+          key={step.key}
+          className={cn(
+            "flex min-w-0 items-start gap-3 rounded-2xl bg-surface-secondary/80 p-4",
+            step.status === "running" && "ring-1 ring-accent/20",
+          )}
+        >
+          <span
+            className={cn(
+              "mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-background text-muted",
+              step.status === "done" && "text-success",
+              step.status === "failed" && "text-danger",
+              step.status === "running" && "text-accent",
+            )}
+            aria-hidden
+          >
+            <SetupStepIcon status={step.status} index={index} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <strong className="block text-sm font-semibold leading-5 text-foreground">
+              {setupTitle(step, labels)}
+            </strong>
+            <small className="mt-1 block line-clamp-2 text-xs leading-5 text-muted text-pretty">
+              {SETUP_COPY[step.key]?.description ?? step.note ?? labels[step.key]}
+            </small>
+          </span>
+          <ToneText tone={statusTone(step.status)} className="shrink-0 text-xs">
+            {statusLabel(step.status)}
+          </ToneText>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function OptionalConnections({ integrations }: { integrations: IntegrationView[] }) {
+  const cmsConnected = integrations.some(
+    (integration) => integration.enabled && ["wordpress", "ghost", "webhook"].includes(integration.provider),
+  );
+
+  return (
+    <Card className="h-fit p-5 sm:p-6">
+      <Card.Header>
+        <Card.Title className="text-lg font-semibold tracking-[-0.015em]">
+          Optional connections
+        </Card.Title>
+        <Card.Description className="mt-1 leading-5 text-pretty">
+          Connect more data when you are ready.
+        </Card.Description>
+      </Card.Header>
+      <Card.Content className="space-y-3.5">
+        <div className="flex items-start gap-3 rounded-2xl bg-surface-secondary p-4">
+          <span
+            className="grid size-9 shrink-0 place-items-center rounded-xl bg-background text-accent"
+            aria-hidden
+          >
+            <SearchIcon className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">Search Console</p>
+            <p className="mt-1 text-xs leading-5 text-muted text-pretty">
+              Query, click, and impression data.
+            </p>
+          </div>
+          <Link
+            href="/settings?tab=integrations"
+            className="-my-2 inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-accent no-underline transition-colors duration-150 hover-fine:text-foreground"
+          >
+            Connect
+          </Link>
+        </div>
+        <div className="flex items-start gap-3 rounded-2xl bg-surface-secondary p-4">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-background text-muted" aria-hidden>
+            <SettingsIcon className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">Publishing</p>
+            <p className="mt-1 text-xs leading-5 text-muted text-pretty">
+              Review and publish content from your CMS.
+            </p>
+          </div>
+          <Link
+            href="/settings?tab=integrations"
+            className="-my-2 inline-flex min-h-10 shrink-0 items-center text-sm font-medium text-accent no-underline transition-colors duration-150 hover-fine:text-foreground"
+          >
+            {cmsConnected ? "Review" : "Connect"}
+          </Link>
+        </div>
+      </Card.Content>
+      <Card.Footer className="flex items-start gap-2 border-t border-separator/70 pt-4 text-xs leading-5 text-muted">
+        <ShieldIcon className="size-4" aria-hidden />
+        Connections are secure and read only.
+      </Card.Footer>
+    </Card>
+  );
+}
+
+function SetupDashboard({
+  setup,
+  integrations,
+  isPending,
+  subscribed,
+  onStart,
+}: {
+  setup: SetupRunResponse;
+  integrations: IntegrationView[];
+  isPending: boolean;
+  subscribed: boolean;
+  onStart: () => void;
+}) {
+  const run = setup.run;
+  const failed = run?.status === "failed";
+  const steps = run?.steps ?? Object.keys(setup.labels).map((key) => ({ key, status: "pending" as const }));
+  const done = steps.filter((step) => step.status === "done" || step.status === "skipped").length;
+  const percent = steps.length ? Math.round((done / steps.length) * 100) : 0;
+
+  return (
+    <section className="space-y-8" aria-labelledby="setup-title">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
+          <ToneText
+            tone={failed ? "danger" : run ? "warning" : "accent"}
+            className="text-xs"
+          >
+            {failed ? "Needs attention" : run ? "Setup running" : "Ready to start"}
+          </ToneText>
+          <h1
+            id="setup-title"
+            className="type-display mt-3 text-3xl text-foreground sm:text-4xl"
+          >
+            Build your operating baseline
+          </h1>
+          <p className="mt-3 max-w-xl text-base leading-7 text-muted text-pretty">
+            Claudia maps your site, competitors, buyer questions, and first growth opportunities.
+          </p>
+        </div>
+        {!run ? (
+          subscribed ? (
+            <Button className="min-h-11" isPending={isPending} onPress={onStart}>
+              {isPending ? "Starting…" : "Start setup"}
+            </Button>
+          ) : (
+            <Link href="/account?tab=billing" className={cn(buttonVariants(), "min-h-11")}>
+              Choose a plan
+            </Link>
+          )
+        ) : null}
+      </div>
+
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_23rem] xl:gap-6">
+        <Card className="min-w-0 p-5 sm:p-6">
+          <Card.Header className="flex-row items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Card.Title className="text-lg font-semibold tracking-[-0.015em]">
+                Setup progress
+              </Card.Title>
+              <Card.Description className="mt-1 leading-5 text-pretty">
+                {failed ? "Completed work is saved. Resume from the first unfinished step." : "You can leave this page while the workflow continues."}
+              </Card.Description>
+            </div>
+            <span className="shrink-0 pt-0.5 text-sm font-medium tabular-nums text-foreground">
+              {done} of {steps.length}
+            </span>
+          </Card.Header>
+          <Card.Content className="space-y-6">
+            <ProgressBar aria-label="Setup progress" value={percent}>
+              <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
+            </ProgressBar>
+            <SetupChecklist steps={steps} labels={setup.labels} />
+          </Card.Content>
+          {failed ? (
+            <Card.Footer className="border-t border-separator/70 pt-4">
+              <Button
+                className="min-h-11 sm:min-h-9"
+                variant="secondary"
+                isPending={isPending}
+                onPress={onStart}
+              >
+                Resume setup
+              </Button>
+            </Card.Footer>
+          ) : null}
+        </Card>
+        <OptionalConnections integrations={integrations} />
+      </div>
     </section>
   );
 }
 
-function StateChip({ id, label }: { id: string; label: string }) {
-  const color =
-    id === "needs_attention"
-      ? "danger"
-      : id === "waiting_for_you"
-        ? "warning"
-        : id === "working_now" || id === "on_duty"
-          ? "success"
-          : "default";
+function LiveDashboard({ agent }: { agent: AgentState }) {
+  const activeTask = agent.now ?? agent.next[0] ?? null;
+  const headline = activeTask?.title ?? agent.waiting?.title ?? agent.mission.objective;
+  const context = activeTask?.reason ?? agent.waiting?.blockedValue ?? agent.presence.reason;
+  const summary = activeTask ? agent.mission.objective : agent.presence.reason;
+  const needsAttention = agent.presence.id === "needs_attention";
+
   return (
-    <Chip size="sm" color={color} variant="soft">
-      <span className="size-1.5 rounded-full bg-current" aria-hidden />
-      <Chip.Label>{label}</Chip.Label>
-    </Chip>
+    <section className="space-y-8" aria-labelledby="dashboard-title">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToneText tone={needsAttention ? "warning" : "success"}>{agent.presence.label}</ToneText>
+            <span className="text-xs text-muted tabular-nums">Plan v{agent.plan.version}</span>
+          </div>
+          <h1
+            id="dashboard-title"
+            className="type-display mt-3 text-3xl text-foreground sm:text-4xl"
+          >
+            Dashboard
+          </h1>
+          <p className="mt-3 max-w-xl text-base leading-7 text-muted text-pretty">
+            Your current priority, work queue, and measurable progress.
+          </p>
+        </div>
+        <SteerClaudia label="Steer Claudia" />
+      </div>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
+        <Card className="min-w-0 p-5 sm:p-6">
+          <Card.Header>
+            <div className="flex items-center gap-2 text-sm font-medium text-muted">
+              <InsightIcon className="size-4 text-accent" aria-hidden />
+              Current priority
+            </div>
+            <Card.Title className="mt-3 max-w-3xl text-2xl font-semibold leading-tight tracking-[-0.025em] text-balance sm:text-3xl">
+              {headline}
+            </Card.Title>
+            <Card.Description className="mt-1 max-w-[65ch] text-sm leading-6 text-pretty">
+              {context}
+            </Card.Description>
+          </Card.Header>
+          <Card.Content>
+            <div className="rounded-2xl bg-surface-secondary p-4">
+              <p className="text-xs font-medium text-muted">Mission</p>
+              <p className="mt-1.5 text-sm leading-6 text-foreground text-pretty">
+                {summary}
+              </p>
+            </div>
+          </Card.Content>
+          {agent.waiting ? (
+            <Card.Footer className="border-t border-separator/70 pt-4">
+              <Link
+                href={agent.waiting.href}
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "min-h-11 text-warning",
+                )}
+              >
+                Review required decision
+              </Link>
+            </Card.Footer>
+          ) : null}
+        </Card>
+        <AgentPlan state={agent} />
+      </div>
+    </section>
   );
 }
 
-export function ClaudiaHero({ setup, agent }: { setup: SetupRunResponse; agent: AgentState }) {
+export function ClaudiaHero({
+  setup,
+  agent,
+  integrations = [],
+}: {
+  setup: SetupRunResponse;
+  agent: AgentState;
+  integrations?: IntegrationView[];
+}) {
   const queryClient = useQueryClient();
   const me = useMe();
   const start = useMutation({
@@ -66,152 +352,20 @@ export function ClaudiaHero({ setup, agent }: { setup: SetupRunResponse; agent: 
   });
 
   if (me.isLoading) {
-    return <CardSkeleton lines={5} className="rounded-none border-0 shadow-none" />;
+    return <CardSkeleton lines={5} className="min-h-96" />;
   }
 
-  const run = setup.run;
-  const labels = setup.labels;
-  const state = agent;
-  const subscribed = isActiveSubscription(me.data?.subscription?.status);
-
-  if (!run) {
+  if (setup.run?.status !== "completed") {
     return (
-      <HeroShell>
-        <ClaudiaAvatar working={start.isPending} />
-        <div className="min-w-0 flex-1">
-          <Chip size="sm" variant="soft">Ready to begin</Chip>
-          <h1 className="mt-4 max-w-2xl text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl">
-            Build the evidence Claudia needs to run the brand
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
-            She will audit the site, map buyer questions, establish competitor context, research
-            the first opportunities, and prepare the first week of work.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {subscribed ? (
-              <Button isPending={start.isPending} onPress={() => start.mutate()}>
-                {start.isPending ? "Starting…" : "Put Claudia to work"}
-              </Button>
-            ) : (
-              <Link href="/account?tab=billing">
-                <Button>Choose a plan</Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </HeroShell>
+      <SetupDashboard
+        setup={setup}
+        integrations={integrations}
+        isPending={start.isPending}
+        subscribed={isActiveSubscription(me.data?.subscription?.status)}
+        onStart={() => start.mutate()}
+      />
     );
   }
 
-  if (run.status !== "completed") {
-    const failed = run.status === "failed";
-    const current = run.steps.find((step) => step.status === "running");
-    const done = run.steps.filter(
-      (step) => step.status === "done" || step.status === "skipped",
-    ).length;
-    return (
-      <HeroShell>
-        <ClaudiaAvatar working={!failed} />
-        <div className="min-w-0 flex-1">
-          <StateChip
-            id={failed ? "needs_attention" : "working_now"}
-            label={failed ? "Needs attention" : "Working now"}
-          />
-          <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl">
-            {failed
-              ? "Setup stopped before the operating baseline was ready"
-              : current
-                ? labels[current.key] ?? "Building the brand operating baseline"
-                : "Building the brand operating baseline"}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
-            {failed
-              ? "Resume from the first unfinished step. Completed evidence will not be repeated."
-              : "This is real setup work. You can leave and the durable workflow will continue."}
-          </p>
-          <div className="mt-6 grid gap-x-8 gap-y-2 sm:grid-cols-2" aria-live="polite">
-            {run.steps.map((step) => (
-              <div key={step.key} className="flex min-h-8 items-start gap-2 text-sm">
-                <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
-                  <SetupStepIcon status={step.status} />
-                </span>
-                <span
-                  className={cn(
-                    step.status === "pending" ? "text-muted" : "text-foreground",
-                    step.status === "failed" && "text-danger",
-                  )}
-                >
-                  {labels[step.key] ?? step.key}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <span className="text-sm text-muted tabular-nums">
-              {done} of {run.steps.length} steps complete
-            </span>
-            {failed ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                isPending={start.isPending}
-                onPress={() => start.mutate()}
-              >
-                Resume setup
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      </HeroShell>
-    );
-  }
-
-  const headline = state.now
-    ? state.now.title
-    : state.waiting
-      ? state.waiting.title
-      : state.next[0]
-        ? `Next: ${state.next[0].title}`
-        : state.mission.objective;
-  const context = state.now?.reason ?? state.waiting?.blockedValue ?? state.plan.rationale;
-
-  return (
-    <HeroShell>
-      <ClaudiaAvatar working={state.presence.isWorking} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <StateChip id={state.presence.id} label={state.presence.label} />
-          <span className="text-xs text-muted tabular-nums">Plan v{state.plan.version}</span>
-        </div>
-        <p className="mt-4 text-xs font-medium tracking-[0.04em] text-muted">Current mission</p>
-        <p className="mt-1.5 max-w-3xl text-sm font-medium text-foreground/80">
-          {state.mission.objective}
-        </p>
-        <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl lg:text-[2rem]">
-          {headline}
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">{context}</p>
-        {state.next[0]?.scheduledFor && !state.now ? (
-          <p className="mt-3 text-sm text-muted">
-            Scheduled for{" "}
-            <time dateTime={state.next[0].scheduledFor} suppressHydrationWarning>
-              {new Date(state.next[0].scheduledFor).toLocaleString([], {
-                weekday: "short",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </time>
-          </p>
-        ) : null}
-        <div className="mt-6 flex flex-wrap gap-2">
-          <SteerClaudia />
-          {state.waiting ? (
-            <Link href={state.waiting.href}>
-              <Button variant="ghost">{state.waiting.actionLabel}</Button>
-            </Link>
-          ) : null}
-        </div>
-      </div>
-    </HeroShell>
-  );
+  return <LiveDashboard agent={agent} />;
 }

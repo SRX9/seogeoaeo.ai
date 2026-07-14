@@ -13,13 +13,13 @@ export function ClaudiaAvatar({
   className?: string;
 }) {
   return (
-    <div className={cn("relative grid size-12 shrink-0 place-items-center", className)} aria-hidden>
-      <span className="grid size-11 place-items-center rounded-xl border border-border/70 bg-surface-secondary text-foreground">
-        <ClaudiaIcon className="size-5" />
+    <div className={cn("relative grid size-14 shrink-0 place-items-center", className)} aria-hidden>
+      <span className="grid size-14 place-items-center rounded-[1.1rem] border border-border/60 bg-foreground text-background shadow-sm">
+        <ClaudiaIcon className="size-6" />
       </span>
       {working ? (
-        <span className="absolute -right-0.5 -top-0.5 grid size-3 place-items-center rounded-full bg-surface ring-2 ring-surface">
-          <span className="size-2 animate-pulse rounded-full bg-success" />
+        <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-surface ring-2 ring-surface">
+          <span className="size-2.5 animate-pulse rounded-full bg-success" />
         </span>
       ) : null}
     </div>

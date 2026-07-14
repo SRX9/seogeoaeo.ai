@@ -1,12 +1,12 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, Card, Skeleton, Table } from "@heroui/react";
+import { EmptyState } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ComponentType, SVGProps } from "react";
+import { useState } from "react";
+import { PenIcon, RefreshIcon } from "@/components/icons";
+import { ToneText } from "@/components/ui/status-text";
 import { Section } from "@/components/feedback/section";
-import { CardSkeleton, TableSkeleton } from "@/components/feedback/skeletons";
-import { GlobeIcon, SearchIcon, SparklesIcon } from "@/components/icons";
-import { PageHeader } from "@/components/layout/page-header";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
   queryKeys,
@@ -15,174 +15,221 @@ import {
   type VisibilityAnswers,
 } from "@/lib/api/queries";
 
-/**
- * V5.5: AI answers page: share-of-answer per engine + the prompt × engine grid.
- * Each cell is ✓ cited · ✓ mentioned · ✗ absent · ⚠ competitor named instead.
- */
-
 const ENGINES = ["chatgpt", "perplexity", "gemini"] as const;
-const ENGINE_LABELS: Record<string, string> = {
+type Engine = (typeof ENGINES)[number];
+type RunRow = VisibilityAnswers["runs"][number];
+type CellTone = "cited" | "mentioned" | "competitor" | "absent" | "empty";
+
+const ENGINE_LABELS: Record<Engine, string> = {
   chatgpt: "ChatGPT",
   perplexity: "Perplexity",
   gemini: "Gemini",
 };
-const ENGINE_ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
-  chatgpt: SparklesIcon,
-  perplexity: SearchIcon,
-  gemini: GlobeIcon,
-};
 
-type RunRow = VisibilityAnswers["runs"][number];
+function EngineMark({ engine }: { engine: Engine }) {
+  return (
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-xs font-semibold text-foreground" aria-hidden>
+      {ENGINE_LABELS[engine].slice(0, 1)}
+    </span>
+  );
+}
 
-function cell(run: RunRow | undefined): { label: string; className: string } {
-  if (!run) return { label: "No check yet", className: "text-default-300" };
-  if (run.brandCited) return { label: "✓ cited", className: "text-success font-medium" };
-  if (run.brandMentioned) return { label: "✓ mentioned", className: "text-success-600" };
-  if (run.mentions?.some((m) => m.cited || m.mentioned))
-    return { label: "⚠ competitor", className: "text-warning" };
-  return { label: "✗ absent", className: "text-danger-500" };
+function outcome(run: RunRow | undefined): { label: string; tone: CellTone } {
+  if (!run) return { label: "No Check", tone: "empty" };
+  if (run.brandCited) return { label: "Cited", tone: "cited" };
+  if (run.brandMentioned) return { label: "Mentioned", tone: "mentioned" };
+  if (run.mentions?.some((mention) => mention.cited || mention.mentioned)) {
+    return { label: "Competitor", tone: "competitor" };
+  }
+  return { label: "Absent", tone: "absent" };
+}
+
+function toneColor(tone: CellTone): "success" | "warning" | "danger" | "default" {
+  if (tone === "cited") return "success";
+  if (tone === "mentioned" || tone === "competitor") return "warning";
+  if (tone === "absent") return "danger";
+  return "default";
+}
+
+function evidenceDescription(tone: CellTone) {
+  if (tone === "cited") return "Your brand was cited as a source in this answer.";
+  if (tone === "mentioned") return "Your brand appeared without a citation.";
+  if (tone === "competitor") return "A tracked competitor appeared instead of your brand.";
+  if (tone === "absent") return "Your brand and tracked citations were absent.";
+  return "This prompt has not been checked yet.";
+}
+
+function EngineScore({ engine, data }: { engine: Engine; data: VisibilityAnswers }) {
+  const score = data.share.find((item) => item.engine === engine);
+  return (
+    <Card>
+      <Card.Content className="flex items-center gap-4">
+        <EngineMark engine={engine} />
+        <div className="min-w-0">
+          <p className="text-sm text-muted">{ENGINE_LABELS[engine]}</p>
+          <p className="mt-1 text-3xl font-semibold leading-none tracking-tight text-foreground tabular-nums">
+            {score ? `${score.share}%` : "—"}
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            {score ? `${score.cited} of ${score.prompts} cited` : "No checks yet"}
+          </p>
+        </div>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function AnswersContent({
+  data,
+  busy,
+  isDisabled,
+  onEdit,
+  onRun,
+  errorMessage,
+  settingUp,
+}: {
+  data: VisibilityAnswers;
+  busy: "run" | "seed" | null;
+  isDisabled: boolean;
+  onEdit: () => void;
+  onRun: () => void;
+  errorMessage: string | null;
+  settingUp: boolean;
+}) {
+  const [openCell, setOpenCell] = useState<string | null>(null);
+  const runFor = (promptId: string, engine: Engine) =>
+    data.runs.find((run) => run.promptId === promptId && run.engine === engine);
+
+  return (
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="sr-only">AI Answers</h1>
+          <p className="text-sm text-muted">
+            {data.prompts.length} tracked prompts · {settingUp ? "First check in progress" : "Latest checks loaded"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" isDisabled={isDisabled} isPending={busy === "seed"} onPress={onEdit}>
+            <PenIcon className="size-4" aria-hidden />
+            Edit Prompts
+          </Button>
+          <Button isDisabled={isDisabled} isPending={busy === "run"} onPress={onRun}>
+            <RefreshIcon className="size-4" aria-hidden />
+            Run Check
+          </Button>
+        </div>
+      </header>
+
+      {errorMessage ? <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger-soft-foreground" role="alert">{errorMessage}</p> : null}
+
+      <section className="grid gap-4 sm:grid-cols-3" aria-label="Share of AI answers by engine">
+        {ENGINES.map((engine) => <EngineScore key={engine} engine={engine} data={data} />)}
+      </section>
+
+      <Card className="overflow-hidden p-0">
+        <Card.Header className="p-6 pb-4">
+          <Card.Title>Prompt Coverage</Card.Title>
+          <Card.Description>Select a status to see the evidence behind it.</Card.Description>
+        </Card.Header>
+        <Card.Content className="p-0">
+          {data.prompts.length === 0 ? (
+            <EmptyState className="py-12">
+              <EmptyState.Header>
+                <EmptyState.Title>No Tracked Prompts</EmptyState.Title>
+                <EmptyState.Description>
+                  Add the starter prompt set, then run a check to compare your coverage across AI engines.
+                </EmptyState.Description>
+              </EmptyState.Header>
+              <EmptyState.Content>
+                <Button variant="secondary" isDisabled={isDisabled} isPending={busy === "seed"} onPress={onEdit}>
+                  Add Starter Prompts
+                </Button>
+              </EmptyState.Content>
+            </EmptyState>
+          ) : (
+            <Table>
+              <Table.ScrollContainer>
+                <Table.Content aria-label="Prompt coverage by AI engine" className="min-w-[760px]">
+                  <Table.Header>
+                    <Table.Column id="prompt" isRowHeader>Prompt</Table.Column>
+                    {ENGINES.map((engine) => (
+                      <Table.Column id={engine} key={engine}>{ENGINE_LABELS[engine]}</Table.Column>
+                    ))}
+                  </Table.Header>
+                  <Table.Body>
+                    {data.prompts.map((prompt) => (
+                      <Table.Row id={prompt.id} key={prompt.id}>
+                        <Table.Cell>
+                          <div className="max-w-md">
+                            <p className="font-medium text-foreground">{prompt.prompt}</p>
+                            <p className="mt-1 text-xs text-muted">{prompt.active ? "Active tracking prompt" : "Tracking paused"}</p>
+                          </div>
+                        </Table.Cell>
+                        {ENGINES.map((engine) => {
+                          const cell = outcome(runFor(prompt.id, engine));
+                          const key = `${prompt.id}:${engine}`;
+                          const expanded = openCell === key;
+                          return (
+                            <Table.Cell key={engine} className="align-top">
+                              <Button
+                                variant="ghost"
+                                className="h-auto min-h-0 justify-start p-0"
+                                aria-expanded={expanded}
+                                onPress={() => setOpenCell(expanded ? null : key)}
+                              >
+                                <ToneText tone={toneColor(cell.tone)} className="text-xs">{cell.label}</ToneText>
+                              </Button>
+                              {expanded ? <p className="mt-2 max-w-48 text-xs leading-relaxed text-muted">{evidenceDescription(cell.tone)}</p> : null}
+                            </Table.Cell>
+                          );
+                        })}
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table>
+          )}
+        </Card.Content>
+      </Card>
+    </main>
+  );
 }
 
 const answersSkeleton = (
-  <div className="space-y-6">
-    <div className="grid gap-4 sm:grid-cols-3">
-      <CardSkeleton lines={1} />
-      <CardSkeleton lines={1} />
-      <CardSkeleton lines={1} />
-    </div>
-    <TableSkeleton rows={5} />
+  <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4" aria-hidden>
+    <Skeleton className="h-20 rounded-2xl" />
+    <div className="grid gap-4 sm:grid-cols-3">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-36 rounded-2xl" />)}</div>
+    <Skeleton className="h-80 rounded-2xl" />
   </div>
 );
-
-function AnswersContent({ data }: { data: VisibilityAnswers }) {
-  const runFor = (promptId: string, engine: string) =>
-    data.runs.find((r) => r.promptId === promptId && r.engine === engine);
-
-  return (
-    <>
-      <div className="grid border-y border-separator/70 sm:grid-cols-3">
-        {ENGINES.map((engine) => {
-          const s = data.share.find((x) => x.engine === engine);
-          const EngineIcon = ENGINE_ICONS[engine] ?? SparklesIcon;
-          return (
-            <div
-              key={engine}
-              className="border-t border-separator/70 py-5 first:border-t-0 sm:border-l sm:border-t-0 sm:px-5 sm:first:border-l-0 sm:first:pl-0 sm:last:pr-0"
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
-                  <EngineIcon className="size-4" />
-                </div>
-                <p className="text-sm tracking-[0.01em] text-default-500">
-                  {ENGINE_LABELS[engine]}
-                </p>
-              </div>
-              <p className="mt-3 text-3xl font-semibold leading-none tracking-[-0.03em] tabular-nums">
-                {s ? `${s.share}%` : "No data"}
-              </p>
-              <p className="text-xs text-default-400">
-                {s ? `appeared in ${s.appeared}/${s.prompts} answers` : "no runs yet"}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="overflow-x-auto border-y border-separator/70">
-        <table className="w-full min-w-140 text-sm">
-          <thead>
-            <tr className="border-b border-default-100/80 text-left text-default-500">
-              <th className="p-3.5 font-medium tracking-tight">Prompt</th>
-              {ENGINES.map((e) => (
-                <th key={e} className="p-3.5 font-medium tracking-tight">
-                  {ENGINE_LABELS[e]}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.prompts.map((p) => (
-              <tr key={p.id} className="border-b border-default-50/80">
-                <td className="max-w-xs p-3.5 leading-relaxed">{p.prompt}</td>
-                {ENGINES.map((e) => {
-                  const c = cell(runFor(p.id, e));
-                  return (
-                    <td key={e} className={`p-3.5 ${c.className}`}>
-                      {c.label}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            {data.prompts.length === 0 && (
-              <tr>
-                <td colSpan={4} className="p-6 text-center leading-relaxed text-default-400">
-                  No tracked prompts yet: seed a starter set, then run a check.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
 
 export default function AnswersPage() {
   const answers = useVisibilityAnswers();
   const queryClient = useQueryClient();
   const settingUp = useSetupInProgress();
-
-  const act = useMutation({
-    mutationFn: (action: "run" | "seed") => apiPost("/api/visibility/answers", { action }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.visibilityAnswers }),
+  const action = useMutation({
+    mutationFn: (kind: "run" | "seed") => apiPost("/api/visibility/answers", { action: kind }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.visibilityAnswers }),
   });
-  const busy = act.isPending ? act.variables : null;
-  const errorMessage = act.error ? getErrorMessage(act.error, "Request failed") : null;
+
+  const busy = action.isPending ? action.variables : null;
+  const errorMessage = action.error ? getErrorMessage(action.error, "Request failed") : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-12">
-      <PageHeader
-        title="AI answers"
-        description="Share-of-answer across ChatGPT, Perplexity, and Gemini: also summarized on Claudia's proof strip."
-        meta={
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              isDisabled={act.isPending || settingUp}
-              onPress={() => act.mutate("seed")}
-            >
-              {busy === "seed" ? "Seeding…" : "Seed prompts"}
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              isDisabled={act.isPending || settingUp}
-              onPress={() => act.mutate("run")}
-            >
-              {busy === "run" ? "Checking…" : "Run check"}
-            </Button>
-          </div>
-        }
-      />
-
-      {settingUp && (
-        <p className="text-sm text-muted">
-          Claudia is setting up your brand. She is adding prompts and running the first answer check
-          herself.
-        </p>
+    <Section query={answers} skeleton={answersSkeleton} errorLabel="Couldn't load your AI answer checks.">
+      {(data) => (
+        <AnswersContent
+          data={data}
+          busy={busy}
+          isDisabled={action.isPending || settingUp}
+          onEdit={() => action.mutate("seed")}
+          onRun={() => action.mutate("run")}
+          errorMessage={errorMessage}
+          settingUp={settingUp}
+        />
       )}
-      {errorMessage && <p className="text-sm text-danger">{errorMessage}</p>}
-
-      <Section
-        query={answers}
-        skeleton={answersSkeleton}
-        errorLabel="Couldn't load your AI answer checks."
-      >
-        {(data) => <AnswersContent data={data} />}
-      </Section>
-    </div>
+    </Section>
   );
 }

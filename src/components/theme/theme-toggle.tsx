@@ -10,9 +10,6 @@ const THEME_CHANGE_EVENT = "sga-theme-change";
 
 function apply(theme: Theme) {
   const root = document.documentElement;
-  // Apply both the base mode class (foreground/text palette) and the Glass
-  // mode class (surfaces). The Glass theme omits `--foreground`, so the base
-  // `light`/`dark` class is what makes text legible in dark mode.
   root.classList.remove("light", "dark", "glass-light", "glass-dark");
   root.classList.add(theme, theme === "dark" ? "glass-dark" : "glass-light");
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
@@ -36,8 +33,7 @@ function getServerThemeSnapshot(): Theme {
 }
 
 /**
- * Toggles the Lunar Grey theme between light and dark by swapping the
- * `glass-light` / `glass-dark` class on <html> and persisting the choice.
+ * Toggles the HeroUI Glass theme between light and dark and persists it.
  * The pre-paint script in app/layout.tsx applies the saved value on load.
  */
 export function ThemeToggle({ className }: { className?: string }) {

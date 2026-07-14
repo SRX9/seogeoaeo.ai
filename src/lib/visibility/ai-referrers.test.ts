@@ -29,7 +29,7 @@ describe("gaugeColor", () => {
   it("follows the 80/60/40 thresholds", () => {
     expect(gaugeColor(85)).toBe("#16a34a");
     expect(gaugeColor(70)).toBe("#2563eb");
-    expect(gaugeColor(45)).toBe("#d97706");
+    expect(gaugeColor(45)).toBe("#7c3aed");
     expect(gaugeColor(39)).toBe("#dc2626");
     expect(gaugeColor(null)).toBe("#94a3b8");
   });

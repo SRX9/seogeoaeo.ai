@@ -2,7 +2,7 @@
 
 import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
   CircleCheckIcon,
@@ -34,7 +34,7 @@ const sources = [
 
 export function ResearchPanel() {
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const router = useProgressRouter();
   const { data } = useResearch();
   const credits = useCredits();
   const settingUp = useSetupInProgress();

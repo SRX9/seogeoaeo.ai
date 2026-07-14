@@ -4,6 +4,7 @@ import { Button, TextArea, toast } from "@heroui/react";
 import { Sheet } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/queries";
@@ -15,7 +16,21 @@ const EXAMPLES = [
   "Why is this the next task?",
 ] as const;
 
-export function SteerClaudia() {
+type SteerClaudiaProps = {
+  label?: string;
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "tertiary" | "outline" | "ghost";
+  className?: string;
+  icon?: ReactNode;
+};
+
+export function SteerClaudia({
+  label = "Steer Claudia",
+  size = "md",
+  variant = "secondary",
+  className,
+  icon,
+}: SteerClaudiaProps = {}) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<SteeringResult | null>(null);
@@ -51,7 +66,10 @@ export function SteerClaudia() {
       }}
     >
       <Sheet.Trigger>
-        <Button variant="secondary">Steer Claudia</Button>
+        <Button className={className} size={size} variant={variant}>
+          {icon}
+          {label}
+        </Button>
       </Sheet.Trigger>
       <Sheet.Backdrop variant="blur">
         <Sheet.Content className="mx-auto max-h-[92vh] max-w-xl">

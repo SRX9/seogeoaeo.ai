@@ -1,0 +1,257 @@
+.media {
+  isolation: isolate;
+  min-height: clamp(22rem, 43vw, 36rem);
+  background:
+    radial-gradient(circle at 48% 44%, oklch(72% 0.17 242 / 0.34), transparent 31%),
+    radial-gradient(circle at 76% 24%, oklch(74% 0.14 302 / 0.28), transparent 38%),
+    radial-gradient(circle at 20% 78%, oklch(78% 0.12 209 / 0.24), transparent 36%),
+    linear-gradient(145deg, oklch(97% 0.014 247), oklch(93% 0.035 270));
+  box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.1);
+}
+
+.media::before,
+.media::after {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  content: "";
+}
+
+.media::before {
+  background:
+    linear-gradient(90deg, oklch(0 0 0 / 0.08), transparent 24%, transparent 76%, oklch(0 0 0 / 0.06)),
+    linear-gradient(180deg, transparent 68%, oklch(21% 0.05 260 / 0.15));
+}
+
+.media::after {
+  box-shadow: inset 0 0 5rem oklch(36% 0.11 262 / 0.12);
+}
+
+.logoStage {
+  position: absolute;
+  inset: -16%;
+  z-index: 1;
+  pointer-events: none;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.logoStageWorking {
+  will-change: transform;
+}
+
+.logo {
+  object-fit: cover;
+  filter: drop-shadow(0 1.5rem 2.5rem oklch(34% 0.17 264 / 0.28));
+}
+
+.mediaStatus {
+  text-shadow: 0 1px 12px oklch(1 0 0 / 0.72);
+}
+
+.mediaActions {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mediaControl {
+  border-color: oklch(1 0 0 / 0.58) !important;
+  background: oklch(1 0 0 / 0.72) !important;
+  color: oklch(24% 0.03 260) !important;
+  box-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.05),
+    0 1px 2px oklch(0 0 0 / 0.08),
+    0 8px 24px oklch(29% 0.08 260 / 0.1);
+  backdrop-filter: blur(20px) saturate(160%);
+  transition-property: transform;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.mediaControl:active {
+  transform: scale(0.96);
+}
+
+.waitingSurface {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--surface) 88%, white 12%) 0%,
+      color-mix(in oklab, var(--surface-secondary) 78%, transparent) 54%,
+      color-mix(in oklab, var(--surface) 94%, var(--foreground) 6%) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 72%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--foreground) 7%, transparent),
+    0 18px 42px -34px color-mix(in oklab, var(--foreground) 32%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(115%);
+  backdrop-filter: blur(24px) saturate(115%);
+}
+
+.mediaWaiting {
+  background:
+    radial-gradient(circle at 48% 42%, oklch(100% 0 0 / 0.74), transparent 32%),
+    radial-gradient(circle at 18% 16%, oklch(100% 0 0 / 0.42), transparent 38%),
+    radial-gradient(circle at 82% 76%, oklch(0% 0 0 / 0.06), transparent 42%),
+    linear-gradient(145deg, oklch(96% 0 0 / 0.9), oklch(86% 0 0 / 0.78));
+}
+
+.mediaWaiting::after {
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.62),
+    inset 0 0 0 1px oklch(0% 0 0 / 0.08),
+    inset 0 0 5rem oklch(0% 0 0 / 0.07);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mediaControl:hover {
+    background: oklch(1 0 0 / 0.88) !important;
+    box-shadow:
+      0 0 0 1px oklch(0 0 0 / 0.08),
+      0 1px 2px oklch(0 0 0 / 0.1),
+      0 10px 28px oklch(29% 0.08 260 / 0.14);
+  }
+}
+
+:global(.glass-dark) .media {
+  background:
+    radial-gradient(circle at 48% 44%, oklch(57% 0.2 249 / 0.3), transparent 31%),
+    radial-gradient(circle at 76% 24%, oklch(54% 0.18 302 / 0.2), transparent 38%),
+    radial-gradient(circle at 20% 78%, oklch(58% 0.15 211 / 0.16), transparent 36%),
+    linear-gradient(145deg, oklch(17% 0.035 258), oklch(11% 0.026 275));
+  box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.1);
+}
+
+:global(.glass-dark) .media::before {
+  background:
+    linear-gradient(90deg, oklch(0 0 0 / 0.24), transparent 24%, transparent 76%, oklch(0 0 0 / 0.18)),
+    linear-gradient(180deg, transparent 62%, oklch(0 0 0 / 0.3));
+}
+
+:global(.glass-dark) .mediaStatus {
+  text-shadow: 0 1px 14px oklch(0 0 0 / 0.82);
+}
+
+:global(.glass-dark) .mediaControl {
+  border-color: oklch(1 0 0 / 0.18) !important;
+  background: oklch(12% 0.025 260 / 0.72) !important;
+  color: oklch(98% 0.006 260) !important;
+  box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
+}
+
+:global(.glass-dark) .waitingSurface {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--surface) 91%, white 9%) 0%,
+      color-mix(in oklab, var(--surface-secondary) 74%, transparent) 52%,
+      color-mix(in oklab, var(--surface) 93%, black 7%) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.11),
+    inset 0 0 0 1px oklch(100% 0 0 / 0.08),
+    0 20px 44px -34px oklch(0% 0 0 / 0.72);
+}
+
+:global(.glass-dark) .mediaWaiting {
+  background:
+    radial-gradient(circle at 48% 42%, oklch(100% 0 0 / 0.1), transparent 31%),
+    radial-gradient(circle at 18% 16%, oklch(100% 0 0 / 0.07), transparent 38%),
+    radial-gradient(circle at 82% 76%, oklch(0% 0 0 / 0.28), transparent 44%),
+    linear-gradient(145deg, oklch(22% 0 0 / 0.94), oklch(8% 0 0 / 0.9));
+}
+
+:global(.glass-dark) .mediaWaiting::after {
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.14),
+    inset 0 0 0 1px oklch(100% 0 0 / 0.09),
+    inset 0 0 5rem oklch(0% 0 0 / 0.28);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :global(.glass-dark) .mediaControl:hover {
+    background: oklch(16% 0.03 260 / 0.86) !important;
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.14);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .media {
+    box-shadow: inset 0 0 0 2px currentColor;
+  }
+
+  .waitingSurface {
+    background: var(--surface);
+    box-shadow: inset 0 0 0 2px var(--foreground);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .media {
+    background: oklch(94% 0.025 258);
+  }
+
+  :global(.glass-dark) .media {
+    background: oklch(15% 0.025 258);
+  }
+
+  .mediaControl {
+    background: oklch(98% 0.006 260) !important;
+    backdrop-filter: none;
+  }
+
+  :global(.glass-dark) .mediaControl {
+    background: oklch(13% 0.025 260) !important;
+  }
+
+  .waitingSurface {
+    background: var(--surface-secondary);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .mediaWaiting {
+    background: oklch(92% 0 0);
+  }
+
+  :global(.glass-dark) .mediaWaiting {
+    background: oklch(13% 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logoStageWorking {
+    will-change: auto;
+  }
+
+  .mediaControl {
+    transition-property: none;
+  }
+
+  .mediaControl:active {
+    transform: none;
+  }
+}
+
+@media (max-width: 26rem) {
+  .mediaActions {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .mediaControl {
+    padding-inline: 0.625rem !important;
+    font-size: 0.75rem !important;
+  }
+}

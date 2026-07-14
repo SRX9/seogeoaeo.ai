@@ -55,7 +55,7 @@ export function AutonomyPanel({ brandId, currentMode }: AutonomyPanelProps) {
   }
 
   return (
-    <Card className="material-panel">
+    <Card>
       <Card.Header>
         <Card.Title className="tracking-tight">How Claudia works</Card.Title>
         <Card.Description className="leading-relaxed">

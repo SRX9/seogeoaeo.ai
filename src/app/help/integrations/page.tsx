@@ -1,288 +1,249 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonVariants } from "@heroui/react/button";
-import { Card } from "@heroui/react/card";
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
-import {
-  INTEGRATION_PROVIDERS,
-  type IntegrationProviderDefinition,
-} from "@/lib/integrations/providers";
+import { InsightIcon } from "@/components/icons";
+import { PublishingGuideContents } from "@/components/integrations/publishing-guide-contents";
 import { SITE_URL } from "@/lib/site";
+import styles from "./publishing-guide-page.module.css";
 
 export const metadata: Metadata = {
   title: "Publishing integration setup guide - seogeoaeo.ai",
   description:
-    "Step-by-step setup help for Markdown export, webhooks, Dev.to, Hashnode, WordPress, Ghost, and gated social publishing integrations.",
+    "Connect your preferred publishing platform in a few simple, secure steps.",
   alternates: { canonical: `${SITE_URL}/help/integrations` },
 };
 
-const availableProviders: IntegrationProviderDefinition[] = [];
-const gatedProviders: IntegrationProviderDefinition[] = [];
+type IconProps = {
+  className?: string;
+};
 
-for (const provider of INTEGRATION_PROVIDERS) {
-  if (provider.status === "available") {
-    availableProviders.push(provider);
-  } else {
-    gatedProviders.push(provider);
-  }
+function ArrowRightIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 12h13M14 7l5 5-5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-function requiredSetup(provider: IntegrationProviderDefinition) {
-  const required: string[] = [];
-
-  for (const field of provider.fields) {
-    if (field.required) {
-      required.push(field.label);
-    }
-  }
-
-  for (const secret of provider.secrets) {
-    if (secret.required) {
-      required.push(secret.label);
-    }
-  }
-
-  return required.length > 0 ? required.join(", ") : "No setup required";
+function MessageIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 11.5a8 8 0 0 1-8.5 8A8.7 8.7 0 0 1 7.8 18L3 19l1.2-4.3A8 8 0 1 1 20 11.5Z" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-function optionalSetup(provider: IntegrationProviderDefinition) {
-  const optional: string[] = [];
-
-  for (const field of provider.fields) {
-    if (!field.required) {
-      optional.push(field.label);
-    }
-  }
-
-  for (const secret of provider.secrets) {
-    if (!secret.required) {
-      optional.push(secret.label);
-    }
-  }
-
-  return optional.length > 0 ? optional.join(", ") : "None";
+function BoltIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m13.5 2.8-8 11.1h5.8l-.8 7.3 8-11.1h-5.8l.8-7.3Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-const quickSteps = [
-  "Open Settings, then Integrations.",
-  "Choose the destination you want to publish to.",
-  "Enter only the fields shown for that provider.",
-  "Save the connection, then enable it once required setup is complete.",
-  "Publish from an approved article or use Markdown export.",
-];
+function LinkIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m9.1 14.9-1.5 1.5a3.75 3.75 0 0 1-5.3-5.3l3.1-3.2a3.75 3.75 0 0 1 5.3 0M14.9 9.1l1.5-1.5a3.75 3.75 0 0 1 5.3 5.3l-3.1 3.2a3.75 3.75 0 0 1-5.3 0M8.6 15.4l6.8-6.8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
-const troubleshootingItems = [
-  {
-    title: "Enable is disabled",
-    body: "A required field or required secret is missing. Fill the fields listed below the buttons.",
-  },
-  {
-    title: "Secret looks blank after saving",
-    body: "This is expected. Saved secrets are masked and can only be replaced, not viewed.",
-  },
-  {
-    title: "Publish says setup is incomplete",
-    body: "Reopen Settings and confirm the integration is enabled and all required fields are still present.",
-  },
-  {
-    title: "Provider returns unauthorized",
-    body: "Replace the saved secret and confirm the connected user has publish permissions.",
-  },
-  {
-    title: "Webhook does not receive posts",
-    body: "Confirm the URL is HTTPS, publicly reachable, and accepts JSON POST requests.",
-  },
-];
+function KeyIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M14.2 8.8a5 5 0 1 1-2.9-4.5 5 5 0 0 1 2.9 4.5Zm0 0L22 16.6v2.5h-2.7v2.2h-2.7v-2.2h-2.7v-2.5h-2.1" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="7.2" cy="8.8" r="1" fill="currentColor" />
+    </svg>
+  );
+}
 
-const supportChecklist = [
-  "Destination name.",
-  "Whether the integration is enabled.",
-  "Any missing required fields shown in Settings.",
-  "Approximate publish time and article title.",
-  "Provider-side error message if one is visible.",
-];
+function CheckIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.75" />
+      <path d="m8.2 12 2.5 2.5 5.3-5.3" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3.2 19 6v5.2c0 4.4-2.7 7.6-7 9.6-4.3-2-7-5.2-7-9.6V6l7-2.8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function HomeIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m4 10 8-7 8 7v10h-6v-6h-4v6H4V10Z" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GearIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9.7 3.4 10.4 2h3.2l.7 1.4 1.5.6 1.5-.5 2.2 2.2-.5 1.5.6 1.5 1.4.7v3.2l-1.4.7-.6 1.5.5 1.5-2.2 2.2-1.5-.5-1.5.6-.7 1.4h-3.2l-.7-1.4-1.5-.6-1.5.5-2.2-2.2.5-1.5-.6-1.5-1.4-.7V9.4l1.4-.7.6-1.5-.5-1.5 2.2-2.2 1.5.5 1.5-.6Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+      <circle cx="12" cy="11" r="3.1" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function TagIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3.5 5.5v6.2L12.8 21l8.2-8.2-9.3-9.3H5.5a2 2 0 0 0-2 2Z" stroke="currentColor" strokeWidth="1.55" strokeLinejoin="round" />
+      <circle cx="8" cy="8" r="1.25" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function UserIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="7.5" r="4" stroke="currentColor" strokeWidth="1.55" />
+      <path d="M4.5 21c.7-4.2 3.2-6.3 7.5-6.3s6.8 2.1 7.5 6.3" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const setupSteps = [
+  {
+    title: "Connect your platform",
+    description: "Choose your platform and authorize the connection.",
+    icon: LinkIcon,
+  },
+  {
+    title: "Add your secret key",
+    description: "Add your API key or token to secure the integration.",
+    icon: KeyIcon,
+  },
+  {
+    title: "Test and publish",
+    description: "Run a quick test, then start publishing content.",
+    icon: CheckIcon,
+  },
+] as const;
+
+const dockLinks = [
+  { label: "Home", href: "/", icon: HomeIcon, active: true },
+  { label: "How it works", href: "/#how-it-works", icon: GearIcon, active: false },
+  { label: "Pricing", href: "/pricing", icon: TagIcon, active: false },
+  { label: "Sign in", href: "/login", icon: UserIcon, active: false },
+] as const;
 
 export default function IntegrationsHelpPage() {
   return (
-    <div>
-      <SiteHeader />
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-24 sm:pt-32">
-        <section className="max-w-3xl">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Help</p>
-          <h1 className="type-display mt-3 text-4xl text-foreground sm:text-5xl">
-            Publishing integration setup guide
-          </h1>
-          <p className="mt-5 text-pretty text-lg leading-relaxed text-muted">
-            Use this guide when connecting a publishing destination, replacing a saved
-            credential, or troubleshooting a failed publish.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/settings?tab=integrations" className={buttonVariants({ size: "lg" })}>
-              Open app settings
-            </Link>
-            <Link
-              href="mailto:hello@seogeoaeo.ai"
-              className={buttonVariants({ variant: "secondary", size: "lg" })}
-            >
-              Contact support
-            </Link>
-          </div>
-        </section>
-
-        <section className="mt-12 grid gap-4 md:grid-cols-2">
-          <Card className="material-panel border-border/50">
-            <h2 className="type-title text-xl text-foreground">Quick setup</h2>
-            <ol className="mt-4 space-y-3 text-sm leading-relaxed text-muted">
-              {quickSteps.map((step, index) => (
-                <li key={step} className="flex gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent-soft-foreground">
-                    {index + 1}
-                  </span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-          </Card>
-
-          <Card className="material-panel border-border/50">
-            <h2 className="type-title text-xl text-foreground">Secret safety</h2>
-            <p className="mt-4 text-sm leading-relaxed text-muted">
-              API keys, application passwords, and tokens are encrypted at rest and are
-              never shown again after saving. Settings shows whether a secret is saved,
-              and users can enter a new value to replace it.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-muted">
-              Clearing an integration disables it, removes non-secret config, and deletes
-              its encrypted secret rows.
-            </p>
-          </Card>
-        </section>
-
-        <section className="mt-16">
-          <h2 className="type-title text-2xl text-foreground">Available destinations</h2>
-          <div className="material-panel mt-6 overflow-hidden rounded-2xl">
-            <div className="grid grid-cols-1 divide-y divide-border/50 md:grid-cols-[1fr_1.4fr_1fr] md:divide-x md:divide-y-0">
-              <div className="bg-surface-muted/80 px-4 py-3 text-sm font-semibold tracking-tight text-foreground">
-                Destination
-              </div>
-              <div className="bg-surface-muted/80 px-4 py-3 text-sm font-semibold tracking-tight text-foreground">
-                Required setup
-              </div>
-              <div className="bg-surface-muted/80 px-4 py-3 text-sm font-semibold tracking-tight text-foreground">
-                Optional setup
-              </div>
+    <div className={styles.page}>
+      <main className={styles.main}>
+        <section className={styles.hero} aria-labelledby="publishing-guide-title">
+          <div className={styles.heroCopy}>
+            <div className={styles.helpBadge}>
+              <span aria-hidden="true" />
+              Help
             </div>
-            {availableProviders.map((provider) => (
-              <div
-                key={provider.id}
-                className="grid grid-cols-1 divide-y divide-border/50 border-t border-border/50 md:grid-cols-[1fr_1.4fr_1fr] md:divide-x md:divide-y-0"
-              >
-                <div className="px-4 py-4">
-                  <p className="font-medium tracking-tight text-foreground">{provider.name}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">
-                    {provider.description}
-                  </p>
-                </div>
-                <div className="px-4 py-4 text-sm leading-relaxed text-muted">
-                  {requiredSetup(provider)}
-                </div>
-                <div className="px-4 py-4 text-sm leading-relaxed text-muted">
-                  {optionalSetup(provider)}
-                </div>
-              </div>
-            ))}
+            <h1 id="publishing-guide-title" className={styles.title}>
+              Publishing integration
+              <br />
+              setup guide
+            </h1>
+            <p className={styles.lede}>
+              Connect your preferred platform in just a few steps
+              <br className={styles.desktopBreak} /> to start publishing with Claudia.
+            </p>
+            <div className={styles.actions}>
+              <Link className={styles.primaryAction} href="/settings?tab=integrations">
+                Open settings
+                <ArrowRightIcon className={styles.actionIcon} />
+              </Link>
+              <Link className={styles.secondaryAction} href="mailto:hello@seogeoaeo.ai">
+                <MessageIcon className={styles.messageIcon} />
+                Contact support
+              </Link>
+            </div>
           </div>
+          <PublishingGuideContents />
         </section>
 
-        <section className="mt-16">
-          <h2 className="type-title text-2xl text-foreground">Provider notes</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {availableProviders.map((provider) => (
-              <Card key={provider.id} className="material-panel border-border/50">
-                <h3 className="font-semibold tracking-tight text-foreground">{provider.name}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {provider.requirements.summary}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {provider.requirements.helpText}
-                </p>
-              </Card>
-            ))}
-          </div>
+        <section id="quick-setup" className={styles.quickCard} aria-labelledby="quick-setup-title">
+          <header className={styles.quickHeader}>
+            <span className={styles.headerIcon}>
+              <BoltIcon />
+            </span>
+            <span>
+              <h2 id="quick-setup-title">Quick setup</h2>
+              <p>Get connected and publishing in three simple steps.</p>
+            </span>
+          </header>
+
+          <ol className={styles.steps}>
+            {setupSteps.map((step, index) => {
+              const StepIcon = step.icon;
+              return (
+                <li key={step.title} className={styles.step}>
+                  <div className={styles.stepVisual}>
+                    <span className={styles.stepNumber}>{index + 1}</span>
+                    <span className={styles.stepIcon}>
+                      <StepIcon />
+                    </span>
+                  </div>
+                  <div className={styles.stepCopy}>
+                    <h3>{step.title}</h3>
+                    <p>{step.description}</p>
+                  </div>
+                  {index < setupSteps.length - 1 ? (
+                    <ArrowRightIcon className={styles.stepArrow} />
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
         </section>
 
-        <section className="mt-16">
-          <h2 className="type-title text-2xl text-foreground">Gated destinations</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
-            These destinations are listed in Settings so users know what is planned, but
-            generic API keys are not collected for them. They require OAuth, approved app
-            access, or legacy-token handling that is not implemented yet.
-          </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {gatedProviders.map((provider) => (
-              <Card key={provider.id} className="material-panel border-border/50">
-                <h3 className="font-semibold tracking-tight text-foreground">{provider.name}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {provider.requirements.summary}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {provider.requirements.helpText}
-                </p>
-              </Card>
-            ))}
+        <section id="secret-safety" className={styles.safetyCard} aria-labelledby="secret-safety-title">
+          <span className={styles.safetyIcon}>
+            <ShieldIcon />
+          </span>
+          <div className={styles.safetyCopy}>
+            <h2 id="secret-safety-title">Secret safety</h2>
+            <p>
+              Your keys are encrypted and never shared. You can rotate or remove them anytime
+              <br className={styles.desktopBreak} /> from your settings.
+            </p>
           </div>
+          <span className={styles.secureBadge}>Your data is secure</span>
         </section>
 
-        <section className="mt-16">
-          <h2 className="type-title text-2xl text-foreground">Troubleshooting</h2>
-          <div className="mt-6 divide-y divide-border/40 border-y border-border/40">
-            {troubleshootingItems.map((item) => (
-              <details key={item.title} className="group py-5">
-                <summary className="pressable flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg text-left text-base font-medium tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
-                  {item.title}
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 text-muted transition-transform duration-ui ease-out-strong group-open:rotate-45">
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="size-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeWidth={2}
-                      aria-hidden
-                    >
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </span>
-                </summary>
-                <p className="mt-3 text-pretty text-sm leading-relaxed text-muted">
-                  {item.body}
-                </p>
-              </details>
-            ))}
-          </div>
-        </section>
-
-        <section className="material-panel mt-16 rounded-2xl px-5 py-6">
-          <h2 className="type-title text-xl text-foreground">When contacting support</h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            Include these details so support can investigate without asking for secrets:
-          </p>
-          <ul className="mt-4 grid gap-2 text-sm text-muted sm:grid-cols-2">
-            {supportChecklist.map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-                <span className="leading-relaxed">{item}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-sm leading-relaxed text-muted">
-            Never send raw API keys, application passwords, OAuth tokens, or Ghost Admin
-            API secrets. Replace the saved secret in Settings instead.
-          </p>
-        </section>
+        <span id="provider-comparison" className={styles.anchorTarget} aria-hidden="true" />
+        <span id="troubleshooting" className={styles.anchorTarget} aria-hidden="true" />
       </main>
-      <SiteFooter />
+
+      <nav className={styles.dock} aria-label="Primary navigation">
+        <div className={styles.dockLinks}>
+          {dockLinks.map((item) => {
+            const DockIcon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={item.active ? styles.activeDockLink : styles.dockLink}
+                aria-current={item.active ? "page" : undefined}
+              >
+                <DockIcon className={styles.dockIcon} />
+                <span>{item.label}</span>
+                {item.active ? <span className={styles.activeDot} aria-hidden="true" /> : null}
+              </Link>
+            );
+          })}
+        </div>
+        <span className={styles.dockDivider} aria-hidden="true" />
+        <Link className={styles.hireButton} href="/login">
+          <InsightIcon className={styles.insightIcon} />
+          Hire Claudia
+        </Link>
+      </nav>
     </div>
   );
 }

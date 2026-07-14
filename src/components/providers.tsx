@@ -2,27 +2,43 @@
 
 import { RouterProvider } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { Suspense, useCallback, useState, type ReactNode } from "react";
+import {
+  NavigationProgress,
+  useProgressRouter,
+} from "@/components/feedback/navigation-progress";
+import { ApiError } from "@/lib/api/fetcher";
+import { queryPolicy } from "@/lib/api/query-policy";
+
+function retryTransientFailure(failureCount: number, error: unknown) {
+  if (failureCount >= 1) return false;
+  if (!(error instanceof ApiError)) return true;
+  return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
+}
 
 /**
  * Client-side data layer. The whole app fetches through React Query talking
  * directly to /api routes: there is no server-component data fetching.
  */
 export function Providers({ children }: { children: ReactNode }) {
-  const router = useRouter();
+  const router = useProgressRouter();
+  const navigate = useCallback((path: string) => router.push(path), [router]);
   const [client] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Keep fetched data "fresh" for 5 min so switching back to a page
-            // renders from cache instead of refetching + showing a spinner.
-            staleTime: 5 * 60_000,
-            // Hold cached pages in memory for 10 min after they go unused.
-            gcTime: 10 * 60_000,
-            retry: 1,
+            // Individual queries override this by data nature. This is the safe
+            // fallback for any new working-data query.
+            ...queryPolicy.working,
+            retry: retryTransientFailure,
             refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
+          },
+          mutations: {
+            // Writes are never replayed implicitly; the UI can offer an
+            // explicit retry when an operation is safe to repeat.
+            retry: false,
           },
         },
       }),
@@ -33,7 +49,10 @@ export function Providers({ children }: { children: ReactNode }) {
   // of full-page loads. Uses HeroUI's re-exported RouterProvider so it shares
   // the same react-aria context instance the components consume.
   return (
-    <RouterProvider navigate={(path) => router.push(path)}>
+    <RouterProvider navigate={navigate}>
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     </RouterProvider>
   );
