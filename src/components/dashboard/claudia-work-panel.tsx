@@ -70,6 +70,7 @@ const scheduledFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   hour: "numeric",
   minute: "2-digit",
+  timeZone: "UTC",
 });
 
 const timelineFormatter = new Intl.DateTimeFormat("en-US", {
@@ -77,6 +78,7 @@ const timelineFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
+  timeZone: "UTC",
 });
 
 function isHalted(state: AgentState) {
@@ -100,7 +102,7 @@ function getUnblockAction(
     };
   }
   if (state.presence.id === "needs_attention") {
-    return { href: "/activity", label: "Recover task" };
+    return { href: "/work", label: "Recover task" };
   }
 
   const reason = state.presence.reason.toLowerCase();
@@ -594,7 +596,7 @@ export function ClaudiaWorkPanel({ state }: { state: AgentState }) {
           statusLabel={statusLabel}
         >
           <Link
-            href="/activity"
+            href="/work"
             className={cn(
               buttonVariants({ size: "sm", variant: "outline" }),
               styles.mediaControl,

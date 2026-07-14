@@ -8,13 +8,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { AutomationSection } from "@/components/settings/automation-section";
 import { BrandSection } from "@/components/settings/brand-section";
 import { IntegrationsSection } from "@/components/settings/integrations-section";
-import { WorkshopSection } from "@/components/settings/workshop-section";
 
 const tabs = [
   { id: "brand", label: "Brand" },
   { id: "automation", label: "How I work" },
   { id: "integrations", label: "Connections" },
-  { id: "workshop", label: "Workshop" },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -62,9 +60,6 @@ function SettingsContent() {
         </Tabs.Panel>
         <Tabs.Panel className="pt-4" id="integrations">
           <IntegrationsSection />
-        </Tabs.Panel>
-        <Tabs.Panel className="pt-4" id="workshop">
-          <WorkshopSection />
         </Tabs.Panel>
       </Tabs>
     </main>

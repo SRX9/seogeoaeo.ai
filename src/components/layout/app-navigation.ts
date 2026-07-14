@@ -1,15 +1,10 @@
 import type { ComponentType } from "react";
 import {
   ActivityIcon,
-  ArticlesIcon,
-  ChartBarIcon,
   CreditCardIcon,
-  GaugeIcon,
   InboxIcon,
   ClaudiaIcon,
   SettingsIcon,
-  TopicsIcon,
-  WorkshopIcon,
 } from "@/components/icons";
 
 export type AppNavItem = {
@@ -21,12 +16,7 @@ export type AppNavItem = {
 export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { href: "/dashboard", label: "Claudia", icon: ClaudiaIcon },
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
-  { href: "/topics", label: "Topics", icon: TopicsIcon },
-  { href: "/articles", label: "Articles", icon: ArticlesIcon },
-  { href: "/visibility", label: "Visibility", icon: GaugeIcon },
-  { href: "/reports", label: "Reports", icon: ChartBarIcon },
-  { href: "/activity", label: "Activity", icon: ActivityIcon },
-  { href: "/tools", label: "Tools", icon: WorkshopIcon },
+  { href: "/work", label: "Work", icon: ActivityIcon },
 ];
 
 export const APP_FOOTER_ITEMS: readonly AppNavItem[] = [
@@ -58,5 +48,16 @@ export function appRouteTitle(pathname: string, firstName: string) {
 
 export function isAppRouteCurrent(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === href;
+  if (href === "/work") {
+    return [
+      "/work",
+      "/activity",
+      "/topics",
+      "/articles",
+      "/visibility",
+      "/reports",
+      "/tools",
+    ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

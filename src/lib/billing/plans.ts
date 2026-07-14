@@ -125,17 +125,23 @@ export function dailyArticleCapForPlan(planId: string | null | undefined): numbe
   return plans[planId as PlanId]?.dailyArticleCap ?? 0;
 }
 
-/** Approximate articles a plan's monthly credits buy: for display only. */
-export function articlesPerMonth(monthlyCredits: number): number {
-  return Math.floor(monthlyCredits / CREDIT_COSTS.article_generation);
+/**
+ * Maximum article-draft equivalent for display only. This assumes every credit
+ * is spent on writing and also respects the daily generation safety cap.
+ */
+export function articleDraftEquivalent(plan: Plan): number {
+  const creditLimit = Math.floor(
+    plan.monthlyCredits / CREDIT_COSTS.article_generation,
+  );
+  return Math.min(creditLimit, plan.dailyArticleCap * 30);
 }
 
 /** One-line taglines per plan, shared by every pricing surface. */
 export const planTaglines: Record<PlanId, string> = {
-  indie: "For one brand with monthly visibility checks",
-  startup: "For weekly content and ongoing site improvements",
-  scale: "For weekly audits and a larger content schedule",
-  enterprise: "For teams managing several brands",
+  indie: "Light monthly workload for one active brand",
+  startup: "Steady weekly work for a growing brand",
+  scale: "Continuous high-volume organic growth work",
+  enterprise: "Maximum capacity for teams and multiple brands",
 };
 
 const CADENCE_LABELS: Record<VisibilityCaps["monitoringCadence"], string> = {
@@ -154,15 +160,10 @@ export function planFeatureList(planId: PlanId): string[] {
   const plan = plans[planId];
   const caps = plan.visibility;
   return [
-    `Writes up to ${articlesPerMonth(plan.monthlyCredits)} articles/mo (${plan.dailyArticleCap}/day)`,
-    "Daily topic research and writing, with optional automatic publishing",
-    `${CADENCE_LABELS[caps.monitoringCadence]} visibility audits for Google and AI answers`,
-    `${caps.trackedPrompts} prompts tracked across ChatGPT, Perplexity, and Gemini`,
-    `Up to ${caps.autoFixCap} prepared site fixes each month`,
-    `${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"} included in benchmarks`,
-    ...(caps.pdfReports ? ["Downloadable PDF reports"] : []),
-    "Publishing to WordPress, Ghost, dev.to, Hashnode, and webhooks",
-    "Search Console traffic tracking",
+    `${plan.monthlyCredits.toLocaleString()} work credits each month`,
+    `Up to ${articleDraftEquivalent(plan).toLocaleString()} article-draft equivalents if all capacity goes to writing`,
+    `Up to ${plan.dailyArticleCap} article draft${plan.dailyArticleCap === 1 ? "" : "s"} per day`,
+    `${CADENCE_LABELS[caps.monitoringCadence]} monitoring for ${caps.trackedPrompts} buyer questions and ${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"}`,
   ];
 }
 

@@ -1147,6 +1147,7 @@ export async function prefetchRouteQueries(
     case "/reports":
       await queryClient.prefetchQuery(reportsQueryOptions());
       break;
+    case "/work":
     case "/activity":
       await Promise.all([
         queryClient.prefetchQuery(activityQueryOptions()),

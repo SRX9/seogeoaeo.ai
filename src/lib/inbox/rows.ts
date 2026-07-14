@@ -118,8 +118,8 @@ export function buildInboxRows({
           : `Install ${installReady.length} prepared fixes`,
       why:
         installReady.length === 1
-          ? "Copy this fix to your site, then mark it done. Claudia will check it in the next audit."
-          : `Start with "${lead.title}". Copy each fix to your site, then mark it done.`,
+          ? "Use Claudia's coding-agent prompt or manual steps, then mark it installed for verification."
+          : `Start with "${lead.title}". Each fix includes a coding-agent prompt and manual steps.`,
       href: "/visibility/fixes",
       cta: "Review fixes",
       findings: installReady,

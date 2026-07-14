@@ -39,16 +39,6 @@ export function DashboardLoadingState() {
           </div>
         </div>
       </Card>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
-          <Card key={item} className="min-h-44 p-5">
-            <Line className="h-4 w-28 rounded-lg" />
-            <Line className="mt-3 h-8 w-20 rounded-lg" />
-            <Line className="mt-1.5 h-4 w-32 rounded-lg" />
-            <Line className="mt-4 h-12 w-full rounded-lg" />
-          </Card>
-        ))}
-      </div>
     </div>
   );
 }

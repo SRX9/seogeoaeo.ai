@@ -5,7 +5,7 @@ import { SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Plans for Claudia | seogeoaeo.ai",
   description:
-    "Choose a monthly workload for Claudia. Plans cover research, writing, audits, prepared site fixes, and weekly reporting.",
+    "Every paid plan includes the same Claudia. Choose monthly work capacity for research, writing, audits, prepared fixes, and follow-up.",
   alternates: { canonical: `${SITE_URL}/pricing` },
 };
 

@@ -11,7 +11,7 @@ import { apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useBrandProfile, useVisibilityFindings, type VisibilityFinding } from "@/lib/api/queries";
 import { buildFixArtifact } from "@/lib/visibility/fix-artifact";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
-import { buildFixPrompt } from "@/lib/visibility/fix-prompt";
+import { buildFixPrompt, buildManualFixGuide } from "@/lib/visibility/fix-prompt";
 
 type Severity = VisibilityFinding["severity"];
 type QueueState = "all" | "ready" | "guided";
@@ -89,6 +89,7 @@ function QueueSkeleton() {
 function FixDetail({ finding, website }: { finding: VisibilityFinding; website: string | null }) {
   const artifact = buildFixArtifact(finding.fixPayload);
   const prompt = buildFixPrompt(finding, website);
+  const manualGuide = buildManualFixGuide(finding, website);
   const hasArtifact = artifact.content.trim().length > 0;
   const queryClient = useQueryClient();
   const invalidate = () => {
@@ -134,7 +135,8 @@ function FixDetail({ finding, website }: { finding: VisibilityFinding; website: 
         <div className="mt-4 flex flex-wrap gap-2">
           {hasArtifact ? <Button size="sm" variant="secondary" onPress={() => void copyText(artifact.content)}>Copy Fix</Button> : null}
           {artifact.mode === "file" && artifact.filename ? <Button size="sm" variant="secondary" onPress={() => downloadFile(artifact.filename!, artifact.content)}>Download</Button> : null}
-          <Button size="sm" variant="secondary" onPress={() => void copyText(prompt)}>Copy Prompt</Button>
+          <Button size="sm" variant="secondary" onPress={() => void copyText(prompt)}>Copy coding-agent prompt</Button>
+          <Button size="sm" variant="secondary" onPress={() => void copyText(manualGuide)}>Copy manual steps</Button>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           {isInstallReady(finding.fixCapability) ? <Button size="sm" isPending={markInstalled.isPending} onPress={() => markInstalled.mutate()}>I Installed This</Button> : null}

@@ -32,6 +32,7 @@ import { authClient } from "@/lib/auth/client";
 import { buildInboxRows, type InboxRow } from "@/lib/inbox/rows";
 import { GOOGLE_TRAFFIC_SCOPES } from "@/lib/integrations/google-scopes";
 import { buildFixArtifact } from "@/lib/visibility/fix-artifact";
+import { buildFixPrompt, buildManualFixGuide } from "@/lib/visibility/fix-prompt";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
 import { cn } from "@/lib/cn";
 
@@ -169,20 +170,25 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
     }
   }
 
-  async function copyArtifact(finding: VisibilityFinding) {
-    const artifact = buildFixArtifact(finding.fixPayload);
-    const text = artifact.content.trim();
-    if (!text) {
-      toast.info("This fix needs a few manual steps. Open the full fix queue for instructions.");
-      return;
-    }
+  async function copyHandoff(
+    finding: VisibilityFinding,
+    kind: "prompt" | "manual",
+  ) {
+    const text =
+      kind === "prompt"
+        ? buildFixPrompt(finding)
+        : buildManualFixGuide(finding);
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedId(finding.id);
+      setCopiedId(`${finding.id}-${kind}`);
       setTimeout(() => setCopiedId(null), 2000);
-      toast.success("Fix copied. Install it on your site, then mark it done.");
+      toast.success(
+        kind === "prompt"
+          ? "Coding-agent prompt copied."
+          : "Manual steps copied.",
+      );
     } catch {
-      toast.danger("Your browser blocked clipboard access. Copy the fix from the full queue instead.");
+      toast.danger("Your browser blocked clipboard access. Open the full fix for the handoff.");
     }
   }
 
@@ -212,16 +218,22 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
                 </span>
               </Button>
               <div className="flex shrink-0 flex-wrap gap-1.5">
-                {hasArtifact ? (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    isDisabled={applying}
-                    onPress={() => copyArtifact(finding)}
-                  >
-                    {copiedId === finding.id ? "Copied ✓" : "Copy fix"}
-                  </Button>
-                ) : null}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  isDisabled={applying}
+                  onPress={() => copyHandoff(finding, "prompt")}
+                >
+                  {copiedId === `${finding.id}-prompt` ? "Copied" : "Copy coding prompt"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  isDisabled={applying}
+                  onPress={() => copyHandoff(finding, "manual")}
+                >
+                  {copiedId === `${finding.id}-manual` ? "Copied" : "Manual steps"}
+                </Button>
                 {ready ? (
                   <LoadingButton
                     size="sm"
@@ -249,7 +261,7 @@ function FixActions({ findings }: { findings: VisibilityFinding[] }) {
           href="/visibility/fixes"
           className="inline-block text-sm text-muted transition-colors hover-fine:text-foreground"
         >
-          View all {findings.length} in Workshop
+          View all {findings.length} prepared fixes
         </Link>
       ) : null}
     </div>

@@ -25,7 +25,7 @@ import {
 import { useActivity, useAgentIsLive } from "@/lib/api/queries";
 
 const FILTERS: { id: StreamFilter; label: string }[] = [
-  { id: "all", label: "All Activity" },
+  { id: "all", label: "All work" },
   { id: "active", label: "In Progress" },
   { id: "content", label: "Content" },
   { id: "visibility", label: "Visibility" },
@@ -148,7 +148,7 @@ function WorkLogTimeline({ items }: { items: ActivityFeedItem[] }) {
         <EmptyState>
           <EmptyState.Header>
             <EmptyState.Media variant="icon"><ActivityIcon /></EmptyState.Media>
-            <EmptyState.Title>No Activity Here</EmptyState.Title>
+            <EmptyState.Title>No work here</EmptyState.Title>
             <EmptyState.Description>New work will appear here as Claudia completes it.</EmptyState.Description>
           </EmptyState.Header>
         </EmptyState>
@@ -178,7 +178,7 @@ function LoadingTimeline() {
   );
 }
 
-export default function ActivityPage() {
+export default function WorkPage() {
   const activity = useActivity();
   const live = useAgentIsLive();
   const [filter, setFilter] = useState<StreamFilter>("all");
@@ -191,8 +191,8 @@ export default function ActivityPage() {
       <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl">
           <ToneText tone={live ? "success" : "accent"}>{live ? "Working Now" : "On Duty"}</ToneText>
-          <h1 className="sr-only">Activity</h1>
-          <p className="mt-1 text-sm leading-6 text-muted">A clear record of research, content, setup, and visibility work.</p>
+          <h1 className="sr-only">Work</h1>
+          <p className="mt-1 text-sm leading-6 text-muted">Everything Claudia is doing, has completed, or needs you to review.</p>
         </div>
         <Select
           aria-label="Filter work log"
@@ -219,7 +219,7 @@ export default function ActivityPage() {
             <ActivityIcon className="size-5" />
           </span>
           <div className="min-w-0">
-            <Card.Title>Current Activity</Card.Title>
+            <Card.Title>Current work</Card.Title>
             <Card.Description className="mt-1 line-clamp-2">
               {activeItem?.narrative ?? "Monitoring your priorities and ready for the next run."}
             </Card.Description>
@@ -228,9 +228,9 @@ export default function ActivityPage() {
       </Card>
 
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">Activity</h2>
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">Work history</h2>
         <span className="text-sm text-muted tabular-nums">
-          {visibleItems.length} {visibleItems.length === 1 ? "Item" : "Items"}
+          {visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}
         </span>
       </div>
 
