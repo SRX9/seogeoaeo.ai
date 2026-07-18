@@ -89,6 +89,47 @@ export async function listIntegrations(brandId: string): Promise<IntegrationView
   );
 }
 
+/** Tenant-scoped connector binding used to freeze a live mutation to one site. */
+export async function getIntegrationBinding(
+  scope: BrandScope,
+  providerId: IntegrationProviderId,
+) {
+  const [row] = await getDb()
+    .select()
+    .from(integrations)
+    .where(
+      and(
+        eq(integrations.workspaceId, scope.workspaceId),
+        eq(integrations.brandId, scope.brandId),
+        eq(integrations.provider, providerId),
+      ),
+    )
+    .limit(1);
+  const provider = getIntegrationProvider(providerId);
+  if (!row || !provider) return null;
+  const config = parseConfig(row.configJson);
+  const secretStates = secretStatesForProvider(
+    providerId,
+    await listSecretKeys(row.id),
+  );
+  return {
+    ...provider,
+    integrationId: row.id,
+    integrationUpdatedAt: row.updatedAt,
+    provider: providerId,
+    capabilities: connectorCapabilities(providerId),
+    enabled: row.enabled,
+    config,
+    secretStates,
+    requirementsMet: integrationRequirementsMet(provider, config, secretStates),
+    available: provider.status === "available",
+    configurable: provider.status === "available",
+  } satisfies IntegrationView & {
+    integrationId: string;
+    integrationUpdatedAt: Date;
+  };
+}
+
 async function ensureIntegration(scope: BrandScope, provider: IntegrationProviderId) {
   const existing = await getIntegrationRow(scope.brandId, provider);
   if (existing) {

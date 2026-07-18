@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { auditFindings } from "@/lib/db/schema/visibility";
 import { buildFixArtifact, type FixArtifact } from "@/lib/visibility/fix-artifact";
+import { getAgentControlState } from "@/lib/agent/memory";
+import { assertAgentOperationAllowed } from "@/lib/agent/safety";
 
 /**
  * V7.2: resolve a finding after its fix is installed (or claimed installed).
@@ -47,6 +49,10 @@ export async function applyFix(
   source: "agent" | "user" = "user",
 ): Promise<ApplyResult> {
   const finding = await loadOwnedFinding(findingId, workspaceId);
+  if (source === "agent") {
+    const controls = finding.brandId ? await getAgentControlState(finding.brandId) : undefined;
+    assertAgentOperationAllowed("site_write", { actor: "agent", controls });
+  }
   const artifact = buildFixArtifact(finding.fixPayload);
   const db = getDb();
   await db

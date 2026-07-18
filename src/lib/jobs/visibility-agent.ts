@@ -1,4 +1,5 @@
 import type { VisibilityCaps } from "@/lib/billing/plans";
+import { canLiveApplyCapability } from "@/lib/connectors/certification";
 import { AUTONOMY_CATEGORIES } from "@/lib/visibility/display";
 
 /**
@@ -7,9 +8,9 @@ import { AUTONOMY_CATEGORIES } from "@/lib/visibility/display";
  * Pure cadence + dispatch decision logic; orchestration lives in
  * `fix-policy.dispatchOpenFindings` + visibility cron / AuditRunWorkflow.
  *
- * Live site push: no host/CMS channel yet for robots/llms/JSON-LD/meta on the
- * customer origin. Until that ships, Level 2 is not offered in UI and
- * {@link canLiveApply} stays false: never mark `auto_applied` without a channel.
+ * Visibility fixes stay at Prepare until their exact connector capability is
+ * passed in with a valid certification gate. Never mark `auto_applied` merely
+ * because some other connector capability has been certified.
  */
 
 export type AutonomyLevel = 0 | 1 | 2; // 0 watch · 1 prepare · 2 live-apply (when available)
@@ -32,13 +33,19 @@ export const AUTO_CAPABLE_CATEGORIES: ReadonlySet<string> = new Set(
 );
 
 /**
- * Whether Claudia can push a fix onto the live site without the owner pasting
- * or uploading. Currently false for every capability. Flip per-capability when
- * a CMS/plugin channel is wired.
+ * Whether Claudia can push this exact capability onto the live site. Callers
+ * without a matching certification record fail closed.
  */
-export function canLiveApply(_fixCapability: string | null): boolean {
-  void _fixCapability;
-  return false;
+export function canLiveApply(
+  fixCapability: string | null,
+  gate?: Parameters<typeof canLiveApplyCapability>[0],
+): boolean {
+  return Boolean(
+    fixCapability &&
+      gate &&
+      gate.capability === fixCapability &&
+      canLiveApplyCapability(gate),
+  );
 }
 
 /** A prepared fix must contain an installable payload, not only generic guidance. */
@@ -79,11 +86,19 @@ export interface FindingKey {
   title: string;
 }
 
-const CADENCE_DAYS: Record<VisibilityCaps["monitoringCadence"], number> = {
+export const MONITORING_CADENCE_DAYS: Record<
+  VisibilityCaps["monitoringCadence"],
+  number
+> = {
   none: Number.POSITIVE_INFINITY,
   monthly: 30,
   weekly: 7,
 };
+
+/** Longest finite interval after which a scheduled visibility observation is stale. */
+export const MAX_FINITE_MONITORING_CADENCE_DAYS = Math.max(
+  ...Object.values(MONITORING_CADENCE_DAYS).filter(Number.isFinite),
+);
 
 /** Is a site due for a scheduled re-audit given the plan cadence? */
 export function dueForReaudit(
@@ -94,7 +109,7 @@ export function dueForReaudit(
   if (cadence === "none") return false;
   if (!lastAuditAt) return true;
   const ageDays = (now.getTime() - lastAuditAt.getTime()) / 86_400_000;
-  return ageDays >= CADENCE_DAYS[cadence];
+  return ageDays >= MONITORING_CADENCE_DAYS[cadence];
 }
 
 /**

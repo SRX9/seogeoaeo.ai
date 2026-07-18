@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { brandOnboardingSchema } from "@/lib/brand/schemas";
 import { onboardingProgress } from "@/lib/onboarding/status";
+import { firstOutcomeObjective } from "@/lib/onboarding/first-outcome";
 
 describe("onboarding progress", () => {
   it("counts completed steps", () => {
@@ -36,5 +37,18 @@ describe("brandOnboardingSchema", () => {
       wordpress_application_password: "app-password",
     });
     expect("integrationApiKey" in parsed).toBe(false);
+    expect(parsed.firstOutcome).toBe("discovery");
+  });
+
+  it("accepts a first outcome and turns it into Claudia's initial objective", () => {
+    const parsed = brandOnboardingSchema.parse({
+      name: "Acme",
+      website: "https://example.com",
+      firstOutcome: "ai_answers",
+    });
+
+    expect(firstOutcomeObjective(parsed.firstOutcome, parsed.name)).toBe(
+      "Increase trusted mentions and citations for Acme in relevant AI answers.",
+    );
   });
 });

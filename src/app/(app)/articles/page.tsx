@@ -7,29 +7,19 @@ import { ArticlesList } from "@/components/articles/articles-list";
 import { Section } from "@/components/feedback/section";
 import { ResearchIcon } from "@/components/icons";
 import { PageHeader } from "@/components/layout/page-header";
-import { useArticles, useTopics } from "@/lib/api/queries";
+import { combineQueries, useArticles, useAutomation, useTopics } from "@/lib/api/queries";
 
 function ArticlesSkeleton() {
   return (
-    <div className="space-y-6" aria-label="Loading articles">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
-          <Card key={item} className="gap-3">
-            <Skeleton className="h-4 w-24 rounded-lg" />
-            <Skeleton className="h-8 w-14 rounded-lg" />
-          </Card>
-        ))}
-      </div>
-      <Card className="gap-4">
-        <Skeleton className="h-10 w-full rounded-xl sm:max-w-sm" />
-        {[0, 1, 2, 3, 4].map((item) => (
-          <div key={item} className="flex items-center gap-4 py-2">
-            <Skeleton className="h-5 w-24 rounded-lg" />
-            <Skeleton className="h-5 flex-1 rounded-lg" />
-            <Skeleton className="hidden h-5 w-28 rounded-lg sm:block" />
-          </div>
-        ))}
-      </Card>
+    <div className="space-y-5" aria-label="Loading content">
+      {[0, 1].map((section) => (
+        <Card key={section} className="space-y-4 rounded-3xl p-6">
+          <Skeleton className="h-6 w-36 rounded-lg" />
+          {[0, 1, 2].map((item) => (
+            <Skeleton key={item} className="h-20 rounded-xl" />
+          ))}
+        </Card>
+      ))}
     </div>
   );
 }
@@ -37,27 +27,33 @@ function ArticlesSkeleton() {
 export default function ArticlesPage() {
   const articles = useArticles();
   const topics = useTopics();
+  const automation = useAutomation();
+  const content = combineQueries(articles, automation);
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <PageHeader
-        title="Articles"
-        description="Create, review, and publish content built to earn search and AI visibility."
+        title="Content"
+        description="Everything Claudia is preparing, publishing, and improving for your brand."
         actions={
-          <Link href="/topics" className={buttonVariants({ variant: "primary" })}>
+          <Link href="/topics" className={buttonVariants({ variant: "outline" })}>
             <ResearchIcon className="size-4" />
-            Create From Topic
+            Content ideas
           </Link>
         }
       />
 
       <Section
-        query={articles}
+        query={content}
         skeleton={<ArticlesSkeleton />}
-        errorLabel="Couldn't load your articles."
+        errorLabel="Couldn't load your content."
       >
-        {(data) => (
-          <ArticlesList articles={data.articles} topics={topics.data?.topics ?? []} />
+        {([articleData, automationData]) => (
+          <ArticlesList
+            articles={articleData.articles}
+            topics={topics.data?.topics ?? []}
+            autoPublish={automationData.autoPublish}
+          />
         )}
       </Section>
     </main>

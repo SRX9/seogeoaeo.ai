@@ -13,8 +13,9 @@ export async function runManualAudit(
   workspaceId: string,
   auditId: string,
   siteUrl: string,
+  options: { throwOnTransient?: boolean } = {},
 ): Promise<boolean> {
-  const ok = await executeAudit(auditId, siteUrl);
+  const ok = await executeAudit(auditId, siteUrl, options);
   if (ok) await spendForVisibilityJob(workspaceId, "visibility_audit", auditId);
   return ok;
 }

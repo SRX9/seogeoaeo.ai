@@ -1,4 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { brandUseCases } from "@/lib/db/schema";
 import { getBrandProfile, getBrand, type BrandScope } from "@/lib/brand/repository";
@@ -35,6 +36,14 @@ const MAX_USE_CASES = 24;
 
 /** How many rows the onboarding preview surfaces before any brand row exists. */
 const PREVIEW_USE_CASES = 8;
+const useCaseResponseSchema = z.object({
+  useCases: z.array(z.object({
+    job: z.string().min(1).max(500),
+    persona: z.string().min(1).max(500),
+    industry: z.string().max(500).nullable().optional(),
+    evidence: z.string().max(1_000).nullable().optional(),
+  })).max(MAX_USE_CASES).optional(),
+});
 
 function isUseCaseRow(row: UseCaseInput): boolean {
   return (
@@ -87,10 +96,10 @@ async function generateUseCaseInputs(
   );
 
   try {
-    const { data } = await generateJson<{ useCases?: UseCaseInput[] }>("light", [
+    const { data } = await generateJson("light", [
       { role: "system", content: prompt.system },
       { role: "user", content: prompt.user },
-    ]);
+    ], { schema: useCaseResponseSchema });
     return (Array.isArray(data?.useCases) ? data.useCases : []).filter(isUseCaseRow);
   } catch (error) {
     logWarn("use_cases.generation_failed", {

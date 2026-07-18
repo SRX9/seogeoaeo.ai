@@ -3,35 +3,97 @@
 import { Card, ProgressBar } from "@heroui/react";
 import { CheckIcon } from "@/components/icons";
 
-export type DiscoveryStage = "site" | "market";
+export type DiscoveryStage = "brand" | "opportunities";
+
+const DISCOVERY_STEPS = [
+  {
+    title: "Learning your brand",
+    description: "Understanding what you sell and who it helps.",
+  },
+  {
+    title: "Finding the best opportunities",
+    description: "Comparing customer needs and competitor coverage.",
+  },
+  {
+    title: "Preparing your first week",
+    description: "Turning the strongest findings into useful work.",
+  },
+] as const;
 
 function displayHost(website: string) {
-  try { return new URL(website).hostname.replace(/^www\./, ""); }
-  catch { return website.replace(/^https?:\/\//, "") || "your-site.com"; }
+  try {
+    return new URL(website).hostname.replace(/^www\./, "");
+  } catch {
+    return website.replace(/^https?:\/\//, "") || "your website";
+  }
 }
 
-export function BrandActivityMark({ brandName, website, className = "size-14" }: { brandName: string; website: string; className?: string }) {
-  const label = brandName || displayHost(website);
-  return <span className={`grid shrink-0 place-items-center rounded-2xl bg-surface-secondary text-sm font-semibold text-foreground ${className}`} aria-hidden>{label.slice(0, 2).toUpperCase()}</span>;
-}
+export function OnboardingDiscovery({
+  brandName,
+  website,
+  stage,
+}: {
+  brandName: string;
+  website: string;
+  stage: DiscoveryStage;
+}) {
+  const activeIndex = stage === "brand" ? 0 : 1;
 
-export function OnboardingDiscovery({ brandName, website, stage }: { brandName: string; website: string; stage: DiscoveryStage }) {
-  const market = stage === "market";
-  const steps = [
-    { label: "Reading Site", done: true, active: false },
-    { label: "Mapping Market", done: false, active: market },
-    { label: "Planning First Week", done: false, active: false },
-  ];
   return (
-    <div className="mx-auto flex min-h-[70dvh] w-full max-w-xl items-center py-10">
-      <Card className="w-full">
-        <Card.Header className="gap-2"><span className="text-sm font-medium text-accent">Discover</span><Card.Title>Building Your Operating Brief</Card.Title><Card.Description>{brandName || "Your brand"} · {displayHost(website)}</Card.Description></Card.Header>
-        <Card.Content className="space-y-6">
-          <ProgressBar value={market ? 66 : 33} aria-label="Discovery progress" size="sm"><ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track></ProgressBar>
-          <ol className="space-y-2" role="status" aria-live="polite">
-            {steps.map((item) => <li key={item.label} className="flex items-center gap-3 rounded-xl bg-surface-secondary p-4"><span className={`flex size-6 items-center justify-center rounded-full ${item.done ? "bg-success-soft text-success" : item.active ? "bg-accent-soft text-accent-soft-foreground" : "bg-default-soft text-muted"}`} aria-hidden>{item.done ? <CheckIcon className="size-3.5" /> : <span className="size-1.5 rounded-full bg-current" />}</span><span className="text-sm font-medium text-foreground">{item.label}</span>{item.active ? <span className="ml-auto text-xs text-muted">In Progress</span> : null}</li>)}
+    <div className="mx-auto flex min-h-dvh w-full max-w-xl items-center py-10">
+      <Card className="w-full rounded-3xl p-0">
+        <Card.Header className="p-6 pb-0 sm:p-8 sm:pb-0">
+          <p className="text-sm font-medium text-accent">Claudia is getting ready</p>
+          <Card.Title className="mt-2 text-2xl sm:text-3xl">
+            Learning about {brandName || displayHost(website)}
+          </Card.Title>
+          <Card.Description className="mt-2">{displayHost(website)}</Card.Description>
+        </Card.Header>
+        <Card.Content className="space-y-6 p-6 sm:p-8">
+          <ProgressBar value={activeIndex === 0 ? 33 : 66} aria-label="Brand discovery progress">
+            <ProgressBar.Track>
+              <ProgressBar.Fill />
+            </ProgressBar.Track>
+          </ProgressBar>
+          <ol className="space-y-1" role="status" aria-live="polite">
+            {DISCOVERY_STEPS.map((item, index) => {
+              const done = index < activeIndex;
+              const active = index === activeIndex;
+              return (
+                <li
+                  key={item.title}
+                  aria-current={active ? "step" : undefined}
+                  className="flex min-h-16 items-start gap-3 py-3"
+                >
+                  <span
+                    className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full ${
+                      done
+                        ? "bg-success-soft text-success"
+                        : active
+                          ? "bg-accent-soft text-accent-soft-foreground"
+                          : "bg-surface-secondary text-muted"
+                    }`}
+                    aria-hidden
+                  >
+                    {done ? (
+                      <CheckIcon className="size-3.5" />
+                    ) : (
+                      <span className="size-1.5 rounded-full bg-current" />
+                    )}
+                  </span>
+                  <span>
+                    <strong className="block text-sm font-semibold text-foreground">
+                      {item.title}
+                    </strong>
+                    <small className="mt-1 block text-sm leading-5 text-muted">
+                      {item.description}
+                    </small>
+                  </span>
+                </li>
+              );
+            })}
           </ol>
-          <p className="text-sm text-muted">You can leave this screen. Discovery will continue in the background.</p>
+          <p className="text-sm text-muted">This usually takes less than a minute.</p>
         </Card.Content>
       </Card>
     </div>

@@ -1,8 +1,16 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { brandProfiles, brands, competitors } from "@/lib/db/schema";
+import {
+  brandProfiles,
+  brands,
+  competitors,
+  type BrandIdentityMemoryPending,
+  type BrandProfileMemoryField,
+  type BrandProfileMemoryPending,
+} from "@/lib/db/schema";
 import { MAX_COMPETITORS, type BrandProfileInput, type CompetitorInput } from "@/lib/brand/schemas";
 import type { AutonomyMode } from "@/lib/workspace/settings";
+import { canEnrollNewFullAuto } from "@/lib/agent/safety";
 
 /** A brand always lives inside a workspace; writes need both ids. */
 export type BrandScope = { workspaceId: string; brandId: string };
@@ -74,10 +82,9 @@ export async function createBrand(workspaceId: string, name: string, autonomyMod
   if (await getBrandByName(workspaceId, trimmed)) {
     throw new BrandExistsError(trimmed);
   }
-  // Inherit autonomy from the workspace's most recent brand so a new brand runs
-  // the way the rest already do: preserving the pre-per-brand behaviour where
-  // all brands shared one mode. The very first brand falls back to the column
-  // default (FULL_AUTO).
+  // Preserve the workspace preference as a requested mode, but do not extend
+  // FULL_AUTO to a new brand until grounded publishing is certified. Existing
+  // brands are untouched by this enrollment freeze.
   const [sibling] = await getDb()
     .select({ autonomyMode: brands.autonomyMode })
     .from(brands)
@@ -85,13 +92,15 @@ export async function createBrand(workspaceId: string, name: string, autonomyMod
     .orderBy(desc(brands.createdAt))
     .limit(1);
   try {
+    const requestedMode = autonomyMode ?? sibling?.autonomyMode ?? "REVIEW";
+    const effectiveMode =
+      requestedMode === "FULL_AUTO" && !canEnrollNewFullAuto() ? "REVIEW" : requestedMode;
     const [brand] = await getDb()
       .insert(brands)
       .values({
         workspaceId,
         name: trimmed,
-        // An explicit onboarding choice (Autopilot/Copilot) wins over inheritance.
-        ...(autonomyMode ? { autonomyMode } : sibling ? { autonomyMode: sibling.autonomyMode } : {}),
+        autonomyMode: effectiveMode,
       })
       .returning();
     return brand;
@@ -107,12 +116,34 @@ export async function createBrand(workspaceId: string, name: string, autonomyMod
 }
 
 export async function renameBrand(workspaceId: string, brandId: string, name: string) {
-  const [brand] = await getDb()
-    .update(brands)
-    .set({ name, updatedAt: new Date() })
-    .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
-    .returning();
-  return brand ?? null;
+  return getDb().transaction(async (tx) => {
+    const lockKey = `brand-identity-write:${workspaceId}:${brandId}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    const [existing] = await tx
+      .select()
+      .from(brands)
+      .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
+      .limit(1)
+      .for("update");
+    if (!existing) return null;
+    const now = new Date();
+    const pending: BrandIdentityMemoryPending = {
+      ...existing.memoryProjectionPending,
+    };
+    if (existing.name !== name) {
+      pending.name = {
+        value: name.normalize("NFKC").trim().replace(/\s+/g, " "),
+        revision: crypto.randomUUID(),
+        writtenAt: now.toISOString(),
+      };
+    }
+    const [brand] = await tx
+      .update(brands)
+      .set({ name, updatedAt: now, memoryProjectionPending: pending })
+      .where(and(eq(brands.id, brandId), eq(brands.workspaceId, workspaceId)))
+      .returning();
+    return brand ?? null;
+  });
 }
 
 /** Set a single brand's autonomy mode (auto-publish vs review). */
@@ -159,30 +190,86 @@ export async function getBrandProfile(brandId: string) {
 }
 
 export async function upsertBrandProfile(scope: BrandScope, input: BrandProfileInput) {
-  const existing = await getBrandProfile(scope.brandId);
-  const values = {
-    productDescription: input.productDescription || null,
-    audience: input.audience || null,
-    tone: input.tone || null,
-    website: input.website || null,
-    seedKeywords: input.seedKeywords || null,
-    updatedAt: new Date(),
-  };
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    // The advisory lock also serializes the no-row-yet case, where FOR UPDATE
+    // alone cannot prevent two onboarding/profile requests from racing.
+    const lockKey = `brand-profile-write:${scope.workspaceId}:${scope.brandId}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    const [existing] = await tx
+      .select()
+      .from(brandProfiles)
+      .where(
+        and(
+          eq(brandProfiles.brandId, scope.brandId),
+          eq(brandProfiles.workspaceId, scope.workspaceId),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    const now = new Date();
+    const values = {
+      productDescription: input.productDescription || null,
+      audience: input.audience || null,
+      tone: input.tone || null,
+      website: input.website || null,
+      seedKeywords: input.seedKeywords || null,
+      updatedAt: now,
+    };
+    const fieldValues: Record<BrandProfileMemoryField, string> = {
+      product_description: values.productDescription ?? "",
+      target_audience: values.audience ?? "",
+      tone: values.tone ?? "",
+      website: values.website ?? "",
+      seed_keywords: values.seedKeywords ?? "",
+    };
+    const previousValues: Record<BrandProfileMemoryField, string> = {
+      product_description: existing?.productDescription ?? "",
+      target_audience: existing?.audience ?? "",
+      tone: existing?.tone ?? "",
+      website: existing?.website ?? "",
+      seed_keywords: existing?.seedKeywords ?? "",
+    };
+    const pending: BrandProfileMemoryPending = {
+      ...(existing?.memoryProjectionPending ?? {}),
+    };
+    for (const [field, value] of Object.entries(fieldValues) as Array<
+      [BrandProfileMemoryField, string]
+    >) {
+      if (!existing || previousValues[field] !== value) {
+        pending[field] = {
+          value: value.normalize("NFKC").trim().replace(/\s+/g, " "),
+          revision: crypto.randomUUID(),
+          writtenAt: now.toISOString(),
+        };
+      }
+    }
 
-  if (existing) {
-    const [profile] = await getDb()
-      .update(brandProfiles)
-      .set(values)
-      .where(eq(brandProfiles.id, existing.id))
+    if (existing) {
+      const [profile] = await tx
+        .update(brandProfiles)
+        .set({ ...values, memoryProjectionPending: pending })
+        .where(
+          and(
+            eq(brandProfiles.id, existing.id),
+            eq(brandProfiles.workspaceId, scope.workspaceId),
+          ),
+        )
+        .returning();
+      return profile;
+    }
+
+    const [profile] = await tx
+      .insert(brandProfiles)
+      .values({
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        ...values,
+        memoryProjectionPending: pending,
+      })
       .returning();
     return profile;
-  }
-
-  const [profile] = await getDb()
-    .insert(brandProfiles)
-    .values({ workspaceId: scope.workspaceId, brandId: scope.brandId, ...values })
-    .returning();
-  return profile;
+  });
 }
 
 export async function listCompetitors(brandId: string) {

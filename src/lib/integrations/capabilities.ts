@@ -24,7 +24,8 @@ const CONNECTOR_CAPABILITIES: ReadonlySet<string> = new Set<ConnectorCapability>
 ]);
 
 const CAPABILITIES: Record<IntegrationProviderId, readonly ConnectorCapability[]> = {
-  markdown_export: ["article.create"],
+  // Export creates a local, replaceable artifact and never mutates a live site.
+  markdown_export: ["article.create", "rollback.supported"],
   webhook: ["article.create"],
   devto: ["article.create", "article.update"],
   hashnode: ["article.create", "article.update"],

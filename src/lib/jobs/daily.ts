@@ -1,6 +1,15 @@
 import { refreshAgentBrief } from "@/lib/agent/brief";
+import {
+  refreshResearchSourceStrategyWeights,
+  selectProductionCandidate,
+} from "@/lib/agent/learning";
 import { getAgentControlState } from "@/lib/agent/memory";
 import { isArticleGenerationBlockedByOwnerConstraint } from "@/lib/agent/policy";
+import {
+  AgentSafetyError,
+  assertAgentOperationAllowed,
+  getAgentSafetyDecision,
+} from "@/lib/agent/safety";
 import {
   beginDailyAgentTask,
   completeDailyAgentTask,
@@ -11,7 +20,7 @@ import {
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
-import { maybeUpdateSourceWeights, runDueCheckpoints } from "@/lib/articles/performance";
+import { runDueCheckpoints } from "@/lib/articles/performance";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { sendOutOfCreditsEmail } from "@/lib/email/notify";
 import { syncTrafficForBrand } from "@/lib/integrations/google-traffic";
@@ -20,6 +29,7 @@ import { getDailyRun, upsertDailyRun, type DailyRunStatus } from "@/lib/jobs/dai
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { maybeRunWeeklySiteHealth } from "@/lib/jobs/site-health-weekly";
 import { runResearch } from "@/lib/research/run";
+import type { ResearchSourceType } from "@/lib/research/types";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
 
 /**
@@ -87,10 +97,7 @@ export function rankTopicsForAgentPriorities<
   },
 >(topics: T[], instructions: string[]): T[] {
   const terms = priorityTerms(instructions);
-  const matches = (topic: T) => {
-    const text = `${topic.title} ${topic.angle ?? ""} ${topic.keywords ?? ""}`.toLowerCase();
-    return terms.reduce((count, term) => count + (text.includes(term) ? 1 : 0), 0);
-  };
+  const matches = (topic: T) => priorityMatchCount(topic, terms);
   return topics.toSorted(
     (left, right) =>
       Number(right.source === "owner_direction") - Number(left.source === "owner_direction") ||
@@ -98,6 +105,88 @@ export function rankTopicsForAgentPriorities<
       (right.score ?? Number.NEGATIVE_INFINITY) -
         (left.score ?? Number.NEGATIVE_INFINITY),
   );
+}
+
+function priorityMatchCount(
+  topic: { title: string; angle?: string | null; keywords?: string | null },
+  terms: readonly string[],
+) {
+  const text = `${topic.title} ${topic.angle ?? ""} ${topic.keywords ?? ""}`.toLowerCase();
+  return terms.reduce((count, term) => count + (text.includes(term) ? 1 : 0), 0);
+}
+
+const RESEARCH_SOURCE_TYPES = new Set<ResearchSourceType>([
+  "web_search",
+  "rss",
+  "sitemap",
+  "trend_query",
+  "keyword_api",
+  "use_case",
+  "competitor_gap",
+  "gsc_query",
+]);
+
+function topicResearchSourceType(evidenceJson: string | null): ResearchSourceType | null {
+  if (!evidenceJson) return null;
+  try {
+    const value = (JSON.parse(evidenceJson) as { sourceType?: unknown }).sourceType;
+    return typeof value === "string" && RESEARCH_SOURCE_TYPES.has(value as ResearchSourceType)
+      ? (value as ResearchSourceType)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function applyControlledTopicSelection<
+  T extends {
+    id: string;
+    title: string;
+    angle?: string | null;
+    keywords?: string | null;
+    score?: number | null;
+    source?: string | null;
+    evidenceJson: string | null;
+  },
+>(
+  scope: BrandScope,
+  ranked: T[],
+  instructions: string[],
+  seed: string,
+) {
+  const terms = priorityTerms(instructions);
+  const research = ranked.flatMap((topic, index) => {
+    if (topic.source !== "research") return [];
+    const sourceType = topicResearchSourceType(topic.evidenceJson);
+    return sourceType
+      ? [{ topic, index, sourceType, priority: priorityMatchCount(topic, terms) }]
+      : [];
+  });
+  if (research.length < 2) return ranked;
+
+  // Explicit owner priorities stay above learning and exploration. Selection
+  // only occurs within the highest matching research tier.
+  const highestPriority = Math.max(...research.map((item) => item.priority));
+  const eligible = research.filter((item) => item.priority === highestPriority).slice(0, 50);
+  if (eligible.length < 2) return ranked;
+  const selection = await selectProductionCandidate(
+    scope,
+    eligible.map(({ topic, sourceType }) => ({
+      id: topic.id,
+      baseScore: topic.score ?? 0,
+      sourceType,
+    })),
+    { seed, maximumAlternatives: 3 },
+  );
+  if (!selection) return ranked;
+
+  const selectedIndex = ranked.findIndex((topic) => topic.id === selection.candidate.id);
+  const insertionIndex = Math.min(...eligible.map((item) => item.index));
+  if (selectedIndex < 0 || selectedIndex === insertionIndex) return ranked;
+  const reordered = [...ranked];
+  const [selected] = reordered.splice(selectedIndex, 1);
+  reordered.splice(insertionIndex, 0, selected);
+  return reordered;
 }
 
 function excludeOwnerBlockedTopics<
@@ -138,6 +227,19 @@ export async function planDailyForBrand(
 
 
   const controls = await getAgentControlState(scope.brandId);
+  const safety = getAgentSafetyDecision("drafting", { actor: "agent" });
+  if (!safety.allowed) {
+    return {
+      skip: true,
+      skipStatus: null,
+      cap,
+      budget: 0,
+      writtenToday: 0,
+      priorResearched: 0,
+      topicIds: [],
+      needsResearch: false,
+    };
+  }
   if (controls.paused) {
     const existing = await getDailyRun(scope.brandId, runDate);
     await upsertDailyRun(scope, runDate, {
@@ -187,15 +289,41 @@ export async function planDailyForBrand(
     };
   }
 
-  const pending = excludeOwnerBlockedTopics(
+  const rankedPending = excludeOwnerBlockedTopics(
     rankTopicsForAgentPriorities(
       await listPendingTopicsForWriting(scope.brandId, Math.max(50, budget * 10)),
       controls.priorityInstructions,
     ),
     controls.ownerConstraints,
+  );
+  const pending = (
+    await applyControlledTopicSelection(
+      scope,
+      rankedPending,
+      controls.priorityInstructions,
+      `daily:${scope.brandId}:${runDate}`,
+    )
   ).slice(0, budget);
   try {
-    await beginDailyAgentTask(scope, runDate);
+    const task = await beginDailyAgentTask(scope, runDate);
+    if (task?.status === "cancelled") {
+      await upsertDailyRun(scope, runDate, {
+        articlesWritten: writtenToday,
+        topicsResearched: priorResearched,
+        status: "paused_by_owner",
+        note: "The owner removed this daily task from the reviewed plan.",
+      });
+      return {
+        skip: true,
+        skipStatus: "paused_by_owner",
+        cap,
+        budget: 0,
+        writtenToday,
+        priorResearched,
+        topicIds: [],
+        needsResearch: false,
+      };
+    }
   } catch (error) {
     console.error("[daily] agent task start failed", error);
   }
@@ -222,13 +350,16 @@ export async function researchForDaily(
   scope: BrandScope,
   budget: number,
   idempotencyKey: string,
+  billingWorkId?: string,
 ): Promise<{ researchTopics: number; topicIds: string[] }> {
   const controls = await getAgentControlState(scope.brandId);
   if (controls.paused) return { researchTopics: 0, topicIds: [] };
   let researchTopics = 0;
   try {
+    assertAgentOperationAllowed("observation", { actor: "agent", controls });
+    assertAgentOperationAllowed("billable", { actor: "agent", controls });
     await assertHasCredits(scope.workspaceId, CREDIT_COSTS.research_run);
-    const research = await runResearch(scope, { idempotencyKey });
+    const research = await runResearch(scope, { idempotencyKey, actor: "agent" });
     researchTopics = research.topicsCreated;
     // Key the spend on the run id so the activity feed can attribute it, and so a
     // retry (same run id) is deduped by spendCredits.
@@ -236,20 +367,29 @@ export async function researchForDaily(
       reason: "research_run",
       brandId: scope.brandId,
       refType: "research_run",
-      refId: research.runId,
+      refId: billingWorkId ?? research.runId,
+      actor: "agent",
     });
   } catch (error) {
-    if (!(error instanceof InsufficientCreditsError)) {
+    if (!(error instanceof InsufficientCreditsError) && !(error instanceof AgentSafetyError)) {
       throw error;
     }
   }
 
-  const pending = excludeOwnerBlockedTopics(
+  const rankedPending = excludeOwnerBlockedTopics(
     rankTopicsForAgentPriorities(
       await listPendingTopicsForWriting(scope.brandId, Math.max(50, budget * 10)),
       controls.priorityInstructions,
     ),
     controls.ownerConstraints,
+  );
+  const pending = (
+    await applyControlledTopicSelection(
+      scope,
+      rankedPending,
+      controls.priorityInstructions,
+      `daily-research:${scope.brandId}:${idempotencyKey}`,
+    )
   ).slice(0, budget);
   return { researchTopics, topicIds: pending.map((topic) => topic.id) };
 }
@@ -264,6 +404,11 @@ export type SettleInput = {
   hadTargets: boolean;
   /** Whether the day stopped because the workspace ran out of credits. */
   outOfCredits: boolean;
+  writeFailures?: Array<{
+    topicId: string;
+    outcome: "blocked" | "transient_failure" | "permanent_failure";
+    errorClass: string;
+  }>;
   brandName?: string;
   /** Plan id: gates the periodic competitor rediscovery. */
   planId?: string | null;
@@ -274,131 +419,152 @@ export type SettleInput = {
  * values, idempotent upsert), log a `daily_pipeline` job for the overview, and
  * nudge the owner when credits pause the work. Returns the status.
  */
+export const DAILY_SETTLEMENT_OPERATIONS = [
+  "settle_daily_run",
+  "settle_agent_task",
+  "record_summary_job",
+  "sync_traffic",
+  "performance_checkpoints",
+  "update_source_weights",
+  "rediscover_competitors",
+  "site_health",
+  "refresh_brief",
+  "send_notifications",
+] as const;
+
+export type DailySettlementOperation = (typeof DAILY_SETTLEMENT_OPERATIONS)[number];
+
+export async function deriveDailyRunStatus(
+  scope: BrandScope,
+  input: SettleInput,
+): Promise<DailyRunStatus> {
+  const controls = await getAgentControlState(scope.brandId);
+  if (controls.paused) {
+    return "paused_by_owner";
+  }
+  if (input.outOfCredits) return "paused_no_credits";
+  if (!input.hadTargets && input.generated === 0) return "no_topics";
+  if (input.hadTargets && input.generated === 0 && (input.writeFailures?.length ?? 0) > 0) {
+    return "blocked";
+  }
+  if ((input.writeFailures?.length ?? 0) > 0) return "completed_degraded";
+  return "completed";
+}
+
+/** One independently retryable/checkpointed daily settlement operation. */
+export async function executeDailySettlementOperation(
+  scope: BrandScope,
+  runDate: string,
+  input: SettleInput,
+  operation: DailySettlementOperation,
+): Promise<DailyRunStatus> {
+  const existing = await getDailyRun(scope.brandId, runDate);
+  const status =
+    (existing?.status as DailyRunStatus | undefined) ?? await deriveDailyRunStatus(scope, input);
+  const finalWritten = input.writtenToday + input.generated;
+
+  switch (operation) {
+    case "settle_daily_run":
+      await upsertDailyRun(scope, runDate, {
+        articlesWritten: finalWritten,
+        topicsResearched: input.priorResearched + input.researchTopics,
+        status,
+        note: input.writeFailures?.length
+          ? `${input.writeFailures.length} write target(s) require recovery.`
+          : null,
+      });
+      break;
+    case "settle_agent_task":
+      await completeDailyAgentTask(scope, runDate, {
+        generated: input.generated,
+        researched: input.researchTopics,
+        status,
+      });
+      if (status !== "paused_by_owner") {
+        await ensureNextDailyTask(scope, input.brandName, new Date(`${runDate}T23:59:59.999Z`));
+      }
+      break;
+    case "record_summary_job": {
+      const job = await createAgentJob(scope, "daily_pipeline", "Daily content run", {
+        idempotencyKey: `daily:${runDate}:summary`,
+      });
+      await finishAgentJob(
+        job.id,
+        "completed",
+        `Wrote ${input.generated} article${input.generated === 1 ? "" : "s"}` +
+          (input.researchTopics ? `; researched ${input.researchTopics} new topics.` : "."),
+        {
+          generatedCount: input.generated,
+          researchTopics: input.researchTopics,
+          writeFailures: input.writeFailures ?? [],
+          recoveryOwner: input.writeFailures?.length ? "operator" : null,
+          status,
+          dailyCap: input.cap,
+        },
+      );
+      break;
+    }
+    case "sync_traffic":
+      if (status !== "paused_by_owner") await syncTrafficForBrand(scope);
+      break;
+    case "performance_checkpoints": {
+      if (status === "paused_by_owner") break;
+      const checkpoints = await runDueCheckpoints(scope);
+      const outcomes = checkpoints.byVerdict;
+      if (checkpoints.checked > 0 && outcomes.winner + outcomes.stalling + outcomes.dead > 0) {
+        await replanAgentWork(
+          scope,
+          `Performance evidence changed the queue: ${outcomes.winner} winning, ${outcomes.stalling} stalling, ${outcomes.dead} stopped.`,
+          { source: "performance_checkpoints", ...checkpoints },
+        );
+      }
+      break;
+    }
+    case "update_source_weights":
+      if (status !== "paused_by_owner") await refreshResearchSourceStrategyWeights(scope);
+      break;
+    case "rediscover_competitors":
+      if (status !== "paused_by_owner") await maybeRediscoverCompetitors(scope, input.planId);
+      break;
+    case "site_health":
+      if (status !== "paused_by_owner") await maybeRunWeeklySiteHealth(scope);
+      break;
+    case "refresh_brief":
+      if (status !== "paused_by_owner") {
+        await refreshAgentBrief(scope, input.brandName ?? "your brand");
+      }
+      break;
+    case "send_notifications":
+      if (status === "paused_no_credits") {
+        const remaining = await listPendingTopicsForWriting(scope.brandId, 50);
+        await sendOutOfCreditsEmail({
+          workspaceId: scope.workspaceId,
+          brandName: input.brandName,
+          pendingTopics: remaining.length,
+        });
+      }
+      break;
+  }
+  return status;
+}
+
+/** Compatibility executor used outside Cloudflare Workflows and by integration tests. */
 export async function settleDailyForBrand(
   scope: BrandScope,
   runDate: string,
   input: SettleInput,
 ): Promise<DailyRunStatus> {
-  const finalWritten = input.writtenToday + input.generated;
-  const controls = await getAgentControlState(scope.brandId);
-  let status: DailyRunStatus;
-  if (controls.paused) {
-    status = "paused_by_owner";
-  } else if (input.outOfCredits) {
-    status = "paused_no_credits";
-  } else if (!input.hadTargets && input.generated === 0) {
-    status = "no_topics";
-  } else {
-    status = "active";
+  let status: DailyRunStatus = await deriveDailyRunStatus(scope, input);
+  // Inline/test compatibility path keeps the critical settlement contract.
+  // Cloudflare Workflows invokes every optional enrichment as its own step.
+  const coreOperations: DailySettlementOperation[] = [
+    "settle_daily_run",
+    "settle_agent_task",
+    "record_summary_job",
+    "send_notifications",
+  ];
+  for (const operation of coreOperations) {
+    status = await executeDailySettlementOperation(scope, runDate, input, operation);
   }
-
-  await upsertDailyRun(scope, runDate, {
-    articlesWritten: finalWritten,
-    topicsResearched: input.priorResearched + input.researchTopics,
-    status,
-  });
-
-  try {
-    await completeDailyAgentTask(scope, runDate, {
-      generated: input.generated,
-      researched: input.researchTopics,
-      status,
-    });
-    if (status !== "paused_by_owner") {
-      await ensureNextDailyTask(scope, input.brandName, new Date(`${runDate}T23:59:59.999Z`));
-    }
-  } catch (error) {
-    console.error("[daily] agent task settlement failed", error);
-  }
-
-  // A single completed job per brand-day powers the overview stats; the research
-  // and writing sub-jobs already record their own activity-feed entries.
-  // Best-effort, after the upsert: agent jobs are NOT idempotent, so if a failed
-  // job write bubbled up the Workflow would retry settle and insert a duplicate
-  // `daily_pipeline` row, double-counting the day.
-  try {
-    const job = await createAgentJob(scope, "daily_pipeline", "Daily content run");
-    await finishAgentJob(
-      job.id,
-      "completed",
-      `Wrote ${input.generated} article${input.generated === 1 ? "" : "s"}` +
-        (input.researchTopics ? `; researched ${input.researchTopics} new topics.` : "."),
-      { generatedCount: input.generated, researchTopics: input.researchTopics, status, dailyCap: input.cap },
-    );
-  } catch (error) {
-    console.error("[daily] overview job log failed", error);
-  }
-
-  // A pause issued while the Workflow was already in flight is honored at the
-  // settle boundary: persist what finished, then stop every follow-on activity.
-  if (status === "paused_by_owner") return status;
-
-  // Pull traffic proof for any connected source (GSC/GA4) once per brand-day.
-  // Best-effort and unmetered: a missing grant or API hiccup never affects the
-  // content run's status.
-  try {
-    await syncTrafficForBrand(scope);
-  } catch (error) {
-    console.error("[daily] traffic sync failed", error);
-  }
-
-  // C4: read any published articles whose day-7/28/90 checkpoint came due
-  // (cheap reads of the C2 query report) and act on the verdicts. Best-effort.
-  try {
-    const checkpoints = await runDueCheckpoints(scope);
-    const outcomes = checkpoints.byVerdict;
-    if (checkpoints.checked > 0 && outcomes.winner + outcomes.stalling + outcomes.dead > 0) {
-      await replanAgentWork(
-        scope,
-        `Performance evidence changed the queue: ${outcomes.winner} winning, ${outcomes.stalling} stalling, ${outcomes.dead} stopped.`,
-        { source: "performance_checkpoints", ...checkpoints },
-      );
-    }
-  } catch (error) {
-    console.error("[daily] performance checkpoints failed", error);
-  }
-
-  // C4: monthly, re-learn per-source topic weights from checkpoint outcomes.
-  try {
-    await maybeUpdateSourceWeights(scope);
-  } catch (error) {
-    console.error("[daily] source weight learning failed", error);
-  }
-
-  // Every 15 days: re-run evidence-based competitor discovery and auto-fill any
-  // open plan slots. Best-effort: a failed scan never affects the day's status.
-  try {
-    await maybeRediscoverCompetitors(scope, input.planId);
-  } catch (error) {
-    console.error("[daily] competitor rediscovery failed", error);
-  }
-
-  // Weekly: re-verify every Site Health check (speed, meta, social previews,
-  // crawler access) and queue fixes for anything that slipped. Plan-included
-  // and best-effort: a failed check never affects the day's status.
-  try {
-    await maybeRunWeeklySiteHealth(scope);
-  } catch (error) {
-    console.error("[daily] site health check failed", error);
-  }
-
-  // AP3: regenerate Claudia's Overview brief from today's run data. Best-effort
-  // and unmetered: the dashboard falls back to a derived brief on a miss.
-  try {
-    await refreshAgentBrief(scope, input.brandName ?? "your brand");
-  } catch (error) {
-    console.error("[daily] agent brief refresh failed", error);
-  }
-
-  // Out of credits with work still queued: nudge the owner (throttled).
-  if (status === "paused_no_credits") {
-    const remaining = await listPendingTopicsForWriting(scope.brandId, 50);
-    await sendOutOfCreditsEmail({
-      workspaceId: scope.workspaceId,
-      brandName: input.brandName,
-      pendingTopics: remaining.length,
-    });
-  }
-
   return status;
 }

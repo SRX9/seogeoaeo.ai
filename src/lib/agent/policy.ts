@@ -1,4 +1,5 @@
 import type { ConnectorCapability } from "@/lib/integrations/capabilities";
+import { simulateOwnerPolicies, type ActiveOwnerPolicy } from "@/lib/agent/policies";
 
 export type AuthorityMode = "FULL_AUTO" | "REVIEW";
 export type AuthorityDecision = "allow" | "require_approval" | "deny";
@@ -11,6 +12,10 @@ export type AuthorityRequest = {
   resourceRef: string;
   ownerConstraints?: string[];
   grantedCapabilities?: readonly ConnectorCapability[];
+  canonicalPolicies?: readonly ActiveOwnerPolicy[];
+  destination?: string | null;
+  categories?: readonly string[];
+  approvalValidated?: boolean;
 };
 
 export type AuthorityResult = {
@@ -175,6 +180,17 @@ export function authorizeAction(request: AuthorityRequest): AuthorityResult {
     };
   }
 
+  const canonical = simulateOwnerPolicies(request.canonicalPolicies ?? [], {
+    capability: request.capability,
+    resourceRef: request.resourceRef,
+    destination: request.destination,
+    categories: request.categories,
+    approvalValidated: request.approvalValidated,
+  });
+  if (canonical.decision === "deny") {
+    return { decision: "deny", reason: canonical.reason };
+  }
+
   const blocked = request.ownerConstraints?.find((constraint) => {
     return isActionBlockedByOwnerConstraint(
       constraint,
@@ -198,6 +214,9 @@ export function authorizeAction(request: AuthorityRequest): AuthorityResult {
   }
 
   if (request.mode === "REVIEW") {
+    if (canonical.decision === "allow") {
+      return { decision: "allow", reason: canonical.reason };
+    }
     if (request.grantedCapabilities?.includes(request.capability)) {
       return {
         decision: "allow",

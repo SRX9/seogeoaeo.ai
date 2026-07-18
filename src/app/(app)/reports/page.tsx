@@ -112,7 +112,7 @@ function FeaturedReport({ report }: { report: WeeklyReportRow }) {
     <Card>
       <Card.Header className="gap-3 p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-accent">Latest Report</span>
+          <span className="text-sm font-medium text-accent">Latest summary</span>
           <time className="text-sm text-muted" dateTime={report.createdAt || report.weekStart}>
             {dateFormatter.format(isoDate(report.createdAt || report.weekStart))}
           </time>
@@ -209,8 +209,8 @@ export default function ReportsPage() {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <PageHeader
-        title="Reports"
-        description="A weekly record of work completed, visibility movement, and evidence collected."
+        title="Weekly summaries"
+        description="Claudia’s plain-language record of what changed, what she completed, and what comes next."
         actions={
           <Select
             aria-label="Report period"
@@ -239,7 +239,7 @@ export default function ReportsPage() {
         meta={
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted">
             <ChartBarIcon className="size-3.5" />
-            Weekly Archive
+            Results history
           </span>
         }
       />
@@ -257,9 +257,9 @@ export default function ReportsPage() {
                     <EmptyState.Media variant="icon">
                       <ChartBarIcon className="size-5" />
                     </EmptyState.Media>
-                    <EmptyState.Title>No reports yet</EmptyState.Title>
+                    <EmptyState.Title>No weekly summaries yet</EmptyState.Title>
                     <EmptyState.Description className="max-w-md text-pretty">
-                      Your first report arrives after Claudia has a full week of work and evidence to summarize.
+                      Your first summary arrives after Claudia has a full week of reliable work and measurements.
                     </EmptyState.Description>
                   </EmptyState.Header>
                 </EmptyState>
@@ -273,8 +273,8 @@ export default function ReportsPage() {
               {archive.length > 0 ? (
                 <Card className="overflow-hidden p-0">
                   <Card.Header className="p-5 pb-3">
-                    <Card.Title>Earlier reports</Card.Title>
-                    <Card.Description>Browse your previous weekly summaries.</Card.Description>
+                    <Card.Title>Earlier summaries</Card.Title>
+                    <Card.Description>Browse the previous results Claudia recorded for you.</Card.Description>
                   </Card.Header>
                   <Card.Content className="divide-y divide-separator p-0" aria-label="Earlier reports">
                     {archive.map((report) => (

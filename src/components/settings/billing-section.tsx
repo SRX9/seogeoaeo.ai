@@ -56,7 +56,7 @@ export function BillingSection() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
       queryClient.invalidateQueries({ queryKey: queryKeys.credits });
-      router.replace("/account?tab=billing");
+      router.replace("/settings?tab=billing");
     },
   });
 

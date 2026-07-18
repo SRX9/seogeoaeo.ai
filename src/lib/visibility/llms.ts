@@ -1,5 +1,6 @@
 import { parseHTML } from "linkedom";
 import { DEFAULT_HEADERS } from "./fetch-page";
+import { safePublicFetch } from "./egress";
 import type { Finding, LlmsTxtResult } from "./types";
 
 /**
@@ -22,10 +23,11 @@ export async function fetchLlmsTxt(
 
   for (const file of [result.llms_txt, result.llms_full_txt]) {
     try {
-      const response = await fetchImpl(file.url, {
-        headers: DEFAULT_HEADERS,
-        signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
-      });
+      const response = await safePublicFetch(
+        file.url,
+        { headers: DEFAULT_HEADERS, signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000) },
+        { fetchImpl, sameSiteWith: url, maxBytes: 1024 * 1024 },
+      );
       if (response.status === 200) {
         file.exists = true;
         file.content = await response.text();
@@ -251,10 +253,11 @@ export async function generateLlmsTxt(
   let html = opts.homepageHtml;
   if (html === undefined) {
     try {
-      const response = await fetchImpl(url, {
-        headers: DEFAULT_HEADERS,
-        signal: AbortSignal.timeout(30_000),
-      });
+      const response = await safePublicFetch(
+        url,
+        { headers: DEFAULT_HEADERS, signal: AbortSignal.timeout(30_000) },
+        { fetchImpl, sameSiteWith: url, maxBytes: 2 * 1024 * 1024 },
+      );
       html = await response.text();
     } catch (error) {
       result.error = `Failed to fetch homepage: ${error instanceof Error ? error.message : String(error)}`;
@@ -342,10 +345,11 @@ export async function generateLlmsTxt(
       }
       let description = "";
       try {
-        const response = await fetchImpl(page.url, {
-          headers: DEFAULT_HEADERS,
-          signal: AbortSignal.timeout(10_000),
-        });
+        const response = await safePublicFetch(
+          page.url,
+          { headers: DEFAULT_HEADERS, signal: AbortSignal.timeout(10_000) },
+          { fetchImpl, sameSiteWith: url, maxBytes: 1024 * 1024 },
+        );
         description = metaDescription(parseHTML(await response.text()).document);
       } catch {
         // best-effort: fall back to a bare link

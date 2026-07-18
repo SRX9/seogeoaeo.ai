@@ -16,18 +16,39 @@ export type JobKind =
   | "performance_check";
 export type JobStatus = "running" | "completed" | "failed";
 
-export async function createAgentJob(scope: BrandScope, kind: JobKind, message?: string) {
+export async function createAgentJob(
+  scope: BrandScope,
+  kind: JobKind,
+  message?: string,
+  options: { idempotencyKey?: string } = {},
+) {
   const [job] = await getDb()
     .insert(agentJobs)
     .values({
       workspaceId: scope.workspaceId,
       brandId: scope.brandId,
       kind,
+      idempotencyKey: options.idempotencyKey ?? null,
       status: "running",
       message: message ?? null,
     })
+    .onConflictDoNothing()
     .returning();
-  return job;
+  if (job) return job;
+  if (!options.idempotencyKey) throw new Error("Agent job insert conflicted without an idempotency key");
+  const [existing] = await getDb()
+    .select()
+    .from(agentJobs)
+    .where(
+      and(
+        eq(agentJobs.brandId, scope.brandId),
+        eq(agentJobs.kind, kind),
+        eq(agentJobs.idempotencyKey, options.idempotencyKey),
+      ),
+    )
+    .limit(1);
+  if (!existing) throw new Error("Idempotent agent job could not be loaded");
+  return existing;
 }
 
 export async function finishAgentJob(

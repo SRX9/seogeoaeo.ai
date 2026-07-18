@@ -48,14 +48,16 @@ export async function judgeCitability(
   blocks: PassageScore[],
   opts: { generate?: JudgeFn } = {},
 ): Promise<SemanticJudgement[] | null> {
-  const generate = opts.generate ?? generateJson;
   const capped = blocks.slice(0, MAX_JUDGE_BLOCKS);
   if (capped.length === 0) return null;
   try {
-    const { data } = await generate("light", [
+    const messages = [
       { role: "system", content: SYSTEM },
       { role: "user", content: buildUserMessage(capped) },
-    ]);
+    ] as const;
+    const { data } = opts.generate
+      ? await opts.generate("light", [...messages])
+      : await generateJson("light", [...messages], { schema: CitabilityJudgeSchema });
     const parsed = CitabilityJudgeSchema.safeParse(data);
     if (!parsed.success) return null;
     // Drop hallucinated / out-of-range indices.

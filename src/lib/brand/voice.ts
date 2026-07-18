@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { brandProfiles } from "@/lib/db/schema";
 import { getBrandProfile } from "@/lib/brand/repository";
@@ -23,6 +24,9 @@ export type VoiceDoc = {
 const MAX_LEARNED_RULES = 15;
 /** Skip learning on trivial tweaks: a typo fix teaches nothing about voice. */
 const MIN_EDIT_DISTANCE_CHARS = 120;
+const learnedVoiceRulesSchema = z.object({
+  rules: z.array(z.string().min(1).max(200)).max(3),
+});
 
 export function parseVoiceDoc(json: string | null | undefined): VoiceDoc | null {
   if (!json) return null;
@@ -83,7 +87,7 @@ export async function learnVoiceFromEdit(brandId: string, before: string, after:
   if (before === after || editMagnitude(before, after) < MIN_EDIT_DISTANCE_CHARS) return;
 
   try {
-    const result = await generateJson<{ rules: string[] }>("light", [
+    const result = await generateJson("light", [
       {
         role: "system",
         content:
@@ -101,7 +105,7 @@ ${before.slice(0, 6000)}
 Edited by the owner:
 ${after.slice(0, 6000)}`,
       },
-    ]);
+    ], { schema: learnedVoiceRulesSchema });
 
     const rules = (result.data.rules ?? [])
       .map((rule) => rule.trim())

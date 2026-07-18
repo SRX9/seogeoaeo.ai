@@ -149,7 +149,7 @@ export function CompetitorDiscovery() {
             {showUpgrade ? (
               <p className="rounded-2xl border border-accent/30 bg-accent-soft px-3.5 py-2.5 text-sm leading-relaxed text-accent-soft-foreground">
                 You&apos;re out of credits.{" "}
-                <Link href="/account?tab=billing" className="font-medium underline">
+                <Link href="/settings?tab=billing" className="font-medium underline">
                   Get more credits
                 </Link>{" "}
                 to let AI find competitors for you.

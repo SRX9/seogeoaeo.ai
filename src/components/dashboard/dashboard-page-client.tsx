@@ -1,23 +1,26 @@
 "use client";
 
+import { Suspense } from "react";
 import { ClaudiaHero } from "@/components/dashboard/claudia-hero";
 import { ClaudiaWorkPanel } from "@/components/dashboard/claudia-work-panel";
 import { DashboardLoadingState } from "@/components/dashboard/dashboard-loading-state";
+import { ProductTour } from "@/components/dashboard/product-tour";
 import { Section } from "@/components/feedback/section";
 import { useDashboard, type DashboardData } from "@/lib/api/queries";
 
 function ClaudiaWorkspace({ data }: { data: DashboardData }) {
   if (data.setup.run?.status !== "completed") {
-    return (
-      <ClaudiaHero
-        setup={data.setup}
-        agent={data.agent}
-        integrations={data.integrations}
-      />
-    );
+    return <ClaudiaHero setup={data.setup} />;
   }
 
-  return <ClaudiaWorkPanel state={data.agent} />;
+  return (
+    <>
+      <ClaudiaWorkPanel home={data.home} />
+      <Suspense fallback={null}>
+        <ProductTour />
+      </Suspense>
+    </>
+  );
 }
 
 export function DashboardPageClient() {

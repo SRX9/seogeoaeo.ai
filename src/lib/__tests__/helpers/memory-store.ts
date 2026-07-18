@@ -38,6 +38,9 @@ export type TopicRow = {
   status: string;
   source: string;
   score: number | null;
+  evidenceJson: string | null;
+  intentTier: string | null;
+  thesis: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -55,6 +58,8 @@ export type ArticleRow = {
   version: number;
   shape: string | null;
   gateResultsJson: string | null;
+  memoryEvidenceRefs: string[];
+  memoryEvidenceVersion: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -180,6 +185,12 @@ export const research = {
   calls: 0,
 };
 
+/** Controllable exact-content gate seam used by the orchestration tests. */
+export const grounding = {
+  passes: true,
+  persists: true,
+};
+
 /** Controls the owner instructions seen by the agent policy in workflow tests. */
 export const agentControls = {
   paused: false,
@@ -239,6 +250,8 @@ export function resetStore() {
   research.topicsCreated = 0;
   research.fail = false;
   research.calls = 0;
+  grounding.passes = true;
+  grounding.persists = true;
   agentControls.paused = false;
   agentControls.pauseInstruction = null;
   agentControls.publishingPaused = false;
@@ -278,6 +291,9 @@ export function seedTopic(input: Partial<TopicRow> & { workspaceId: string }) {
     status: input.status ?? "pending",
     source: input.source ?? "manual",
     score: input.score ?? null,
+    evidenceJson: input.evidenceJson ?? null,
+    intentTier: input.intentTier ?? null,
+    thesis: input.thesis ?? null,
     createdAt: input.createdAt ?? now,
     updatedAt: now,
   };
@@ -301,6 +317,8 @@ export function seedArticle(input: Partial<ArticleRow> & { workspaceId: string }
     version: input.version ?? 1,
     shape: input.shape ?? null,
     gateResultsJson: input.gateResultsJson ?? null,
+    memoryEvidenceRefs: input.memoryEvidenceRefs ?? [],
+    memoryEvidenceVersion: input.memoryEvidenceVersion ?? null,
     createdAt: input.createdAt ?? now,
     updatedAt: now,
   };
@@ -445,6 +463,7 @@ export const articlesRepo = {
       status?: string;
       shape?: string;
       gateResultsJson?: string;
+      memoryEvidenceRefs?: readonly string[];
     },
   ) {
     return seedArticle({
@@ -459,6 +478,8 @@ export const articlesRepo = {
       version: 1,
       shape: input.shape ?? null,
       gateResultsJson: input.gateResultsJson ?? null,
+      memoryEvidenceRefs: [...(input.memoryEvidenceRefs ?? [])],
+      memoryEvidenceVersion: input.memoryEvidenceRefs?.length ? 1 : null,
     });
   },
   async updateArticle(
@@ -486,6 +507,26 @@ export const articlesRepo = {
       bodyMarkdown: input.bodyMarkdown,
       status: input.status,
       version: existing.version + 1,
+      memoryEvidenceRefs: existing.memoryEvidenceRefs,
+      memoryEvidenceVersion:
+        existing.memoryEvidenceRefs.length > 0 ? existing.version + 1 : null,
+      updatedAt: new Date(),
+    };
+    store.articles.set(articleId, updated);
+    return updated;
+  },
+  async setGeneratedArticleStatus(
+    workspaceId: string,
+    articleId: string,
+    status: "draft" | "approved",
+    gateResultsJson?: string,
+  ) {
+    const existing = store.articles.get(articleId);
+    if (!existing || existing.workspaceId !== workspaceId) return null;
+    const updated = {
+      ...existing,
+      status,
+      ...(gateResultsJson === undefined ? {} : { gateResultsJson }),
       updatedAt: new Date(),
     };
     store.articles.set(articleId, updated);
@@ -497,6 +538,22 @@ export const articlesRepo = {
       topic.status = status;
       topic.updatedAt = new Date();
     }
+  },
+  async claimTopicForGeneration(
+    scope: { workspaceId: string; brandId: string },
+    topicId: string,
+  ) {
+    const topic = store.topics.get(topicId);
+    if (
+      !topic ||
+      topic.workspaceId !== scope.brandId ||
+      !["pending", "failed"].includes(topic.status)
+    ) {
+      return null;
+    }
+    topic.status = "generating";
+    topic.updatedAt = new Date();
+    return topic;
   },
   async createTopic(
     scope: { workspaceId: string; brandId: string },
@@ -524,6 +581,15 @@ export const articlesRepo = {
   },
   async listArticles(workspaceId: string) {
     return [...store.articles.values()].filter((a) => a.workspaceId === workspaceId);
+  },
+  async listArticleGroundingCorpus(
+    workspaceId: string,
+    options: number | { limit?: number } = 100,
+  ) {
+    const limit = typeof options === "number" ? options : options.limit ?? 100;
+    return [...store.articles.values()]
+      .filter((article) => article.workspaceId === workspaceId)
+      .slice(0, limit);
   },
 };
 
@@ -791,6 +857,92 @@ export const publishingRepo = {
   },
   async listPublicationsForArticle(workspaceId: string, articleId: string) {
     return publicationsFor(workspaceId, articleId);
+  },
+  async listPublishedDestinationsForBrand(workspaceId: string, limit = 200) {
+    return [...store.publications.values()]
+      .filter(
+        (publication) =>
+          publication.workspaceId === workspaceId &&
+          publication.status === "published" &&
+          publication.externalUrl,
+      )
+      .slice(0, limit)
+      .map((publication) => ({
+        articleId: publication.articleId,
+        provider: publication.provider,
+        externalUrl: publication.externalUrl,
+        publishedAt: publication.publishedAt,
+      }));
+  },
+};
+
+export const groundingService = {
+  async persistResearchEvidenceBundles() {
+    return [];
+  },
+  async loadGenerationGrounding() {
+    return {
+      bundleId: "bundle-test",
+      bundleVersion: 1,
+      packet: {
+        version: "evidence-packet.v1",
+        createdAt: new Date().toISOString(),
+        records: [],
+        omittedSourceCount: 0,
+        excerptCharacters: 0,
+        limits: { maxSources: 12, maxExcerptChars: 1200, maxPacketChars: 9000 },
+      },
+      promptPacket: "Mock bounded evidence packet",
+      evidenceSourceIds: {},
+      siteOrigin: "https://example.test",
+      internalTargets: [],
+    };
+  },
+  async prepareArticleGroundingEvaluation(
+    scope: { workspaceId: string; brandId: string },
+    input: { stylePassed?: boolean },
+  ) {
+    const destinations = (store.integrations.get(scope.brandId) ?? []).filter(
+      (integration) =>
+        integration.enabled &&
+        integration.available &&
+        integration.requirementsMet &&
+        integration.capabilities.includes("article.create"),
+    );
+    const destinationsSafe =
+      destinations.length > 0 &&
+      destinations.every((integration) => integration.capabilities.includes("rollback.supported"));
+    const passed = grounding.passes && grounding.persists && input.stylePassed !== false && destinationsSafe;
+    return {
+      aggregate: { passed, blockingReasons: passed ? [] : ["Mock grounding gate blocked."] },
+      gateResults: [
+        { gate: "style-lint", passed: input.stylePassed !== false, detail: "Mock style gate" },
+        { gate: "grounded_material_claims", passed, detail: "Mock grounding gate" },
+      ],
+      evaluatorVersions: { publication_gate: "publication-gate.v1" },
+      finalContentHash: "mock-final-content-hash",
+      grounding: { bundleId: "bundle-test", bundleVersion: 1 },
+      blockingReasons: passed ? [] : ["Mock grounding gate blocked."],
+    };
+  },
+  async recordArticleGroundingEvaluation(
+    _scope: unknown,
+    _article: unknown,
+    prepared: { aggregate: { passed: boolean } },
+  ) {
+    return {
+      persisted: grounding.persists,
+      passed: grounding.persists && grounding.passes && prepared.aggregate.passed,
+      claimLedgerId: grounding.persists ? "ledger-test" : null,
+      gateRunId: grounding.persists ? "gate-test" : null,
+      prepared,
+    };
+  },
+  async assertFreshAutomaticPublicationGate() {
+    if (!grounding.passes || !grounding.persists) {
+      throw new Error("Automatic publication blocked by mocked grounding gate");
+    }
+    return { run: { status: "passed", automaticPublicationAllowed: true }, checks: [] };
   },
 };
 

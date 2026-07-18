@@ -1,5 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { appCaller, RETRIES, type AppEnv } from "./app-call";
+import { createLogger } from "./logger";
 
 /** Instance params, set by `triggerSetupRun` in the app. */
 type Params = {
@@ -49,7 +50,14 @@ type StepResult = { status: string; note?: string | null };
 export class SetupRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const p = event.payload;
-    const post = appCaller<StepResult>(this.env, "/api/agent/setup-step");
+    const log = createLogger({
+      workflow: "setup-run",
+      instanceId: event.instanceId,
+      workspaceId: p.workspaceId,
+      brandId: p.brandId,
+    });
+    log.info("workflow.setup.started");
+    const post = appCaller<StepResult>(this.env, "/api/agent/setup-step", event.instanceId);
     const call = (stepKey: string) =>
       post({
         workspaceId: p.workspaceId,
@@ -67,13 +75,23 @@ export class SetupRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
           () => call(key),
         );
         outcomes[key] = result.status;
-      } catch {
+      } catch (error) {
         // The app already persisted the step as failed; setup must keep moving.
         outcomes[key] = "failed";
+        log.error("workflow.setup.step.exhausted", {
+          step: key,
+          error_message:
+            error instanceof Error ? error.message.slice(0, 500) : "Unknown failure",
+        });
       }
     }
 
     const settled = await step.do("finalize", { retries: RETRIES }, () => call("finalize"));
+    const failedSteps = Object.values(outcomes).filter((status) => status === "failed").length;
+    log.info("workflow.setup.completed", {
+      status: settled.status,
+      failedSteps,
+    });
     return { run: settled.status, steps: outcomes };
   }
 }

@@ -16,4 +16,9 @@ export const SETUP_STEP_KEYS = [
 
 export type SetupStepKey = (typeof SETUP_STEP_KEYS)[number];
 export type SetupStepStatus = "pending" | "running" | "done" | "skipped" | "failed";
-export type SetupStep = { key: SetupStepKey; status: SetupStepStatus; note?: string };
+export type SetupStep = {
+  key: SetupStepKey;
+  status: SetupStepStatus;
+  note?: string;
+  degraded?: boolean;
+};

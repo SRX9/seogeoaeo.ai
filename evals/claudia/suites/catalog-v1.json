@@ -1,0 +1,122 @@
+{
+  "version": "claudia-eval-catalog-v1",
+  "suites": [
+    {
+      "id": "policy_authority",
+      "capability": "Policy and authority",
+      "datasetVersion": "claudia-policy-authority-v1",
+      "grader": "deterministic",
+      "evidence": [
+        "evals/claudia/scenarios/core-v1.json",
+        "src/lib/agent/policy.test.ts",
+        "src/lib/agent/policy-model.test.ts",
+        "evals/claudia/autonomy-rollout.eval.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "steering_clarification",
+      "capability": "Steering and clarification",
+      "datasetVersion": "claudia-steering-v1",
+      "grader": "deterministic",
+      "evidence": [
+        "evals/claudia/scenarios/core-v1.json",
+        "src/lib/agent/steer.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "planning_tool_selection",
+      "capability": "Planning and tool selection",
+      "datasetVersion": "claudia-kernel-eval-v1",
+      "grader": "deterministic",
+      "evidence": [
+        "evals/claudia/scenarios/kernel-v1.json",
+        "src/lib/agent/action-planner.test.ts",
+        "src/lib/agent/tool-registry.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "content_grounding_citations",
+      "capability": "Content grounding and citations",
+      "datasetVersion": "claudia-grounding-eval-v1",
+      "grader": "deterministic_with_human_calibration",
+      "evidence": [
+        "evals/claudia/scenarios/grounding-v1.json",
+        "evals/claudia/grounding.eval.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "memory_poisoning",
+      "capability": "Memory retrieval and poisoning resistance",
+      "datasetVersion": "claudia-memory-learning-eval-v1",
+      "grader": "deterministic",
+      "evidence": [
+        "evals/claudia/scenarios/memory-learning-v1.json",
+        "src/lib/agent/layered-memory.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "workflow_durability_chaos",
+      "capability": "Workflow durability and chaos",
+      "datasetVersion": "claudia-workflow-chaos-v1",
+      "grader": "deterministic",
+      "evidence": [
+        "src/lib/agent/execution.test.ts",
+        "src/lib/jobs/workflow.test.ts",
+        "src/lib/__tests__/daily-pipeline.e2e.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "tenant_egress_security",
+      "capability": "Tenant and egress security",
+      "datasetVersion": "claudia-tenant-egress-v1",
+      "grader": "deterministic",
+      "evidence": [
+        "evals/claudia/scenarios/core-v1.json",
+        "src/lib/visibility/egress.test.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "remote_verification_rollback",
+      "capability": "Remote verification and rollback",
+      "datasetVersion": "claudia-connector-protocol-v1",
+      "grader": "deterministic_with_staging_exercise",
+      "evidence": [
+        "src/lib/connectors/protocol.test.ts",
+        "src/lib/connectors/wordpress.test.ts",
+        "evals/claudia/rollouts/phase8-v1.json"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "ask_claudia_groundedness",
+      "capability": "Ask Claudia groundedness",
+      "datasetVersion": "claudia-ask-groundedness-v1",
+      "grader": "deterministic_with_human_calibration",
+      "evidence": [
+        "src/lib/agent/ask-shared.test.ts",
+        "src/lib/agent/ask-shared.ts"
+      ],
+      "releaseThreshold": 1
+    },
+    {
+      "id": "long_horizon_objectives",
+      "capability": "Long-horizon objective completion",
+      "datasetVersion": "claudia-objectives-v1",
+      "grader": "deterministic_with_outcome_review",
+      "evidence": [
+        "src/lib/agent/objectives.test.ts",
+        "src/lib/agent/objective-measurements.test.ts",
+        "src/lib/agent/objective-replan.test.ts",
+        "evals/claudia/autonomy-rollout.eval.test.ts"
+      ],
+      "releaseThreshold": 1
+    }
+  ]
+}

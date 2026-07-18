@@ -34,6 +34,27 @@ const serverSchema = z.object({
   CONTEXT_DEV_API_KEY: z.string().optional(),
   CONTEXT_API_KEY: z.string().optional(),
   FIRECRAWL_API_KEY: z.string().optional(),
+  AGENT_OBSERVATION_ENABLED: z.string().optional(),
+  AGENT_DRAFTING_ENABLED: z.string().optional(),
+  AGENT_PUBLISHING_ENABLED: z.string().optional(),
+  AGENT_SITE_WRITES_ENABLED: z.string().optional(),
+  AGENT_BILLABLE_ACTIONS_ENABLED: z.string().optional(),
+  AGENT_GLOBAL_KILL_SWITCH: z.string().optional(),
+  AGENT_GROUNDED_CONTENT_GATE_ENABLED: z.string().optional(),
+  AGENT_GOAL_KERNEL_ENABLED: z.string().optional(),
+  /** PostHog project token (phc_...). Used for local/direct OTLP log shipping. */
+  POSTHOG_PROJECT_TOKEN: z.string().optional(),
+  /** PostHog ingest host. Defaults to https://us.i.posthog.com */
+  POSTHOG_HOST: z.string().url().optional(),
+  /** Override service.name on logs. Defaults to seo-ai. */
+  POSTHOG_SERVICE_NAME: z.string().optional(),
+  /** deployment.environment on logs. Defaults to NODE_ENV. */
+  POSTHOG_ENVIRONMENT: z.string().optional(),
+  /**
+   * Set to "1" to also POST logs via OTLP from Workers (normally CF destinations
+   * handle production export). Set to "0" to disable direct shipping even locally.
+   */
+  POSTHOG_LOGS_DIRECT: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

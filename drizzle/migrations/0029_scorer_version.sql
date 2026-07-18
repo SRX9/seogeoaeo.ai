@@ -1,1 +1,0 @@
-ALTER TABLE "audits" ADD COLUMN "scorer_version" integer DEFAULT 2 NOT NULL;

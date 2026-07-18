@@ -14,12 +14,13 @@ describe("resolveSteeringIntent", () => {
     ["Focus on enterprise buyers this month", "priority"],
     ["Never publish competitor comparison pages", "constraint"],
     ["Pause publishing until Monday", "schedule"],
-    ["Do not publish until Monday", "schedule"],
+    ["Do not publish until Monday", "constraint"],
     ["You may update article metadata automatically", "permission"],
     ["You can publish until Monday", "permission"],
     ["Write about this product launch next", "direction"],
     ["Why are you doing this?", "explanation"],
     ["What changed this week?", "status"],
+    ["You can publish and you must not publish", "ambiguous"],
     ["Tell me a joke", "unsupported"],
   ] as const)("maps %s to %s", (message, intent) => {
     expect(resolveSteeringIntent(message)).toBe(intent);

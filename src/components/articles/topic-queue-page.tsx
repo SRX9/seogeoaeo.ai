@@ -1,23 +1,19 @@
 "use client";
 
-import {
-  Alert,
-  Button,
-  Card,
-  ProgressBar,
-  Skeleton,
-  Tooltip,
-  toast,
-} from "@heroui/react";
+import { Alert, Button, Card, Skeleton, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
-import { EmptyState, Segment } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
 import { ManualTopicForm } from "@/components/articles/topics-panel";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
-import { ActivityIcon, ArticlesIcon, ChevronRightIcon, PenIcon, ResearchIcon } from "@/components/icons";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArticlesIcon,
+  ResearchIcon,
+} from "@/components/icons";
 import { PageHeader } from "@/components/layout/page-header";
+import { ToneText } from "@/components/ui/status-text";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
   queryKeys,
@@ -27,8 +23,7 @@ import {
   useTopics,
   type Topic,
 } from "@/lib/api/queries";
-
-type ViewMode = "research" | "manual" | "queue";
+import { cn } from "@/lib/cn";
 
 type TopicEvidence = {
   source?: string;
@@ -38,21 +33,15 @@ type TopicEvidence = {
 };
 
 const SOURCE_LABELS: Record<string, string> = {
-  use_case: "Customer Profile",
-  competitor_gap: "Competitor Gap",
-  gsc: "Search Console",
-  gsc_query: "Search Console",
-  web_search: "Web Search",
-  trend_query: "Trending Query",
-  keyword_api: "Keyword Research",
-  rss: "Competitor Feed",
-  sitemap: "Competitor Site",
-};
-
-const INTENT_LABELS: Record<string, string> = {
-  bofu: "Help buyers make a confident decision.",
-  mofu: "Help readers compare approaches and narrow their options.",
-  tofu: "Answer the core question clearly and build early trust.",
+  use_case: "a customer need",
+  competitor_gap: "a competitor coverage gap",
+  gsc: "Search Console demand",
+  gsc_query: "Search Console demand",
+  web_search: "current search results",
+  trend_query: "rising search interest",
+  keyword_api: "keyword research",
+  rss: "new competitor coverage",
+  sitemap: "competitor site coverage",
 };
 
 function parseEvidence(topic: Topic): TopicEvidence {
@@ -65,238 +54,106 @@ function parseEvidence(topic: Topic): TopicEvidence {
   }
 }
 
-function evidenceCopy(topic: Topic) {
+function whyThisIdea(topic: Topic) {
+  if (topic.rationale) return topic.rationale;
+  if (topic.angle) return topic.angle;
+  if (topic.answerFit) return topic.answerFit;
+
   const evidence = parseEvidence(topic);
-  const sourceType = evidence.sourceType;
-  const sourceLabel = sourceType
-    ? (SOURCE_LABELS[sourceType] ?? evidence.source ?? "Research Signal")
-    : topic.source === "manual"
-      ? "Manual Topic"
-      : "Research Signal";
-  const sourceCount = Array.isArray(evidence.evidenceUrls) ? evidence.evidenceUrls.length : 0;
-
-  if (sourceType === "gsc_query" || sourceType === "gsc") {
-    return { title: evidence.query || "Search demand confirmed", detail: sourceLabel };
-  }
-  if (sourceType === "competitor_gap") {
-    return {
-      title: sourceCount > 0 ? `${sourceCount} competitor source${sourceCount === 1 ? "" : "s"}` : "Coverage gap found",
-      detail: sourceLabel,
-    };
-  }
-  if (sourceType === "trend_query") return { title: evidence.query || "Rising search interest", detail: sourceLabel };
-  if (sourceType === "web_search") {
-    return {
-      title: sourceCount > 0 ? `${sourceCount} supporting source${sourceCount === 1 ? "" : "s"}` : "Search opportunity found",
-      detail: sourceLabel,
-    };
-  }
-  if (sourceType === "use_case") return { title: "Customer need identified", detail: sourceLabel };
-  if (sourceType === "keyword_api") return { title: evidence.query || "Keyword opportunity", detail: sourceLabel };
-  if (sourceType === "rss" || sourceType === "sitemap") return { title: evidence.source || "New competitor coverage", detail: sourceLabel };
-  return {
-    title: topic.source === "manual" ? "Added by your team" : evidence.source || "Opportunity identified",
-    detail: sourceLabel,
-  };
+  const source = evidence.sourceType ? SOURCE_LABELS[evidence.sourceType] : null;
+  if (source && evidence.query) return `Claudia found ${source} around “${evidence.query}”.`;
+  if (source) return `Claudia found this idea through ${source}.`;
+  if (topic.source === "manual") return "Your team added this idea for Claudia to consider.";
+  return "Claudia found this while comparing customer questions, demand, and competitor coverage.";
 }
 
-function confidenceLabel(score: number | null) {
-  if (score == null) return "Unscored";
-  if (score >= 70) return "High Confidence";
-  if (score >= 55) return "Medium Confidence";
-  return "Low Confidence";
+function topicState(topic: Topic) {
+  if (topic.status === "generating") return { label: "Claudia is writing this", tone: "accent" as const };
+  if (topic.status === "failed") return { label: "Claudia will reconsider this", tone: "danger" as const };
+  return { label: "Ready", tone: "success" as const };
 }
 
-function confidenceColor(score: number | null) {
-  if (score == null) return "default" as const;
-  if (score >= 70) return "success" as const;
-  if (score >= 55) return "warning" as const;
-  return "danger" as const;
-}
-
-function topicDescription(topic: Topic) {
-  return topic.rationale ?? topic.angle ?? topic.answerFit ?? topic.thesis ?? "Ready for Claudia to develop.";
-}
-
-function topicIntent(topic: Topic) {
-  return topic.angle ?? (topic.intentTier ? INTENT_LABELS[topic.intentTier] : null) ?? topic.rationale ?? "Clarify the reader's question and the outcome they need.";
-}
-
-function topicThesis(topic: Topic) {
-  return topic.thesis ?? topic.answerFit ?? topic.rationale ?? "Build a focused answer around the strongest evidence signal for this opportunity.";
-}
-
-function TopicSkeleton() {
+function IdeasSkeleton() {
   return (
-    <div className="grid gap-4" aria-label="Loading topic opportunities">
+    <div className="space-y-3" aria-label="Loading content ideas">
       {[0, 1, 2].map((item) => (
-        <Card key={item} className="gap-4">
-          <Card.Header className="flex-row items-start gap-4">
-            <Skeleton className="size-10 shrink-0 rounded-xl" />
-            <div className="flex-1 space-y-3">
-              <Skeleton className="h-5 w-3/4 rounded-lg" />
-              <Skeleton className="h-4 w-full rounded-lg" />
-            </div>
-          </Card.Header>
-          <Card.Content className="grid gap-3 sm:grid-cols-3">
-            <Skeleton className="h-10 rounded-xl" />
-            <Skeleton className="h-10 rounded-xl" />
-            <Skeleton className="h-10 rounded-xl" />
-          </Card.Content>
+        <Card key={item} className="rounded-3xl p-5 sm:p-6">
+          <Skeleton className="h-5 w-2/3 rounded-lg" />
+          <Skeleton className="mt-3 h-4 w-full rounded-lg" />
+          <Skeleton className="mt-2 h-4 w-4/5 rounded-lg" />
         </Card>
       ))}
     </div>
   );
 }
 
-function EmptyTopics({ mode, onResearch }: { mode: ViewMode; onResearch: () => void }) {
+function IdeaCard({
+  topic,
+  canGenerate,
+  isBusy,
+  isDisabled,
+  onWrite,
+}: {
+  topic: Topic;
+  canGenerate: boolean;
+  isBusy: boolean;
+  isDisabled: boolean;
+  onWrite: () => void;
+}) {
+  const state = topicState(topic);
+  const isWriting = topic.status === "generating";
+
   return (
-    <Card>
-      <EmptyState>
-        <EmptyState.Header>
-          <EmptyState.Media variant="icon">{mode === "queue" ? <ArticlesIcon /> : <ActivityIcon />}</EmptyState.Media>
-          <EmptyState.Title>{mode === "queue" ? "Your Queue Is Clear" : "No Opportunities Yet"}</EmptyState.Title>
-          <EmptyState.Description>
-            {mode === "queue"
-              ? "Run research to find and rank the next topics worth writing."
-              : "Scan search demand, competitor gaps, and customer needs for the next best topics."}
-          </EmptyState.Description>
-        </EmptyState.Header>
-        <EmptyState.Content>
-          <Button size="sm" onPress={onResearch}><ResearchIcon className="size-4" />Run Research</Button>
-        </EmptyState.Content>
-      </EmptyState>
+    <Card className="rounded-3xl p-0">
+      <Card.Content className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="min-w-0">
+          <ToneText tone={state.tone} className="text-xs">{state.label}</ToneText>
+          <h2 className="mt-1 text-base font-semibold leading-6 text-foreground sm:text-lg">{topic.title}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{whyThisIdea(topic)}</p>
+        </div>
+        {!isWriting ? (
+          canGenerate ? (
+            <Button
+              variant="outline"
+              className="min-h-11 shrink-0 transition-transform active:scale-[0.96]"
+              isDisabled={isDisabled}
+              isPending={isBusy}
+              onPress={onWrite}
+            >
+              <ArticlesIcon className="size-4" aria-hidden />
+              {isBusy ? "Starting" : "Ask Claudia to write this"}
+            </Button>
+          ) : (
+            <Link
+              href="/settings?tab=billing&upgrade=1"
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "min-h-11 shrink-0 transition-transform active:scale-[0.96]",
+              )}
+            >
+              Add work capacity
+            </Link>
+          )
+        ) : null}
+      </Card.Content>
     </Card>
   );
 }
 
-function TopicCards({
-  topics,
-  articleCost,
-  canGenerate,
-  busyTopicId,
-  setupInProgress,
-  onQueue,
-}: {
-  topics: Topic[];
-  articleCost: number;
-  canGenerate: boolean;
-  busyTopicId: string | null;
-  setupInProgress: boolean;
-  onQueue: (topicId: string) => void;
-}) {
-  const [expandedId, setExpandedId] = useState<string | null>(() => topics[0]?.id ?? null);
-
-  return (
-    <section className="grid gap-4" aria-label="Ranked topic opportunities">
-      {topics.map((topic, index) => {
-        const expanded = expandedId === topic.id;
-        const evidence = evidenceCopy(topic);
-        const busy = busyTopicId === topic.id;
-        const alreadyQueued = topic.status === "generating";
-        const disabled = busyTopicId !== null || setupInProgress || alreadyQueued;
-        const score = topic.score == null ? null : Math.max(0, Math.min(100, Math.round(topic.score)));
-
-        return (
-          <Card key={topic.id} variant={expanded ? "tertiary" : "default"} className="gap-5">
-            <Card.Header className="flex-row items-start gap-4">
-              <span className="shrink-0 text-sm font-semibold text-accent tabular-nums">#{index + 1}</span>
-              <div className="min-w-0 flex-1">
-                <Card.Title className="text-base sm:text-lg">{topic.title}</Card.Title>
-                <Card.Description className="mt-1 line-clamp-2">{topicDescription(topic)}</Card.Description>
-              </div>
-              <Tooltip delay={300}>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`${expanded ? "Collapse" : "Expand"} ${topic.title}`}
-                  aria-expanded={expanded}
-                  onPress={() => setExpandedId((current) => current === topic.id ? null : topic.id)}
-                >
-                  <ChevronRightIcon className={`size-4 ${expanded ? "rotate-90" : ""}`} />
-                </Button>
-                <Tooltip.Content>{expanded ? "Hide Brief" : "View Brief"}</Tooltip.Content>
-              </Tooltip>
-            </Card.Header>
-
-            <Card.Content className="grid gap-4 sm:grid-cols-3">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-muted">Evidence</p>
-                <p className="mt-1 truncate text-sm font-medium text-foreground">{evidence.title}</p>
-                <p className="mt-0.5 text-xs text-muted">{evidence.detail}</p>
-              </div>
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-muted">Confidence</p>
-                  <span className="text-xs tabular-nums text-muted">{score == null ? "—" : `${score}/100`}</span>
-                </div>
-                <ProgressBar value={score ?? 0} size="sm" color={confidenceColor(score)} aria-label={`${confidenceLabel(score)} score`} className="mt-2">
-                  <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
-                </ProgressBar>
-                <p className="mt-1.5 text-xs text-muted">{confidenceLabel(score)}</p>
-              </div>
-              <div className="flex items-end justify-between gap-3 sm:justify-end">
-                <span className="text-xs font-medium text-muted tabular-nums">{articleCost} credits</span>
-                {canGenerate ? (
-                  <Button
-                    size="sm"
-                    isDisabled={disabled}
-                    isPending={busy}
-                    onPress={() => onQueue(topic.id)}
-                    aria-label={`Generate ${topic.title}, ${articleCost} credits`}
-                  >
-                    <ResearchIcon className="size-4" />
-                    {busy ? "Queuing" : alreadyQueued ? "Queued" : "Generate"}
-                  </Button>
-                ) : (
-                  <Link href="/account?tab=billing&upgrade=1" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                    Get Credits
-                  </Link>
-                )}
-              </div>
-            </Card.Content>
-
-            {expanded ? (
-              <Card.Footer className="grid gap-4 border-t border-separator/60 pt-5 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-medium text-muted">Reader Intent</p>
-                  <p className="mt-1.5 text-sm leading-6 text-foreground">{topicIntent(topic)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted">Content Thesis</p>
-                  <p className="mt-1.5 text-sm leading-6 text-foreground">{topicThesis(topic)}</p>
-                </div>
-              </Card.Footer>
-            ) : null}
-          </Card>
-        );
-      })}
-    </section>
-  );
-}
-
 export function TopicQueuePage() {
-  const [mode, setMode] = useState<ViewMode>("research");
   const router = useProgressRouter();
   const queryClient = useQueryClient();
   const topicsQuery = useTopics();
   const creditsQuery = useCredits();
   const me = useMe();
   const setupInProgress = useSetupInProgress();
-  const topics = topicsQuery.data?.topics ?? [];
+  const topics = (topicsQuery.data?.topics ?? []).filter((topic) =>
+    ["pending", "failed", "generating"].includes(topic.status),
+  );
   const articleCost = creditsQuery.data?.costs.article_generation ?? 0;
   const researchCost = creditsQuery.data?.costs.research_run ?? 0;
   const availableCredits = creditsQuery.data?.balance.total ?? 0;
-  const canGenerate = articleCost > 0 && availableCredits >= articleCost;
-
-  let visibleTopics: Topic[] = [];
-  if (mode === "research") {
-    const researched = topics.filter((topic) => topic.source === "research" && ["pending", "failed"].includes(topic.status));
-    visibleTopics = researched.length > 0 ? researched : topics.filter((topic) => ["pending", "failed"].includes(topic.status));
-  } else if (mode === "queue") {
-    visibleTopics = topics.filter((topic) => ["pending", "failed", "generating"].includes(topic.status));
-  }
+  const canGenerate = articleCost === 0 || availableCredits >= articleCost;
 
   const research = useMutation({
     mutationFn: () => apiPost("/api/research"),
@@ -307,15 +164,14 @@ export function TopicQueuePage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
       queryClient.invalidateQueries({ queryKey: queryKeys.credits });
       queryClient.invalidateQueries({ queryKey: queryKeys.activity });
-      setMode("research");
-      toast.success("Research finished. Your topic queue is ready.");
+      toast.success("Claudia found new content ideas.");
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/account?tab=billing&upgrade=1");
+        router.push("/settings?tab=billing&upgrade=1");
         return;
       }
-      toast.danger(getErrorMessage(error, "Research failed. Try again."));
+      toast.danger(getErrorMessage(error, "Claudia couldn't complete that research."));
     },
   });
 
@@ -331,89 +187,132 @@ export function TopicQueuePage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/account?tab=billing&upgrade=1");
+        router.push("/settings?tab=billing&upgrade=1");
         return;
       }
-      toast.danger(getErrorMessage(error, "Could not queue this topic."));
+      toast.danger(getErrorMessage(error, "Claudia couldn't start this article."));
     },
   });
-
-  const runResearch = () => research.mutate();
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <PageHeader
-        title="Topic Queue"
-        description="Research-backed opportunities ranked by their potential to improve visibility."
+        title="Content ideas"
+        description="Optional opportunities Claudia has found while researching demand, customer questions, and competitor gaps."
         actions={
-          <Button
-            isDisabled={research.isPending || setupInProgress}
-            isPending={research.isPending}
-            onPress={runResearch}
-            aria-label={`Run research${researchCost > 0 ? `, ${researchCost} credits` : ""}`}
+          <Link
+            href="/articles"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "min-h-11 gap-2 transition-transform active:scale-[0.96]",
+            )}
           >
-            <ResearchIcon className="size-4" />
-            {research.isPending ? "Researching" : "Run Research"}
-          </Button>
-        }
-        meta={
-          <>
-            <span className="text-sm font-medium text-success tabular-nums">{availableCredits} credits available</span>
-            {researchCost > 0 ? <span className="text-sm text-muted tabular-nums">Research costs {researchCost}</span> : null}
-          </>
+            <ArrowLeftIcon className="size-4" aria-hidden />
+            Back to Content
+          </Link>
         }
       />
+
+      <Card className="rounded-3xl p-0">
+        <Card.Content className="flex items-start gap-4 p-5 sm:p-6">
+          <span
+            className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            aria-hidden
+          >
+            <ResearchIcon className="size-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Claudia finds ideas automatically</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted">
+              You do not need to manage this list. Claudia will choose strong opportunities during her normal work; use this page only when you want to guide what she writes next.
+            </p>
+          </div>
+        </Card.Content>
+      </Card>
 
       {!me.data?.llmReady && me.data ? (
         <Alert status="warning">
           <Alert.Indicator />
           <Alert.Content>
-            <Alert.Title>AI Provider Required</Alert.Title>
-            <Alert.Description>Connect an AI provider to research and score new opportunities.</Alert.Description>
+            <Alert.Title>Connect an AI provider</Alert.Title>
+            <Alert.Description>Claudia needs a provider connection before she can research or write.</Alert.Description>
           </Alert.Content>
-          <Link href="/settings?tab=integrations" className={buttonVariants({ variant: "outline", size: "sm" })}>Connect Provider</Link>
+          <Link href="/settings?tab=integrations" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Connect provider
+          </Link>
         </Alert>
       ) : null}
 
-      <div className="overflow-x-auto pb-1">
-        <Segment
-          className="min-w-max"
-          aria-label="Topic queue views"
-          selectedKey={mode}
-          onSelectionChange={(key) => setMode(String(key) as ViewMode)}
-        >
-          <Segment.Item id="research"><ActivityIcon className="size-4" />Research</Segment.Item>
-          <Segment.Item id="manual"><PenIcon className="size-4" />Manual</Segment.Item>
-          <Segment.Item id="queue"><ArticlesIcon className="size-4" />Queue</Segment.Item>
-        </Segment>
-      </div>
-
-      {mode === "manual" ? (
-        <ManualTopicForm />
-      ) : topicsQuery.isLoading || creditsQuery.isLoading ? (
-        <TopicSkeleton />
-      ) : visibleTopics.length === 0 ? (
-        <EmptyTopics mode={mode} onResearch={runResearch} />
+      {topicsQuery.isLoading || creditsQuery.isLoading ? (
+        <IdeasSkeleton />
+      ) : topics.length > 0 ? (
+        <section className="grid gap-3" aria-label="Content ideas">
+          {topics.map((topic) => (
+            <IdeaCard
+              key={topic.id}
+              topic={topic}
+              canGenerate={canGenerate}
+              isBusy={generate.isPending && generate.variables === topic.id}
+              isDisabled={generate.isPending || setupInProgress || topic.status === "generating"}
+              onWrite={() => generate.mutate(topic.id)}
+            />
+          ))}
+        </section>
       ) : (
-        <TopicCards
-          topics={visibleTopics}
-          articleCost={articleCost}
-          canGenerate={canGenerate}
-          busyTopicId={generate.isPending ? (generate.variables ?? null) : null}
-          setupInProgress={setupInProgress}
-          onQueue={(topicId) => generate.mutate(topicId)}
-        />
+        <Card className="rounded-3xl p-0">
+          <Card.Content className="flex min-h-48 flex-col items-center justify-center px-6 py-10 text-center">
+            <ResearchIcon className="size-8 text-muted" aria-hidden />
+            <h2 className="mt-4 text-lg font-semibold text-foreground">Claudia is researching the next ideas</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted">
+              New opportunities will appear here when Claudia finds enough evidence to recommend them.
+            </p>
+          </Card.Content>
+        </Card>
       )}
 
       {topicsQuery.isError ? (
         <Alert status="danger">
           <Alert.Indicator />
           <Alert.Content>
-            <Alert.Title>Topics Couldn&apos;t Load</Alert.Title>
-            <Alert.Description>Refresh the page to try loading your opportunities again.</Alert.Description>
+            <Alert.Title>Ideas couldn&apos;t load</Alert.Title>
+            <Alert.Description>Refresh the page to try again.</Alert.Description>
           </Alert.Content>
         </Alert>
       ) : null}
+
+      <Card className="rounded-3xl p-0">
+        <Card.Content className="p-5 sm:p-6">
+          <details>
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus">
+              Advanced actions
+              <ArrowRightIcon className="size-4 text-muted" aria-hidden />
+            </summary>
+            <div className="space-y-5 border-t border-separator pt-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Run extra research now</p>
+                  <p className="mt-1 text-xs leading-5 text-muted">
+                    {researchCost > 0
+                      ? `Uses ${researchCost} credits. ${availableCredits} credits are available.`
+                      : "Claudia normally researches automatically on her schedule."}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="min-h-11 shrink-0 transition-transform active:scale-[0.96]"
+                  isDisabled={research.isPending || setupInProgress}
+                  isPending={research.isPending}
+                  onPress={() => research.mutate()}
+                >
+                  <ResearchIcon className="size-4" aria-hidden />
+                  {research.isPending ? "Researching" : "Run extra research"}
+                </Button>
+              </div>
+              <ManualTopicForm />
+            </div>
+          </details>
+        </Card.Content>
+      </Card>
     </main>
   );
 }

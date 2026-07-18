@@ -10,7 +10,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,8 +43,8 @@ jobs:
       - name: Apply database migrations
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "DATABASE_URL secret not configured; skipping migrations."
-            exit 0
+            echo "DATABASE_URL secret is required for production migrations."
+            exit 1
           fi
           pnpm db:migrate
         env:

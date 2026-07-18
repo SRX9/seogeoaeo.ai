@@ -15,6 +15,8 @@ import { apiGet } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/query-keys";
 import { queryPolicy } from "@/lib/api/query-policy";
 import type { BrandIdentitySummary, BrandIntelligenceData } from "@/lib/brand/intelligence-types";
+import type { ClaudiaHomeView } from "@/lib/dashboard/home-view";
+import type { OwnerRequestView } from "@/lib/inbox/owner-request";
 import type { ConnectorCapability } from "@/lib/integrations/capabilities";
 import type {
   IntegrationConfig,
@@ -26,6 +28,7 @@ import type {
   IntegrationSecretDefinition,
   IntegrationSecretKey,
 } from "@/lib/integrations/providers";
+import type { GoalView } from "@/lib/settings/goal";
 
 export { queryKeys };
 
@@ -80,6 +83,7 @@ export type MeResponse = {
 export type DashboardData = {
   brand: { id: string; name: string; identity: BrandIdentitySummary | null };
   setup: SetupRunResponse;
+  home: ClaudiaHomeView;
   agent: AgentOperatingState;
   summary: VisibilitySummary;
   answers: VisibilityAnswers;
@@ -88,19 +92,13 @@ export type DashboardData = {
   findings: VisibilityFinding[];
   integrations: IntegrationView[];
   automation: AutomationStats;
-  approvals: AgentApprovalView[];
+  ownerRequests: OwnerRequestView[];
   inboxCount: number;
 };
 
-/** One page-scoped payload shared by the Inbox page and persistent dock. */
+/** Customer-ready decisions only; internal workflow records never reach the Inbox UI. */
 export type InboxData = {
-  agent: AgentOperatingState;
-  approvals: AgentApprovalView[];
-  articles: Article[];
-  findings: VisibilityFinding[];
-  traffic: VisibilityTraffic;
-  integrations: IntegrationView[];
-  automation: AutomationStats;
+  requests: OwnerRequestView[];
   inboxCount: number;
 };
 
@@ -217,6 +215,13 @@ export type Article = {
   createdAt: string;
   /** C4: latest performance checkpoint verdict, when one has run. */
   performance?: { verdict: "winner" | "stalling" | "dead" | "watching"; day: number; position: number | null } | null;
+  /** Most useful publication destination for compact content-library rows. */
+  publication?: {
+    provider: string;
+    status: string;
+    externalUrl: string | null;
+    publishedAt: string | null;
+  } | null;
 };
 
 export type Publication = {
@@ -299,6 +304,11 @@ const automationQueryOptions = () => queryOptions({
   ...queryPolicy.live,
   queryKey: queryKeys.automation,
   queryFn: apiQuery<AutomationStats>("/api/dashboard/automation"),
+});
+const agentGoalQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.agentGoal,
+  queryFn: apiQuery<{ goal: GoalView }>("/api/agent/goal"),
 });
 const onboardingQueryOptions = () => queryOptions({
   ...queryPolicy.frequent,
@@ -471,19 +481,13 @@ export function useDashboard(options: { enabled?: boolean } = {}) {
 
   useEffect(() => {
     if (!query.data) return;
-    const { agent, approvals, articles, findings, traffic, integrations, automation, inboxCount } =
+    const { agent, ownerRequests, findings, integrations, automation, inboxCount } =
       query.data;
     seedIfOlder<InboxData>(
       queryClient,
       queryKeys.inbox,
       {
-        agent,
-        approvals,
-        articles,
-        findings,
-        traffic,
-        integrations,
-        automation,
+        requests: ownerRequests,
         inboxCount,
       },
       query.dataUpdatedAt,
@@ -505,18 +509,16 @@ export function useInbox(options: { enabled?: boolean } = {}) {
   const query = useQuery({
     ...inboxQueryOptions(),
     enabled: options.enabled !== false && hasBrand,
-    refetchInterval: (query) =>
-      query.state.data?.agent.presence.id === "working_now" ? 8_000 : false,
   });
 
   useEffect(() => {
     if (!query.data) return;
-    const { agent, findings, integrations, automation, inboxCount } = query.data;
-    seedIfOlder(queryClient, queryKeys.agentState, agent, query.dataUpdatedAt);
-    seedIfOlder(queryClient, queryKeys.automation, automation, query.dataUpdatedAt);
-    seedIfOlder(queryClient, queryKeys.integrations, { integrations }, query.dataUpdatedAt);
-    seedIfOlder(queryClient, queryKeys.visibilityFindings, { findings }, query.dataUpdatedAt);
-    seedIfOlder(queryClient, queryKeys.inboxSummary, { count: inboxCount }, query.dataUpdatedAt);
+    seedIfOlder(
+      queryClient,
+      queryKeys.inboxSummary,
+      { count: query.data.inboxCount },
+      query.dataUpdatedAt,
+    );
   }, [query.data, query.dataUpdatedAt, queryClient]);
 
   return query;
@@ -539,6 +541,10 @@ export type AgentBrief = { text: string; generatedAt: string };
 
 export function useAgentBrief() {
   return useQuery({ ...agentBriefQueryOptions(), enabled: useHasBrand() });
+}
+
+export function useGoal() {
+  return useQuery({ ...agentGoalQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useAgentState(enabled = true) {
@@ -884,12 +890,16 @@ export function useReport(id: string) {
   });
 }
 
-export function useBrandAutonomy(brandId: string | null) {
-  return useQuery({
+const brandAutonomyQueryOptions = (brandId: string) => queryOptions({
     ...queryPolicy.configuration,
     queryKey: [...queryKeys.brandAutonomy, brandId] as const,
     queryFn: ({ signal }) =>
       apiGet<BrandAutonomyState>(`/api/brand/autonomy?brandId=${brandId}`, { signal }),
+  });
+
+export function useBrandAutonomy(brandId: string | null) {
+  return useQuery({
+    ...(brandId ? brandAutonomyQueryOptions(brandId) : brandAutonomyQueryOptions("unselected")),
     enabled: Boolean(brandId),
   });
 }
@@ -1121,7 +1131,8 @@ export async function prefetchRouteQueries(
   activeBrandId: string | null,
 ): Promise<void> {
   if (!activeBrandId) return;
-  const pathname = path.split("?", 1)[0];
+  const destination = new URL(path, "https://claudia.local");
+  const pathname = destination.pathname;
 
   switch (pathname) {
     case "/topics":
@@ -1164,17 +1175,45 @@ export async function prefetchRouteQueries(
       ]);
       break;
     case "/settings":
-      await Promise.all([
-        queryClient.prefetchQuery(brandProfileQueryOptions()),
-        queryClient.prefetchQuery(brandIntelligenceQueryOptions()),
-        queryClient.prefetchQuery(competitorsQueryOptions()),
-        queryClient.prefetchQuery(brandUseCasesQueryOptions()),
-        queryClient.prefetchQuery(automationQueryOptions()),
-        queryClient.prefetchQuery(agentStateQueryOptions()),
-        queryClient.prefetchQuery(agentActionsQueryOptions()),
-        queryClient.prefetchQuery(integrationsQueryOptions()),
-        queryClient.prefetchQuery(googleTrafficQueryOptions()),
-      ]);
+      switch (destination.searchParams.get("tab")) {
+        case "goals":
+          await queryClient.prefetchQuery(agentGoalQueryOptions());
+          break;
+        case "publishing":
+        case "automation":
+          await queryClient.prefetchQuery(integrationsQueryOptions());
+          break;
+        case "preferences":
+          await Promise.all([
+            queryClient.prefetchQuery(automationQueryOptions()),
+            queryClient.prefetchQuery(agentStateQueryOptions()),
+          ]);
+          break;
+        case "integrations":
+        case "connections":
+          await Promise.all([
+            queryClient.prefetchQuery(integrationsQueryOptions()),
+            queryClient.prefetchQuery(googleTrafficQueryOptions()),
+          ]);
+          break;
+        case "billing":
+        case "account":
+          await queryClient.prefetchQuery(creditsQueryOptions());
+          break;
+        case "advanced":
+          await Promise.all([
+            queryClient.prefetchQuery(agentActionsQueryOptions()),
+            queryClient.prefetchQuery(brandAutonomyQueryOptions(activeBrandId)),
+          ]);
+          break;
+        default:
+          await Promise.all([
+            queryClient.prefetchQuery(brandProfileQueryOptions()),
+            queryClient.prefetchQuery(brandIntelligenceQueryOptions()),
+            queryClient.prefetchQuery(competitorsQueryOptions()),
+            queryClient.prefetchQuery(brandUseCasesQueryOptions()),
+          ]);
+      }
       break;
     case "/account":
       await queryClient.prefetchQuery(creditsQueryOptions());

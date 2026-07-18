@@ -1,5 +1,5 @@
 // Manual smoke-test endpoint for the daily content agent. Give it just a
-// workspaceId + brandId (query string or JSON body) and it derives the rest
+// workspaceId + brandId (query string or JSON body on POST) and it derives the rest
 // (brand name, plan, today's runDate) and kicks off ONE DailyBrandWorkflow
 // instance: the same thing the daily cron does per brand, on demand.
 //
@@ -7,7 +7,7 @@
 // binding, so it only works on the Cloudflare runtime (deployed worker or
 // `pnpm preview:cf`), not plain `next dev`.
 //
-//   curl -H "Authorization: Bearer $CRON_SECRET" \
+//   curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
 //     "https://seogeoaeo.ai/api/agent/test-run?workspaceId=<ws>&brandId=<brand>"
 //
 // Optional `?planId=scale` overrides the plan (handy if the workspace has no
@@ -21,6 +21,7 @@ import { getDb } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
 import { isWorkflowInstanceExistsError } from "@/lib/jobs/workflow";
 import { getUtcDayKey } from "@/lib/workspace/settings";
+import { getAgentSafetyDecision } from "@/lib/agent/safety";
 
 async function resolve(request: Request) {
   const url = new URL(request.url);
@@ -28,16 +29,14 @@ async function resolve(request: Request) {
   let brandId = url.searchParams.get("brandId") ?? "";
   let planId = url.searchParams.get("planId");
 
-  if (request.method === "POST") {
-    const body = (await request.json().catch(() => ({}))) as {
-      workspaceId?: string;
-      brandId?: string;
-      planId?: string;
-    };
-    workspaceId = body.workspaceId ?? workspaceId;
-    brandId = body.brandId ?? brandId;
-    planId = body.planId ?? planId;
-  }
+  const body = (await request.json().catch(() => ({}))) as {
+    workspaceId?: string;
+    brandId?: string;
+    planId?: string;
+  };
+  workspaceId = body.workspaceId ?? workspaceId;
+  brandId = body.brandId ?? brandId;
+  planId = body.planId ?? planId;
 
   return { workspaceId, brandId, planId };
 }
@@ -45,6 +44,11 @@ async function resolve(request: Request) {
 async function handle(request: Request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const safety = getAgentSafetyDecision("drafting", { actor: "agent" });
+  if (!safety.allowed) {
+    return NextResponse.json({ error: safety.reason }, { status: 503 });
   }
 
   const { workspaceId, brandId, planId: planOverride } = await resolve(request);
@@ -99,10 +103,6 @@ async function handle(request: Request) {
     }
     throw error;
   }
-}
-
-export async function GET(request: Request) {
-  return handle(request);
 }
 
 export async function POST(request: Request) {

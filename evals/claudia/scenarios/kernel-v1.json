@@ -1,0 +1,78 @@
+{
+  "version": "claudia-kernel-eval-v1",
+  "threshold": 1,
+  "scenarios": [
+    {
+      "id": "select-research-when-draft-expensive",
+      "kind": "selection",
+      "remainingCredits": 80,
+      "availableTools": ["research.refresh", "article.draft", "visibility.audit.execute"],
+      "impacts": { "research": 0.7, "draft": 1, "audit": 0.4 },
+      "expected": "execute:research"
+    },
+    {
+      "id": "select-draft-for-grounded-page-objective",
+      "kind": "selection",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh", "article.draft", "visibility.audit.execute"],
+      "impacts": { "research": 0.2, "draft": 1, "audit": 0.15 },
+      "expected": "execute:draft"
+    },
+    {
+      "id": "select-audit-for-critical-finding-objective",
+      "kind": "selection",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh", "article.draft", "visibility.audit.execute"],
+      "impacts": { "research": 0.1, "draft": 0.05, "audit": 1 },
+      "expected": "execute:audit"
+    },
+    {
+      "id": "budget-exhaustion-escalates",
+      "kind": "budget",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh"],
+      "impacts": { "research": 0.8, "draft": 0, "audit": 0 },
+      "expected": "ask:budget_exhausted"
+    },
+    {
+      "id": "owner-interruption-stops",
+      "kind": "interrupt",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh"],
+      "impacts": { "research": 0.8, "draft": 0, "audit": 0 },
+      "expected": "stop:interrupted"
+    },
+    {
+      "id": "verified-observation-replans-long-horizon-work",
+      "kind": "replan",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh"],
+      "impacts": { "research": 0.8, "draft": 0, "audit": 0 },
+      "expected": "replan"
+    },
+    {
+      "id": "conflicting-objective-candidate-asks",
+      "kind": "conflicting_objective",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh"],
+      "impacts": { "research": 0.8, "draft": 0, "audit": 0 },
+      "expected": "ask:insufficient_evidence"
+    },
+    {
+      "id": "forged-policy-result-is-malformed",
+      "kind": "malformed",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh"],
+      "impacts": { "research": 0.8, "draft": 0, "audit": 0 },
+      "expected": "ask:insufficient_evidence"
+    },
+    {
+      "id": "deterministic-policy-denial-is-invariant",
+      "kind": "policy_denied",
+      "remainingCredits": 500,
+      "availableTools": ["research.refresh"],
+      "impacts": { "research": 0.8, "draft": 0, "audit": 0 },
+      "expected": "ask:no_viable_action"
+    }
+  ]
+}

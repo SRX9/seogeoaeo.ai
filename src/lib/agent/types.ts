@@ -21,11 +21,80 @@ export type AgentPresenceView = {
   isWorking: boolean;
 };
 
+export type AgentObjectiveMetricId =
+  | "ai_answer_share_percent"
+  | "qualified_non_brand_clicks"
+  | "critical_crawler_findings"
+  | "grounded_pages_published";
+
+export type AgentObjectiveBaseline = {
+  value: number;
+  observedAt: string;
+  sourceRefs: string[];
+};
+
+export type AgentObjectiveTarget = {
+  value: number;
+};
+
+export type AgentObjectiveHorizon = {
+  startAt: string;
+  endAt: string;
+};
+
+export type AgentObjectiveBudget = {
+  maxCredits: number;
+  maxRemoteWrites: number;
+  maxCostCents: number;
+};
+
+export type AgentObjectiveCapability =
+  | "observe"
+  | "prepare"
+  | "article.create"
+  | "article.update"
+  | "article.meta.update"
+  | "article.schema.update"
+  | "site.meta.update"
+  | "site.schema.update"
+  | "robots.update"
+  | "llms_txt.update"
+  | "rollback.supported";
+
+export type AgentObjectiveProgressStatus =
+  | "needs_configuration"
+  | "in_progress"
+  | "succeeded"
+  | "expired"
+  | "stopped";
+
+export type AgentObjectiveProgress = {
+  status: AgentObjectiveProgressStatus;
+  currentValue: number | null;
+  progressPercent: number | null;
+  targetReached: boolean;
+  measuredAt: string | null;
+  recordRefs: string[];
+};
+
 export type AgentMissionView = {
   id: string;
+  key: string;
   objective: string;
+  metric: AgentObjectiveMetricId | null;
+  baseline: AgentObjectiveBaseline | null;
+  target: AgentObjectiveTarget | null;
+  horizon: AgentObjectiveHorizon | null;
+  budget: AgentObjectiveBudget | null;
+  constraints: string[];
+  allowedCapabilities: AgentObjectiveCapability[];
   successCondition: string | null;
-  horizon: string;
+  stopCondition: string | null;
+  priority: number;
+  status: string;
+  definitionVersion: number;
+  configurationStatus: "configured" | "needs_configuration";
+  progress: AgentObjectiveProgress;
   origin: string;
 };
 
@@ -87,6 +156,7 @@ export type SteeringIntent =
   | "direction"
   | "explanation"
   | "status"
+  | "ambiguous"
   | "unsupported";
 
 export type PlanDiff = {
@@ -107,12 +177,20 @@ export type SteeringResult = {
     | "task_created"
     | "explained"
     | "status"
+    | "clarification_required"
     | "unsupported";
   title: string;
   summary: string;
   planDiff?: PlanDiff;
   memory?: { kind: string; key: string; expiresAt: string | null };
-  approval?: { id: string; actionType: string; resourceRef: string };
+  approval?: {
+    id: string;
+    actionType: string;
+    resourceRef: string;
+    proposalHash?: string;
+    proposal?: Record<string, unknown>;
+  };
+  policies?: Array<Record<string, unknown>>;
   task?: AgentTaskView;
   sources?: Array<{ label: string; href: string }>;
 };

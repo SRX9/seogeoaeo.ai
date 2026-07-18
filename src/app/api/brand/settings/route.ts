@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
-import { updateBrandAutonomy, updateBrandBadgePublic } from "@/lib/brand/repository";
+import { getBrand, updateBrandAutonomy, updateBrandBadgePublic } from "@/lib/brand/repository";
 import type { AutonomyMode } from "@/lib/workspace/settings";
+import { canEnrollNewFullAuto } from "@/lib/agent/safety";
 
 /**
  * Update a brand's settings (autonomy mode and/or the public-badge opt-in).
@@ -27,6 +28,16 @@ export async function PATCH(request: Request) {
     );
 
     if (autonomyMode !== undefined) {
+      if (autonomyMode === "FULL_AUTO") {
+        const current = await getBrand(workspace.id, brandId);
+        if (!current) throw new HttpError(404, "Brand not found");
+        if (current.autonomyMode !== "FULL_AUTO" && !canEnrollNewFullAuto()) {
+          throw new HttpError(
+            409,
+            "Autopilot enrollment is frozen until grounded publishing is enabled.",
+          );
+        }
+      }
       const updated = await updateBrandAutonomy(workspace.id, brandId, autonomyMode as AutonomyMode);
       if (!updated) throw new HttpError(404, "Brand not found");
     }

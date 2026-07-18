@@ -10,6 +10,7 @@ const delta = (overallDelta: number): DeltaReport => ({
   trajectory: [],
   impact: "",
   baselineOnly: false,
+  compatible: true,
 });
 
 describe("shouldAlert", () => {

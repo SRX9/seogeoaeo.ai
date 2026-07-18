@@ -19,8 +19,6 @@ import type { SessionUser } from "@/lib/auth/session";
 import {
   useAgentState,
   useDashboard,
-  useInbox,
-  useInboxSummaryCount,
   prefetchRouteQueries,
 } from "@/lib/api/queries";
 import { cn } from "@/lib/cn";
@@ -45,20 +43,17 @@ function initials(name: string) {
 function SidebarNavItem({
   item,
   pathname,
-  inboxCount,
   agentState,
   onPrefetch,
   idPrefix = "",
 }: {
   item: AppNavItem;
   pathname: string;
-  inboxCount: number;
   agentState?: string;
   onPrefetch: (href: string) => void;
   idPrefix?: string;
 }) {
   const Icon = item.icon;
-  const isInbox = item.href === "/inbox";
   const isDashboard = item.href === "/dashboard";
 
   return (
@@ -100,11 +95,6 @@ function SidebarNavItem({
         </span>
       </Sidebar.MenuIcon>
       <Sidebar.MenuLabel>{item.label}</Sidebar.MenuLabel>
-      {isInbox && inboxCount > 0 ? (
-        <span className="ms-auto text-xs font-semibold text-warning tabular-nums">
-          {inboxCount > 99 ? "99+" : inboxCount}
-        </span>
-      ) : null}
     </Sidebar.MenuItem>
   );
 }
@@ -113,7 +103,6 @@ function SidebarContents({
   user,
   brands,
   activeBrandId,
-  inboxCount,
   agentState,
   onPrefetch,
   onOpenCommand,
@@ -122,7 +111,6 @@ function SidebarContents({
   user: SessionUser;
   brands: BrandOption[];
   activeBrandId: string | null;
-  inboxCount: number;
   agentState?: string;
   onPrefetch: (href: string) => void;
   onOpenCommand: () => void;
@@ -165,7 +153,6 @@ function SidebarContents({
                 key={item.href}
                 item={item}
                 pathname={pathname}
-                inboxCount={inboxCount}
                 agentState={agentState}
                 onPrefetch={onPrefetch}
                 idPrefix={idPrefix}
@@ -176,13 +163,12 @@ function SidebarContents({
       </Sidebar.Content>
 
       <Sidebar.Footer>
-        <Sidebar.Menu aria-label="Account navigation">
+        <Sidebar.Menu aria-label="Help">
           {APP_FOOTER_ITEMS.map((item) => (
             <SidebarNavItem
               key={item.href}
               item={item}
               pathname={pathname}
-              inboxCount={inboxCount}
               agentState={agentState}
               onPrefetch={onPrefetch}
               idPrefix={idPrefix}
@@ -224,17 +210,9 @@ export function AppSidebar({
   const router = useRouter();
   const queryClient = useQueryClient();
   const isDashboard = pathname === "/dashboard";
-  const isInbox = pathname === "/inbox";
   const dashboard = useDashboard({ enabled: false });
-  const inbox = useInbox({ enabled: isInbox });
-  const shellInboxCount = useInboxSummaryCount(!isDashboard && !isInbox);
-  const shellState = useAgentState(!isDashboard && !isInbox).data;
-  const inboxCount = isDashboard
-    ? (dashboard.data?.inboxCount ?? 0)
-    : isInbox
-      ? (inbox.data?.inboxCount ?? 0)
-      : shellInboxCount;
-  const agent = isDashboard ? dashboard.data?.agent : isInbox ? inbox.data?.agent : shellState;
+  const shellState = useAgentState(!isDashboard).data;
+  const agent = isDashboard ? dashboard.data?.agent : shellState;
 
   const prefetch = useCallback(
     (path: string) => {
@@ -248,7 +226,6 @@ export function AppSidebar({
     user,
     brands,
     activeBrandId,
-    inboxCount,
     agentState: agent?.presence.id,
     onPrefetch: prefetch,
     onOpenCommand,

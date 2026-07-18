@@ -16,6 +16,16 @@ async function searchSerper(query: string): Promise<ResearchFinding[]> {
       source: "Web search (Serper)",
       sourceType: "web_search",
       evidenceUrls: item.link ? [item.link] : [],
+      evidenceSources: item.link
+        ? [{
+            url: item.link,
+            title: item.title,
+            excerpt: item.snippet,
+            sourceType: "web_search",
+            sourceLabel: "Web search (Serper)",
+            query,
+          }]
+        : [],
       snippet: item.snippet,
     });
   }
@@ -30,6 +40,16 @@ async function searchSerper(query: string): Promise<ResearchFinding[]> {
       source: "People Also Ask",
       sourceType: "web_search",
       evidenceUrls: item.link ? [item.link] : [],
+      evidenceSources: item.link
+        ? [{
+            url: item.link,
+            title: item.question,
+            excerpt: item.snippet,
+            sourceType: "web_search",
+            sourceLabel: "People Also Ask",
+            query: item.question,
+          }]
+        : [],
       snippet: item.snippet,
     });
   }
@@ -71,6 +91,16 @@ async function searchTavily(query: string): Promise<ResearchFinding[]> {
             source: "Web search (Tavily)",
             sourceType: "web_search" as const,
             evidenceUrls: item.url ? [item.url] : [],
+            evidenceSources: item.url
+              ? [{
+                  url: item.url,
+                  title: item.title,
+                  excerpt: item.content,
+                  sourceType: "web_search" as const,
+                  sourceLabel: "Web search (Tavily)",
+                  query,
+                }]
+              : [],
             snippet: item.content,
           },
         ]

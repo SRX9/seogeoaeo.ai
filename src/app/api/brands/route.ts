@@ -7,6 +7,7 @@ import {
   readJson,
 } from "@/lib/api/server";
 import { z } from "zod";
+import { ensurePrimaryObjective } from "@/lib/agent/objectives";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { setActiveBrandCookie } from "@/lib/brand/context";
 import {
@@ -46,6 +47,7 @@ import {
   setIntegrationEnabled,
   updateIntegrationConfig,
 } from "@/lib/integrations/repository";
+import { firstOutcomeObjective } from "@/lib/onboarding/first-outcome";
 
 /** List all brands in the workspace. */
 export async function GET() {
@@ -304,6 +306,17 @@ export async function POST(request: Request) {
       } catch (error) {
         console.error("[brands] target-profile seeding failed", error);
       }
+    }
+
+    try {
+      await ensurePrimaryObjective(scope, brand.name, {
+        objective: firstOutcomeObjective(data.firstOutcome, brand.name),
+        origin: "owner_selected",
+      });
+    } catch (error) {
+      // The selected priority is useful context, but it must not make a
+      // completed brand setup unretryable if mission storage is unavailable.
+      console.error("[brands] initial goal creation failed", error);
     }
 
     if (integrationSetup) {

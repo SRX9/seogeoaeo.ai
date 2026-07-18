@@ -3,20 +3,8 @@
 import { Kbd } from "@heroui/react";
 import { Command } from "@heroui-pro/react";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
-import {
-  ActivityIcon,
-  ClaudiaIcon,
-  InboxIcon,
-  SearchIcon,
-  SettingsIcon,
-} from "@/components/icons";
-
-const PRIMARY = [
-  { href: "/dashboard", label: "Claudia", icon: ClaudiaIcon },
-  { href: "/inbox", label: "Inbox", icon: InboxIcon },
-  { href: "/work", label: "Work", icon: ActivityIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
-] as const;
+import { SearchIcon } from "@/components/icons";
+import { APP_NAV_ITEMS } from "@/components/layout/app-navigation";
 
 export function AgentCommandMenu({
   isOpen,
@@ -39,7 +27,7 @@ export function AgentCommandMenu({
           <Command.Dialog>
             <Command.InputGroup>
               <Command.InputGroup.Prefix><SearchIcon className="size-4" /></Command.InputGroup.Prefix>
-              <Command.InputGroup.Input placeholder="Go to Claudia, Inbox, Work, or Settings…" />
+              <Command.InputGroup.Input placeholder="Go to Claudia, Content, Results, or Settings…" />
               <Command.InputGroup.ClearButton />
             </Command.InputGroup>
             <Command.List
@@ -47,7 +35,7 @@ export function AgentCommandMenu({
               renderEmptyState={() => <p className="p-6 text-center text-sm text-muted">No matching destination.</p>}
             >
               <Command.Group heading="Workspace">
-                {PRIMARY.map((item) => {
+                {APP_NAV_ITEMS.map((item) => {
                   const Icon = item.icon;
                   return <Command.Item key={item.href} id={item.href} textValue={item.label}><Icon className="size-4" /><span>{item.label}</span></Command.Item>;
                 })}

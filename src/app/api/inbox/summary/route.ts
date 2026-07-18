@@ -6,11 +6,8 @@ import { getInboxSummaryCount } from "@/lib/inbox/summary";
  */
 export async function GET() {
   return handleApi(async () => {
-    const { workspace, brand } = await requireApiBrand();
-    const count = await getInboxSummaryCount({
-      workspaceId: workspace.id,
-      brandId: brand.id,
-    });
+    const context = await requireApiBrand();
+    const count = await getInboxSummaryCount(context);
     return jsonOk({ count });
   });
 }

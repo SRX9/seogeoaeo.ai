@@ -437,7 +437,9 @@ export async function runScheduledAnswerCheck(args: {
   // No cells = no active prompts (or every engine failed): nothing to bill.
   if (result.cells.length === 0) return { ran: false, reason: "no prompts or engine results" };
 
-  await spendForVisibilityJob(args.workspaceId, "answer_run", args.newAuditId, brand.brandId);
+  await spendForVisibilityJob(args.workspaceId, "answer_run", args.newAuditId, brand.brandId, {
+    actor: "agent",
+  });
   // Answer-gap findings join the shared fix queue (dedup lives in the repository).
   await persistNewFindings(args.workspaceId, result.findings, { brandId: brand.brandId });
   logInfo("cron.visibility.answers", {

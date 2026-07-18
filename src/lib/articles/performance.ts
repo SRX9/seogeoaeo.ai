@@ -16,6 +16,7 @@ import {
 } from "@/lib/research/providers/gsc-queries";
 import { persistNewFindings } from "@/lib/visibility/findings-repository";
 import type { Finding } from "@/lib/visibility/types";
+import { recordPerformanceCheckpointAttribution } from "@/lib/agent/learning";
 
 export type { SearchQueryRow };
 
@@ -454,6 +455,17 @@ export async function runDueCheckpoints(
 
     result.checked += 1;
     result.byVerdict[verdict] += 1;
+
+    try {
+      await recordPerformanceCheckpointAttribution(scope, checkpoint.id, now);
+    } catch (error) {
+      // Attribution is idempotent and the bounded learning refresh can recover
+      // it later; never discard the durable checkpoint itself.
+      console.error(
+        `[performance] outcome attribution failed for checkpoint ${checkpoint.id}`,
+        error,
+      );
+    }
 
     // Dispatch the verdict's action, best-effort, and record it on the row.
     try {

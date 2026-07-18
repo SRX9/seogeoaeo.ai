@@ -9,6 +9,10 @@ export const queryKeys = {
   automation: ["dashboard", "automation"] as const,
   agentBrief: ["dashboard", "brief"] as const,
   agentState: ["agent", "state"] as const,
+  agentGoal: ["agent", "goal"] as const,
+  agentObjective: ["agent", "objective"] as const,
+  agentStrategy: ["agent", "strategy"] as const,
+  agentMemoryCorrections: ["agent", "memory", "corrections"] as const,
   agentApprovals: ["agent", "approvals"] as const,
   agentActions: ["agent", "actions"] as const,
   onboarding: ["onboarding"] as const,
@@ -40,4 +44,3 @@ export const queryKeys = {
   inboxSummary: ["inbox", "summary"] as const,
   inbox: ["inbox", "page"] as const,
 };
-

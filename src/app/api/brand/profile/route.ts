@@ -3,6 +3,7 @@ import { getBrandProfile, upsertBrandProfile } from "@/lib/brand/repository";
 import { brandProfileSchema } from "@/lib/brand/schemas";
 import { listUseCases, syncUseCases } from "@/lib/brand/use-cases";
 import { logWarn } from "@/lib/logging/logger";
+import { reconcileOwnerBrandProfileMemory } from "@/lib/agent/brand-profile-memory";
 import {
   clearBrandIntelligence,
   domainFromWebsite,
@@ -13,8 +14,11 @@ import {
 /** Get the active brand's profile (always returns string fields, never null). */
 export async function GET() {
   return handleApi(async () => {
-    const { brand } = await requireApiBrand();
+    const { scope, brand } = await requireApiBrand();
     const profile = await getBrandProfile(brand.id);
+    // Authenticated reads lazily reconcile brands created before layered memory
+    // existed; the bridge is deterministic, so ordinary profile reads are safe.
+    await reconcileOwnerBrandProfileMemory(scope);
     return jsonOk({
       profile: {
         productDescription: profile?.productDescription ?? "",
@@ -40,6 +44,9 @@ export async function PUT(request: Request) {
       website: data.website ?? "",
       seedKeywords: data.seedKeywords ?? "",
     });
+    // The upsert durably records changed fields on the same row, so a crash
+    // here is recovered by the next authenticated read, draft, or research run.
+    await reconcileOwnerBrandProfileMemory(scope);
 
     const previousDomain = domainFromWebsite(previous?.website ?? "");
     const nextDomain = domainFromWebsite(data.website ?? "");

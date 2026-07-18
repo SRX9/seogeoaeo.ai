@@ -11,8 +11,13 @@ export function extractFeedItems(xml: string) {
     if (!link) {
       link = block.match(/<link[^>]*href=["']([^"']+)["']/i)?.[1] ?? null;
     }
+    const publishedAt =
+      extractXmlValues(block, "pubDate")[0] ??
+      extractXmlValues(block, "published")[0] ??
+      extractXmlValues(block, "updated")[0] ??
+      null;
     const trimmedTitle = title.trim();
-    return trimmedTitle ? [{ title: trimmedTitle, link }] : [];
+    return trimmedTitle ? [{ title: trimmedTitle, link, publishedAt }] : [];
   });
 }
 
@@ -34,13 +39,26 @@ export const rssProvider: ResearchProvider = {
             if (!xml) {
               return [];
             }
-            return extractFeedItems(xml).slice(0, 5).map((item) => ({
-              title: item.title,
-              source: `${competitor.name} RSS`,
-              sourceType: "rss",
-              evidenceUrls: item.link ? [item.link] : [rssUrl],
-              snippet: `Recent competitor content from ${competitor.name}`,
-            }));
+            return extractFeedItems(xml).slice(0, 5).map((item) => {
+              const url = item.link ?? rssUrl;
+              const excerpt = `Recent competitor content from ${competitor.name}`;
+              return {
+                title: item.title,
+                source: `${competitor.name} RSS`,
+                sourceType: "rss" as const,
+                evidenceUrls: [url],
+                evidenceSources: [{
+                  url,
+                  title: item.title,
+                  publisher: competitor.name,
+                  excerpt,
+                  publishedAt: item.publishedAt ?? undefined,
+                  sourceType: "rss" as const,
+                  sourceLabel: `${competitor.name} RSS`,
+                }],
+                snippet: excerpt,
+              };
+            });
           })(),
         ];
       }),
@@ -77,6 +95,14 @@ export const sitemapProvider: ResearchProvider = {
               source: `${competitor.name} sitemap`,
               sourceType: "sitemap",
               evidenceUrls: [url],
+              evidenceSources: [{
+                url,
+                title: title.charAt(0).toUpperCase() + title.slice(1),
+                publisher: competitor.name,
+                excerpt: `Discovered from ${competitor.name} sitemap`,
+                sourceType: "sitemap" as const,
+                sourceLabel: `${competitor.name} sitemap`,
+              }],
               snippet: `Discovered from ${competitor.name} sitemap`,
             },
           ];

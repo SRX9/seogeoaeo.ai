@@ -55,8 +55,8 @@ export async function POST(request: Request) {
             `${origin}/onboarding?checkout=canceled`,
           ]
         : [
-            `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-            `${origin}/account?tab=billing&checkout=canceled`,
+            `${origin}/settings?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+            `${origin}/settings?tab=billing&checkout=canceled`,
           ];
 
     let params: Stripe.Checkout.SessionCreateParams;

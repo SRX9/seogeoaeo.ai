@@ -4,7 +4,7 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    exclude: [...configDefaults.exclude, ".next/**", ".open-next/**"],
+    exclude: [...configDefaults.exclude, ".next/**", ".open-next/**", "evals/**"],
   },
   resolve: {
     alias: {

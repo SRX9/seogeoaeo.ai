@@ -1,5 +1,13 @@
 import { parseHTML } from "linkedom";
 import type { PageSnapshot, RedirectHop } from "./types";
+import {
+  assessEgressUrl,
+  createCrawlBudget,
+  type CrawlBudget,
+  isSameSite,
+  readLimitedBody,
+  type HostResolver,
+} from "./egress";
 
 /**
  * V0.1: page fetcher. 1:1 port of `fetch_page()` from
@@ -25,11 +33,16 @@ const SECURITY_HEADERS = [
   "Permissions-Policy",
 ];
 
-const MAX_REDIRECTS = 10;
+const MAX_REDIRECTS = 5;
+const MAX_HTML_BYTES = 2 * 1024 * 1024;
 
 export interface FetchPageOptions {
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  resolveHostname?: HostResolver;
+  maxBytes?: number;
+  budget?: CrawlBudget;
+  workspaceBudgetKey?: string;
 }
 
 function normalizeText(text: string | null | undefined): string {
@@ -41,11 +54,38 @@ async function fetchWithRedirects(
   url: string,
   fetchImpl: typeof fetch,
   signal: AbortSignal,
-): Promise<{ response: Response; chain: RedirectHop[] }> {
+  options: {
+    resolver?: HostResolver;
+    requireDnsResolution: boolean;
+    budget: CrawlBudget;
+  },
+): Promise<{ response: Response; chain: RedirectHop[]; finalUrl: string }> {
   const chain: RedirectHop[] = [];
   let current = url;
+  const initial = new URL(url);
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
-    const response = await fetchImpl(current, {
+    const decision = await assessEgressUrl(current, {
+      resolver: options.resolver,
+      signal,
+      requireDnsResolution: options.requireDnsResolution,
+    });
+    if (options.requireDnsResolution) {
+      console.info("[crawler] egress", {
+        allowed: decision.allowed,
+        host: decision.hostname,
+        addressCount: decision.addresses.length,
+        reason: decision.reason,
+      });
+    }
+    if (!decision.allowed || !decision.normalizedUrl) {
+      throw new Error(`Blocked crawler destination: ${decision.reason}`);
+    }
+    const destination = new URL(decision.normalizedUrl);
+    if (!isSameSite(initial, destination)) {
+      throw new Error("Cross-site page redirect blocked");
+    }
+    options.budget.takeRequest(destination.hostname);
+    const response = await fetchImpl(destination.toString(), {
       headers: DEFAULT_HEADERS,
       redirect: "manual",
       signal,
@@ -53,10 +93,10 @@ async function fetchWithRedirects(
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
       chain.push({ url: current, status: response.status });
-      current = new URL(location, current).toString();
+      current = new URL(location, destination).toString();
       continue;
     }
-    return { response, chain };
+    return { response, chain, finalUrl: destination.toString() };
   }
   throw new Error(`Too many redirects (>${MAX_REDIRECTS})`);
 }
@@ -67,6 +107,12 @@ export async function fetchPage(
 ): Promise<PageSnapshot> {
   const timeoutMs = opts.timeoutMs ?? 30_000;
   const fetchImpl = opts.fetchImpl ?? fetch;
+  const budget = opts.budget ?? createCrawlBudget(opts.workspaceBudgetKey, {
+    maxRequests: MAX_REDIRECTS + 1,
+    maxRequestsPerHost: MAX_REDIRECTS + 1,
+    maxBytes: opts.maxBytes ?? MAX_HTML_BYTES,
+    totalTimeoutMs: timeoutMs,
+  });
 
   const result: PageSnapshot = {
     url,
@@ -108,11 +154,20 @@ export async function fetchPage(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const { response, chain } = await fetchWithRedirects(
+    const { response, chain, finalUrl } = await fetchWithRedirects(
       url,
       fetchImpl,
       controller.signal,
+      {
+        resolver: opts.resolveHostname,
+        // An injected transport is treated as the resolver boundary in unit
+        // tests and HTML-reparse helpers. Production's global fetch always
+        // requires fresh A/AAAA validation before every hop.
+        requireDnsResolution: !opts.fetchImpl || Boolean(opts.resolveHostname),
+        budget,
+      },
     );
+    result.url = finalUrl;
     result.redirect_chain = chain;
     result.status_code = response.status;
     response.headers.forEach((value, key) => {
@@ -122,7 +177,12 @@ export async function fetchPage(
       result.security_headers[header] = response.headers.get(header);
     }
 
-    const html = await response.text();
+    const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+    if (contentType !== "text/html" && contentType !== "application/xhtml+xml") {
+      throw new Error(`Unsupported content type: ${contentType ?? "missing"}`);
+    }
+    const html = await readLimitedBody(response, opts.maxBytes ?? MAX_HTML_BYTES);
+    budget.addBytes(new TextEncoder().encode(html).byteLength);
     result.html = html;
     const { document } = parseHTML(html);
 

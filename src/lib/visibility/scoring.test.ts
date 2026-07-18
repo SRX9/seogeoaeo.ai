@@ -19,12 +19,19 @@ describe("computeComposite", () => {
 
   it("still scores a partial audit and lists unmeasured sub-scores", () => {
     const r = computeComposite(sub({ citability: 80, technical: 60 }));
-    expect(r.overall).toBe(29); // 80·0.25 + 60·0.15
+    expect(r.overall).toBe(73);
     expect(r.notMeasured).toEqual(["brand", "eeat", "schema", "platform"]);
   });
 
   it("maps band boundaries correctly", () => {
-    const at = (v: number) => computeComposite([{ key: "citability", score: v * 4 }]).band; // citability weight 0.25
+    const at = (v: number) => computeComposite(sub({
+      citability: v,
+      brand: v,
+      eeat: v,
+      technical: v,
+      schema: v,
+      platform: v,
+    })).band;
     expect(at(90)).toBe("Excellent");
     expect(at(75)).toBe("Good");
     expect(at(60)).toBe("Fair");

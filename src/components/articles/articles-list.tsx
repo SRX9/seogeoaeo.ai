@@ -1,464 +1,328 @@
 "use client";
 
-import type { SortDescriptor } from "@heroui/react";
-import {
-  Button,
-  Card,
-  Dropdown,
-  Label,
-  SearchField,
-  Table,
-  Tooltip,
-} from "@heroui/react";
+import { Button, Card, SearchField } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
-import { EmptyState, Segment } from "@heroui-pro/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArticlesIcon, ChevronRightIcon, LayersIcon, ResearchIcon } from "@/components/icons";
+import {
+  ArrowRightIcon,
+  ArticlesIcon,
+  CheckIcon,
+  ResearchIcon,
+  UserInputIcon,
+} from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
 import type { Article, Topic } from "@/lib/api/queries";
+import { cn } from "@/lib/cn";
 
-type FilterKey = "all" | "draft" | "review" | "published" | "attention";
-type SortKey = "title" | "status" | "updated";
-type OptionalColumn = "topic" | "signal" | "destination" | "performance";
+type ContentSectionKey = "review" | "scheduled" | "published";
 
 type ArticlesListProps = {
   articles: Article[];
   topics: Topic[];
+  autoPublish: boolean;
 };
 
-const FILTERS: Array<{ id: FilterKey; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "draft", label: "Draft" },
-  { id: "review", label: "In Review" },
-  { id: "published", label: "Published" },
-  { id: "attention", label: "Needs Attention" },
-];
+const ATTENTION_STATUSES = new Set(["failed", "error", "rejected", "needs_attention"]);
+const REVIEW_STATUSES = new Set(["draft", "pending", "review", "awaiting_review", "in_review"]);
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
-const COLUMN_OPTIONS: Array<{ id: OptionalColumn; label: string }> = [
-  { id: "topic", label: "Target Topic" },
-  { id: "signal", label: "Research Signal" },
-  { id: "destination", label: "Destination" },
-  { id: "performance", label: "Performance" },
-];
+const SECTION_COPY: Record<
+  ContentSectionKey,
+  { title: string; description: string; Icon: React.ComponentType<{ className?: string }> }
+> = {
+  review: {
+    title: "Needs review",
+    description: "Content waiting for a decision or correction.",
+    Icon: UserInputIcon,
+  },
+  scheduled: {
+    title: "Scheduled",
+    description: "Work Claudia is preparing or has lined up for publishing.",
+    Icon: ArticlesIcon,
+  },
+  published: {
+    title: "Published",
+    description: "Live content Claudia is monitoring and improving.",
+    Icon: CheckIcon,
+  },
+};
 
-const DEFAULT_COLUMNS = new Set<OptionalColumn>(COLUMN_OPTIONS.map((column) => column.id));
-
-function parseGateResults(value: string | null): Array<{ gate: string; passed: boolean }> {
+function parseGateResults(value: string | null) {
   if (!value) return [];
   try {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (gate): gate is { gate: string; passed: boolean } =>
-        Boolean(
-          gate &&
-            typeof gate === "object" &&
-            "gate" in gate &&
-            "passed" in gate &&
-            typeof gate.gate === "string" &&
-            typeof gate.passed === "boolean",
-        ),
-    );
+    return parsed.flatMap((gate) => {
+      if (!gate || typeof gate !== "object") return [];
+      const candidate = gate as { passed?: unknown };
+      return typeof candidate.passed === "boolean" ? [{ passed: candidate.passed }] : [];
+    });
   } catch {
     return [];
   }
 }
 
-function needsAttention(article: Article): boolean {
-  if (["failed", "error", "rejected", "needs_attention"].includes(article.status)) return true;
-  return parseGateResults(article.gateResultsJson).some(
-    (gate) => gate.gate === "style-lint" && !gate.passed,
+function needsAttention(article: Article) {
+  return (
+    ATTENTION_STATUSES.has(article.status) ||
+    parseGateResults(article.gateResultsJson).some((gate) => !gate.passed)
   );
 }
 
-function categoryFor(article: Article): Exclude<FilterKey, "all"> {
-  if (article.status === "published") return "published";
-  if (needsAttention(article)) return "attention";
-  if (["approved", "pending", "review", "awaiting_review", "in_review"].includes(article.status)) {
+function sectionFor(article: Article, autoPublish: boolean): ContentSectionKey {
+  if (article.status === "published" || article.publication?.status === "published") {
+    return "published";
+  }
+  if (needsAttention(article) || (!autoPublish && REVIEW_STATUSES.has(article.status))) {
     return "review";
   }
-  return "draft";
+  return "scheduled";
 }
 
-function statusLabel(article: Article): string {
-  const category = categoryFor(article);
-  if (category === "attention") return "Needs Attention";
-  if (article.status === "approved") return "Approved";
-  return FILTERS.find((item) => item.id === category)?.label ?? "Draft";
+function articleStatus(article: Article, section: ContentSectionKey) {
+  if (needsAttention(article)) return { label: "Needs attention", tone: "danger" as const };
+  if (section === "published") return { label: "Published", tone: "success" as const };
+  if (section === "review") return { label: "Needs review", tone: "warning" as const };
+  if (article.status === "scheduled") return { label: "Scheduled", tone: "accent" as const };
+  if (article.status === "approved") return { label: "Ready to publish", tone: "accent" as const };
+  return { label: "Claudia is preparing it", tone: "default" as const };
 }
 
-function statusColor(category: Exclude<FilterKey, "all">) {
-  if (category === "published") return "success" as const;
-  if (category === "review") return "warning" as const;
-  if (category === "attention") return "danger" as const;
-  return "default" as const;
+function whyCreated(article: Article, topic: Topic | undefined) {
+  if (topic?.rationale) return topic.rationale;
+  if (topic?.angle) return topic.angle;
+  if (topic?.title) return `Claudia created this to cover the researched opportunity “${topic.title}”.`;
+  if (article.metaDescription) return article.metaDescription;
+  return "Claudia created this from a researched customer or discovery opportunity.";
 }
 
-function compareArticles(a: Article, b: Article, key: SortKey): number {
-  if (key === "updated") return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
-  if (key === "status") return statusLabel(a).localeCompare(statusLabel(b));
-  return a.title.localeCompare(b.title);
+function providerName(provider: string | undefined) {
+  if (!provider) return null;
+  const labels: Record<string, string> = {
+    wordpress: "WordPress",
+    ghost: "Ghost",
+    webhook: "your connected website",
+  };
+  return labels[provider] ?? provider.replace(/[_-]/g, " ").replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function formatRelativeTime(value: string): string {
-  const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
-  const hours = Math.floor(elapsed / 3_600_000);
-  if (hours < 1) return "Just now";
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
-function topicSignal(topic: Topic | undefined, article: Article) {
-  if (topic?.evidenceJson) {
-    try {
-      const evidence = JSON.parse(topic.evidenceJson) as { sourceType?: string };
-      const labels: Record<string, string> = {
-        gsc: "Google Search",
-        gsc_query: "Google Search",
-        competitor_gap: "Competitor Gap",
-        trend_query: "Market Trend",
-        web_search: "Web Research",
-        keyword_api: "Keyword Signal",
-      };
-      if (evidence.sourceType && labels[evidence.sourceType]) return labels[evidence.sourceType];
-    } catch {
-      // A malformed evidence payload should not prevent the article list rendering.
-    }
+function destinationCopy(article: Article, section: ContentSectionKey) {
+  const provider = providerName(article.publication?.provider);
+  if (section === "published") {
+    const publishedAt = article.publication?.publishedAt;
+    const date = publishedAt ? DATE_FORMATTER.format(new Date(publishedAt)) : null;
+    return `${provider ? `Published to ${provider}` : "Published"}${date ? ` · ${date}` : ""}`;
   }
-  if (topic?.intentTier === "bofu") return "Buying Intent";
-  if (topic?.intentTier === "mofu") return "Comparison Intent";
-  return article.shape?.replace(/-/g, " ").replace(/^./, (letter) => letter.toUpperCase()) ?? "AI Answer";
+  if (provider) return `${article.status === "scheduled" ? "Scheduled" : "Preparing"} for ${provider}`;
+  return "Claudia will ask for a destination when the content is ready.";
 }
 
-function performanceLabel(article: Article) {
-  if (!article.performance) return "Not Measured";
-  if (article.performance.position != null) return `Position ${Math.round(article.performance.position)}`;
-  return article.performance.verdict.replace(/^./, (letter) => letter.toUpperCase());
+function performanceCopy(article: Article, section: ContentSectionKey) {
+  const performance = article.performance;
+  if (performance?.verdict === "winner") return "Gaining traction";
+  if (performance?.verdict === "stalling") return "Claudia is preparing an improvement";
+  if (performance?.verdict === "dead") return "Needs improvement";
+  if (performance?.position != null) return `Average position ${Math.round(performance.position)}`;
+  return section === "published" ? "Waiting for the first reliable signal" : null;
 }
 
-function ColumnsMenu({
-  columns,
-  onToggle,
+function ContentRow({
+  article,
+  topic,
+  section,
 }: {
-  columns: Set<OptionalColumn>;
-  onToggle: (column: OptionalColumn) => void;
+  article: Article;
+  topic: Topic | undefined;
+  section: ContentSectionKey;
 }) {
+  const status = articleStatus(article, section);
+  const performance = performanceCopy(article, section);
+
   return (
-    <Dropdown>
-      <Button size="sm" variant="ghost">
-        <LayersIcon className="size-4" />
-        Columns
-      </Button>
-      <Dropdown.Popover>
-        <Dropdown.Menu
-          selectionMode="multiple"
-          selectedKeys={columns}
-          onAction={(key) => onToggle(String(key) as OptionalColumn)}
+    <article className="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(12rem,0.7fr)_2rem] lg:items-center">
+      <div className="min-w-0">
+        <ToneText tone={status.tone} className="text-xs">
+          {status.label}
+        </ToneText>
+        <Link
+          href={`/articles/${article.id}`}
+          className="mt-1 block w-fit max-w-full text-base font-semibold leading-6 text-foreground no-underline hover-fine:text-accent"
         >
-          {COLUMN_OPTIONS.map((column) => (
-            <Dropdown.Item key={column.id} id={column.id} textValue={column.label}>
-              <Dropdown.ItemIndicator />
-              <Label>{column.label}</Label>
-            </Dropdown.Item>
-          ))}
-        </Dropdown.Menu>
-      </Dropdown.Popover>
-    </Dropdown>
+          <span className="line-clamp-2">{article.title}</span>
+        </Link>
+        <p className="mt-2 line-clamp-2 max-w-2xl text-sm leading-6 text-muted">
+          {whyCreated(article, topic)}
+        </p>
+      </div>
+      <div className="min-w-0 space-y-1 text-sm leading-5">
+        <p className="text-foreground">{destinationCopy(article, section)}</p>
+        {performance ? <p className="text-muted">{performance}</p> : null}
+      </div>
+      <Link
+        href={`/articles/${article.id}`}
+        aria-label={`Open ${article.title}`}
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "sm" }),
+          "hidden min-h-10 min-w-10 transition-transform active:scale-[0.96] lg:inline-flex",
+        )}
+      >
+        <ArrowRightIcon className="size-4" />
+      </Link>
+    </article>
   );
 }
 
-function ArticleStatus({ article }: { article: Article }) {
-  const category = categoryFor(article);
-  return (
-    <ToneText tone={statusColor(category)} className="text-xs">
-      {statusLabel(article)}
-    </ToneText>
-  );
-}
-
-function MobileArticleCards({ rows, topicById }: { rows: Article[]; topicById: Map<string, Topic> }) {
-  return (
-    <div className="grid gap-3 md:hidden">
-      {rows.map((article) => {
-        const topic = article.topicId ? topicById.get(article.topicId) : undefined;
-        return (
-          <Card key={article.id} className="gap-4">
-            <Card.Header className="flex-row items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <Card.Title className="line-clamp-2 text-base">{article.title}</Card.Title>
-                <Card.Description className="truncate">/{article.slug}</Card.Description>
-              </div>
-              <ArticleStatus article={article} />
-            </Card.Header>
-            <Card.Content className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-muted">Target Topic</p>
-                <p className="mt-1 line-clamp-2 text-foreground">{topic?.title ?? "Not linked"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">Updated</p>
-                <time dateTime={article.updatedAt} className="mt-1 block text-foreground" suppressHydrationWarning>
-                  {formatRelativeTime(article.updatedAt)}
-                </time>
-              </div>
-            </Card.Content>
-            <Card.Footer className="justify-between gap-3">
-              <span className="text-xs font-medium text-muted">{topicSignal(topic, article)}</span>
-              <Link href={`/articles/${article.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Open
-                <ChevronRightIcon className="size-4" />
-              </Link>
-            </Card.Footer>
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
-
-function ArticleTable({
-  rows,
+function ContentSection({
+  section,
+  articles,
   topicById,
-  columns,
-  sortDescriptor,
-  onSortChange,
 }: {
-  rows: Article[];
+  section: ContentSectionKey;
+  articles: Article[];
   topicById: Map<string, Topic>;
-  columns: Set<OptionalColumn>;
-  sortDescriptor: SortDescriptor;
-  onSortChange: (descriptor: SortDescriptor) => void;
 }) {
+  if (articles.length === 0) return null;
+  const copy = SECTION_COPY[section];
   return (
-    <div className="hidden md:block">
-      <Table variant="secondary">
-        <Table.ScrollContainer>
-          <Table.Content
-            aria-label="Articles"
-            className="min-w-[920px]"
-            sortDescriptor={sortDescriptor}
-            onSortChange={onSortChange}
+    <section aria-labelledby={`content-${section}-title`}>
+      <Card className="overflow-hidden rounded-3xl p-0">
+        <Card.Header className="flex-row items-start gap-3 px-5 py-5 sm:px-6">
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            aria-hidden
           >
-            <Table.Header>
-              <Table.Column allowsSorting id="status">
-                {({ sortDirection }) => (
-                  <Table.SortableColumnHeader sortDirection={sortDirection}>Status</Table.SortableColumnHeader>
-                )}
-              </Table.Column>
-              <Table.Column allowsSorting isRowHeader id="title">
-                {({ sortDirection }) => (
-                  <Table.SortableColumnHeader sortDirection={sortDirection}>Article</Table.SortableColumnHeader>
-                )}
-              </Table.Column>
-              {columns.has("topic") ? <Table.Column id="topic">Target Topic</Table.Column> : null}
-              {columns.has("signal") ? <Table.Column id="signal">Research Signal</Table.Column> : null}
-              <Table.Column allowsSorting id="updated">
-                {({ sortDirection }) => (
-                  <Table.SortableColumnHeader sortDirection={sortDirection}>Updated</Table.SortableColumnHeader>
-                )}
-              </Table.Column>
-              {columns.has("destination") ? <Table.Column id="destination">Destination</Table.Column> : null}
-              {columns.has("performance") ? <Table.Column id="performance">Performance</Table.Column> : null}
-              <Table.Column id="action" className="text-end">Open</Table.Column>
-            </Table.Header>
-            <Table.Body>
-              {rows.map((article) => {
-                const topic = article.topicId ? topicById.get(article.topicId) : undefined;
-                return (
-                  <Table.Row key={article.id} id={article.id}>
-                    <Table.Cell><ArticleStatus article={article} /></Table.Cell>
-                    <Table.Cell>
-                      <Link href={`/articles/${article.id}`} className="block max-w-sm no-underline">
-                        <span className="line-clamp-1 font-medium text-foreground">{article.title}</span>
-                        <span className="mt-0.5 block truncate text-xs text-muted">/{article.slug}</span>
-                      </Link>
-                    </Table.Cell>
-                    {columns.has("topic") ? (
-                      <Table.Cell><span className="line-clamp-2 max-w-52 text-sm">{topic?.title ?? "Not linked"}</span></Table.Cell>
-                    ) : null}
-                    {columns.has("signal") ? (
-                      <Table.Cell><span className="text-xs font-medium text-muted">{topicSignal(topic, article)}</span></Table.Cell>
-                    ) : null}
-                    <Table.Cell>
-                      <time dateTime={article.updatedAt} className="text-sm tabular-nums text-muted" suppressHydrationWarning>
-                        {formatRelativeTime(article.updatedAt)}
-                      </time>
-                    </Table.Cell>
-                    {columns.has("destination") ? (
-                      <Table.Cell>
-                        <ToneText tone={article.status === "published" ? "success" : "default"} className="text-xs">
-                          {article.status === "published" ? "Live" : "Not Published"}
-                        </ToneText>
-                      </Table.Cell>
-                    ) : null}
-                    {columns.has("performance") ? (
-                      <Table.Cell><span className="text-sm tabular-nums text-muted">{performanceLabel(article)}</span></Table.Cell>
-                    ) : null}
-                    <Table.Cell className="text-end">
-                      <Tooltip delay={300}>
-                        <Link
-                          href={`/articles/${article.id}`}
-                          aria-label={`Open ${article.title}`}
-                          className={buttonVariants({ variant: "ghost", size: "sm" })}
-                        >
-                          <ChevronRightIcon className="size-4" />
-                        </Link>
-                        <Tooltip.Content>Open Article</Tooltip.Content>
-                      </Tooltip>
-                    </Table.Cell>
-                  </Table.Row>
-                );
-              })}
-            </Table.Body>
-          </Table.Content>
-        </Table.ScrollContainer>
-      </Table>
-    </div>
+            <copy.Icon className="size-5" />
+          </span>
+          <div>
+            <Card.Title id={`content-${section}-title`}>{copy.title}</Card.Title>
+            <Card.Description className="mt-1">{copy.description}</Card.Description>
+          </div>
+          <span className="ml-auto text-sm tabular-nums text-muted">{articles.length}</span>
+        </Card.Header>
+        <Card.Content className="divide-y divide-separator p-0">
+          {articles.map((article) => (
+            <ContentRow
+              key={article.id}
+              article={article}
+              topic={article.topicId ? topicById.get(article.topicId) : undefined}
+              section={section}
+            />
+          ))}
+        </Card.Content>
+      </Card>
+    </section>
   );
 }
 
-export function ArticlesList({ articles, topics }: ArticlesListProps) {
-  const [filter, setFilter] = useState<FilterKey>("all");
+export function ArticlesList({ articles, topics, autoPublish }: ArticlesListProps) {
   const [search, setSearch] = useState("");
-  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({ column: "updated", direction: "descending" });
-  const [columns, setColumns] = useState<Set<OptionalColumn>>(() => new Set(DEFAULT_COLUMNS));
-
   const topicById = useMemo(() => new Map(topics.map((topic) => [topic.id, topic])), [topics]);
-  const counts = useMemo(() => {
-    const next = { draft: 0, review: 0, published: 0, attention: 0 };
-    for (const article of articles) next[categoryFor(article)] += 1;
+  const groups = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    const next: Record<ContentSectionKey, Article[]> = {
+      review: [],
+      scheduled: [],
+      published: [],
+    };
+    for (const article of articles) {
+      const topic = article.topicId ? topicById.get(article.topicId) : undefined;
+      if (
+        normalized &&
+        !article.title.toLowerCase().includes(normalized) &&
+        !topic?.title.toLowerCase().includes(normalized)
+      ) {
+        continue;
+      }
+      next[sectionFor(article, autoPublish)].push(article);
+    }
     return next;
-  }, [articles]);
+  }, [articles, autoPublish, search, topicById]);
 
-  const rows = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    return articles
-      .filter((article) => {
-        if (filter !== "all" && categoryFor(article) !== filter) return false;
-        if (!normalizedSearch) return true;
-        const topic = article.topicId ? topicById.get(article.topicId) : undefined;
-        return [article.title, article.slug, topic?.title].some((value) => value?.toLowerCase().includes(normalizedSearch));
-      })
-      .sort((a, b) => {
-        const compared = compareArticles(a, b, String(sortDescriptor.column) as SortKey);
-        return sortDescriptor.direction === "descending" ? -compared : compared;
-      });
-  }, [articles, filter, search, sortDescriptor, topicById]);
-
-  function toggleColumn(column: OptionalColumn) {
-    setColumns((current) => {
-      const next = new Set(current);
-      if (next.has(column)) next.delete(column);
-      else next.add(column);
-      return next;
-    });
-  }
-
-  if (articles.length === 0) {
-    return (
-      <Card>
-        <EmptyState>
-          <EmptyState.Header>
-            <EmptyState.Media variant="icon"><ArticlesIcon /></EmptyState.Media>
-            <EmptyState.Title>No Articles Yet</EmptyState.Title>
-            <EmptyState.Description>
-              Start with a researched topic and Claudia will build the first draft.
-            </EmptyState.Description>
-          </EmptyState.Header>
-          <EmptyState.Content>
-            <Link href="/topics" className={buttonVariants({ variant: "primary" })}>
-              <ResearchIcon className="size-4" />
-              Browse Topics
-            </Link>
-          </EmptyState.Content>
-        </EmptyState>
-      </Card>
-    );
-  }
-
+  const visibleCount = groups.review.length + groups.scheduled.length + groups.published.length;
   return (
-    <div className="space-y-6">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Article status summary">
-        {FILTERS.slice(1).map((item) => {
-          const category = item.id as Exclude<FilterKey, "all">;
-          return (
-            <Card key={item.id} variant={filter === category ? "tertiary" : "default"} className="p-2">
-              <Button
-                fullWidth
-                variant="ghost"
-                className="h-auto justify-between px-3 py-2 text-start"
-                aria-pressed={filter === category}
-                onPress={() => setFilter(category)}
-              >
-                <span>
-                  <span className="block text-sm font-medium text-muted">{item.label}</span>
-                  <span className="mt-1 block text-2xl font-semibold leading-none tabular-nums text-foreground">{counts[category]}</span>
-                </span>
-                <ToneText tone={statusColor(category)} className="text-xs tabular-nums">{Math.round((counts[category] / articles.length) * 100)}%</ToneText>
-              </Button>
-            </Card>
-          );
-        })}
-      </section>
+    <div className="space-y-5">
+      {articles.length > 5 ? (
+        <div className="flex items-center justify-between gap-4">
+          <SearchField
+            aria-label="Search content"
+            className="w-full sm:max-w-sm"
+            value={search}
+            onChange={setSearch}
+          >
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="Search content" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+          <span className="hidden text-sm tabular-nums text-muted sm:block">
+            {visibleCount} {visibleCount === 1 ? "item" : "items"}
+          </span>
+        </div>
+      ) : null}
 
-      <Card className="gap-5">
-        <Card.Header className="flex-col items-stretch gap-4">
-          <div className="overflow-x-auto pb-1">
-            <Segment
-              className="min-w-max"
-              aria-label="Filter articles by status"
-              selectedKey={filter}
-              size="sm"
-              variant="ghost"
-              onSelectionChange={(key) => setFilter(String(key) as FilterKey)}
+      {articles.length === 0 ? (
+        <Card className="rounded-3xl p-0">
+          <Card.Content className="flex min-h-52 flex-col items-center justify-center px-6 py-10 text-center">
+            <ArticlesIcon className="size-8 text-muted" />
+            <h2 className="mt-4 text-lg font-semibold text-foreground">Claudia is preparing the first content</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted">
+              Useful drafts and published work will appear here automatically.
+            </p>
+          </Card.Content>
+        </Card>
+      ) : visibleCount === 0 ? (
+        <Card className="rounded-3xl p-0">
+          <Card.Content className="flex min-h-40 flex-col items-center justify-center px-6 py-8 text-center">
+            <p className="text-sm text-muted">No content matches that search.</p>
+            <Button variant="ghost" className="mt-3" onPress={() => setSearch("")}>
+              Clear search
+            </Button>
+          </Card.Content>
+        </Card>
+      ) : (
+        <>
+          <ContentSection section="review" articles={groups.review} topicById={topicById} />
+          <ContentSection section="scheduled" articles={groups.scheduled} topicById={topicById} />
+          <ContentSection section="published" articles={groups.published} topicById={topicById} />
+        </>
+      )}
+
+      <Card className="rounded-3xl p-0">
+        <Card.Content className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span
+              className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+              aria-hidden
             >
-              {FILTERS.map((item) => <Segment.Item key={item.id} id={item.id}>{item.label}</Segment.Item>)}
-            </Segment>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <SearchField aria-label="Search articles" value={search} onChange={setSearch} className="w-full sm:max-w-sm">
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Search articles" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <span className="text-sm tabular-nums text-muted">{rows.length} {rows.length === 1 ? "article" : "articles"}</span>
-              <ColumnsMenu columns={columns} onToggle={toggleColumn} />
+              <ResearchIcon className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Content ideas</h2>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-muted">
+                {topics.length > 0
+                  ? `Claudia has ${topics.length} researched ${topics.length === 1 ? "idea" : "ideas"} in the library.`
+                  : "Claudia is researching the next useful opportunities."}
+              </p>
             </div>
           </div>
-        </Card.Header>
-
-        {rows.length > 0 ? (
-          <Card.Content>
-            <MobileArticleCards rows={rows} topicById={topicById} />
-            <ArticleTable
-              rows={rows}
-              topicById={topicById}
-              columns={columns}
-              sortDescriptor={sortDescriptor}
-              onSortChange={setSortDescriptor}
-            />
-          </Card.Content>
-        ) : (
-          <Card.Content>
-            <EmptyState size="sm" className="rounded-2xl bg-surface-secondary">
-              <EmptyState.Header>
-                <EmptyState.Title>No Matching Articles</EmptyState.Title>
-                <EmptyState.Description>Try another search or clear the current status filter.</EmptyState.Description>
-              </EmptyState.Header>
-              <EmptyState.Content>
-                <Button variant="outline" size="sm" onPress={() => { setSearch(""); setFilter("all"); }}>Clear Filters</Button>
-              </EmptyState.Content>
-            </EmptyState>
-          </Card.Content>
-        )}
+          <Link
+            href="/topics"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "min-h-11 shrink-0 transition-transform active:scale-[0.96]",
+            )}
+          >
+            See ideas
+            <ArrowRightIcon className="size-4" />
+          </Link>
+        </Card.Content>
       </Card>
     </div>
   );

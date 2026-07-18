@@ -1,4 +1,5 @@
 import { DEFAULT_HEADERS } from "./fetch-page";
+import { safePublicFetch } from "./egress";
 import type { AiCrawlerStatus, RobotsResult, RobotsRule } from "./types";
 
 /**
@@ -116,10 +117,11 @@ export async function fetchRobots(
   };
 
   try {
-    const response = await fetchImpl(robotsUrl, {
-      headers: DEFAULT_HEADERS,
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
-    });
+    const response = await safePublicFetch(
+      robotsUrl,
+      { headers: DEFAULT_HEADERS, signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000) },
+      { fetchImpl, sameSiteWith: url, maxBytes: 512 * 1024 },
+    );
     if (response.status === 200) {
       result.exists = true;
       result.content = await response.text();

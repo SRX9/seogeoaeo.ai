@@ -1,4 +1,5 @@
 import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { competitorContent } from "@/lib/db/schema";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
@@ -68,6 +69,14 @@ async function crawlCompetitor(
 }
 
 type Classification = { url: string; topic?: string; intent?: string; shape?: string };
+const classificationResponseSchema = z.object({
+  posts: z.array(z.object({
+    url: z.string().url(),
+    topic: z.string().max(500).optional(),
+    intent: z.string().max(100).optional(),
+    shape: z.string().max(200).optional(),
+  })).max(MAX_CLASSIFY_BATCH).optional(),
+});
 
 async function classifyPosts(context: ResearchContext, posts: CrawledPost[]) {
   const byUrl = new Map<string, Classification>();
@@ -79,10 +88,10 @@ async function classifyPosts(context: ResearchContext, posts: CrawledPost[]) {
     posts.slice(0, MAX_CLASSIFY_BATCH).map((post) => ({ url: post.url, title: post.title })),
   );
   try {
-    const { data } = await generateJson<{ posts?: Classification[] }>("light", [
+    const { data } = await generateJson("light", [
       { role: "system", content: prompt.system },
       { role: "user", content: prompt.user },
-    ]);
+    ], { schema: classificationResponseSchema });
     for (const item of data?.posts ?? []) {
       if (item.url) byUrl.set(item.url, item);
     }

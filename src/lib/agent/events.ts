@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import {
@@ -7,6 +7,11 @@ import {
   agentEvents,
   agentTasks,
 } from "@/lib/db/schema";
+import {
+  computeActionProposalHash,
+  DEFAULT_ACTION_POLICY_VERSION,
+  type ActionProposalMaterial,
+} from "@/lib/agent/proposal";
 
 export type AgentEventType =
   | "planned"
@@ -16,8 +21,12 @@ export type AgentEventType =
   | "approval_requested"
   | "applied"
   | "verified"
+  | "reverted"
+  | "rollback_failed"
   | "regressed"
   | "blocked"
+  | "objective_updated"
+  | "plan_approved"
   | "replanned"
   | "completed"
   | "failed";
@@ -54,6 +63,7 @@ export async function transitionAgentTask(
   scope: BrandScope,
   taskId: string,
   input: {
+    fromStatuses: string[];
     status: string;
     eventType: AgentEventType;
     summary: string;
@@ -84,7 +94,9 @@ export async function transitionAgentTask(
       .where(
         and(
           eq(agentTasks.id, taskId),
+          eq(agentTasks.workspaceId, scope.workspaceId),
           eq(agentTasks.brandId, scope.brandId),
+          inArray(agentTasks.status, input.fromStatuses),
           ne(agentTasks.status, input.status),
         ),
       )
@@ -94,7 +106,13 @@ export async function transitionAgentTask(
       const [existing] = await tx
         .select()
         .from(agentTasks)
-        .where(and(eq(agentTasks.id, taskId), eq(agentTasks.brandId, scope.brandId)))
+        .where(
+          and(
+            eq(agentTasks.id, taskId),
+            eq(agentTasks.workspaceId, scope.workspaceId),
+            eq(agentTasks.brandId, scope.brandId),
+          ),
+        )
         .limit(1);
       return existing;
     }
@@ -124,15 +142,18 @@ export async function recordTaskProgress(
 ) {
   return getDb().transaction(async (tx) => {
     const [task] = await tx
-      .select({ id: agentTasks.id, missionId: agentTasks.missionId })
-      .from(agentTasks)
-      .where(and(eq(agentTasks.id, taskId), eq(agentTasks.brandId, scope.brandId)))
-      .limit(1);
-    if (!task) return null;
-    await tx
       .update(agentTasks)
       .set({ updatedAt: new Date() })
-      .where(eq(agentTasks.id, task.id));
+      .where(
+        and(
+          eq(agentTasks.id, taskId),
+          eq(agentTasks.workspaceId, scope.workspaceId),
+          eq(agentTasks.brandId, scope.brandId),
+          eq(agentTasks.status, "in_progress"),
+        ),
+      )
+      .returning({ id: agentTasks.id, missionId: agentTasks.missionId });
+    if (!task) return null;
     const [event] = await tx
       .insert(agentEvents)
       .values({
@@ -155,28 +176,44 @@ export async function createAgentApproval(
   input: {
     taskId?: string | null;
     actionType: string;
+    capability?: string;
     resourceRef: string;
+    destination?: string | null;
     beforeState?: unknown;
     afterState: unknown;
+    modelPromptVersion?: string | null;
+    policyVersion?: string;
     riskLevel: string;
     expectedBenefit: string;
     expiresAt?: Date | null;
   },
 ) {
   const now = new Date();
-  const existing = await getDb().query.agentApprovals.findFirst({
-    where: and(
-      eq(agentApprovals.brandId, scope.brandId),
-      eq(agentApprovals.actionType, input.actionType),
-      eq(agentApprovals.resourceRef, input.resourceRef),
-      eq(agentApprovals.status, "pending"),
-      or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
-    ),
-    orderBy: desc(agentApprovals.createdAt),
+  const policyVersion = input.policyVersion ?? DEFAULT_ACTION_POLICY_VERSION;
+  const capability = input.capability ?? input.actionType;
+  const proposalHash = await computeActionProposalHash({
+    actionType: input.actionType,
+    capability,
+    resourceRef: input.resourceRef,
+    beforeState: input.beforeState,
+    afterState: input.afterState,
+    destination: input.destination,
+    modelPromptVersion: input.modelPromptVersion,
+    policyVersion,
   });
-  if (existing) return existing;
 
   return getDb().transaction(async (tx) => {
+    await tx
+      .update(agentApprovals)
+      .set({ status: "expired", updatedAt: now })
+      .where(
+        and(
+          eq(agentApprovals.brandId, scope.brandId),
+          eq(agentApprovals.proposalHash, proposalHash),
+          eq(agentApprovals.status, "pending"),
+          lte(agentApprovals.expiresAt, now),
+        ),
+      );
     const [approval] = await tx
       .insert(agentApprovals)
       .values({
@@ -184,15 +221,37 @@ export async function createAgentApproval(
         brandId: scope.brandId,
         taskId: input.taskId ?? null,
         actionType: input.actionType,
+        capability,
         resourceRef: input.resourceRef,
+        destination: input.destination ?? null,
         beforeState: input.beforeState,
         afterState: input.afterState,
+        proposalHash,
+        policyVersion,
+        modelPromptVersion: input.modelPromptVersion ?? null,
         riskLevel: input.riskLevel,
         expectedBenefit: input.expectedBenefit,
         expiresAt: input.expiresAt ?? null,
       })
+      .onConflictDoNothing()
       .returning();
-    if (!approval) throw new Error("Approval could not be created");
+    if (!approval) {
+      const [existing] = await tx
+        .select()
+        .from(agentApprovals)
+        .where(
+          and(
+            eq(agentApprovals.brandId, scope.brandId),
+            eq(agentApprovals.proposalHash, proposalHash),
+            eq(agentApprovals.status, "pending"),
+            isNull(agentApprovals.invalidatedAt),
+            or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
+          ),
+        )
+        .limit(1);
+      if (!existing) throw new Error("Approval could not be created");
+      return existing;
+    }
     const [event] = await tx
       .insert(agentEvents)
       .values({
@@ -201,7 +260,7 @@ export async function createAgentApproval(
         taskId: approval.taskId,
         eventType: "approval_requested",
         summary: `Owner approval requested for ${input.actionType}.`,
-        data: { approvalId: approval.id, resourceRef: input.resourceRef },
+        data: { approvalId: approval.id, resourceRef: input.resourceRef, proposalHash },
       })
       .returning({ id: agentEvents.id });
     if (!event) throw new Error("Approval event could not be recorded");
@@ -225,6 +284,7 @@ export async function decideAgentApproval(
           eq(agentApprovals.id, approvalId),
           eq(agentApprovals.brandId, scope.brandId),
           eq(agentApprovals.status, "pending"),
+          isNull(agentApprovals.invalidatedAt),
           or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
         ),
       )
@@ -270,10 +330,68 @@ export async function listPendingAgentApprovals(brandId: string, now = new Date(
       and(
         eq(agentApprovals.brandId, brandId),
         eq(agentApprovals.status, "pending"),
+        isNull(agentApprovals.invalidatedAt),
         or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, now)),
       ),
     )
     .orderBy(desc(agentApprovals.createdAt));
+}
+
+export type ApprovalValidationResult =
+  | { valid: true; approval: typeof agentApprovals.$inferSelect; proposalHash: string }
+  | { valid: false; reason: string; proposalHash: string };
+
+/** Re-hash material at the executor boundary and reject stale or reused approval. */
+export async function validateAgentApprovalForExecution(
+  scope: BrandScope,
+  approvalId: string,
+  material: ActionProposalMaterial,
+  now = new Date(),
+): Promise<ApprovalValidationResult> {
+  const proposalHash = await computeActionProposalHash(material);
+  const [approval] = await getDb()
+    .select()
+    .from(agentApprovals)
+    .where(
+      and(
+        eq(agentApprovals.id, approvalId),
+        eq(agentApprovals.workspaceId, scope.workspaceId),
+        eq(agentApprovals.brandId, scope.brandId),
+      ),
+    )
+    .limit(1);
+  if (!approval) return { valid: false, reason: "Approval not found.", proposalHash };
+
+  if (approval.proposalHash !== proposalHash) {
+    if (!approval.invalidatedAt) {
+      await getDb()
+        .update(agentApprovals)
+        .set({
+          status: "invalidated",
+          invalidatedAt: now,
+          invalidationReason: "Material action fields changed after approval.",
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(agentApprovals.id, approval.id),
+            isNull(agentApprovals.invalidatedAt),
+          ),
+        );
+    }
+    return {
+      valid: false,
+      reason: "Approval is stale because the proposed action changed.",
+      proposalHash,
+    };
+  }
+  if (approval.invalidatedAt || approval.status !== "approved") {
+    return { valid: false, reason: "Approval is not active and approved.", proposalHash };
+  }
+  if (approval.expiresAt && approval.expiresAt.getTime() <= now.getTime()) {
+    return { valid: false, reason: "Approval has expired.", proposalHash };
+  }
+  return { valid: true, approval, proposalHash };
 }
 
 export async function recordAgentAction(
@@ -349,6 +467,47 @@ export async function recordAgentAction(
       })
       .returning({ id: agentEvents.id });
     if (!event) throw new Error("Action event could not be recorded");
+    return action;
+  });
+}
+
+/** Mirror a real remote compensation outcome onto the immutable action trail. */
+export async function recordAgentActionRollback(
+  scope: BrandScope,
+  actionId: string,
+  input: {
+    status: "reverted" | "rollback_failed" | "manual_recovery_required";
+    summary: string;
+    data?: Record<string, unknown>;
+  },
+) {
+  const now = new Date();
+  return getDb().transaction(async (tx) => {
+    const [action] = await tx
+      .update(agentActionLedger)
+      .set({
+        status: input.status,
+        revertedAt: input.status === "reverted" ? now : null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(agentActionLedger.id, actionId),
+          eq(agentActionLedger.workspaceId, scope.workspaceId),
+          eq(agentActionLedger.brandId, scope.brandId),
+        ),
+      )
+      .returning();
+    if (!action) return null;
+    await tx.insert(agentEvents).values({
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      taskId: action.taskId,
+      eventType:
+        input.status === "reverted" ? "reverted" : "rollback_failed",
+      summary: input.summary,
+      data: { actionId: action.id, status: input.status, ...input.data },
+    });
     return action;
   });
 }

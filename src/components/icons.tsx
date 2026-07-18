@@ -25,6 +25,7 @@ import {
   FlashIcon,
   FloppyDiskIcon,
   Globe02Icon,
+  HelpCircleIcon,
   InboxIcon as HugeInboxIcon,
   LayerIcon,
   LeftToRightListBulletIcon,
@@ -95,6 +96,7 @@ export const SunIcon = iconComponent(Sun03Icon);
 export const MoonIcon = iconComponent(Moon02Icon);
 export const SearchIcon = iconComponent(Search01Icon);
 export const GlobeIcon = iconComponent(Globe02Icon);
+export const HelpIcon = iconComponent(HelpCircleIcon);
 export const UsersIcon = iconComponent(UserGroupIcon);
 export const TrendingUpIcon = iconComponent(ChartUpIcon);
 export const PenIcon = iconComponent(PencilEdit01Icon);

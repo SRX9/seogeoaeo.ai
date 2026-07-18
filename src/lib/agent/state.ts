@@ -2,11 +2,14 @@ import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getAgentPresence } from "@/lib/agent/presence";
 import { listPendingAgentApprovals } from "@/lib/agent/events";
 import { getAgentControlState } from "@/lib/agent/memory";
+import { objectiveMetricSchema, toAgentMissionView } from "@/lib/agent/objectives";
+import { measureObjectiveMetric } from "@/lib/agent/objective-measurements";
 import {
   ensureNextDailyTask,
   ensureWeeklyPlan,
   setFutureAgentTasksPaused,
 } from "@/lib/agent/planner";
+import { orderTasksByPlan } from "@/lib/agent/strategy";
 import type { AgentEventView, AgentState, AgentTaskView } from "@/lib/agent/types";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { isActiveSubscription } from "@/lib/billing/plans";
@@ -98,7 +101,8 @@ export async function getAgentState(
   }
 
   const db = getDb();
-  const [tasks, recentEvents, approvals, setup, credits, weekly, draftRows, findings, gscRows, integrations] = await Promise.all([
+  const parsedMetric = objectiveMetricSchema.safeParse(mission.metric);
+  const [tasks, recentEvents, approvals, setup, credits, weekly, draftRows, findings, gscRows, integrations, measurement] = await Promise.all([
     db
       .select()
       .from(agentTasks)
@@ -139,9 +143,11 @@ export async function getAgentState(
     input.preload?.findings ?? getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
     input.preload?.gscRows ?? listTrafficConnections(scope.brandId),
     input.preload?.integrations ?? listIntegrations(scope.brandId),
+    parsedMetric.success ? measureObjectiveMetric(scope, parsedMetric.data) : null,
   ]);
 
   const now = Date.now();
+  const orderedTasks = orderTasksByPlan(tasks, plan.evidenceSnapshot);
   const inFlight = tasks.filter((task) => ACTIVE_STATUSES.includes(task.status));
   const liveTasks = inFlight.filter(
     (task) => now - (task.updatedAt ?? task.startedAt ?? task.createdAt).getTime() < STALE_TASK_MS,
@@ -154,14 +160,9 @@ export async function getAgentState(
       task.scheduledFor.getTime() < now - STALE_TASK_MS,
   );
   const recoveryTasks = [...staleTasks, ...overdueTasks];
-  const nextTasks = tasks
+  const nextTasks = orderedTasks
     .filter(
       (task) => NEXT_STATUSES.includes(task.status) && !overdueTasks.includes(task),
-    )
-    .sort(
-      (a, b) =>
-        (a.scheduledFor?.getTime() ?? Number.MAX_SAFE_INTEGER) -
-        (b.scheduledFor?.getTime() ?? Number.MAX_SAFE_INTEGER),
     )
     .slice(0, 2);
   const failedTasks = tasks.filter(
@@ -271,13 +272,7 @@ export async function getAgentState(
 
   return {
     presence,
-    mission: {
-      id: mission.id,
-      objective: mission.objective,
-      successCondition: mission.successCondition,
-      horizon: mission.horizon,
-      origin: mission.origin,
-    },
+    mission: toAgentMissionView(mission, measurement),
     plan: {
       id: plan.id,
       version: plan.version,

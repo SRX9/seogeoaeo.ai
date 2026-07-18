@@ -5,7 +5,6 @@ import {
   deleteResearchTopicsForRun,
   listTopicTitles,
 } from "@/lib/articles/repository";
-import { getSourceWeights } from "@/lib/articles/performance";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { buildResearchContext, researchProviders } from "@/lib/research/providers";
 import {
@@ -15,8 +14,13 @@ import {
 } from "@/lib/research/repository";
 import { scoreFindings } from "@/lib/research/score";
 import type { ResearchFinding } from "@/lib/research/types";
-import { uniqueByTitle } from "@/lib/research/utils";
+import { boundSupportingExcerpt } from "@/lib/grounding/evidence";
+import { persistResearchEvidenceBundles } from "@/lib/grounding/service";
 import { logError, logInfo } from "@/lib/logging/logger";
+import { getAgentControlState } from "@/lib/agent/memory";
+import { assertAgentOperationAllowed, type AgentActor } from "@/lib/agent/safety";
+import { loadTrustedResearchMemory } from "@/lib/agent/memory-context";
+import { validateMemoryEvidenceRefsAtExecution } from "@/lib/agent/layered-memory";
 
 export type RunResearchOptions = {
   /**
@@ -25,10 +29,15 @@ export type RunResearchOptions = {
    * re-discovering and inserting a fresh set of duplicate topics.
    */
   idempotencyKey?: string;
+  actor?: AgentActor;
 };
 
 export async function runResearch(scope: BrandScope, options: RunResearchOptions = {}) {
   const { workspaceId, brandId } = scope;
+  if (options.actor === "agent") {
+    const controls = await getAgentControlState(brandId);
+    assertAgentOperationAllowed("observation", { actor: "agent", controls });
+  }
   const idempotencyKey = options.idempotencyKey ?? null;
 
   // Idempotent reuse. A finished run for this key short-circuits. A stale partial
@@ -45,7 +54,7 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
           summary: existing.summary ?? "",
         };
       }
-      await deleteResearchTopicsForRun(existing.id);
+      await deleteResearchTopicsForRun(scope, existing.id);
       run = existing;
     }
   }
@@ -56,22 +65,32 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
   const job = await createAgentJob(scope, "research", "Research run started");
 
   try {
-    const [brand, profile, competitors, existingTitles, useCases] = await Promise.all([
+    const [brand, profile, competitors, existingTitles, useCases, trustedMemory] = await Promise.all([
       getBrand(workspaceId, brandId),
       getBrandProfile(brandId),
       listCompetitors(brandId),
       listTopicTitles(brandId),
       listUseCases(brandId, { enabledOnly: true }),
+      loadTrustedResearchMemory(scope),
     ]);
+
+    const override = <T,>(memoryValue: T | null | undefined, profileValue: T | null | undefined) =>
+      memoryValue === undefined ? profileValue : memoryValue;
 
     const context = buildResearchContext(
       {
-        name: brand?.name,
-        productDescription: profile?.productDescription,
-        audience: profile?.audience,
-        tone: profile?.tone,
-        website: profile?.website,
-        seedKeywords: profile?.seedKeywords,
+        name: override(trustedMemory.overrides.name, brand?.name),
+        productDescription: override(
+          trustedMemory.overrides.productDescription,
+          profile?.productDescription,
+        ),
+        audience: override(trustedMemory.overrides.audience, profile?.audience),
+        tone: override(trustedMemory.overrides.tone, profile?.tone),
+        website: override(trustedMemory.overrides.website, profile?.website),
+        seedKeywords: override(
+          trustedMemory.overrides.seedKeywords,
+          profile?.seedKeywords,
+        ),
       },
       competitors.map((item) => ({
         name: item.name,
@@ -112,28 +131,62 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
       ),
     );
 
-    const findings: ResearchFinding[] = uniqueByTitle(
-      providerResults.flatMap((result) => result.findings),
-    );
+    // Keep duplicate discoveries through scoring: scoreFindings uses them to
+    // preserve corroborating evidence and apply its independent-source boost.
+    const findings: ResearchFinding[] = providerResults
+      .flatMap((result) => result.findings)
+      .map((finding) => ({
+        ...finding,
+        snippet: finding.snippet
+          ? boundSupportingExcerpt(finding.snippet)
+          : undefined,
+        evidenceSources: finding.evidenceSources?.map((source) => ({
+          ...source,
+          excerpt: source.excerpt
+            ? boundSupportingExcerpt(source.excerpt)
+            : undefined,
+        })),
+      }));
 
     const existing = new Set(existingTitles.map((title) => title.toLowerCase()));
     const novelFindings = findings.filter(
       (finding) => !existing.has(finding.title.toLowerCase()),
     );
 
-    // C4: sources with a winning track record for this brand score higher.
-    // (Never throws: a failed read degrades to unweighted scoring and logs.)
-    const sourceWeights = await getSourceWeights(brandId);
-    const { topics: scoredTopics, tokenUsage } = await scoreFindings(novelFindings, context, {
-      sourceWeights,
+    // Persist the raw evidence score. The daily production selector applies a
+    // threshold-qualified source weight exactly once at the execution boundary.
+    const { topics: scoredTopics, tokenUsage } = await scoreFindings(novelFindings, context);
+    const beforeInsert = await validateMemoryEvidenceRefsAtExecution(
+      scope,
+      trustedMemory.evidenceRefs,
+      { consumer: "research" },
+    );
+    if (!beforeInsert.valid) {
+      throw new Error(`Research memory changed before topic creation: ${beforeInsert.reason}`);
+    }
+    const created = await createResearchTopics(scope, run.id, scoredTopics, {
+      memoryEvidenceRefs: trustedMemory.evidenceRefs,
     });
-    const created = await createResearchTopics(scope, run.id, scoredTopics);
+    const afterInsert = await validateMemoryEvidenceRefsAtExecution(
+      scope,
+      trustedMemory.evidenceRefs,
+      { consumer: "research" },
+    );
+    if (!afterInsert.valid) {
+      await deleteResearchTopicsForRun(scope, run.id);
+      throw new Error(`Research memory changed during topic creation: ${afterInsert.reason}`);
+    }
+    await persistResearchEvidenceBundles(scope, run.id, created, scoredTopics);
 
     const summary = `Found ${findings.length} signals, kept ${created.length} ranked topics after scoring and deduplication.`;
     await completeResearchRun(run.id, {
       status: "completed",
       summary,
-      findingsJson: JSON.stringify({ providers: providerResults.map((r) => r.provider), count: findings.length }),
+      findingsJson: JSON.stringify({
+        providers: providerResults.map((r) => r.provider),
+        count: findings.length,
+        memoryEvidenceRefs: trustedMemory.evidenceRefs,
+      }),
       topicsCreated: created.length,
     });
 
@@ -141,6 +194,7 @@ export async function runResearch(scope: BrandScope, options: RunResearchOptions
       researchRunId: run.id,
       topicsCreated: created.length,
       tokenUsage,
+      memoryEvidenceRefs: trustedMemory.evidenceRefs,
     });
 
     logInfo("research.completed", {

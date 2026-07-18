@@ -233,15 +233,14 @@ function EditableNarrativeCard({
 
 function ProfileSettings({ profile }: { profile: BrandProfile }) {
   const queryClient = useQueryClient();
-  const [saved, setSaved] = useState(profile);
-  const [fields, setFields] = useState(profile);
+  const [draft, setDraft] = useState<Partial<BrandProfile>>({});
   const [editing, setEditing] = useState<EditableSection>(null);
+  const fields = { ...profile, ...draft };
 
   const save = useMutation({
     mutationFn: (payload: BrandProfile) => apiPut("/api/brand/profile", payload),
-    onSuccess: (_result, payload) => {
-      setSaved(payload);
-      setFields(payload);
+    onSuccess: () => {
+      setDraft({});
       setEditing(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.brandProfile });
       void queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
@@ -252,11 +251,15 @@ function ProfileSettings({ profile }: { profile: BrandProfile }) {
   });
 
   const setField = (key: keyof BrandProfile, value: string) =>
-    setFields((current) => ({ ...current, [key]: value }));
+    setDraft((current) => ({ ...current, [key]: value }));
 
   function cancel(section: Exclude<EditableSection, null>) {
     const key = section === "positioning" ? "productDescription" : "tone";
-    setFields((current) => ({ ...current, [key]: saved[key] }));
+    setDraft((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
     setEditing(null);
   }
 

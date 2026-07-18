@@ -38,8 +38,10 @@ export const audits = pgTable(
      */
     kind: text("kind").notNull().default("owned"),
     businessType: text("business_type"),
-    /** running | complete | failed */
+    /** running | complete | partial | failed */
     status: text("status").notNull().default("running"),
+    completeness: text("completeness").notNull().default("complete"),
+    analyzerSetVersion: text("analyzer_set_version").notNull().default("legacy"),
     overallScore: real("overall_score"),
     /** GEO-dashboard rollup (V2.3): citability·35 + brand·30 + crawler·25 + llmstxt·10. */
     aiVisibilityScore: real("ai_visibility_score"),
@@ -69,6 +71,35 @@ export const audits = pgTable(
   (table) => [
     index("audits_workspace_id_idx").on(table.workspaceId),
     index("audits_brand_id_idx").on(table.brandId),
+  ],
+);
+
+/** Per-analyzer checkpoint so one failure produces an explicit partial audit. */
+export const auditAnalyzerRuns = pgTable(
+  "audit_analyzer_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    auditId: uuid("audit_id")
+      .notNull()
+      .references(() => audits.id, { onDelete: "cascade" }),
+    analyzerKey: text("analyzer_key").notNull(),
+    analyzerVersion: text("analyzer_version").notNull(),
+    required: boolean("required").notNull().default(true),
+    status: text("status").notNull().default("running"),
+    durationMs: integer("duration_ms"),
+    errorClass: text("error_class"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("audit_analyzer_runs_identity_idx").on(
+      table.auditId,
+      table.analyzerKey,
+      table.analyzerVersion,
+    ),
+    index("audit_analyzer_runs_audit_status_idx").on(table.auditId, table.status),
   ],
 );
 

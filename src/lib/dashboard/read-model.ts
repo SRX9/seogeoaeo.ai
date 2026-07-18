@@ -16,8 +16,10 @@ import type {
 } from "@/lib/api/queries";
 import { getDb } from "@/lib/db";
 import { answerRuns, audits, trafficSnapshots } from "@/lib/db/schema/visibility";
-import { buildInboxRows } from "@/lib/inbox/rows";
+import { buildClaudiaHomeView } from "@/lib/dashboard/home-view";
+import { buildOwnerRequests } from "@/lib/inbox/owner-request";
 import { listTrafficConnections } from "@/lib/integrations/google-traffic";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { listIntegrations } from "@/lib/integrations/repository";
 import { getDailyRun } from "@/lib/jobs/daily-repository";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
@@ -324,13 +326,40 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     fixPayload: finding.fixPayload,
     proposedAt: finding.proposedAt?.toISOString() ?? null,
   }));
-  const inboxCount =
-    approvalRows.length +
-    buildInboxRows({ articles, findings, traffic, integrations, automation }).length;
+  const approvals = approvalRows.map((approval) => ({
+    id: approval.id,
+    taskId: approval.taskId,
+    actionType: approval.actionType,
+    resourceRef: approval.resourceRef,
+    beforeState: approval.beforeState,
+    afterState: approval.afterState,
+    riskLevel: approval.riskLevel,
+    expectedBenefit: approval.expectedBenefit,
+    expiresAt: approval.expiresAt?.toISOString() ?? null,
+    createdAt: approval.createdAt.toISOString(),
+  }));
+  const ownerRequests = buildOwnerRequests({
+    agent,
+    approvals,
+    articles,
+    reviewBeforePublishing: !automation.autoPublish,
+    publishingConnected: integrations.some(isIntegrationOperational),
+  });
+  const inboxCount = ownerRequests.length;
+  const home = buildClaudiaHomeView({
+    agent,
+    ownerRequests,
+    articles,
+    automation,
+    answers,
+    summary,
+    traffic,
+  });
 
   return {
     brand: { id: brand.id, name: brand.name, identity },
     setup,
+    home,
     agent,
     summary,
     answers,
@@ -339,18 +368,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     findings,
     integrations,
     automation,
-    approvals: approvalRows.map((approval) => ({
-      id: approval.id,
-      taskId: approval.taskId,
-      actionType: approval.actionType,
-      resourceRef: approval.resourceRef,
-      beforeState: approval.beforeState,
-      afterState: approval.afterState,
-      riskLevel: approval.riskLevel,
-      expectedBenefit: approval.expectedBenefit,
-      expiresAt: approval.expiresAt?.toISOString() ?? null,
-      createdAt: approval.createdAt.toISOString(),
-    })),
+    ownerRequests,
     inboxCount,
   };
 }

@@ -38,13 +38,13 @@ export async function suggestRewrite(
   content: string,
 ): Promise<RewriteSuggestion | null> {
   try {
-    const { data } = await generateJson<unknown>("light", [
+    const { data } = await generateJson("light", [
       { role: "system", content: SYSTEM },
       {
         role: "user",
         content: `Heading: ${block.heading ?? "(none)"}\nCitability: ${block.total_score}/100\nPassage:\n${content.slice(0, 1500)}`,
       },
-    ]);
+    ], { schema: SCHEMA });
     const parsed = SCHEMA.safeParse(data);
     if (!parsed.success) return null;
     return {

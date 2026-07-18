@@ -3,6 +3,7 @@ import { CREDIT_COSTS, type VisibilityAction } from "@/lib/billing/credits";
 import { getDb } from "@/lib/db";
 import { creditLedger, subscriptions } from "@/lib/db/schema";
 import { logError } from "@/lib/logging/logger";
+import { assertAgentOperationAllowed, type AgentActor } from "@/lib/agent/safety";
 
 export type CreditBalance = {
   monthly: number;
@@ -27,6 +28,7 @@ type LedgerRef = {
   brandId?: string | null;
   refType?: string | null;
   refId?: string | null;
+  actor?: AgentActor;
 };
 
 export async function getCreditBalance(workspaceId: string): Promise<CreditBalance> {
@@ -55,10 +57,17 @@ export async function spendForVisibilityJob(
   action: VisibilityAction,
   refId: string,
   brandId?: string | null,
+  options: { actor?: AgentActor } = {},
 ) {
   const cost = CREDIT_COSTS[action];
   await assertHasCredits(workspaceId, cost);
-  return spendCredits(workspaceId, cost, { reason: action, refType: "visibility", refId, brandId });
+  return spendCredits(workspaceId, cost, {
+    reason: action,
+    refType: "visibility",
+    refId,
+    brandId,
+    actor: options.actor,
+  });
 }
 
 /**
@@ -92,6 +101,7 @@ export async function assertHasCredits(workspaceId: string, cost: number) {
  * unique index.
  */
 export async function spendCredits(workspaceId: string, cost: number, ref: LedgerRef) {
+  assertAgentOperationAllowed("billable", { actor: ref.actor ?? "owner" });
   return getDb().transaction(async (tx) => {
     const [sub] = await tx
       .select({

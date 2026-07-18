@@ -6,6 +6,7 @@ import {
   isConnectorCapability,
   type ConnectorCapability,
 } from "@/lib/integrations/capabilities";
+import { listActiveOwnerPolicies, type ActiveOwnerPolicy } from "@/lib/agent/policies";
 
 export type AgentMemoryInput = {
   kind: "fact" | "preference" | "constraint" | "permission" | "correction";
@@ -25,6 +26,7 @@ export type AgentControlState = {
   ownerConstraints: string[];
   priorityInstructions: string[];
   grantedCapabilities: ConnectorCapability[];
+  canonicalPolicies: ActiveOwnerPolicy[];
 };
 
 export async function rememberAgentInstruction(scope: BrandScope, input: AgentMemoryInput) {
@@ -81,7 +83,10 @@ export async function listOwnerConstraints(brandId: string): Promise<string[]> {
 
 /** Structured controls consumed by planners and deterministic authorization. */
 export async function getAgentControlState(brandId: string): Promise<AgentControlState> {
-  const rows = await listActiveAgentMemory(brandId);
+  const [rows, canonicalPolicies] = await Promise.all([
+    listActiveAgentMemory(brandId),
+    listActiveOwnerPolicies(brandId),
+  ]);
   const schedule = rows.find(
     (row) => row.kind === "constraint" && row.key === "schedule:automation",
   );
@@ -125,5 +130,6 @@ export async function getAgentControlState(brandId: string): Promise<AgentContro
     ownerConstraints,
     priorityInstructions,
     grantedCapabilities: [...new Set(grantedCapabilities)],
+    canonicalPolicies,
   };
 }

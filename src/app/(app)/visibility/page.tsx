@@ -1,427 +1,294 @@
 "use client";
 
-import { Button, Card, ProgressBar, Skeleton } from "@heroui/react";
-import { LineChart } from "@heroui-pro/react";
+import { Card, ProgressBar, Skeleton } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState, type ComponentType, type SVGProps } from "react";
+import type { ReactNode } from "react";
+import { Section } from "@/components/feedback/section";
 import {
-  ActivityIcon,
   ArrowRightIcon,
   ArticlesIcon,
   ChartBarIcon,
+  GaugeIcon,
   InsightIcon,
-  OrderedListIcon,
+  SearchIcon,
 } from "@/components/icons";
-import { MetricCardIcon } from "@/components/ui/metric-card-icon";
+import { PageHeader } from "@/components/layout/page-header";
 import { ToneText } from "@/components/ui/status-text";
 import {
-  queryKeys,
-  useSetupInProgress,
+  combineQueries,
+  useArticles,
+  useReports,
+  useSiteHealth,
+  useVisibilityAnswers,
   useVisibilitySummary,
   useVisibilityTraffic,
-  type VisibilitySubScoreKey,
-  type VisibilitySummary,
-  type VisibilityTraffic,
 } from "@/lib/api/queries";
-import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { cn } from "@/lib/cn";
+import {
+  buildResultsOverview,
+  type ResultAreaId,
+  type ResultAreaView,
+  type ResultsOverviewView,
+} from "@/lib/results/overview";
 
-type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
-
-const PILLARS: Array<{ key: VisibilitySubScoreKey; label: string }> = [
-  { key: "technical", label: "Technical" },
-  { key: "eeat", label: "Content" },
-  { key: "brand", label: "Authority" },
-  { key: "citability", label: "Citability" },
-  { key: "platform", label: "Answers" },
-  { key: "schema", label: "Schema" },
-];
-
-const DATE_FORMATTER = new Intl.DateTimeFormat("en", {
-  day: "numeric",
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
+  day: "numeric",
+  year: "numeric",
   timeZone: "UTC",
 });
 
-function clampScore(score: number | null | undefined) {
-  return Math.max(0, Math.min(100, score ?? 0));
+const AREA_ICONS: Record<ResultAreaId, ReactNode> = {
+  google: <SearchIcon className="size-5" />,
+  ai: <InsightIcon className="size-5" />,
+  content: <ArticlesIcon className="size-5" />,
+  health: <GaugeIcon className="size-5" />,
+};
+
+function toneFor(area: ResultAreaView) {
+  if (area.tone === "positive") return "success" as const;
+  if (area.tone === "attention") return "danger" as const;
+  return "default" as const;
 }
 
-function scoreMessage(score: number | null | undefined) {
-  if (score == null) return "Awaiting First Audit";
-  if (score >= 85) return "Excellent Visibility";
-  if (score >= 65) return "Strong Foundation";
-  if (score >= 45) return "Building Momentum";
-  return "Needs Attention";
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Latest audit";
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? "Latest audit" : DATE_FORMATTER.format(date);
-}
-
-function ScoreCard({ summary }: { summary: VisibilitySummary }) {
-  const score = summary.latest?.overall;
-  const delta =
-    score != null && summary.previousOverall != null
-      ? Math.round(score - summary.previousOverall)
-      : null;
-
+function ResultArea({ area }: { area: ResultAreaView }) {
   return (
-    <Card className="min-h-64">
-      <Card.Header className="gap-1">
-        <Card.Title>Visibility Score</Card.Title>
-        <Card.Description>Your latest all-channel visibility baseline.</Card.Description>
-      </Card.Header>
-      <Card.Content className="flex flex-1 flex-col justify-between gap-8">
-        <div className="flex items-end justify-between gap-6">
-          <div>
-            <div className="flex items-end gap-2">
-              <strong className="text-5xl font-semibold leading-none tracking-tighter tabular-nums">
-                {score == null ? "—" : Math.round(score)}
-              </strong>
-              <span className="pb-1 text-sm text-muted">/ 100</span>
-            </div>
-            <p className="mt-3 text-sm font-medium text-foreground">{scoreMessage(score)}</p>
-          </div>
-          <ToneText tone={delta != null && delta < 0 ? "danger" : "success"} className="tabular-nums">
-            {delta == null ? "First reading" : `${delta >= 0 ? "+" : ""}${delta} points`}
+    <Card id={`${area.id}-discovery`} className="scroll-mt-24 rounded-3xl p-0">
+      <Card.Header className="flex-row items-start gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
+        <span
+          className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+          aria-hidden
+        >
+          {AREA_ICONS[area.id]}
+        </span>
+        <div className="min-w-0">
+          <Card.Title>{area.title}</Card.Title>
+          <ToneText tone={toneFor(area)} className="mt-2 block text-2xl font-semibold tracking-tight">
+            {area.value}
           </ToneText>
         </div>
-        <ProgressBar aria-label="Visibility score" value={clampScore(score)} size="sm">
-          <ProgressBar.Track>
-            <ProgressBar.Fill />
-          </ProgressBar.Track>
-        </ProgressBar>
+      </Card.Header>
+      <Card.Content className="flex flex-1 flex-col gap-5 px-5 pb-5 sm:px-6 sm:pb-6">
+        <p className="text-sm leading-6 text-muted">{area.change}</p>
+        <div className="mt-auto border-t border-separator pt-4">
+          <p className="text-xs font-medium text-foreground">What Claudia will do next</p>
+          <p className="mt-1 text-sm leading-6 text-muted">{area.nextStep}</p>
+        </div>
       </Card.Content>
-      <Card.Footer className="justify-between text-sm text-muted">
-        <span>Benchmark</span>
-        <strong className="font-medium text-foreground tabular-nums">
-          {summary.baseline.baseline == null ? "—" : Math.round(summary.baseline.baseline)}
-        </strong>
+      {area.href.startsWith("#") ? null : (
+        <Card.Footer className="justify-end px-5 pb-5 sm:px-6 sm:pb-6">
+          <Link
+            href={area.href}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "min-h-10 gap-2 transition-transform active:scale-[0.96]",
+            )}
+          >
+            See details
+            <ArrowRightIcon className="size-4" aria-hidden />
+          </Link>
+        </Card.Footer>
+      )}
+    </Card>
+  );
+}
+
+function DiscoveryHealth({ view }: { view: ResultsOverviewView["discoveryHealth"] }) {
+  return (
+    <Card className="rounded-3xl p-0">
+      <Card.Header className="flex-row items-start gap-4 p-5 sm:p-6">
+        <span
+          className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+          aria-hidden
+        >
+          <ChartBarIcon className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <Card.Title>Online discovery health</Card.Title>
+          <Card.Description className="mt-1 max-w-2xl leading-6">{view.description}</Card.Description>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{view.value}</p>
+          {view.delta ? <p className="mt-1 max-w-36 text-xs text-muted">{view.delta}</p> : null}
+        </div>
+      </Card.Header>
+      <Card.Content className="px-5 pb-5 sm:px-6 sm:pb-6">
+        <details className="group border-t border-separator pt-2">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-focus">
+            See score details
+          </summary>
+          <div className="grid gap-x-8 gap-y-5 pb-5 pt-3 sm:grid-cols-2">
+            {view.details.map((detail) => (
+              <ProgressBar
+                key={detail.key}
+                aria-label={`${detail.label} score`}
+                value={detail.value ?? 0}
+                size="sm"
+              >
+                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted">{detail.label}</span>
+                  <strong className="font-medium text-foreground tabular-nums">
+                    {detail.value == null ? "—" : Math.round(detail.value)}
+                  </strong>
+                </div>
+                <ProgressBar.Track>
+                  <ProgressBar.Fill />
+                </ProgressBar.Track>
+              </ProgressBar>
+            ))}
+          </div>
+          <Link
+            href={view.href}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "min-h-10 transition-transform active:scale-[0.96]",
+            )}
+          >
+            Open advanced audit details
+            <ArrowRightIcon className="size-4" aria-hidden />
+          </Link>
+        </details>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function WeeklySummaries({ view }: { view: ResultsOverviewView }) {
+  return (
+    <Card className="rounded-3xl p-0">
+      <Card.Header className="p-5 pb-3 sm:p-6 sm:pb-3">
+        <Card.Title>Weekly summaries</Card.Title>
+        <Card.Description>Claudia’s plain-language record of what changed and what comes next.</Card.Description>
+      </Card.Header>
+      <Card.Content className="px-5 pb-5 sm:px-6 sm:pb-6">
+        {view.latestReport ? (
+          <div>
+            <time className="text-xs text-muted" dateTime={view.latestReport.createdAt}>
+              {DATE_FORMATTER.format(new Date(view.latestReport.createdAt))}
+            </time>
+            <h2 className="mt-2 text-lg font-semibold text-foreground">{view.latestReport.subject}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">{view.latestReport.summary}</p>
+            <Link
+              href={view.latestReport.href}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "mt-3 min-h-10 gap-2 transition-transform active:scale-[0.96]",
+              )}
+            >
+              Read latest summary
+              <ArrowRightIcon className="size-4" aria-hidden />
+            </Link>
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-muted">
+            Your first summary arrives after Claudia has a full week of reliable work and measurements.
+          </p>
+        )}
+
+        {view.recentReports.length > 0 ? (
+          <div className="mt-5 divide-y divide-separator border-t border-separator">
+            {view.recentReports.map((report) => (
+              <Link
+                key={report.id}
+                href={report.href}
+                className="flex min-h-12 items-center justify-between gap-4 py-2 text-sm text-foreground outline-none hover-fine:text-accent focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <span className="truncate">{report.subject}</span>
+                <time className="shrink-0 text-xs text-muted" dateTime={report.weekStart}>
+                  {DATE_FORMATTER.format(new Date(`${report.weekStart}T00:00:00Z`))}
+                </time>
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </Card.Content>
+      <Card.Footer className="justify-end px-5 pb-5 sm:px-6 sm:pb-6">
+        <Link
+          href="/reports"
+          className={cn(
+            buttonVariants({ variant: "outline", size: "sm" }),
+            "min-h-10 transition-transform active:scale-[0.96]",
+          )}
+        >
+          See all weekly summaries
+        </Link>
       </Card.Footer>
     </Card>
   );
 }
 
-function PillarScores({ summary }: { summary: VisibilitySummary }) {
+function ResultsSkeleton() {
   return (
-    <Card>
-      <Card.Header className="gap-1">
-        <Card.Title>Score Breakdown</Card.Title>
-        <Card.Description>Signals that shape your overall score.</Card.Description>
-      </Card.Header>
-      <Card.Content className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
-        {PILLARS.map((pillar) => {
-          const value = summary.latest?.subScores[pillar.key];
-          return (
-            <ProgressBar key={pillar.key} value={clampScore(value)} size="sm">
-              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                <span className="text-muted">{pillar.label}</span>
-                <strong className="font-medium text-foreground tabular-nums">
-                  {value == null ? "—" : Math.round(value)}
-                </strong>
-              </div>
-              <ProgressBar.Track>
-                <ProgressBar.Fill />
-              </ProgressBar.Track>
-            </ProgressBar>
-          );
-        })}
-      </Card.Content>
-    </Card>
-  );
-}
-
-function SearchPerformanceCard({ traffic }: { traffic: VisibilityTraffic }) {
-  const chartData = traffic.gsc.slice(-14).map((row) => ({
-    date: DATE_FORMATTER.format(new Date(`${row.date}T00:00:00Z`)),
-    clicks: row.clicks,
-  }));
-  const clicks = chartData.reduce((total, row) => total + row.clicks, 0);
-  const isWaitingForData = traffic.connected.gsc && chartData.length === 0;
-
-  if (!traffic.connected.gsc || isWaitingForData) {
-    return (
-      <Card
-        aria-labelledby="search-performance-title"
-        className="relative min-w-0 overflow-hidden bg-[linear-gradient(135deg,var(--accent-soft),var(--surface)_48%)] p-0"
-      >
-        <Card.Content className="relative min-h-64 overflow-hidden p-5 sm:p-6">
-          <div className="relative z-10 max-w-xl pr-10">
-            <ToneText tone={isWaitingForData ? "success" : "accent"} className="block text-sm">
-              {isWaitingForData ? "Search Console connected" : "Search performance"}
-            </ToneText>
-            <h2
-              id="search-performance-title"
-              className="mt-3 text-xl font-semibold leading-[1.15] tracking-tight text-foreground text-balance sm:text-2xl"
-            >
-              {isWaitingForData ? "Waiting for the first search sync" : "Connect Search Console"}
-            </h2>
-            <p className="mt-2 max-w-[54ch] text-sm leading-6 text-muted text-pretty">
-              {isWaitingForData
-                ? "Your organic search trend will appear as soon as Google sends the first reading."
-                : "See the organic clicks that bring people to your site, measured directly from Google."}
-            </p>
-            {!isWaitingForData ? (
-              <Link
-                href="/settings?tab=integrations"
-                className={cn(
-                  buttonVariants({ size: "sm" }),
-                  "group mt-5 min-h-11 gap-2 pl-4 pr-3.5 sm:min-h-9",
-                )}
-              >
-                Connect Search Console
-                <ArrowRightIcon
-                  className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5"
-                  aria-hidden
-                />
-              </Link>
-            ) : null}
-          </div>
-          <MetricCardIcon>
-            <ChartBarIcon />
-          </MetricCardIcon>
-        </Card.Content>
-      </Card>
-    );
-  }
-
-  return (
-    <Card
-      aria-labelledby="search-performance-title"
-      className="relative min-w-0 overflow-hidden bg-[linear-gradient(135deg,var(--accent-soft),var(--surface)_48%)] p-0"
-    >
-      <Card.Content className="grid min-h-full grid-cols-1 md:grid-cols-[minmax(16rem,0.42fr)_minmax(0,1fr)]">
-        <div className="relative min-w-0 overflow-hidden p-5 sm:p-6">
-          <div className="relative z-10 pr-10">
-            <ToneText tone="accent" className="block text-sm">
-              Search performance
-            </ToneText>
-            <h2
-              id="search-performance-title"
-              className="mt-3 text-2xl font-semibold leading-[1.1] tracking-[-0.025em] text-foreground text-balance sm:text-3xl"
-            >
-              <span className="tabular-nums">{clicks.toLocaleString()}</span> organic clicks
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted">Last 14 recorded days.</p>
-          </div>
-          <MetricCardIcon>
-            <ChartBarIcon />
-          </MetricCardIcon>
-        </div>
-
-        <div
-          className="min-w-0 border-t border-separator/70 bg-surface-secondary/45 p-5 md:border-s md:border-t-0 sm:p-6"
-          aria-label="Organic click trend"
-        >
-          {chartData.length > 1 ? (
-            <LineChart data={chartData} height={196}>
-              <LineChart.Grid vertical={false} />
-              <LineChart.XAxis dataKey="date" tickMargin={8} />
-              <LineChart.YAxis width={34} />
-              <LineChart.Line
-                dataKey="clicks"
-                dot={false}
-                name="Clicks"
-                stroke="var(--accent)"
-                strokeWidth={2}
-                type="linear"
-              />
-              <LineChart.Tooltip content={<LineChart.TooltipContent />} />
-            </LineChart>
-          ) : (
-            <div className="grid h-[196px] place-items-center px-6 text-center text-sm leading-6 text-muted text-pretty">
-              One reading recorded. The trend will appear after the next sync.
-            </div>
-          )}
-        </div>
-      </Card.Content>
-    </Card>
-  );
-}
-
-function ActionLink({ href, label, icon: Icon }: { href: string; label: string; icon: IconComponent }) {
-  return (
-    <Link href={href} className={cn(buttonVariants({ variant: "ghost" }), "w-full justify-start gap-3")}>
-      <Icon className="size-4 text-muted" aria-hidden />
-      <span>{label}</span>
-      <ArrowRightIcon className="ml-auto size-4 text-muted" aria-hidden />
-    </Link>
-  );
-}
-
-type EvidenceEvent = { label: string; meta: string; positive?: boolean };
-
-function evidenceEvents(summary: VisibilitySummary, traffic: VisibilityTraffic | undefined): EvidenceEvent[] {
-  const latest = summary.latest;
-  if (!latest) {
-    return [
-      { label: "Run your first visibility audit", meta: "Ready when you are" },
-      { label: "Technical signals will appear here", meta: "After the audit" },
-      { label: "AI answer coverage will be measured", meta: "After the audit" },
-    ];
-  }
-
-  const completed = formatDate(latest.completedAt);
-  const scored = PILLARS.flatMap((pillar) => {
-    const value = latest.subScores[pillar.key];
-    return value == null ? [] : [{ label: pillar.label, value }];
-  });
-  const strongest = scored.sort((a, b) => b.value - a.value)[0];
-  const latestGsc = traffic?.gsc.at(-1);
-  const referralTotal = traffic?.aiReferrals.reduce(
-    (total, row) => total + Object.values(row.byEngine).reduce((sum, value) => sum + value, 0),
-    0,
-  );
-
-  return [
-    latestGsc
-      ? { label: `${latestGsc.clicks.toLocaleString()} search clicks recorded`, meta: latestGsc.date, positive: true }
-      : { label: "Visibility baseline recorded", meta: completed, positive: true },
-    strongest
-      ? { label: `${strongest.label} leads at ${Math.round(strongest.value)}`, meta: completed, positive: true }
-      : { label: "Pillar scores recorded", meta: completed },
-    referralTotal != null && referralTotal > 0
-      ? { label: `${referralTotal.toLocaleString()} AI-referral sessions`, meta: "Connected analytics", positive: true }
-      : { label: "AI answer coverage checked", meta: completed },
-  ];
-}
-
-function EvidenceTrace({ summary, traffic }: { summary: VisibilitySummary; traffic: VisibilityTraffic | undefined }) {
-  const events = evidenceEvents(summary, traffic);
-  return (
-    <Card>
-      <Card.Header className="gap-1">
-        <div className="flex items-center gap-2">
-          <ActivityIcon className="size-4 text-muted" aria-hidden />
-          <Card.Title>Evidence</Card.Title>
-        </div>
-        <Card.Description>Recent signals behind the score.</Card.Description>
-      </Card.Header>
-      <Card.Content>
-        <ol className="grid gap-4 md:grid-cols-3">
-          {events.map((event) => (
-            <li key={event.label} className="rounded-xl bg-surface-secondary p-4">
-              <div className="mb-3 size-2 rounded-full bg-accent" aria-hidden />
-              <p className="text-sm font-medium text-foreground">{event.label}</p>
-              <p className="mt-1 text-xs text-muted">{event.meta}</p>
-            </li>
-          ))}
-        </ol>
-      </Card.Content>
-    </Card>
-  );
-}
-
-function ScorecardSkeleton() {
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]" aria-label="Loading visibility scorecard">
-      <Skeleton className="h-64 rounded-2xl" />
-      <Skeleton className="h-64 rounded-2xl" />
+    <div className="space-y-4" aria-label="Loading results">
+      <Skeleton className="h-52 rounded-3xl" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {[0, 1, 2, 3].map((item) => (
+          <Skeleton key={item} className="h-64 rounded-3xl" />
+        ))}
+      </div>
+      <Skeleton className="h-48 rounded-3xl" />
     </div>
   );
 }
 
-function SearchPerformanceSkeleton() {
-  return <Skeleton className="h-64 rounded-2xl" aria-label="Loading search performance" />;
+function ResultsContent({ view }: { view: ResultsOverviewView }) {
+  return (
+    <div className="space-y-4">
+      <Card className="overflow-hidden rounded-3xl bg-[linear-gradient(135deg,var(--accent-soft),var(--surface)_55%)] p-0">
+        <Card.Content className="p-6 sm:p-8">
+          <ToneText tone="accent" className="text-sm">This week</ToneText>
+          <h2 className="mt-3 max-w-3xl text-2xl font-semibold leading-tight tracking-tight text-foreground text-balance sm:text-3xl">
+            {view.weeklyHeadline}
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">{view.weeklySummary}</p>
+          <p className="mt-6 text-xs text-muted">{view.measurementFreshness}</p>
+        </Card.Content>
+      </Card>
+
+      <section className="grid gap-4 md:grid-cols-2" aria-label="Discovery results">
+        {view.areas.map((area) => (
+          <ResultArea key={area.id} area={area} />
+        ))}
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
+        <DiscoveryHealth view={view.discoveryHealth} />
+        <WeeklySummaries view={view} />
+      </div>
+    </div>
+  );
 }
 
-export default function VisibilityPage() {
+export default function ResultsPage() {
   const summary = useVisibilitySummary();
   const traffic = useVisibilityTraffic();
-  const queryClient = useQueryClient();
-  const settingUp = useSetupInProgress();
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const runAudit = useMutation({
-    mutationFn: async () => {
-      setNotice(null);
-      const response = await fetch("/api/visibility/audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const body = (await response.json().catch(() => ({}))) as { auditId?: string; error?: string };
-      if (!response.ok) {
-        if (response.status === 402) throw new Error("You need more credits to run this audit.");
-        throw new Error(body.error ?? "Failed to start the audit.");
-      }
-      return body.auditId;
-    },
-    onSuccess: () => {
-      setNotice("Audit started. Claudia will refresh this page when it is complete.");
-      window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: queryKeys.visibilitySummary }), 4000);
-    },
-    onError: (error) => setNotice(error instanceof Error ? error.message : "Failed to start the audit."),
-  });
-
-  const latestReportHref = summary.data?.latest ? `/visibility/${summary.data.latest.id}` : "/reports";
+  const answers = useVisibilityAnswers();
+  const siteHealth = useSiteHealth();
+  const articles = useArticles();
+  const reports = useReports();
+  const results = combineQueries(summary, traffic, answers, siteHealth, articles, reports);
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="sr-only">Visibility</h1>
-          <p className="max-w-2xl text-sm text-muted">Track search readiness, authority, and AI answer coverage.</p>
-        </div>
-        <Button isPending={runAudit.isPending} isDisabled={settingUp} onPress={() => runAudit.mutate()}>
-          <InsightIcon className="size-4" aria-hidden />
-          {runAudit.isPending ? "Starting Audit" : `Run Audit · ${CREDIT_COSTS.visibility_audit} cr`}
-        </Button>
-      </header>
-
-      {notice ? <p className="rounded-xl bg-surface-secondary px-4 py-3 text-sm text-foreground" role="status">{notice}</p> : null}
-      {summary.isPending ? <ScorecardSkeleton /> : null}
-      {summary.isError ? (
-        <Card>
-          <Card.Header><Card.Title>Couldn’t Load Visibility</Card.Title><Card.Description>{summary.error instanceof Error ? summary.error.message : "Please try again."}</Card.Description></Card.Header>
-          <Card.Footer><Button variant="secondary" onPress={() => void summary.refetch()}>Try Again</Button></Card.Footer>
-        </Card>
-      ) : null}
-
-      {summary.data ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-          <ScoreCard summary={summary.data} />
-          <PillarScores summary={summary.data} />
-        </div>
-      ) : null}
-
-      {traffic.isPending ? <SearchPerformanceSkeleton /> : null}
-      {traffic.isError ? (
-        <Card>
-          <Card.Header>
-            <Card.Title>Search performance is unavailable</Card.Title>
-            <Card.Description>
-              {traffic.error instanceof Error ? traffic.error.message : "Please try again."}
-            </Card.Description>
-          </Card.Header>
-          <Card.Footer>
-            <Button variant="secondary" onPress={() => void traffic.refetch()}>
-              Try Again
-            </Button>
-          </Card.Footer>
-        </Card>
-      ) : null}
-      {traffic.data ? <SearchPerformanceCard traffic={traffic.data} /> : null}
-
-      {summary.data ? (
-        <>
-          <Card>
-            <Card.Content>
-              <nav className="grid gap-2 sm:grid-cols-3" aria-label="Visibility tools">
-                <ActionLink href="/visibility/fixes" label="Fix Queue" icon={OrderedListIcon} />
-                <ActionLink href="/visibility/answers" label="AI Answers" icon={InsightIcon} />
-                <ActionLink href={latestReportHref} label="Latest Report" icon={ArticlesIcon} />
-              </nav>
-            </Card.Content>
-          </Card>
-          <EvidenceTrace summary={summary.data} traffic={traffic.data} />
-        </>
-      ) : null}
+      <PageHeader
+        title="Results"
+        description="See how search discovery, AI answers, content, and website health are changing—and what Claudia will do next."
+      />
+      <Section query={results} skeleton={<ResultsSkeleton />} errorLabel="Couldn't load your results.">
+        {([summaryData, trafficData, answersData, healthData, articleData, reportData]) => (
+          <ResultsContent
+            view={buildResultsOverview({
+              summary: summaryData,
+              traffic: trafficData,
+              answers: answersData,
+              siteHealth: healthData,
+              articles: articleData.articles,
+              reports: reportData.reports,
+            })}
+          />
+        )}
+      </Section>
     </main>
   );
 }

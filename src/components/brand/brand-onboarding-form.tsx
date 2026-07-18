@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  Accordion,
-  Alert,
-  Button,
-  Card,
-  Input,
-  Label,
-  ListBox,
-  Select,
-  TextArea,
-} from "@heroui/react";
-import { Stepper } from "@heroui-pro/react";
+import { Alert, Button, Card, Input, Label, ListBox, Select, TextArea } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
@@ -19,81 +8,70 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type ChangeEventHandler,
 } from "react";
-import { useProgressRouter } from "@/components/feedback/navigation-progress";
+import { ClaudiaActivationScreen } from "@/components/brand/claudia-activation-screen";
 import {
   OnboardingDiscovery,
   type DiscoveryStage,
 } from "@/components/brand/onboarding-discovery";
-import { ClaudiaActivationScreen } from "@/components/brand/claudia-activation-screen";
 import {
   OnboardingExitDialog,
   useOnboardingExitGuard,
 } from "@/components/brand/onboarding-exit-guard";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArticlesIcon,
   ChartBarIcon,
   CheckIcon,
-  ChevronRightIcon,
+  ClaudiaIcon,
+  GaugeIcon,
   GlobeIcon,
   LayersIcon,
-  PenIcon,
   SearchIcon,
-  InsightIcon,
-  TrendingUpIcon,
   UsersIcon,
+  XIcon,
 } from "@/components/icons";
-import { ToneText } from "@/components/ui/status-text";
 import { LoadingButton } from "@/components/ui/loading-button";
-import { TagInput } from "@/components/ui/tag-input";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe, type MeResponse } from "@/lib/api/queries";
-import {
-  isActiveSubscription,
-  plans,
-  type PlanId,
-} from "@/lib/billing/plans";
+import { isActiveSubscription, plans, type PlanId } from "@/lib/billing/plans";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
 import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
-import type {
-  IntegrationConfigKey,
-  IntegrationProviderDefinition,
-  IntegrationProviderId,
-  IntegrationSecretKey,
-} from "@/lib/integrations/providers";
+import {
+  DEFAULT_FIRST_OUTCOME,
+  FIRST_OUTCOME_IDS,
+  type FirstOutcomeId,
+} from "@/lib/onboarding/first-outcome";
 
-type ProviderOption = IntegrationProviderDefinition;
 type Competitor = { name: string; url: string; reason?: string };
-type UseCase = {
-  clientId: string;
-  job: string;
-  persona: string;
-  industry: string;
-  enabled: boolean;
-};
+type DiscoveredUseCase = { job: string; persona: string; industry: string | null };
 
 type Fields = {
   name: string;
   website: string;
   productDescription: string;
   audience: string;
+  customerOutcomes: string;
   tone: string;
   seedKeywords: string;
   competitors: Competitor[];
-  useCases: UseCase[];
-  integrationProvider: "" | IntegrationProviderId;
-  integrationConfig: Record<string, string>;
-  integrationSecrets: Record<string, string>;
-  autonomyMode: "FULL_AUTO" | "REVIEW";
+  firstOutcome: FirstOutcomeId;
 };
 
-type BrandCreatePayload = Omit<Fields, "competitors" | "useCases"> & {
+type BrandCreatePayload = {
+  name: string;
+  website: string;
+  productDescription: string;
+  audience: string;
+  tone: string;
+  seedKeywords: string;
   competitors: Array<{ name: string; url: string }>;
   useCases: Array<{ job: string; persona: string; industry: string }>;
+  autonomyMode: "FULL_AUTO";
+  firstOutcome: FirstOutcomeId;
   resumeExisting?: boolean;
   checkoutSessionId?: string;
 };
@@ -103,39 +81,72 @@ const INITIAL_FIELDS: Fields = {
   website: "",
   productDescription: "",
   audience: "",
+  customerOutcomes: "",
   tone: "",
   seedKeywords: "",
   competitors: [],
-  useCases: [],
-  integrationProvider: "",
-  integrationConfig: {},
-  integrationSecrets: {},
-  autonomyMode: "FULL_AUTO",
+  firstOutcome: DEFAULT_FIRST_OUTCOME,
 };
 
-const MOMENTS = [
+const STEPS = [
   {
-    label: "Discover",
-    title: "Turn your site into an operating brief",
-    description: "Paste one URL. Claudia reads the positioning, audience, and market for you.",
+    title: "Where should Claudia start?",
+    description: "Share your website. Claudia will learn the rest before asking you to confirm it.",
   },
   {
-    label: "Review",
-    title: "Your first week, already planned",
-    description: "Check the useful assumptions now. Everything stays editable after setup.",
+    title: "Here is what Claudia understood",
+    description: "Correct anything important. You can change these details later in Settings.",
   },
   {
-    label: "Launch",
-    title: "Choose how Claudia works",
-    description: "Set her authority, connect publishing when useful, and choose your starting pace.",
+    title: "What should Claudia improve first?",
+    description: "Choose the first priority. Claudia will still support the other outcomes as she works.",
   },
 ] as const;
 
-const DRAFT_KEY = "claudia:onboarding-v2-draft";
-const SKIP_PROVIDER_KEY = "__skip__";
+const OUTCOMES: ReadonlyArray<{
+  id: FirstOutcomeId;
+  title: string;
+  description: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  recommended?: boolean;
+}> = [
+  {
+    id: "discovery",
+    title: "Get discovered by more customers",
+    description: "Find the strongest opportunities across search and AI answers.",
+    Icon: SearchIcon,
+    recommended: true,
+  },
+  {
+    id: "consistent_content",
+    title: "Publish useful content consistently",
+    description: "Build a steady flow of useful, brand-grounded content.",
+    Icon: ArticlesIcon,
+  },
+  {
+    id: "priority_keywords",
+    title: "Improve priority keyword performance",
+    description: "Focus first on the search themes that matter most to your business.",
+    Icon: ChartBarIcon,
+  },
+  {
+    id: "ai_answers",
+    title: "Appear more often in AI answers",
+    description: "Improve the evidence and coverage AI assistants can cite.",
+    Icon: ClaudiaIcon,
+  },
+  {
+    id: "website_health",
+    title: "Improve website search health",
+    description: "Find important access, speed, metadata, and schema issues.",
+    Icon: GaugeIcon,
+  },
+];
+
+const DRAFT_KEY = "claudia:onboarding-v3-draft";
+const LEGACY_DRAFT_KEY = "claudia:onboarding-v2-draft";
 const POPULAR_PLAN: PlanId = "startup";
 const BRAND_CREATE_TIMEOUT_MS = 30_000;
-const MAX_BUYER_PROFILES = 24;
 
 type Draft = { fields: Fields; moment: number; checkoutSessionId?: string | null };
 type Bootstrap = {
@@ -149,22 +160,57 @@ type Bootstrap = {
 
 const subscribeToClient = () => () => undefined;
 
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeFields(value: unknown): Fields {
+  const candidate = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const legacyUseCases = Array.isArray(candidate.useCases) ? candidate.useCases : [];
+  const competitors = Array.isArray(candidate.competitors)
+    ? candidate.competitors.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const entry = item as Record<string, unknown>;
+        const name = stringValue(entry.name);
+        const url = stringValue(entry.url);
+        return name && url ? [{ name, url, reason: stringValue(entry.reason) }] : [];
+      })
+    : [];
+  const storedOutcome = stringValue(candidate.firstOutcome);
+  const firstOutcome = FIRST_OUTCOME_IDS.includes(storedOutcome as FirstOutcomeId)
+    ? (storedOutcome as FirstOutcomeId)
+    : DEFAULT_FIRST_OUTCOME;
+  const legacyOutcomes = legacyUseCases
+    .flatMap((item) =>
+      item && typeof item === "object" ? [stringValue((item as Record<string, unknown>).job)] : [],
+    )
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    ...INITIAL_FIELDS,
+    name: stringValue(candidate.name),
+    website: stringValue(candidate.website),
+    productDescription: stringValue(candidate.productDescription),
+    audience: stringValue(candidate.audience),
+    customerOutcomes: stringValue(candidate.customerOutcomes) || legacyOutcomes,
+    tone: stringValue(candidate.tone),
+    seedKeywords: stringValue(candidate.seedKeywords),
+    competitors: competitors.slice(0, MAX_COMPETITORS),
+    firstOutcome,
+  };
+}
+
 function loadDraft(): Draft | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(DRAFT_KEY) ?? localStorage.getItem(LEGACY_DRAFT_KEY);
     if (!raw) return null;
-    const draft = JSON.parse(raw) as Draft;
-    // Connector credentials must never be restored from script-readable storage.
+    const draft = JSON.parse(raw) as Record<string, unknown>;
     return {
-      ...draft,
-      fields: {
-        ...draft.fields,
-        integrationSecrets: {},
-        useCases: (draft.fields.useCases ?? []).map((item) => ({
-          ...item,
-          clientId: item.clientId || crypto.randomUUID(),
-        })),
-      },
+      fields: normalizeFields(draft.fields),
+      moment: typeof draft.moment === "number" ? draft.moment : 0,
+      checkoutSessionId:
+        typeof draft.checkoutSessionId === "string" ? draft.checkoutSessionId : null,
     };
   } catch {
     return null;
@@ -173,13 +219,7 @@ function loadDraft(): Draft | null {
 
 function saveDraft(draft: Draft) {
   try {
-    localStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({
-        ...draft,
-        fields: { ...draft.fields, integrationSecrets: {} },
-      }),
-    );
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch {
     // A blocked storage layer only disables checkout-return resume.
   }
@@ -188,6 +228,7 @@ function saveDraft(draft: Draft) {
 function clearDraft() {
   try {
     localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(LEGACY_DRAFT_KEY);
   } catch {
     // No-op.
   }
@@ -204,10 +245,10 @@ function readBootstrap(): Bootstrap {
 
   return {
     fields: draft?.fields ?? INITIAL_FIELDS,
-    moment: canceled ? 2 : Math.min(2, draft?.moment ?? 0),
+    moment: canceled ? 2 : Math.min(2, Math.max(0, draft?.moment ?? 0)),
     phase: finalizing ? "finalizing" : "form",
     checkoutSessionId,
-    error: canceled ? "Checkout canceled. Your operating brief is saved." : null,
+    error: canceled ? "Checkout was canceled. Your setup is still saved." : null,
     cleanUrl: checkout === "success" || canceled,
   };
 }
@@ -235,6 +276,7 @@ function inferredName(website: string) {
 }
 
 function buildPayload(fields: Fields): BrandCreatePayload {
+  const persona = fields.audience.trim() || "Customer";
   return {
     name: fields.name.trim(),
     website: fields.website.trim(),
@@ -243,24 +285,18 @@ function buildPayload(fields: Fields): BrandCreatePayload {
     tone: fields.tone.trim(),
     seedKeywords: fields.seedKeywords.trim(),
     competitors: fields.competitors.map(({ name, url }) => ({ name, url })),
-    useCases: fields.useCases.reduce<BrandCreatePayload["useCases"]>((result, item) => {
-      if (item.job.trim() && item.persona.trim()) {
-        result.push({ job: item.job, persona: item.persona, industry: item.industry });
-      }
-      return result;
-    }, []),
-    integrationProvider: fields.integrationProvider,
-    integrationConfig: Object.fromEntries(
-      Object.entries(fields.integrationConfig).map(([key, value]) => [key, value.trim()]),
-    ),
-    integrationSecrets: Object.fromEntries(
-      Object.entries(fields.integrationSecrets).map(([key, value]) => [key, value.trim()]),
-    ),
-    autonomyMode: fields.autonomyMode,
+    useCases: fields.customerOutcomes
+      .split("\n")
+      .map((job) => job.trim())
+      .filter(Boolean)
+      .slice(0, 24)
+      .map((job) => ({ job, persona, industry: "" })),
+    autonomyMode: "FULL_AUTO",
+    firstOutcome: fields.firstOutcome,
   };
 }
 
-async function discoverOperatingBrief(
+async function discoverBrand(
   name: string,
   website: string,
   onStageChange: (stage: DiscoveryStage) => void,
@@ -273,11 +309,10 @@ async function discoverOperatingBrief(
     });
     profile = result.profile;
   } catch {
-    // The brief remains editable when enrichment is unavailable.
+    // Every inferred field remains editable when enrichment is unavailable.
   }
 
-  onStageChange("market");
-
+  onStageChange("opportunities");
   const [competitors, useCases] = await Promise.all([
     apiPost<{ suggestions: Competitor[] }>("/api/brand/competitors/preview", {
       name,
@@ -285,38 +320,25 @@ async function discoverOperatingBrief(
       productDescription: profile.productDescription,
       seedKeywords: profile.seedKeywords,
     }).catch(() => ({ suggestions: [] })),
-    apiPost<{ useCases: Array<{ job: string; persona: string; industry: string | null }> }>(
-      "/api/brand/use-cases/preview",
-      {
-        name,
-        website,
-        productDescription: profile.productDescription,
-        audience: profile.audience,
-        seedKeywords: profile.seedKeywords,
-      },
-    ).catch(() => ({ useCases: [] })),
+    apiPost<{ useCases: DiscoveredUseCase[] }>("/api/brand/use-cases/preview", {
+      name,
+      website,
+      productDescription: profile.productDescription,
+      audience: profile.audience,
+      seedKeywords: profile.seedKeywords,
+    }).catch(() => ({ useCases: [] })),
   ]);
 
   return {
     profile,
     competitors: competitors.suggestions.slice(0, MAX_COMPETITORS),
-    useCases: useCases.useCases.map((item) => ({
-      clientId: crypto.randomUUID(),
-      job: item.job,
-      persona: item.persona,
-      industry: item.industry ?? "",
-      enabled: true,
-    })),
+    customerOutcomes: useCases.useCases
+      .flatMap((item) => (item.job ? [item.job] : []))
+      .join("\n"),
   };
 }
 
-export function BrandOnboardingForm({
-  providers,
-  showDashboardEscape = false,
-}: {
-  providers: ProviderOption[];
-  showDashboardEscape?: boolean;
-}) {
+export function BrandOnboardingForm({ showDashboardEscape = false }: { showDashboardEscape?: boolean }) {
   const isClient = useSyncExternalStore(subscribeToClient, () => true, () => false);
   if (!isClient) {
     return (
@@ -325,21 +347,10 @@ export function BrandOnboardingForm({
       </CenteredFrame>
     );
   }
-  return (
-    <BrandOnboardingClient
-      providers={providers}
-      showDashboardEscape={showDashboardEscape}
-    />
-  );
+  return <BrandOnboardingClient showDashboardEscape={showDashboardEscape} />;
 }
 
-function BrandOnboardingClient({
-  providers,
-  showDashboardEscape,
-}: {
-  providers: ProviderOption[];
-  showDashboardEscape: boolean;
-}) {
+function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: boolean }) {
   const [bootstrap] = useState(readBootstrap);
   const router = useProgressRouter();
   const queryClient = useQueryClient();
@@ -353,7 +364,7 @@ function BrandOnboardingClient({
   const checkoutSessionId = bootstrap.checkoutSessionId;
   const [checkoutLoading, setCheckoutLoading] = useState<PlanId | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(POPULAR_PLAN);
-  const [discoveryStage, setDiscoveryStage] = useState<DiscoveryStage>("site");
+  const [discoveryStage, setDiscoveryStage] = useState<DiscoveryStage>("brand");
   const [finalizeTimedOut, setFinalizeTimedOut] = useState(false);
   const finalizeStarted = useRef(false);
   const isFirstBrand = (me.data?.brands.length ?? 0) === 0;
@@ -374,7 +385,7 @@ function BrandOnboardingClient({
 
   const discover = useMutation({
     mutationFn: ({ name, website }: { name: string; website: string }) =>
-      discoverOperatingBrief(name, website, setDiscoveryStage),
+      discoverBrand(name, website, setDiscoveryStage),
     onSuccess: (result) => {
       setFields((current) => ({
         ...current,
@@ -383,26 +394,25 @@ function BrandOnboardingClient({
         tone: result.profile.tone,
         seedKeywords: result.profile.seedKeywords,
         competitors: result.competitors,
-        useCases: result.useCases,
+        customerOutcomes: result.customerOutcomes,
       }));
       setMoment(1);
     },
     onError: () => {
-      setError("I couldn't read the site yet. Add the brief manually and continue.");
+      setError("Claudia could not read the site yet. Add what you know and continue.");
       setMoment(1);
     },
   });
 
   const create = useMutation({
     mutationFn: (payload: BrandCreatePayload) =>
-      apiPost<{ brand: { id: string; name: string }; canIgnite: boolean }>("/api/brands", payload, {
-        signal: AbortSignal.timeout(BRAND_CREATE_TIMEOUT_MS),
-      }),
+      apiPost<{ brand: { id: string; name: string }; canIgnite: boolean }>(
+        "/api/brands",
+        payload,
+        { signal: AbortSignal.timeout(BRAND_CREATE_TIMEOUT_MS) },
+      ),
     onSuccess: async ({ brand, canIgnite }) => {
       clearDraft();
-      // The create response and active-brand cookie are authoritative. Update
-      // the bootstrap cache before navigating so the app layout cannot observe
-      // the old empty brand list and bounce the user back to onboarding.
       queryClient.setQueryData<MeResponse>(queryKeys.me, (current) =>
         current
           ? {
@@ -414,7 +424,7 @@ function BrandOnboardingClient({
                     {
                       id: brand.id,
                       name: brand.name,
-                      autonomyMode: fields.autonomyMode,
+                      autonomyMode: "FULL_AUTO",
                       badgePublic: false,
                       identity: null,
                     },
@@ -426,14 +436,14 @@ function BrandOnboardingClient({
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
       await releaseExitGuard();
-      router.replace(canIgnite ? "/dashboard" : "/account?tab=billing&next=ignition");
+      router.replace(canIgnite ? "/dashboard" : "/settings?tab=billing&next=ignition");
     },
     onError: (failure) => {
       rearmExitGuard();
       setError(
         getErrorMessage(
           failure,
-          "Claudia could not finish activation. Your payment and saved brief are safe.",
+          "Claudia could not finish setup. Your payment and saved answers are safe.",
         ),
       );
     },
@@ -441,7 +451,7 @@ function BrandOnboardingClient({
 
   const submitCreate = useCallback(() => {
     if (!fields.name.trim()) {
-      setError("Add a brand name before starting.");
+      setError("Add the brand name Claudia should use.");
       setPhase("form");
       setMoment(1);
       return;
@@ -456,8 +466,6 @@ function BrandOnboardingClient({
   }, [checkoutSessionId, create, disarmExitGuard, fields, phase]);
 
   useEffect(() => {
-    // Save Stripe's replay token before removing it from the address bar. A
-    // refresh/crash during activation can then resume confirmation safely.
     if (phase === "finalizing" && checkoutSessionId) {
       saveDraft({ fields, moment, checkoutSessionId });
     } else if (phase === "form") {
@@ -466,9 +474,7 @@ function BrandOnboardingClient({
   }, [checkoutSessionId, fields, moment, phase]);
 
   useEffect(() => {
-    if (bootstrap.cleanUrl) {
-      window.history.replaceState(null, "", "/onboarding");
-    }
+    if (bootstrap.cleanUrl) window.history.replaceState(null, "", "/onboarding");
   }, [bootstrap.cleanUrl]);
 
   const refetchMe = me.refetch;
@@ -480,11 +486,11 @@ function BrandOnboardingClient({
 
   useEffect(() => {
     if (phase !== "finalizing" || subscribed) return;
-    const poll = setInterval(() => void refetchMe(), 2_500);
-    const timeout = setTimeout(() => setFinalizeTimedOut(true), 45_000);
+    const poll = window.setInterval(() => void refetchMe(), 2_500);
+    const timeout = window.setTimeout(() => setFinalizeTimedOut(true), 45_000);
     return () => {
-      clearInterval(poll);
-      clearTimeout(timeout);
+      window.clearInterval(poll);
+      window.clearTimeout(timeout);
     };
   }, [phase, refetchMe, subscribed]);
 
@@ -503,12 +509,12 @@ function BrandOnboardingClient({
     }
     const name = fields.name.trim() || inferredName(website);
     if (!name) {
-      setError("Add a brand name so Claudia knows what to look for.");
+      setError("Claudia could not infer a brand name from that address.");
       return;
     }
     setError(null);
-    setDiscoveryStage("site");
-    setFields((current) => ({ ...current, name }));
+    setDiscoveryStage("brand");
+    setFields((current) => ({ ...current, name, website }));
     discover.mutate({ name, website });
   }
 
@@ -552,22 +558,21 @@ function BrandOnboardingClient({
     const activationFailed = create.isError;
     const confirmationFailed = Boolean(me.error) && !subscribed;
     const needsRetry = activationFailed || confirmationFailed || finalizeTimedOut;
-
     return (
       <ClaudiaActivationScreen
         brandName={fields.name}
-        website={fields.website}
-        autonomyMode={fields.autonomyMode}
         subscribed={subscribed}
         isCreating={create.isPending}
         needsRetry={needsRetry}
-        errorMessage={error ?? "We could not confirm the latest account state. Your payment and saved brief are safe."}
+        errorMessage={
+          error ??
+          "We could not confirm the latest account state. Your payment and saved answers are safe."
+        }
         onRetry={() => {
           setError(null);
           setFinalizeTimedOut(false);
-          if (activationFailed) {
-            submitCreate();
-          } else {
+          if (activationFailed) submitCreate();
+          else {
             checkoutConfirm.reset();
             void refetchMe();
           }
@@ -580,413 +585,428 @@ function BrandOnboardingClient({
     );
   }
 
-  const current = MOMENTS[moment];
-  const isDiscovering = moment === 0 && discover.isPending;
-  return (
-    <div className="relative min-h-dvh overflow-x-clip bg-background">
-      <main className="mx-auto min-h-dvh w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
-        <OnboardingStepPanel
-          current={current}
-          moment={moment}
-          fields={fields}
-          setFields={setFields}
-          providers={providers}
-          manualCompetitor={manualCompetitor}
-          setManualCompetitor={setManualCompetitor}
-          error={error}
-          isDiscovering={isDiscovering}
-          discoveryStage={discoveryStage}
-          subscribed={subscribed}
-          createPending={create.isPending}
-          checkoutLoading={checkoutLoading}
-          selectedPlanId={selectedPlanId}
-          setSelectedPlanId={setSelectedPlanId}
-          onBeginDiscovery={beginDiscovery}
-          onAddCompetitor={addCompetitor}
-          onContinueBrief={() => setMoment(2)}
-          onBack={() => setMoment((value) => value - 1)}
-          onExit={openExitDialog}
-          onSubmit={submitCreate}
-          onStartCheckout={startCheckout}
-        />
-      </main>
-
-      <OnboardingExitDialog
-        isOpen={isExitDialogOpen}
-        isFirstBrand={isFirstBrand}
-        remainingSteps={MOMENTS.length - moment}
-        onStay={stayInOnboarding}
-        onLeave={() => void leaveOnboarding()}
-      />
-    </div>
-  );
-}
-
-
-function OnboardingStepPanel({
-  current, moment, fields, setFields, providers, manualCompetitor, setManualCompetitor,
-  error, isDiscovering, discoveryStage, subscribed, createPending, checkoutLoading,
-  selectedPlanId, setSelectedPlanId, onBeginDiscovery, onAddCompetitor,
-  onContinueBrief, onBack, onExit, onSubmit, onStartCheckout,
-}: {
-  current: (typeof MOMENTS)[number]; moment: number; fields: Fields;
-  setFields: React.Dispatch<React.SetStateAction<Fields>>; providers: ProviderOption[];
-  manualCompetitor: { name: string; url: string };
-  setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
-  error: string | null; isDiscovering: boolean; discoveryStage: DiscoveryStage;
-  subscribed: boolean; createPending: boolean; checkoutLoading: PlanId | null;
-  selectedPlanId: PlanId; setSelectedPlanId: React.Dispatch<React.SetStateAction<PlanId>>;
-  onBeginDiscovery: () => void; onAddCompetitor: () => void; onContinueBrief: () => void;
-  onBack: () => void; onExit: () => void; onSubmit: () => void;
-  onStartCheckout: (planId: PlanId) => void;
-}) {
-  const launch = () => subscribed ? onSubmit() : onStartCheckout(selectedPlanId);
-
-  if (isDiscovering) {
+  if (discover.isPending) {
     return (
-      <div className="min-h-[calc(100dvh-13rem)]">
-        <OnboardingDiscovery brandName={fields.name} website={fields.website} stage={discoveryStage} />
-        {error ? <OnboardingError message={error} /> : null}
-        <OnboardingActions moment={moment} label={current.label} isWorking selectedPlanId={selectedPlanId} onBack={onBack} onExit={onExit} onPrimary={onContinueBrief} />
+      <div className="min-h-dvh bg-background px-5 sm:px-8">
+        <OnboardingDiscovery
+          brandName={fields.name}
+          website={fields.website}
+          stage={discoveryStage}
+        />
       </div>
     );
   }
 
   return (
-    <section key={moment} className="min-w-0">
-      {moment === 0 ? (
-        <div className="flex min-h-[calc(100dvh-13rem)] items-center">
-          <div className="w-full max-w-2xl">
-            <StepIndicator moment={moment} label={current.label} />
-            <h1 className="type-display mt-8 max-w-xl text-3xl text-foreground sm:text-4xl">Turn Your Site Into an Operating Brief</h1>
-            <SiteMoment fields={fields} setFields={setFields} onContinue={onBeginDiscovery} />
-            {error ? <OnboardingError message={error} /> : null}
-          </div>
-        </div>
-      ) : moment === 1 ? (
-        <div className="mx-auto w-full max-w-5xl pt-6">
-          <div>
-            <StepIndicator moment={moment} label={current.label} />
-            <h1 className="type-display mt-8 max-w-2xl text-3xl text-foreground sm:text-4xl">Your First Week, Already Planned</h1>
-            <p className="mt-3 text-base text-muted">Here&apos;s your operating brief. You can edit anything.</p>
-            <BriefMoment fields={fields} setFields={setFields} manualCompetitor={manualCompetitor} setManualCompetitor={setManualCompetitor} addCompetitor={onAddCompetitor} />
-            {error ? <OnboardingError message={error} /> : null}
-          </div>
-        </div>
-      ) : (
-        <div className="mx-auto flex min-h-[calc(100dvh-13rem)] w-full max-w-5xl flex-col justify-center py-10">
-          <StepIndicator moment={moment} label={current.label} />
-          <h1 className="type-display mt-8 text-3xl text-foreground sm:text-4xl">Choose How Claudia Works</h1>
-          <AuthorityMoment fields={fields} setFields={setFields} providers={providers} subscribed={subscribed} selectedPlanId={selectedPlanId} setSelectedPlanId={setSelectedPlanId} />
-          {error ? <OnboardingError message={error} /> : null}
-        </div>
-      )}
-      <OnboardingActions moment={moment} label={current.label} selectedPlanId={selectedPlanId} autonomyMode={fields.autonomyMode} isPending={createPending || checkoutLoading !== null} onBack={onBack} onExit={onExit} onPrimary={moment === 1 ? onContinueBrief : launch} />
-    </section>
+    <OnboardingFormShell
+      moment={moment}
+      fields={fields}
+      setFields={setFields}
+      error={error}
+      busy={create.isPending || checkoutLoading !== null}
+      createPending={create.isPending}
+      checkoutPending={checkoutLoading !== null}
+      subscribed={subscribed}
+      selectedPlanId={selectedPlanId}
+      setSelectedPlanId={setSelectedPlanId}
+      manualCompetitor={manualCompetitor}
+      setManualCompetitor={setManualCompetitor}
+      isExitDialogOpen={isExitDialogOpen}
+      isFirstBrand={isFirstBrand}
+      onExit={openExitDialog}
+      onStay={stayInOnboarding}
+      onLeave={() => void leaveOnboarding()}
+      onBeginDiscovery={beginDiscovery}
+      onAddCompetitor={addCompetitor}
+      onBack={() => {
+        setError(null);
+        setMoment((value) => Math.max(0, value - 1));
+      }}
+      onConfirm={() => {
+        if (!fields.name.trim()) {
+          setError("Add the brand name Claudia should use.");
+          return;
+        }
+        setError(null);
+        setMoment(2);
+      }}
+      onSubmit={submitCreate}
+      onCheckout={() => void startCheckout(selectedPlanId)}
+    />
   );
 }
 
-function StepIndicator({ moment, label }: { moment: number; label: string }) {
-  return (
-    <Stepper currentStep={moment} aria-label={`${label}, step ${moment + 1} of ${MOMENTS.length}`}>
-      {MOMENTS.map((item) => (
-        <Stepper.Step key={item.label}>
-          <Stepper.Indicator />
-          <Stepper.Content><Stepper.Title>{item.label}</Stepper.Title></Stepper.Content>
-          <Stepper.Separator />
-        </Stepper.Step>
-      ))}
-    </Stepper>
-  );
-}
-
-function displayHost(website: string) {
-  try { return new URL(website).hostname.replace(/^www\./, ""); }
-  catch { return website.replace(/^https?:\/\//, "") || "your-site.com"; }
-}
-
-const ONBOARDING_WEEK = [
-  { label: "Align", Icon: InsightIcon },
-  { label: "Audit", Icon: SearchIcon },
-  { label: "Plan", Icon: ArticlesIcon },
-  { label: "Optimize", Icon: TrendingUpIcon },
-  { label: "Review", Icon: CheckIcon },
-] as const;
-
-function OnboardingError({ message }: { message: string }) {
-  return (
-    <Alert status="danger" className="mt-5 max-w-xl">
-      <Alert.Indicator />
-      <Alert.Content>
-        <Alert.Title>Setup Needs Attention</Alert.Title>
-        <Alert.Description>{message}</Alert.Description>
-      </Alert.Content>
-    </Alert>
-  );
-}
-
-function OnboardingActions({
-  moment, label, selectedPlanId, autonomyMode = "FULL_AUTO", isWorking = false,
-  isPending = false, onBack, onExit, onPrimary,
+function OnboardingFormShell({
+  moment,
+  fields,
+  setFields,
+  error,
+  busy,
+  createPending,
+  checkoutPending,
+  subscribed,
+  selectedPlanId,
+  setSelectedPlanId,
+  manualCompetitor,
+  setManualCompetitor,
+  isExitDialogOpen,
+  isFirstBrand,
+  onExit,
+  onStay,
+  onLeave,
+  onBeginDiscovery,
+  onAddCompetitor,
+  onBack,
+  onConfirm,
+  onSubmit,
+  onCheckout,
 }: {
-  moment: number; label: string; selectedPlanId: PlanId; autonomyMode?: Fields["autonomyMode"];
-  isWorking?: boolean; isPending?: boolean; onBack: () => void; onExit: () => void; onPrimary: () => void;
+  moment: number;
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  error: string | null;
+  busy: boolean;
+  createPending: boolean;
+  checkoutPending: boolean;
+  subscribed: boolean;
+  selectedPlanId: PlanId;
+  setSelectedPlanId: React.Dispatch<React.SetStateAction<PlanId>>;
+  manualCompetitor: { name: string; url: string };
+  setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
+  isExitDialogOpen: boolean;
+  isFirstBrand: boolean;
+  onExit: () => void;
+  onStay: () => void;
+  onLeave: () => void;
+  onBeginDiscovery: () => void;
+  onAddCompetitor: () => void;
+  onBack: () => void;
+  onConfirm: () => void;
+  onSubmit: () => void;
+  onCheckout: () => void;
 }) {
-  const plan = plans[selectedPlanId];
+  const current = STEPS[moment];
   return (
-    <Card className="mt-10" role="region" aria-label="Onboarding actions">
-      <Card.Content className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="hidden min-w-0 flex-1 items-center gap-3 sm:flex">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-muted" aria-hidden><InsightIcon className="size-4" /></span>
-          {moment === 2 ? (
-            <p><span className="text-accent">{autonomyMode === "FULL_AUTO" ? "Autopilot" : "Copilot"}</span><span>·</span><span>{plan.name}</span></p>
-          ) : (
-            <p><span className="text-accent">{label}</span><span>·</span><span className="tabular-nums">{moment + 1} of 3</span></p>
-          )}
-        </div>
-        <div className="flex w-full flex-col-reverse gap-2 sm:ml-auto sm:w-auto sm:flex-row">
-          <Button className="w-full sm:w-auto" variant="ghost" isDisabled={moment === 0 || isPending} onPress={onBack}><ArrowLeftIcon className="size-4" /> Back</Button>
+    <div className="min-h-dvh bg-background">
+      <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-5 py-8 sm:px-8 sm:py-12">
+        <header className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium text-muted">Step {moment + 1} of 3</span>
+          <Button variant="ghost" isDisabled={busy} onPress={onExit}>
+            Save and exit
+          </Button>
+        </header>
+
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-10 sm:py-14">
+          <div className="max-w-2xl">
+            <h1 className="type-display text-3xl text-foreground text-pretty sm:text-5xl">
+              {current.title}
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-muted text-pretty">
+              {current.description}
+            </p>
+          </div>
+
+          {error ? (
+            <Alert status="danger" className="mt-6">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Setup needs attention</Alert.Title>
+                <Alert.Description>{error}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ) : null}
+
           {moment === 0 ? (
-            <Button className="w-full sm:w-auto" variant="secondary" isDisabled={isWorking} onPress={onExit}>Save and exit</Button>
-          ) : (
-            <LoadingButton className="w-full sm:w-auto" isPending={isPending} pendingLabel={moment === 2 ? "Starting…" : "Saving…"} onPress={onPrimary}>
-              {moment === 1 ? <InsightIcon className="size-4" /> : <ArrowRightIcon className="size-4" />}
-              {moment === 1 ? "Looks right" : "Start first day"}
-            </LoadingButton>
-          )}
+            <WebsiteStep fields={fields} setFields={setFields} onContinue={onBeginDiscovery} />
+          ) : null}
+          {moment === 1 ? (
+            <ConfirmStep
+              fields={fields}
+              setFields={setFields}
+              manualCompetitor={manualCompetitor}
+              setManualCompetitor={setManualCompetitor}
+              onAddCompetitor={onAddCompetitor}
+            />
+          ) : null}
+          {moment === 2 ? (
+            <OutcomeStep
+              fields={fields}
+              setFields={setFields}
+              subscribed={subscribed}
+              selectedPlanId={selectedPlanId}
+              setSelectedPlanId={setSelectedPlanId}
+            />
+          ) : null}
+
+          {moment > 0 ? (
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button variant="ghost" isDisabled={busy} onPress={onBack}>
+                <ArrowLeftIcon className="size-4" />
+                Back
+              </Button>
+              {moment === 1 ? (
+                <Button className="min-h-11" isDisabled={busy} onPress={onConfirm}>
+                  Yes, this is right
+                  <ArrowRightIcon className="size-4" />
+                </Button>
+              ) : subscribed ? (
+                <LoadingButton
+                  className="min-h-11"
+                  isPending={createPending}
+                  pendingLabel="Starting Claudia…"
+                  onPress={onSubmit}
+                >
+                  Start Claudia
+                  <ArrowRightIcon className="size-4" />
+                </LoadingButton>
+              ) : (
+                <LoadingButton
+                  className="min-h-11"
+                  isPending={checkoutPending}
+                  pendingLabel="Opening checkout…"
+                  onPress={onCheckout}
+                >
+                  Continue to checkout
+                  <ArrowRightIcon className="size-4" />
+                </LoadingButton>
+              )}
+            </div>
+          ) : null}
         </div>
-      </Card.Content>
-    </Card>
+      </main>
+
+      <OnboardingExitDialog
+        isOpen={isExitDialogOpen}
+        isFirstBrand={isFirstBrand}
+        remainingSteps={STEPS.length - moment}
+        onStay={onStay}
+        onLeave={onLeave}
+      />
+    </div>
   );
 }
 
-function SiteMoment({ fields, setFields, onContinue }: {
-  fields: Fields; setFields: React.Dispatch<React.SetStateAction<Fields>>; onContinue: () => void;
+function WebsiteStep({
+  fields,
+  setFields,
+  onContinue,
+}: {
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  onContinue: () => void;
 }) {
-  const valid = isValidUrl(fields.website.trim());
   return (
-    <Card className="mt-10 max-w-xl">
-      <Card.Header>
-        <Card.Title>Start With Your Website</Card.Title>
-        <Card.Description>Claudia will read the site and draft the rest of your operating brief.</Card.Description>
-      </Card.Header>
-      <Card.Content className="space-y-4">
-        <div className="flex items-center gap-3">
-          <GlobeIcon className="size-5 shrink-0 text-muted" />
-          <Input id="onboarding-website" aria-label="Website URL" autoFocus autoComplete="url" fullWidth type="url" variant="secondary" placeholder="https://your-site.com" value={fields.website} onChange={(event) => setFields((current) => ({ ...current, website: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") onContinue(); }} />
-          {valid ? <ToneText tone="success" className="inline-flex items-center gap-1.5 text-xs"><CheckIcon className="size-3.5" />Valid</ToneText> : null}
+    <Card className="mt-8 max-w-2xl rounded-3xl p-0">
+      <Card.Content className="p-6 sm:p-8">
+        <Label htmlFor="onboarding-website">Website URL</Label>
+        <div className="mt-2 flex items-center gap-3">
+          <GlobeIcon className="hidden size-5 shrink-0 text-muted sm:block" aria-hidden />
+          <Input
+            id="onboarding-website"
+            autoFocus
+            autoComplete="url"
+            fullWidth
+            type="url"
+            variant="secondary"
+            placeholder="https://your-site.com"
+            value={fields.website}
+            onChange={(event) =>
+              setFields((current) => ({ ...current, website: event.target.value }))
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onContinue();
+            }}
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <LayersIcon className="size-5 shrink-0 text-muted" />
-          <Input id="onboarding-name" aria-label="Brand name" variant="secondary" fullWidth placeholder={inferredName(fields.website) || "Brand name"} value={fields.name} onChange={(event) => setFields((current) => ({ ...current, name: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") onContinue(); }} />
-        </div>
+        <p className="mt-4 text-sm leading-6 text-muted">
+          Claudia will read your public site to understand what you sell, who it helps, and where
+          the best opportunities may be.
+        </p>
       </Card.Content>
-      <Card.Footer>
-        <Button size="lg" onPress={onContinue}><InsightIcon className="size-5" />Investigate Site</Button>
+      <Card.Footer className="justify-end border-t border-separator px-6 py-5 sm:px-8">
+        <Button className="min-h-11" onPress={onContinue}>
+          Learn about my brand
+          <ArrowRightIcon className="size-4" />
+        </Button>
       </Card.Footer>
     </Card>
   );
 }
 
-function BriefMoment({
+function ConfirmStep({
   fields,
   setFields,
   manualCompetitor,
   setManualCompetitor,
-  addCompetitor,
+  onAddCompetitor,
 }: {
   fields: Fields;
   setFields: React.Dispatch<React.SetStateAction<Fields>>;
   manualCompetitor: { name: string; url: string };
   setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
-  addCompetitor: () => void;
+  onAddCompetitor: () => void;
 }) {
-  const set =
-    (key: keyof Pick<Fields, "name" | "productDescription" | "audience" | "tone">) =>
-    (event: { target: { value: string } }) =>
-      setFields((current) => ({ ...current, [key]: event.target.value }));
-
-  const updateUseCase = (
-    clientId: string,
-    key: keyof Pick<UseCase, "persona" | "job" | "industry">,
-    value: string,
-  ) => setFields((current) => ({
-    ...current,
-    useCases: current.useCases.map((item) =>
-      item.clientId === clientId ? { ...item, [key]: value, enabled: true } : item,
-    ),
-  }));
-
-  const addUseCase = () => setFields((current) => ({
-    ...current,
-    useCases: current.useCases.length >= MAX_BUYER_PROFILES ? current.useCases : [
-      ...current.useCases,
-      { clientId: crypto.randomUUID(), persona: "", job: "", industry: "", enabled: true },
-    ],
-  }));
-
   return (
-    <div className="mt-10 max-w-[78rem]">
-      <div className="max-w-xl divide-y divide-separator/70">
-        <BriefFieldRow label="Brand" Icon={LayersIcon}>
-          <Input aria-label="Brand" fullWidth variant="secondary" value={fields.name} onChange={set("name")} />
-        </BriefFieldRow>
-        <BriefFieldRow label="Audience" Icon={UsersIcon}>
-          <Input aria-label="Audience" fullWidth variant="secondary" value={fields.audience} onChange={set("audience")} />
-        </BriefFieldRow>
-        <BriefFieldRow label="Tone" Icon={PenIcon}>
-          <Input aria-label="Tone" fullWidth variant="secondary" value={fields.tone} onChange={set("tone")} />
-        </BriefFieldRow>
-      </div>
-
-      <section className="mt-7" aria-labelledby="competitors-title">
-        <h2 id="competitors-title" className="text-sm font-medium text-muted">Competitors</h2>
-        <div className="mt-3 flex max-w-4xl gap-3 overflow-x-auto pb-2">
-          {fields.competitors.map((competitor) => (
-            <Button
-              key={competitor.url}
-              size="sm"
-              variant="secondary"
-              onPress={() => setFields((current) => ({
-                ...current,
-                competitors: current.competitors.filter((item) => item.url !== competitor.url),
-              }))}
-              aria-label={"Remove " + competitor.name}
-            >
-              <span className="flex size-8 items-center justify-center rounded-lg bg-surface-secondary text-xs font-semibold" aria-hidden>{competitor.name.slice(0, 2).toUpperCase()}</span>
-              <span className="max-w-36 truncate">{displayHost(competitor.url)}</span>
-              <span className="text-muted" aria-hidden>&times;</span>
-            </Button>
-          ))}
-          {!fields.competitors.length ? <p className="py-3 text-sm text-muted">No confident matches yet.</p> : null}
-        </div>
-      </section>
-
-      <section className="mt-7" aria-labelledby="week-title">
-        <h2 id="week-title" className="text-sm font-medium text-muted">Your first week</h2>
-        <ol className="mt-3 grid gap-3 sm:grid-cols-5">
-          {ONBOARDING_WEEK.map(({ label, Icon }, index) => (
-            <li key={label}>
-              <Card variant="secondary" className="h-full">
-                <Card.Content>
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-background text-muted"><Icon className="size-4" /></span>
-                  <p className="mt-3 text-sm font-medium text-foreground"><strong className="mr-2 font-normal text-muted tabular-nums">{index + 1}</strong>{label}</p>
-                </Card.Content>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <div className="mt-5 max-w-[78rem] space-y-2">
-        <Accordion variant="surface">
-          <Accordion.Item id="buyer-profiles">
-          <Accordion.Heading>
-            <Accordion.Trigger><UsersIcon className="size-5 text-muted" />Buyer Profiles<span className="text-sm font-medium text-accent tabular-nums">{fields.useCases.length}</span><Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator></Accordion.Trigger>
-          </Accordion.Heading>
-          <Accordion.Panel>
-          <Accordion.Body className="grid gap-4 md:grid-cols-2">
-            {fields.useCases.map((useCase, index) => (
-              <article key={useCase.clientId} className="rounded-2xl bg-surface-secondary/70 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium">Buyer {index + 1}</p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onPress={() => setFields((current) => ({
+    <div className="mt-8 space-y-4">
+      <SummaryField label="What you sell" Icon={LayersIcon}>
+        <TextArea
+          aria-label="What you sell"
+          fullWidth
+          rows={3}
+          variant="secondary"
+          placeholder="Describe the product or service"
+          value={fields.productDescription}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, productDescription: event.target.value }))
+          }
+        />
+      </SummaryField>
+      <SummaryField label="Who it helps" Icon={UsersIcon}>
+        <TextArea
+          aria-label="Who it helps"
+          fullWidth
+          rows={2}
+          variant="secondary"
+          placeholder="The customers Claudia should focus on"
+          value={fields.audience}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, audience: event.target.value }))
+          }
+        />
+      </SummaryField>
+      <SummaryField label="Most important customer outcomes" Icon={CheckIcon}>
+        <TextArea
+          aria-label="Most important customer outcomes"
+          fullWidth
+          rows={4}
+          variant="secondary"
+          placeholder={"Save time on reporting\nFind better growth opportunities"}
+          value={fields.customerOutcomes}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, customerOutcomes: event.target.value }))
+          }
+        />
+        <p className="mt-2 text-xs leading-5 text-muted">One outcome per line.</p>
+      </SummaryField>
+      <SummaryField label="Competitors Claudia found" Icon={SearchIcon}>
+        {fields.competitors.length ? (
+          <ul className="divide-y divide-separator">
+            {fields.competitors.map((competitor) => (
+              <li key={competitor.url} className="flex min-h-14 items-center gap-3 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-foreground">{competitor.name}</span>
+                  <span className="block truncate text-xs text-muted">{competitor.url}</span>
+                </span>
+                <Button
+                  isIconOnly
+                  variant="ghost"
+                  aria-label={`Remove ${competitor.name}`}
+                  onPress={() =>
+                    setFields((current) => ({
                       ...current,
-                      useCases: current.useCases.filter((item) => item.clientId !== useCase.clientId),
-                    }))}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <div className="mt-3 space-y-3">
-                  <Input
-                    aria-label={"Buyer " + (index + 1) + " role"}
-                    fullWidth
-                    variant="secondary"
-                    placeholder="Buyer or role"
-                    value={useCase.persona}
-                    onChange={(event) => updateUseCase(useCase.clientId, "persona", event.target.value)}
-                  />
-                  <TextArea
-                    aria-label={"Buyer " + (index + 1) + " goal"}
-                    fullWidth
-                    rows={2}
-                    variant="secondary"
-                    placeholder="What they need to achieve"
-                    value={useCase.job}
-                    onChange={(event) => updateUseCase(useCase.clientId, "job", event.target.value)}
-                  />
-                  <Input
-                    aria-label={"Buyer " + (index + 1) + " industry"}
-                    fullWidth
-                    variant="secondary"
-                    placeholder="Industry (optional)"
-                    value={useCase.industry}
-                    onChange={(event) => updateUseCase(useCase.clientId, "industry", event.target.value)}
-                  />
-                </div>
-              </article>
+                      competitors: current.competitors.filter(
+                        (item) => item.url !== competitor.url,
+                      ),
+                    }))
+                  }
+                >
+                  <XIcon className="size-4" />
+                </Button>
+              </li>
             ))}
-            <Button variant="secondary" isDisabled={fields.useCases.length >= MAX_BUYER_PROFILES} onPress={addUseCase}>
-              Add buyer profile
-            </Button>
-          </Accordion.Body>
-          </Accordion.Panel>
-          </Accordion.Item>
-        </Accordion>
+          </ul>
+        ) : (
+          <p className="py-3 text-sm text-muted">No confident matches yet. Claudia can keep looking.</p>
+        )}
+      </SummaryField>
 
-        <Accordion variant="surface">
-          <Accordion.Item id="advanced-fields">
-          <Accordion.Heading>
-            <Accordion.Trigger><ChartBarIcon className="size-5 text-muted" />Advanced Fields<Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator></Accordion.Trigger>
-          </Accordion.Heading>
-          <Accordion.Panel>
-          <Accordion.Body className="grid gap-5 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="brief-product">What the brand sells</Label>
-              <TextArea id="brief-product" fullWidth rows={4} variant="secondary" value={fields.productDescription} onChange={set("productDescription")} />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="brief-keywords">Initial query themes</Label>
-              <TagInput
-                id="brief-keywords"
-                ariaLabel="Initial query themes"
-                placeholder="AI visibility, answer engine optimization"
-                value={fields.seedKeywords}
-                onChange={(value) => setFields((current) => ({ ...current, seedKeywords: value }))}
-              />
-            </div>
+      <details className="rounded-2xl bg-surface p-5 open:pb-6">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-foreground">
+          Review more details
+        </summary>
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-name">Brand name</Label>
             <Input
-              aria-label="Competitor name"
+              id="onboarding-name"
+              fullWidth
               variant="secondary"
-              placeholder="Competitor"
-              value={manualCompetitor.name}
-              onChange={(event) => setManualCompetitor((current) => ({ ...current, name: event.target.value }))}
+              value={fields.name}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, name: event.target.value }))
+              }
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-tone">Brand voice</Label>
+            <Input
+              id="onboarding-tone"
+              fullWidth
+              variant="secondary"
+              placeholder="Clear, practical, confident"
+              value={fields.tone}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, tone: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="onboarding-keywords">Important search themes</Label>
+            <TextArea
+              id="onboarding-keywords"
+              fullWidth
+              rows={2}
+              variant="secondary"
+              placeholder="Invoice automation, payment reminders"
+              value={fields.seedKeywords}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, seedKeywords: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="competitor-name">Add a competitor</Label>
+            <Input
+              id="competitor-name"
+              fullWidth
+              variant="secondary"
+              placeholder="Competitor name"
+              value={manualCompetitor.name}
+              onChange={(event) =>
+                setManualCompetitor((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="competitor-url">Competitor website</Label>
             <div className="flex gap-2">
               <Input
-                aria-label="Competitor URL"
+                id="competitor-url"
+                fullWidth
                 type="url"
                 variant="secondary"
                 placeholder="https://competitor.com"
                 value={manualCompetitor.url}
-                onChange={(event) => setManualCompetitor((current) => ({ ...current, url: event.target.value }))}
+                onChange={(event) =>
+                  setManualCompetitor((current) => ({ ...current, url: event.target.value }))
+                }
               />
-              <Button variant="secondary" isDisabled={fields.competitors.length >= MAX_COMPETITORS} onPress={addCompetitor}>Add</Button>
+              <Button
+                variant="secondary"
+                isDisabled={fields.competitors.length >= MAX_COMPETITORS}
+                onPress={onAddCompetitor}
+              >
+                Add
+              </Button>
             </div>
-          </Accordion.Body>
-          </Accordion.Panel>
-          </Accordion.Item>
-        </Accordion>
-      </div>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
 
-function BriefFieldRow({
+function SummaryField({
   label,
   Icon,
   children,
@@ -996,167 +1016,123 @@ function BriefFieldRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[3rem_1fr_2rem] items-center gap-4 py-3">
-      <span className="grid size-11 place-items-center rounded-2xl bg-surface/75 text-muted ring-1 ring-border/50"><Icon className="size-5" /></span>
-      <div className="min-w-0">
-        <p className="text-xs text-muted">{label}</p>
+    <Card className="rounded-2xl p-0">
+      <Card.Content className="p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            aria-hidden
+          >
+            <Icon className="size-5" />
+          </span>
+          <h2 className="text-sm font-semibold text-foreground">{label}</h2>
+        </div>
         {children}
-      </div>
-      <PenIcon className="size-4 text-muted" aria-hidden />
-    </div>
+      </Card.Content>
+    </Card>
   );
 }
 
-function AuthorityMoment({
-  fields, setFields, providers, subscribed, selectedPlanId, setSelectedPlanId,
+function OutcomeStep({
+  fields,
+  setFields,
+  subscribed,
+  selectedPlanId,
+  setSelectedPlanId,
 }: {
   fields: Fields;
   setFields: React.Dispatch<React.SetStateAction<Fields>>;
-  providers: ProviderOption[];
   subscribed: boolean;
   selectedPlanId: PlanId;
   setSelectedPlanId: React.Dispatch<React.SetStateAction<PlanId>>;
 }) {
-  const provider = providers.find((item) => item.id === fields.integrationProvider) ?? null;
-  const setConfig =
-    (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) => setFields((current) => ({ ...current, integrationConfig: { ...current.integrationConfig, [key]: event.target.value } }));
-  const setSecret =
-    (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) => setFields((current) => ({ ...current, integrationSecrets: { ...current.integrationSecrets, [key]: event.target.value } }));
-
   return (
-    <div className="mt-14">
-      <section className="grid gap-4 md:grid-cols-2" aria-label="Claudia authority">
-        <Button
-          aria-pressed={fields.autonomyMode === "FULL_AUTO"}
-          variant={fields.autonomyMode === "FULL_AUTO" ? "secondary" : "outline"}
-          onPress={() => setFields((current) => ({ ...current, autonomyMode: "FULL_AUTO" }))}
-          className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-6 text-left"
-        >
-          <span className="flex size-11 items-center justify-center rounded-xl bg-surface-secondary"><InsightIcon className="size-5" /></span>
-          <span><strong className="block text-base">Autopilot</strong><small className="mt-1 block text-sm text-muted">Automate approved work</small></span>
-        </Button>
-        <Button
-          aria-pressed={fields.autonomyMode === "REVIEW"}
-          variant={fields.autonomyMode === "REVIEW" ? "secondary" : "outline"}
-          onPress={() => setFields((current) => ({ ...current, autonomyMode: "REVIEW" }))}
-          className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-6 text-left"
-        >
-          <span className="flex size-11 items-center justify-center rounded-xl bg-surface-secondary"><UsersIcon className="size-5" /></span>
-          <span><strong className="block text-base">Copilot</strong><small className="mt-1 block text-sm text-muted">You approve every step</small></span>
-        </Button>
-      </section>
-
-      <div className="mx-auto mt-14 grid max-w-4xl gap-5 md:grid-cols-2">
-        <div className="flex items-center gap-4 rounded-2xl bg-surface p-5">
-          <span className="grid size-11 place-items-center rounded-xl bg-surface-secondary text-foreground"><GlobeIcon className="size-5" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-muted">Publishing destination</p>
-            <Select
-              aria-label="Publishing destination"
-              fullWidth
-              variant="secondary"
-              placeholder="Connect later"
-              value={fields.integrationProvider || SKIP_PROVIDER_KEY}
-              onChange={(value) => setFields((current) => ({
-                ...current,
-                integrationProvider: value && value !== SKIP_PROVIDER_KEY ? (String(value) as IntegrationProviderId) : "",
-                integrationConfig: {},
-                integrationSecrets: {},
-              }))}
+    <div className="mt-8 space-y-8">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {OUTCOMES.map(({ id, title, description, Icon, recommended }) => {
+          const selected = fields.firstOutcome === id;
+          return (
+            <Button
+              key={id}
+              aria-pressed={selected}
+              variant={selected ? "secondary" : "outline"}
+              className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-5 text-left active:scale-[0.96]"
+              onPress={() => setFields((current) => ({ ...current, firstOutcome: id }))}
             >
-              <Select.Trigger className="border-0 bg-transparent p-0 shadow-none"><Select.Value /><Select.Indicator /></Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id={SKIP_PROVIDER_KEY} textValue="Connect later">Connect later<ListBox.ItemIndicator /></ListBox.Item>
-                  {providers.map((item) => item.status === "available" ? (
-                    <ListBox.Item key={item.id} id={item.id} textValue={item.name}>{item.name}<ListBox.ItemIndicator /></ListBox.Item>
-                  ) : null)}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </div>
-        </div>
+              <span
+                className="grid size-11 shrink-0 place-items-center rounded-xl bg-background text-muted"
+                aria-hidden
+              >
+                <Icon className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <strong className="text-sm font-semibold text-foreground">{title}</strong>
+                  {recommended ? (
+                    <span className="text-xs font-medium text-success">Recommended</span>
+                  ) : null}
+                </span>
+                <small className="mt-1 block text-sm leading-5 text-muted">{description}</small>
+              </span>
+            </Button>
+          );
+        })}
+      </div>
 
-        <div className="flex items-center gap-4 rounded-2xl bg-surface p-5">
-          <span className="grid size-11 place-items-center rounded-xl bg-surface-secondary text-foreground"><ChartBarIcon className="size-5" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-muted">Pace</p>
+      {!subscribed ? (
+        <section className="border-t border-separator pt-8" aria-labelledby="capacity-title">
+          <h2 id="capacity-title" className="text-lg font-semibold text-foreground">
+            Choose Claudia&apos;s work capacity
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            This controls how much work Claudia can complete each month. You can change it later.
+          </p>
+          <div className="mt-4 max-w-md">
             <Select
-              aria-label="Starting pace"
+              aria-label="Work capacity"
               fullWidth
               variant="secondary"
               value={selectedPlanId}
-              isDisabled={subscribed}
-              onChange={(value) => value ? setSelectedPlanId(String(value) as PlanId) : undefined}
+              onChange={(value) => {
+                if (value) setSelectedPlanId(String(value) as PlanId);
+              }}
             >
-              <Select.Trigger className="border-0 bg-transparent p-0 shadow-none"><Select.Value /><Select.Indicator /></Select.Trigger>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
               <Select.Popover>
                 <ListBox>
                   {Object.values(plans).map((plan) => (
                     <ListBox.Item key={plan.id} id={plan.id} textValue={plan.name}>
                       <span>{plan.name}</span>
-                      <span className="ml-auto text-xs text-muted">{"$" + plan.price + "/mo"}</span>
+                      <span className="ml-auto text-sm text-muted">${plan.price}/month</span>
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
                   ))}
                 </ListBox>
               </Select.Popover>
             </Select>
+            <p className="mt-3 text-sm text-muted">
+              {plans[selectedPlanId].monthlyCredits.toLocaleString()} work credits each month · up
+              to {plans[selectedPlanId].dailyArticleCap} article draft
+              {plans[selectedPlanId].dailyArticleCap === 1 ? "" : "s"} per day
+            </p>
           </div>
-        </div>
-      </div>
-
-      {provider ? (
-        <div className="mx-auto mt-5 max-w-4xl rounded-2xl bg-surface p-5">
-          <ConnectionFields provider={provider} config={fields.integrationConfig} secrets={fields.integrationSecrets} onConfig={setConfig} onSecret={setSecret} />
-        </div>
-      ) : null}
-
-      <p className="mt-12 flex items-center justify-center gap-3 text-base text-muted">
-        <CheckIcon className="size-6" /> Every action logged.
-      </p>
-    </div>
-  );
-}
-
-function ConnectionFields({
-  provider,
-  config,
-  secrets,
-  onConfig,
-  onSecret,
-}: {
-  provider: ProviderOption;
-  config: Record<string, string>;
-  secrets: Record<string, string>;
-  onConfig: (key: IntegrationConfigKey) => ChangeEventHandler<HTMLInputElement>;
-  onSecret: (key: IntegrationSecretKey) => ChangeEventHandler<HTMLInputElement>;
-}) {
-  return (
-    <div className="space-y-3">
-      {provider.fields.map((field) =>
-        field.required ? (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={`connection-${field.key}`}>{field.label}</Label>
-            <Input id={`connection-${field.key}`} fullWidth type={field.validation === "url" ? "url" : "text"} variant="secondary" placeholder={field.placeholder} value={config[field.key] ?? ""} onChange={onConfig(field.key)} />
-          </div>
-        ) : null,
-      )}
-      {provider.secrets.map((secret) =>
-        secret.required ? (
-          <div key={secret.key} className="space-y-2">
-            <Label htmlFor={`connection-${secret.key}`}>{secret.label}</Label>
-            <Input id={`connection-${secret.key}`} fullWidth type="password" autoComplete="new-password" variant="secondary" placeholder={secret.placeholder} value={secrets[secret.key] ?? ""} onChange={onSecret(secret.key)} />
-          </div>
-        ) : null,
+        </section>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-success">
+          <CheckIcon className="size-4" /> Your current plan is ready.
+        </p>
       )}
     </div>
   );
 }
-
 
 function CenteredFrame({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">{children}</div>;
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      {children}
+    </div>
+  );
 }

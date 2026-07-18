@@ -8,6 +8,7 @@ import {
   readJson,
 } from "@/lib/api/server";
 import { setActiveBrandCookie } from "@/lib/brand/context";
+import { reconcileOwnerBrandProfileMemory } from "@/lib/agent/brand-profile-memory";
 import { brandNameSchema } from "@/lib/brand/schemas";
 import { deleteBrand, listBrands, renameBrand } from "@/lib/brand/repository";
 
@@ -22,6 +23,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     if (!brand) {
       throw new HttpError(404, "Brand not found");
     }
+    await reconcileOwnerBrandProfileMemory({ workspaceId: ctx.workspace.id, brandId: id });
     return jsonOk({ brand: { id: brand.id, name: brand.name } });
   });
 }

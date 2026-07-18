@@ -5,11 +5,13 @@ import { agentDailyRuns } from "@/lib/db/schema";
 
 /** The state the daily agent recorded for a brand on a given UTC day. */
 export type DailyRunStatus =
-  | "active"
+  | "completed"
   | "paused_no_credits"
   | "paused_by_owner"
   | "idle"
-  | "no_topics";
+  | "no_topics"
+  | "completed_degraded"
+  | "blocked";
 
 export type DailyRunInput = {
   articlesWritten: number;
