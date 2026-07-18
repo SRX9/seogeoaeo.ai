@@ -38,6 +38,10 @@ jobs:
           BETTER_AUTH_SECRET: ci-build-secret-minimum-32-characters
           BETTER_AUTH_URL: http://localhost:3000
           ENCRYPTION_KEY: ci-encryption-key-32-characters-long
+          # NEXT_PUBLIC_* vars are inlined at build time; the PostHog project
+          # token ships to the browser anyway, so a repo secret is fine here.
+          NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ secrets.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
       - run: pnpm build:cf
         env:
           BETTER_AUTH_URL: https://seo-ai.example.com
