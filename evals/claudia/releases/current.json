@@ -29,7 +29,7 @@
   ],
   "beforeReport": "evals/claudia/reports/baseline-v2.json",
   "afterReport": "evals/claudia/reports/baseline-v3.json",
-  "migrationPlan": "drizzle/migrations/0056_claudia_phase8_staged_autonomy.sql",
+  "migrationPlan": "drizzle/migrations/0000_broken_warbird.sql",
   "rollbackPlan": "docs/runbooks/claudia-autonomy-rollout.md#rollback-or-pause-a-rollout",
   "canary": {
     "stage": "local_eval_replay",

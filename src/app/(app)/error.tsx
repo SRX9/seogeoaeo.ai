@@ -2,6 +2,7 @@
 
 import { Button, Card } from "@heroui/react";
 import { useEffect } from "react";
+import posthog from "posthog-js";
 import { logError } from "@/lib/logging/logger";
 
 type ErrorPageProps = {
@@ -15,6 +16,7 @@ export default function AppError({ error, reset }: ErrorPageProps) {
       message: error.message,
       digest: error.digest,
     });
+    posthog.captureException(error);
   }, [error]);
 
   return (

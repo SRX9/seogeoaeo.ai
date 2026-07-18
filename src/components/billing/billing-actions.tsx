@@ -2,6 +2,7 @@
 
 import { Card } from "@heroui/react";
 import { useState } from "react";
+import posthog from "posthog-js";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { CheckIcon } from "@/components/icons";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
@@ -34,6 +35,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
   });
 
   async function startCheckout(planId: PlanId) {
+    posthog.capture("subscription_checkout_selected", { plan_id: planId });
     setError(null);
     setLoadingPlan(planId);
     try {
@@ -46,6 +48,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
   }
 
   async function startTopup(packId: CreditPackId) {
+    posthog.capture("credit_pack_checkout_selected", { pack_id: packId });
     setError(null);
     setLoadingPack(packId);
     try {

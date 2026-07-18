@@ -3,6 +3,7 @@
 import { Surface, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import posthog from "posthog-js";
 import {
   ArticleCanvas,
   ArticleEditorTopbar,
@@ -160,6 +161,11 @@ export function ArticleEditor({
   }
 
   async function save(status: "draft" | "approved", thenPublish: boolean, kind: EditorIntent) {
+    posthog.capture(thenPublish ? "article_publish_requested" : "article_save_requested", {
+      article_status: status,
+      editor_intent: kind,
+      has_connected_destination: integrations.some((integration) => integration.requirementsMet),
+    });
     setIntent(kind);
     try {
       await saveMutation.mutateAsync({ ...fields, status, expectedVersion: article.version });

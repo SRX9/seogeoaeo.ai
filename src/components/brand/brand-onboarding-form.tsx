@@ -9,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import posthog from "posthog-js";
 import { ClaudiaActivationScreen } from "@/components/brand/claudia-activation-screen";
 import {
   OnboardingDiscovery,
@@ -457,6 +458,10 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
       return;
     }
     setError(null);
+    posthog.capture("brand_activation_started", {
+      first_outcome: fields.firstOutcome,
+      is_checkout_finalization: phase === "finalizing",
+    });
     disarmExitGuard();
     create.mutate({
       ...buildPayload(fields),
@@ -513,6 +518,7 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
       return;
     }
     setError(null);
+    posthog.capture("onboarding_discovery_started");
     setDiscoveryStage("brand");
     setFields((current) => ({ ...current, name, website }));
     discover.mutate({ name, website });

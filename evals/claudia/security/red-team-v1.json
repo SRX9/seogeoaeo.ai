@@ -50,7 +50,7 @@
       "id": "callback_replay_token_theft",
       "severity": "critical",
       "controls": ["short-lived scoped HMAC", "one-time nonce receipt", "rate limit"],
-      "evidence": ["src/lib/agent/callback-auth.ts", "workers/agent/src/callback-token.ts", "drizzle/migrations/0042_claudia_phase1_authority_boundary.sql"],
+      "evidence": ["src/lib/agent/callback-auth.ts", "workers/agent/src/callback-token.ts", "drizzle/migrations/0000_broken_warbird.sql"],
       "outcome": "pass"
     },
     {

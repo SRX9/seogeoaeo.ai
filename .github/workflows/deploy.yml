@@ -40,13 +40,16 @@ jobs:
           HEROUI_AUTH_TOKEN: ${{ secrets.HEROUI_AUTH_TOKEN }}
       - run: node scripts/verify-heroui-pro.mjs
 
-      - name: Apply database migrations
+      # Push-based schema sync: diffs src/lib/db/schema against the live DB and
+      # applies the delta. Statements drizzle considers destructive make the
+      # step fail instead of auto-applying; run them manually if intended.
+      - name: Sync database schema
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "DATABASE_URL secret is required for production migrations."
+            echo "DATABASE_URL secret is required for schema sync."
             exit 1
           fi
-          pnpm db:migrate
+          pnpm db:push
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 

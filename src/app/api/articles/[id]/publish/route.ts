@@ -3,6 +3,7 @@ import { isActiveSubscription } from "@/lib/billing/plans";
 import { publishArticleToDestinations } from "@/lib/publishing/publish";
 import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { logError } from "@/lib/logging/logger";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 type RouteProps = { params: Promise<{ id: string }> };
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -10,7 +11,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 /** Publish an approved article to the brand's connected destinations (paid). */
 export async function POST(_request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const [{ id }, { workspace, subscription, scope }] = await Promise.all([
+    const [{ id }, { workspace, subscription, scope, session }] = await Promise.all([
       params,
       requireApiBrand(),
     ]);
@@ -43,6 +44,13 @@ export async function POST(_request: Request, { params }: RouteProps) {
     const published = results.filter((r) => r.result.ok && !r.result.skipped).length;
     const skipped = results.filter((r) => r.result.skipped).length;
     const failed = results.filter((r) => !r.result.ok).length;
+
+    await captureServerEvent(session.user.id, "article_published", {
+      published_destinations: published,
+      skipped_destinations: skipped,
+      failed_destinations: failed,
+      outcome: failed > 0 ? "partial_or_failed" : published > 0 ? "published" : "unchanged",
+    });
 
     return jsonOk({
       ok: true,

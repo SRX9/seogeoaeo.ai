@@ -56,10 +56,12 @@ export class ConnectorMutationWorkflow extends WorkflowEntrypoint<AppEnv, Params
       mutationId: payload.mutationId,
     });
     log.info("workflow.mutation.started");
+    // Sign callbacks with the deterministic saga id the trigger created this
+    // instance under; the app route verifies the claim against the same value.
     const post = appCaller<CallbackResult>(
       this.env,
       "/api/agent/connector-mutation",
-      event.instanceId,
+      `connector-${payload.mutationId}`,
     );
     const call = async (
       phase: "apply" | "verify" | "monitor" | "rollback",

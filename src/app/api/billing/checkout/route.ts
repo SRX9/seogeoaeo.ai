@@ -8,6 +8,7 @@ import {
 } from "@/lib/billing/credits";
 import { getBillingContext, getRequestOrigin } from "@/lib/billing/access";
 import { getStripe } from "@/lib/billing/stripe";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 type CheckoutBody = {
   planId?: PlanId;
@@ -136,6 +137,12 @@ export async function POST(request: Request) {
     if (!checkoutSession.url) {
       return NextResponse.json({ error: "Checkout URL missing" }, { status: 500 });
     }
+
+    await captureServerEvent(session.user.id, "checkout_started", {
+      checkout_type: packId ? "credit_pack" : "subscription",
+      item_id: packId ?? planId,
+      return_to: returnTo ?? "billing",
+    });
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {

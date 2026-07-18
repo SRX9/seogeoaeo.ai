@@ -30,7 +30,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm workflow:typegen:check
       - run: pnpm workflow:typecheck
-      - run: pnpm db:check
       - run: pnpm test
       - run: pnpm eval:claudia:check
       - run: pnpm build
