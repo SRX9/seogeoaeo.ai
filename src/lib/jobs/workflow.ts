@@ -23,6 +23,7 @@ type WorkflowBinding = {
 
 export type InstanceOptions = { id: string; params: Record<string, unknown> };
 export type EnqueueCounts = { created: number; skipped: number; failed: number };
+export type EnqueueOutcome = "created" | "exists" | "failed";
 
 const BATCH_SIZE = 100; // Cloudflare Workflows `createBatch` ceiling.
 
@@ -57,6 +58,7 @@ export async function enqueueWorkflowInstances(
   workflow: WorkflowBinding,
   instances: InstanceOptions[],
   logEvent: string,
+  onOutcome?: (instance: InstanceOptions, outcome: EnqueueOutcome, error?: unknown) => Promise<void>,
 ): Promise<EnqueueCounts> {
   const chunks: InstanceOptions[][] = [];
   for (let i = 0; i < instances.length; i += BATCH_SIZE) {
@@ -67,16 +69,21 @@ export async function enqueueWorkflowInstances(
     chunks.map(async (chunk): Promise<EnqueueCounts> => {
       try {
         await workflow.createBatch(chunk);
+        if (onOutcome) {
+          await Promise.all(chunk.map((instance) => onOutcome(instance, "created")));
+        }
         return { created: chunk.length, skipped: 0, failed: 0 };
       } catch (batchError) {
         const perInstance = await Promise.all(
           chunk.map(async (instance): Promise<EnqueueCounts> => {
             try {
               const outcome = await createWorkflowInstance(workflow, instance);
+              if (onOutcome) await onOutcome(instance, outcome);
               return outcome === "created"
                 ? { created: 1, skipped: 0, failed: 0 }
                 : { created: 0, skipped: 1, failed: 0 };
             } catch (error) {
+              if (onOutcome) await onOutcome(instance, "failed", error);
               logError(`${logEvent}.create_failed`, {
                 instanceId: instance.id,
                 error: error instanceof Error ? error.message : String(error),

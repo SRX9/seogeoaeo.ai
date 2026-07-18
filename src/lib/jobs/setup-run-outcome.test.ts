@@ -3,7 +3,7 @@ import { setupRunOutcome } from "./setup-run-outcome";
 import type { SetupStep } from "./setup-run-types";
 
 function steps(
-  partial: Partial<Record<SetupStep["key"], SetupStep["status"]>>,
+  partial: Partial<Record<SetupStep["key"], SetupStep["status"] | SetupStep>>,
 ): SetupStep[] {
   const keys: SetupStep["key"][] = [
     "first_audit",
@@ -15,15 +15,17 @@ function steps(
     "first_article",
     "day0_brief",
   ];
-  return keys.map((key) => ({
-    key,
-    status: partial[key] ?? "skipped",
-  }));
+  return keys.map((key) => {
+    const value = partial[key];
+    return typeof value === "object" && value !== null
+      ? value
+      : { key, status: value ?? "skipped" };
+  });
 }
 
 describe("setupRunOutcome", () => {
-  it("fails when every step is skipped or failed", () => {
-    expect(setupRunOutcome(steps({}))).toBe("failed");
+  it("distinguishes a blocked run from a permanent failure", () => {
+    expect(setupRunOutcome(steps({}))).toBe("blocked");
     expect(
       setupRunOutcome(
         steps({
@@ -32,13 +34,30 @@ describe("setupRunOutcome", () => {
           quick_win_fixes: "done",
         }),
       ),
+    ).toBe("blocked");
+    expect(
+      setupRunOutcome(steps({ topic_research: "failed", day0_brief: "done" })),
     ).toBe("failed");
   });
 
-  it("completes when a material step is done", () => {
-    expect(setupRunOutcome(steps({ first_audit: "done" }))).toBe("completed");
-    expect(setupRunOutcome(steps({ first_article: "done", topic_research: "failed" }))).toBe(
-      "completed",
-    );
+  it("requires a useful baseline before settling and marks evidence gaps degraded", () => {
+    expect(setupRunOutcome(steps({ first_audit: "done" }))).toBe("blocked");
+    expect(
+      setupRunOutcome(steps({ topic_research: "done", day0_brief: "done" })),
+    ).toBe("completed_degraded");
+    expect(
+      setupRunOutcome(
+        steps({
+          topic_research: "done",
+          day0_brief: "done",
+          first_audit: {
+            key: "first_audit",
+            status: "skipped",
+            note: "No website on the brand profile yet.",
+          },
+          answer_check: "done",
+        }),
+      ),
+    ).toBe("completed");
   });
 });

@@ -21,8 +21,8 @@ function NotificationsPanel({ enabled }: { enabled: boolean }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
       toast.success(
         next
-          ? "You'll get an email when your content agent runs low on credits."
-          : "Credit emails are off. Claudia will not email you when your balance runs low.",
+          ? "You'll get an email when Claudia is running low on work capacity."
+          : "Capacity emails are off. Claudia will not email you when your balance runs low.",
       );
     },
     onError: (error, next) => {
@@ -37,21 +37,21 @@ function NotificationsPanel({ enabled }: { enabled: boolean }) {
   }
 
   return (
-    <Card className="material-panel">
+    <Card>
       <Card.Header>
         <Card.Title className="tracking-tight">Notifications</Card.Title>
         <Card.Description className="leading-relaxed">
-          Emails about your content agent and credits.
+          Choose when Claudia should email you about account capacity.
         </Card.Description>
       </Card.Header>
       <Card.Content>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="font-medium tracking-tight text-foreground">
-              Low &amp; out-of-credit emails
+              Capacity alerts
             </p>
             <p className="mt-1 text-sm leading-relaxed text-muted">
-              Get notified when your content agent is running low on or out of credits.
+              Get notified when Claudia is running low on or out of work capacity.
             </p>
           </div>
           <Switch

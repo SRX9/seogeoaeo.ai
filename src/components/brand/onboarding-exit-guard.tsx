@@ -2,7 +2,7 @@
 
 import { Button, Modal } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SparklesIcon } from "@/components/icons";
+import { InsightIcon } from "@/components/icons";
 import { SIGNUP_GRANT_CREDITS } from "@/lib/billing/credits";
 
 const HISTORY_GUARD_KEY = "__claudiaOnboardingExitGuard";
@@ -182,7 +182,7 @@ export function OnboardingExitDialog({
           <Modal.CloseTrigger onPress={onStay} />
           <Modal.Header>
             <Modal.Icon className="bg-accent-soft text-accent-soft-foreground">
-              <SparklesIcon className="size-5" />
+              <InsightIcon className="size-5" />
             </Modal.Icon>
             <Modal.Heading>
               {isFirstBrand ? "Your free credits are ready" : "Leave this setup for now?"}

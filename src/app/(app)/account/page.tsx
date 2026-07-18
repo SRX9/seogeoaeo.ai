@@ -1,29 +1,15 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Suspense } from "react";
-import { PageHeader } from "@/components/layout/page-header";
-import { BillingSection } from "@/components/settings/billing-section";
-import { NotificationsSection } from "@/components/settings/notifications-section";
-
-// Account-level settings: billing plus credit-email notifications. Everything
-// else is per-brand and lives under Brand settings. `BillingSection` reads
-// `useSearchParams` (checkout result / upgrade flags), so it stays inside a
-// Suspense boundary.
-function AccountContent() {
-  return (
-    <div className="mx-auto max-w-3xl space-y-9">
-      <PageHeader
-        title="Billing"
-        description="Your plan, credits, and payment details."
-      />
-      <Suspense fallback={null}>
-        <BillingSection />
-      </Suspense>
-      <NotificationsSection />
-    </div>
-  );
-}
-
-export default function AccountPage() {
-  return <AccountContent />;
+export default async function AccountRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const incoming = await searchParams;
+  const target = new URLSearchParams({ tab: "billing" });
+  for (const [key, value] of Object.entries(incoming)) {
+    if (key === "tab" || value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) target.append(key, item);
+  }
+  redirect(`/settings?${target.toString()}`);
 }

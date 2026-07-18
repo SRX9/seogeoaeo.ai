@@ -9,6 +9,12 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { validateMemoryEvidenceRefsAtExecution } = vi.hoisted(() => ({
+  validateMemoryEvidenceRefsAtExecution: vi.fn<
+    (...args: unknown[]) => Promise<unknown>
+  >(async () => ({ valid: true, records: [] })),
+}));
+
 vi.mock("@/lib/db", async () => (await import("./helpers/memory-store")).dbMock);
 vi.mock("@/lib/articles/repository", async () => (await import("./helpers/memory-store")).articlesRepo);
 vi.mock("@/lib/brand/repository", async () => (await import("./helpers/memory-store")).brandRepo);
@@ -19,8 +25,17 @@ vi.mock("@/lib/workspace", async () => (await import("./helpers/memory-store")).
 vi.mock("@/lib/llm/client", async () => (await import("./helpers/memory-store")).llmClient);
 vi.mock("@/lib/integrations/repository", async () => (await import("./helpers/memory-store")).integrationsRepo);
 vi.mock("@/lib/publishing/repository", async () => (await import("./helpers/memory-store")).publishingRepo);
+vi.mock("@/lib/grounding/service", async () => (await import("./helpers/memory-store")).groundingService);
 vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-store")).billingAccess);
 vi.mock("@/lib/agent/memory", async () => (await import("./helpers/memory-store")).agentMemoryRepo);
+vi.mock("@/lib/agent/layered-memory", () => ({ validateMemoryEvidenceRefsAtExecution }));
+vi.mock("@/lib/agent/memory-context", () => ({
+  loadTrustedDraftMemory: vi.fn(async () => ({
+    promptContext: null,
+    evidenceRefs: [],
+    truncated: false,
+  })),
+}));
 vi.mock("@/lib/agent/events", async () => (await import("./helpers/memory-store")).agentEventsRepo);
 vi.mock("@/lib/agent/planner", () => ({
   beginOwnerDirectedWritingTask: vi.fn(async () => null),
@@ -31,6 +46,7 @@ import { generateArticleFromTopic } from "@/lib/articles/generate";
 import { publishArticleToDestinations } from "@/lib/publishing/publish";
 import {
   agentControls,
+  grounding,
   jobsFor,
   llm,
   publicationsFor,
@@ -48,6 +64,8 @@ const scope = { workspaceId: "ws-1", brandId: "ws-1" };
 
 beforeEach(() => {
   resetStore();
+  validateMemoryEvidenceRefsAtExecution.mockReset();
+  validateMemoryEvidenceRefsAtExecution.mockResolvedValue({ valid: true, records: [] });
 });
 
 afterEach(() => {
@@ -55,6 +73,18 @@ afterEach(() => {
 });
 
 describe("article generation workflow", () => {
+  it("refuses a topic invalidated by a memory correction before model work", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
+    const topic = seedTopic({ workspaceId: "ws-1", status: "invalidated" });
+
+    await expect(generateArticleFromTopic(scope, topic.id)).rejects.toThrow(
+      "Topic is no longer eligible for generation",
+    );
+
+    expect(llm.textCalls).toBe(0);
+    expect(jobsFor("ws-1", "writing")).toHaveLength(0);
+  });
+
   it("REVIEW mode generates a draft, completes the topic and job, and does not publish", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     const topic = seedTopic({ workspaceId: "ws-1", title: "Automating SEO" });
@@ -143,6 +173,22 @@ describe("article generation workflow", () => {
     expect(publications[0].publishedAt).toBeInstanceOf(Date);
   });
 
+  it("keeps the registry draft tool local even in FULL_AUTO mode", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
+    const topic = seedTopic({ workspaceId: "ws-1" });
+
+    const { article } = await generateArticleFromTopic(scope, topic.id, {
+      actor: "agent",
+      origin: "https://app.test",
+      forceDraft: true,
+      autoPublish: false,
+    });
+
+    expect(article.status).toBe("draft");
+    expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
+  });
+
   it("honors an explicit article-create grant in REVIEW mode", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
@@ -157,7 +203,7 @@ describe("article generation workflow", () => {
     expect(publicationsFor("ws-1", article.id)).toHaveLength(1);
   });
 
-  it("FULL_AUTO succeeds even when there are no enabled destinations (publish error is swallowed)", async () => {
+  it("FULL_AUTO holds the article as a draft when no destination can pass the gate", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
     const topic = seedTopic({ workspaceId: "ws-1" });
 
@@ -165,13 +211,14 @@ describe("article generation workflow", () => {
       origin: "https://app.test",
     });
 
-    expect(article.status).toBe("approved");
+    expect(article.status).toBe("draft");
     expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
     expect(jobsFor("ws-1", "writing")[0].status).toBe("completed");
   });
 
   it("rewrites a sloppy draft once and still auto-publishes when the fix lands", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
     const topic = seedTopic({ workspaceId: "ws-1", title: "Automating SEO" });
     const clean = llm.textResponses[3];
     // Call 4 (SEO edit) returns slop; call 5 (the targeted rewrite) fixes it.
@@ -189,6 +236,23 @@ describe("article generation workflow", () => {
     const gates = JSON.parse(article.gateResultsJson ?? "[]");
     expect(gates).toContainEqual(
       expect.objectContaining({ gate: "style-lint", passed: true }),
+    );
+  });
+
+  it("keeps a grounded-gate failure as a draft and never auto-publishes it", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
+    grounding.passes = false;
+    const topic = seedTopic({ workspaceId: "ws-1" });
+
+    const { article } = await generateArticleFromTopic(scope, topic.id, {
+      origin: "https://app.test",
+    });
+
+    expect(article.status).toBe("draft");
+    expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
+    expect(JSON.parse(article.gateResultsJson ?? "[]")).toContainEqual(
+      expect.objectContaining({ gate: "grounded_material_claims", passed: false }),
     );
   });
 
@@ -314,6 +378,40 @@ describe("article generation workflow", () => {
 });
 
 describe("publishing workflow", () => {
+  it("blocks a generated version when its trusted memory was superseded", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
+    const article = seedArticle({
+      workspaceId: "ws-1",
+      status: "approved",
+      memoryEvidenceRefs: ["memory:00000000-0000-4000-8000-000000000001"],
+      memoryEvidenceVersion: 1,
+    });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
+    validateMemoryEvidenceRefsAtExecution.mockResolvedValueOnce({
+      valid: false,
+      code: "superseded",
+      ref: article.memoryEvidenceRefs[0],
+      reason: "Memory evidence was superseded.",
+    });
+
+    await expect(
+      publishArticleToDestinations(scope, article.id, "https://app.test"),
+    ).rejects.toThrow("no longer current");
+    expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
+  });
+
+  it("blocks an agent at the remote boundary without a fresh grounded-content gate", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "FULL_AUTO" });
+    const article = seedArticle({ workspaceId: "ws-1", status: "approved" });
+    seedIntegration("ws-1", { provider: "markdown_export", enabled: true });
+    grounding.passes = false;
+
+    await expect(
+      publishArticleToDestinations(scope, article.id, "https://app.test", { actor: "agent" }),
+    ).rejects.toThrow("Automatic publication blocked");
+    expect(publicationsFor("ws-1", article.id)).toHaveLength(0);
+  });
+
   it("publishes an approved article to every enabled destination", async () => {
     seedWorkspace({ id: "ws-1" });
     const article = seedArticle({ workspaceId: "ws-1", status: "approved" });
@@ -376,6 +474,27 @@ describe("publishing workflow", () => {
     const [publication] = publicationsFor("ws-1", article.id);
     expect(publication.status).toBe("failed");
     expect(publication.errorMessage).toContain("500");
+    expect(publication.attemptCount).toBe(1);
+  });
+
+  it("does not repeat a remote write when its response is lost", async () => {
+    seedWorkspace({ id: "ws-1" });
+    const article = seedArticle({ workspaceId: "ws-1", status: "approved" });
+    seedIntegration("ws-1", {
+      provider: "webhook",
+      enabled: true,
+      config: { webhookUrl: "https://hooks.test/post" },
+    });
+    const fetchMock = vi.fn().mockRejectedValue(new Error("connection reset after write"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await publishArticleToDestinations(scope, article.id, "https://app.test");
+    const second = await publishArticleToDestinations(scope, article.id, "https://app.test");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(second[0].result.error).toContain("response was lost");
+    const [publication] = publicationsFor("ws-1", article.id);
+    expect(publication.status).toBe("pending");
     expect(publication.attemptCount).toBe(1);
   });
 

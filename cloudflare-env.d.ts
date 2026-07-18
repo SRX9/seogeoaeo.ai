@@ -19,7 +19,24 @@ interface SendEmailBinding {
 interface AgentWorkflowBinding {
   create(options?: { id?: string; params?: unknown }): Promise<{ id: string }>;
   createBatch(batch: Array<{ id?: string; params?: unknown }>): Promise<Array<{ id: string }>>;
-  get(id: string): Promise<{ id: string }>;
+  get(id: string): Promise<{
+    id: string;
+    status(): Promise<{
+      status:
+        | "queued"
+        | "running"
+        | "paused"
+        | "errored"
+        | "terminated"
+        | "complete"
+        | "waiting"
+        | "waitingForPause"
+        | "unknown";
+      error?: { name: string; message: string };
+      output?: unknown;
+    }>;
+    restart(options?: { from?: string }): Promise<void>;
+  }>;
 }
 
 /** Minimal KV namespace surface used by `src/lib/cloudflare/kv.ts`. */
@@ -39,6 +56,8 @@ interface CloudflareEnv {
   SETUP_WORKFLOW?: AgentWorkflowBinding;
   /** Visibility audits — manual Toolbox runs and scheduled re-audits (AuditRunWorkflow). */
   AUDIT_WORKFLOW?: AgentWorkflowBinding;
+  /** Verified connector writes and Cloudflare-native compensation (ConnectorMutationWorkflow). */
+  MUTATION_WORKFLOW?: AgentWorkflowBinding;
   CRON_SECRET: string;
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -67,4 +86,10 @@ interface CloudflareEnv {
   KEYWORD_API_URL?: string;
   /** Google PageSpeed Insights v5 API key (free) — Site Health checklist. */
   GOOGLE_PSI_API_KEY?: string;
+  /** Optional: local/direct PostHog OTLP shipping (prod uses CF destinations). */
+  POSTHOG_PROJECT_TOKEN?: string;
+  POSTHOG_HOST?: string;
+  POSTHOG_SERVICE_NAME?: string;
+  POSTHOG_ENVIRONMENT?: string;
+  POSTHOG_LOGS_DIRECT?: string;
 }

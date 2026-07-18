@@ -3,7 +3,6 @@
 import { BrandOnboardingForm } from "@/components/brand/brand-onboarding-form";
 import { PageError, PageLoader } from "@/components/feedback/states";
 import { useMe } from "@/lib/api/queries";
-import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
 
 /*
  * Fullscreen onboarding: no app shell, no card, no visible step machinery.
@@ -25,10 +24,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="relative min-h-dvh">
-      <BrandOnboardingForm
-        providers={INTEGRATION_PROVIDERS}
-        showDashboardEscape={!isFirst}
-      />
+      <BrandOnboardingForm showDashboardEscape={!isFirst} />
     </div>
   );
 }

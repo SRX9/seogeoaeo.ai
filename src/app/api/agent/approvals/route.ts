@@ -12,6 +12,8 @@ import {
   requireApiBrand,
 } from "@/lib/api/server";
 import { rememberAgentInstruction } from "@/lib/agent/memory";
+import { persistOwnerPolicies } from "@/lib/agent/policies";
+import { canonicalOwnerPolicySchema } from "@/lib/agent/policy-model";
 import { replanAgentWork } from "@/lib/agent/planner";
 import { isConnectorCapability } from "@/lib/integrations/capabilities";
 
@@ -25,6 +27,10 @@ export async function GET() {
         taskId: approval.taskId,
         actionType: approval.actionType,
         resourceRef: approval.resourceRef,
+        capability: approval.capability,
+        destination: approval.destination,
+        proposalHash: approval.proposalHash,
+        policyVersion: approval.policyVersion,
         beforeState: approval.beforeState,
         afterState: approval.afterState,
         riskLevel: approval.riskLevel,
@@ -67,6 +73,16 @@ export async function PATCH(request: Request) {
       const expiresAt =
         typeof after.expiresAt === "string" ? new Date(after.expiresAt) : null;
       if (isConnectorCapability(capability) && typeof instruction === "string") {
+        const parsedPolicies = Array.isArray(after.policies)
+          ? after.policies.flatMap((policy) => {
+              const parsed = canonicalOwnerPolicySchema.safeParse(policy);
+              return parsed.success ? [parsed.data] : [];
+            })
+          : [];
+        if (parsedPolicies.length === 0) {
+          throw new HttpError(409, "Permission proposal has no valid canonical policy");
+        }
+        await persistOwnerPolicies(scope, parsedPolicies, { confirmed: true });
         await rememberAgentInstruction(scope, {
           kind: "permission",
           key: capability,
@@ -90,6 +106,10 @@ export async function PATCH(request: Request) {
         }
       }
     }
-    return jsonOk({ id: approval.id, status: approval.status });
+    return jsonOk({
+      id: approval.id,
+      status: approval.status,
+      proposalHash: approval.proposalHash,
+    });
   });
 }

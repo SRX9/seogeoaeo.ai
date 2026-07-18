@@ -1,0 +1,42 @@
+{
+  "version": "claudia-behavior-release-v1",
+  "releaseKey": "claudia-phase8-v1",
+  "status": "candidate",
+  "owner": "agent-platform-oncall",
+  "componentVersions": {
+    "prompts": "claudia-prompts-v1",
+    "models": "claudia-model-routing-v1",
+    "toolSchemas": "claudia-tools-v1",
+    "policyParser": "claudia-policy-parser-v1",
+    "deterministicPolicy": "claudia-policy-v1",
+    "planner": "claudia-planner-v2",
+    "memory": "claudia-memory-v1",
+    "scorersGraders": "claudia-graders-v1",
+    "contentGates": "claudia-content-gates-v1",
+    "auditAnalyzers": "claudia-audit-analyzers-v1"
+  },
+  "affectedEvalSuites": [
+    "policy_authority",
+    "steering_clarification",
+    "planning_tool_selection",
+    "content_grounding_citations",
+    "memory_poisoning",
+    "workflow_durability_chaos",
+    "tenant_egress_security",
+    "remote_verification_rollback",
+    "ask_claudia_groundedness",
+    "long_horizon_objectives"
+  ],
+  "beforeReport": "evals/claudia/reports/baseline-v2.json",
+  "afterReport": "evals/claudia/reports/baseline-v3.json",
+  "migrationPlan": "drizzle/migrations/0000_broken_warbird.sql",
+  "rollbackPlan": "docs/runbooks/claudia-autonomy-rollout.md#rollback-or-pause-a-rollout",
+  "canary": {
+    "stage": "local_eval_replay",
+    "maxBrands": 1,
+    "autonomyLevel": 0,
+    "stopOnAnyCriticalSlo": true
+  },
+  "monitoringWindowHours": 168,
+  "requiredSecurityProgram": "evals/claudia/security/red-team-v1.json"
+}

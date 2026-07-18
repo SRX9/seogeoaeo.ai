@@ -1,10 +1,13 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import {
   beginSetupAgentTask,
   completeSetupAgentTask,
   progressSetupAgentTask,
 } from "@/lib/agent/planner";
+import { getAgentControlState } from "@/lib/agent/memory";
+import { assertAgentOperationAllowed } from "@/lib/agent/safety";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import { visibilityCapsForPlan, dailyArticleCapForPlan, isActiveSubscription } from "@/lib/billing/plans";
 import { discoverCompetitors } from "@/lib/brand/enrich";
@@ -35,7 +38,7 @@ import { setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
 import type { SetupStep, SetupStepKey } from "@/lib/jobs/setup-run-types";
 import { monthlyFixBudgetUsed, stampProposedFindings } from "@/lib/visibility/fix-dispatch";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
-import { runAudit } from "@/server/visibility/run-audit";
+import { createAudit, executeAudit } from "@/server/visibility/run-audit";
 
 export type { SetupStep, SetupStepKey, SetupStepStatus } from "@/lib/jobs/setup-run-types";
 export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
@@ -75,6 +78,13 @@ export const SETUP_STEPS = [
   { key: "first_article", label: "Writing your first article" },
   { key: "day0_brief", label: "Writing your Day-0 brief" },
 ] as const satisfies ReadonlyArray<{ key: SetupStepKey; label: string }>;
+
+const setupPromptsResponseSchema = z.object({
+  prompts: z.array(z.string().min(1).max(300)).optional(),
+});
+const setupBriefResponseSchema = z.object({
+  brief: z.string().min(1).max(2_000).optional(),
+});
 
 function initialSteps(): SetupStep[] {
   return SETUP_STEPS.map((s) => ({ key: s.key, status: "pending" }));
@@ -141,7 +151,7 @@ export async function startSetupRun(scope: BrandScope) {
 async function saveRun(
   runId: string,
   steps: SetupStep[],
-  patch: { status?: string; briefText?: string } = {},
+  patch: { status?: string; briefText?: string; recoveryOwner?: string | null } = {},
 ) {
   await getDb()
     .update(setupRuns)
@@ -168,6 +178,8 @@ const NO_CREDITS_SKIP = "Not enough credits: top up and this runs on the next au
 /** Pre-flight: turns a short balance into a skip note instead of a failed step. */
 async function hasCreditsFor(scope: BrandScope, action: BillableAction): Promise<boolean> {
   try {
+    const controls = await getAgentControlState(scope.brandId);
+    assertAgentOperationAllowed("billable", { actor: "agent", controls });
     await assertHasCredits(scope.workspaceId, CREDIT_COSTS[action]);
     return true;
   } catch (error) {
@@ -189,7 +201,9 @@ async function chargeSetupWork(scope: BrandScope, action: BillableAction, refId:
       brandId: scope.brandId,
       refType: action === "research_run" ? "research_run" : "visibility",
       refId,
+      actor: "agent",
     });
+    return true;
   } catch (error) {
     if (!(error instanceof InsufficientCreditsError)) throw error;
     logWarn("setup_run.credit_charge_skipped", {
@@ -198,10 +212,22 @@ async function chargeSetupWork(scope: BrandScope, action: BillableAction, refId:
       action,
       refId,
     });
+    return false;
   }
 }
 
 /** Everything a step runner needs; loaded fresh per step so runners are self-contained. */
+type SetupCheckpointHandle = {
+  billingWorkId: string;
+  outputRef: string | null;
+  recordOutputRef: (outputRef: string) => Promise<void>;
+};
+
+export type SetupCheckpoint = <T extends Record<string, unknown>>(
+  key: string,
+  work: (handle: SetupCheckpointHandle) => Promise<T>,
+) => Promise<T>;
+
 type StepContext = {
   scope: BrandScope;
   runId: string;
@@ -211,6 +237,10 @@ type StepContext = {
   website: string | null;
   caps: ReturnType<typeof visibilityCapsForPlan>;
   planId: string | null | undefined;
+  billingWorkId: string;
+  outputRef: string | null;
+  recordOutputRef: (outputRef: string) => Promise<void>;
+  checkpoint: SetupCheckpoint;
 };
 
 /** Notes from settled steps: the raw material for the Day-0 brief. */
@@ -220,22 +250,48 @@ function factsFromSteps(steps: SetupStep[]): string[] {
     .map((s) => `${s.key}: ${s.note}`);
 }
 
-type StepResult = string | { skip: string };
+type StepResult = string | { skip: string } | { degraded: string };
 
 const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult>> = {
-  first_audit: async ({ scope, website }) => {
+  first_audit: async ({ scope, website, checkpoint }) => {
     if (!website) return { skip: "No website on the brand profile yet." };
     if (!(await hasCreditsFor(scope, "visibility_audit"))) return { skip: NO_CREDITS_SKIP };
-    const auditId = await runAudit(scope.workspaceId, website, "owned", scope.brandId);
-    const [audit] = await getDb().select().from(audits).where(eq(audits.id, auditId)).limit(1);
+    const created = await checkpoint("create_audit_record", async (handle) => {
+      const auditId = handle.outputRef ?? crypto.randomUUID();
+      if (!handle.outputRef) await handle.recordOutputRef(auditId);
+      await createAudit(scope.workspaceId, website, "owned", scope.brandId, auditId);
+      return { auditId };
+    });
+    const auditId = String(created.auditId);
+    await checkpoint("execute_audit", async () => ({
+      ok: await executeAudit(auditId, website, { throwOnTransient: true }),
+    }));
+    const audit = await checkpoint("verify_audit_result", async () => {
+      const [row] = await getDb().select().from(audits).where(eq(audits.id, auditId)).limit(1);
+      return {
+        status: row?.status ?? "missing",
+        error: row?.error ?? null,
+        overallScore: row?.overallScore ?? null,
+      };
+    });
     // Charge only on success: mirror manual audits so a dead site never burns credits.
-    if (audit?.status !== "complete") {
-      return { skip: audit?.error ?? "The site could not be audited yet. We'll try again later." };
+    if (audit?.status === "partial") {
+      return { degraded: String(audit.error ?? "First audit completed with partial analyzer coverage.") };
     }
-    await chargeSetupWork(scope, "visibility_audit", auditId);
-    return audit.overallScore != null
-      ? `Visibility score ${Math.round(audit.overallScore)}/100.`
-      : "First audit complete.";
+    if (audit?.status !== "complete") {
+      return { skip: String(audit?.error ?? "The site could not be audited yet. We'll try again later.") };
+    }
+    const charge = await checkpoint("charge_audit_work", async ({ billingWorkId }) => {
+      const charged = await chargeSetupWork(scope, "visibility_audit", billingWorkId);
+      return { charged };
+    });
+    if (!charge.charged) return { degraded: "First audit complete; credit settlement needs owner attention." };
+    const summarized = await checkpoint("summarize_audit", async () => ({
+      note: typeof audit.overallScore === "number"
+        ? `Visibility score ${Math.round(audit.overallScore)}/100.`
+        : "First audit complete.",
+    }));
+    return String(summarized.note);
   },
 
   seed_prompts: async ({ scope, brand, profile, website, caps }) => {
@@ -258,10 +314,10 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
       },
       caps.trackedPrompts,
     );
-    const { data } = await generateJson<{ prompts?: unknown }>("light", [
+    const { data } = await generateJson("light", [
       { role: "system", content: prompt.system },
       { role: "user", content: prompt.user },
-    ]);
+    ], { schema: setupPromptsResponseSchema });
     const list = (Array.isArray(data?.prompts) ? data.prompts : [])
       .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
       .map((p) => p.trim().slice(0, 300))
@@ -273,23 +329,45 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     return `Seeded ${list.length} buyer questions to track.`;
   },
 
-  answer_check: async ({ scope }) => {
+  answer_check: async ({ scope, checkpoint }) => {
     if (!(await hasCreditsFor(scope, "answer_run"))) return { skip: NO_CREDITS_SKIP };
     const refId = `setup-answers-${scope.brandId}`;
-    const result = await runAnswerCheck(scope.brandId, { refId });
-    if (result.cells.length === 0) return { skip: "No prompts or engines available yet." };
-    const { persistNewFindings } = await import("@/lib/visibility/findings-repository");
-    await persistNewFindings(scope.workspaceId, result.findings, {
-      brandId: scope.brandId,
+    const checked = await checkpoint("execute_answer_check", async () => {
+      const result = await runAnswerCheck(scope.brandId, { refId });
+      const { persistNewFindings } = await import("@/lib/visibility/findings-repository");
+      await persistNewFindings(scope.workspaceId, result.findings, {
+        brandId: scope.brandId,
+      });
+      const best = [...result.share].sort((a, b) => b.appeared - a.appeared)[0];
+      return {
+        cellCount: result.cells.length,
+        bestAppeared: best?.appeared ?? null,
+        bestPrompts: best?.prompts ?? null,
+        bestEngine: best?.engine ?? null,
+      };
     });
-    await chargeSetupWork(scope, "answer_run", refId);
-    const best = [...result.share].sort((a, b) => b.appeared - a.appeared)[0];
-    return best
-      ? `In ${best.appeared} of ${best.prompts} ${best.engine} answers today.`
-      : "First answer check complete.";
+    if (checked.cellCount === 0) return { skip: "No prompts or engines available yet." };
+    const charge = await checkpoint("charge_answer_work", async ({ billingWorkId }) => {
+      const charged = await chargeSetupWork(scope, "answer_run", billingWorkId);
+      return { charged };
+    });
+    if (!charge.charged) return { degraded: "Answer check complete; credit settlement needs owner attention." };
+    const summarized = await checkpoint("summarize_answer_check", async () => ({
+      note: typeof checked.bestAppeared === "number" && typeof checked.bestPrompts === "number"
+        ? `In ${checked.bestAppeared} of ${checked.bestPrompts} ${String(checked.bestEngine)} answers today.`
+        : "First answer check complete.",
+    }));
+    return String(summarized.note);
   },
 
-  competitor_baseline: async ({ scope, brand, profile, website, caps }) => {
+  competitor_baseline: async ({
+    scope,
+    brand,
+    profile,
+    website,
+    caps,
+    checkpoint,
+  }) => {
     let comps = await listCompetitors(scope.brandId);
     if (comps.length === 0 && caps.competitors > 0) {
       // answer_check already ran, so real AI answers exist as discovery
@@ -315,24 +393,56 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     if (!(await hasCreditsFor(scope, "competitor_benchmark"))) return { skip: NO_CREDITS_SKIP };
     // "benchmark": scores a rival under our workspace: must never surface as
     // the owner's score (summary/badge/baseline) or write fix-queue findings.
-    const benchmarkAuditId = await runAudit(scope.workspaceId, rival.url, "benchmark", scope.brandId);
-    const [bench] = await getDb()
-      .select({ status: audits.status, error: audits.error })
-      .from(audits)
-      .where(eq(audits.id, benchmarkAuditId))
-      .limit(1);
+    const created = await checkpoint("create_benchmark_audit", async (handle) => {
+      const auditId = handle.outputRef ?? crypto.randomUUID();
+      if (!handle.outputRef) await handle.recordOutputRef(auditId);
+      await createAudit(scope.workspaceId, rival.url, "benchmark", scope.brandId, auditId);
+      return { auditId };
+    });
+    const benchmarkAuditId = String(created.auditId);
+    await checkpoint("execute_benchmark_audit", async () => ({
+      ok: await executeAudit(benchmarkAuditId, rival.url, { throwOnTransient: true }),
+    }));
+    const bench = await checkpoint("verify_benchmark_result", async () => {
+      const [row] = await getDb()
+        .select({ status: audits.status, error: audits.error })
+        .from(audits)
+        .where(eq(audits.id, benchmarkAuditId))
+        .limit(1);
+      return { status: row?.status ?? "missing", error: row?.error ?? null };
+    });
     if (bench?.status !== "complete") {
       return { skip: bench?.error ?? `Couldn't reach ${rival.name} yet.` };
     }
-    await chargeSetupWork(scope, "competitor_benchmark", benchmarkAuditId);
-    return `Benchmarked ${rival.name}.`;
+    const charge = await checkpoint("charge_benchmark_work", async ({ billingWorkId }) => {
+      const charged = await chargeSetupWork(scope, "competitor_benchmark", billingWorkId);
+      return { charged };
+    });
+    if (!charge.charged) return { degraded: "Competitor benchmark complete; credit settlement needs owner attention." };
+    const summarized = await checkpoint("summarize_benchmark", async () => ({
+      note: `Benchmarked ${rival.name}.`,
+    }));
+    return String(summarized.note);
   },
 
-  topic_research: async ({ scope }) => {
+  topic_research: async ({ scope, checkpoint }) => {
     if (!(await hasCreditsFor(scope, "research_run"))) return { skip: NO_CREDITS_SKIP };
-    const research = await runResearch(scope, { idempotencyKey: `setup-${scope.brandId}` });
-    await chargeSetupWork(scope, "research_run", research.runId);
-    return `Queued ${research.topicsCreated} article topics.`;
+    const research = await checkpoint("execute_topic_research", async () => {
+      const result = await runResearch(scope, {
+        idempotencyKey: `setup-${scope.brandId}`,
+        actor: "agent",
+      });
+      return { runId: result.runId, topicsCreated: result.topicsCreated };
+    });
+    const charge = await checkpoint("charge_research_work", async ({ billingWorkId }) => {
+      const charged = await chargeSetupWork(scope, "research_run", billingWorkId);
+      return { charged };
+    });
+    if (!charge.charged) return { degraded: "Topic research complete; credit settlement needs owner attention." };
+    const summarized = await checkpoint("summarize_topic_research", async () => ({
+      note: `Queued ${Number(research.topicsCreated)} article topics.`,
+    }));
+    return String(summarized.note);
   },
 
   quick_win_fixes: async ({ scope, website, caps }) => {
@@ -378,20 +488,42 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     return `Prepared ${stamped} ready-to-install fix${stamped === 1 ? "" : "es"} in your inbox.`;
   },
 
-  first_article: async ({ scope, planId }) => {
+  first_article: async ({ scope, planId, checkpoint }) => {
     if (dailyArticleCapForPlan(planId) <= 0) return { skip: "Plan has no article allowance." };
-    const [topic] = await listPendingTopicsForWriting(scope.brandId, 1);
-    if (!topic) return { skip: "No topics queued yet." };
+    const selected = await checkpoint("select_first_article_topic", async () => {
+      const [topic] = await listPendingTopicsForWriting(scope.brandId, 1);
+      return { topicId: topic?.id ?? null, title: topic?.title ?? null };
+    });
+    if (typeof selected.topicId !== "string" || typeof selected.title !== "string") {
+      return { skip: "No topics queued yet." };
+    }
     try {
       // Metered like any agent-written article: asserts up front, charges on success.
       // Real app origin so markdown export / webhooks get a valid absolute URL.
       const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || undefined;
-      await generateArticleFromTopic(scope, topic.id, { actor: "agent", origin });
+      const generated = await checkpoint("execute_first_article", async ({ billingWorkId }) => {
+        const generated = await generateArticleFromTopic(scope, selected.topicId as string, {
+          actor: "agent",
+          origin,
+          billingWorkId,
+        });
+        return {
+          articleId: generated.article.id,
+          topicId: selected.topicId,
+          creditCharged: generated.creditCharged,
+        };
+      });
+      if (generated.creditCharged === false) {
+        return { degraded: "First article written; credit settlement needs owner attention." };
+      }
     } catch (error) {
       if (error instanceof InsufficientCreditsError) return { skip: NO_CREDITS_SKIP };
       throw error;
     }
-    return `Wrote "${topic.title}".`;
+    const summarized = await checkpoint("summarize_first_article", async () => ({
+      note: `Wrote "${selected.title}".`,
+    }));
+    return String(summarized.note);
   },
 
   day0_brief: async ({ brand, runId, steps }) => {
@@ -402,10 +534,10 @@ const stepRunners: Record<SetupStepKey, (ctx: StepContext) => Promise<StepResult
     if (getLlmConfig() && facts.length > 0) {
       try {
         const prompt = day0BriefPrompt(brand.name, facts.join("\n"));
-        const { data } = await generateJson<{ brief?: unknown }>("light", [
+        const { data } = await generateJson("light", [
           { role: "system", content: prompt.system },
           { role: "user", content: prompt.user },
-        ]);
+        ], { schema: setupBriefResponseSchema });
         if (typeof data?.brief === "string" && data.brief.trim()) brief = data.brief.trim().slice(0, 2000);
       } catch {
         // Fall back to the deterministic brief: the run must still complete.
@@ -426,14 +558,32 @@ export async function executeSetupStep(
   scope: BrandScope,
   planId: string | null | undefined,
   key: SetupStepKey,
+  options: {
+    billingWorkId?: string;
+    outputRef?: string | null;
+    recordOutputRef?: (outputRef: string) => Promise<void>;
+    checkpoint?: SetupCheckpoint;
+  } = {},
 ): Promise<SetupStep> {
   const run = await getSetupRun(scope.brandId);
   if (!run) throw new Error("Setup run not found");
   const steps = run.steps;
   const step = steps.find((s) => s.key === key)!;
-  if (run.status === "completed" || step.status === "done" || step.status === "skipped") {
+  if (
+    run.status === "completed" ||
+    run.status === "completed_degraded" ||
+    step.status === "done" ||
+    step.status === "skipped"
+  ) {
     return step;
   }
+
+  const controls = await getAgentControlState(scope.brandId);
+  const operation =
+    key === "quick_win_fixes" || key === "first_article" || key === "day0_brief"
+      ? "drafting"
+      : "observation";
+  assertAgentOperationAllowed(operation, { actor: "agent", controls });
 
   const brand = await getBrand(scope.workspaceId, scope.brandId);
   if (!brand) throw new Error("Brand not found");
@@ -447,18 +597,35 @@ export async function executeSetupStep(
     website: profile?.website?.trim() || null,
     caps: visibilityCapsForPlan(planId),
     planId,
+    billingWorkId: options.billingWorkId ?? run.id,
+    outputRef: options.outputRef ?? null,
+    recordOutputRef: options.recordOutputRef ?? (async () => {}),
+    checkpoint:
+      options.checkpoint ??
+      (async (_key, work) =>
+        work({
+          billingWorkId: options.billingWorkId ?? run.id,
+          outputRef: options.outputRef ?? null,
+          recordOutputRef: options.recordOutputRef ?? (async () => {}),
+        })),
   };
 
   step.status = "running";
   await saveRun(run.id, steps, { status: "running" });
   try {
     const result = await stepRunners[key](ctx);
-    if (typeof result === "object") {
+    if (typeof result === "object" && "skip" in result) {
       step.status = "skipped";
       step.note = result.skip;
+      step.degraded = false;
+    } else if (typeof result === "object") {
+      step.status = "done";
+      step.note = result.degraded;
+      step.degraded = true;
     } else {
       step.status = "done";
       step.note = result;
+      step.degraded = false;
     }
     await saveRun(run.id, steps);
     try {
@@ -498,25 +665,25 @@ export async function executeSetupStep(
 export async function finalizeSetupRun(scope: BrandScope) {
   const run = await getSetupRun(scope.brandId);
   if (!run) throw new Error("Setup run not found");
-  if (run.status === "completed") return run;
+  if (run.status === "completed" || run.status === "completed_degraded") return run;
   const steps = run.steps;
   const status = setupRunOutcome(steps);
-  const materialDone = status === "completed";
-  await saveRun(run.id, steps, { status });
-  try {
-    await completeSetupAgentTask(scope, status);
-  } catch (error) {
-    logError("setup_run.agent_task_settle_failed", {
-      workspaceId: scope.workspaceId,
-      brandId: scope.brandId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  const materialDone = status === "completed" || status === "completed_degraded";
+  // Settle side effects before the terminal run status. A retry can safely
+  // repeat both operations, while a terminal row must mean finalization landed.
+  await completeSetupAgentTask(scope, materialDone ? "completed" : "failed");
   if (materialDone) {
-    const job = await createAgentJob(scope, "setup_run", "Claudia's Setup Run");
-    await finishAgentJob(job.id, "completed", "Setup Run complete: Claudia is on the job.", {
-      steps: steps.map((s) => ({ key: s.key, status: s.status })),
+    const job = await createAgentJob(scope, "setup_run", "Claudia's Setup Run", {
+      idempotencyKey: `setup:${run.id}:summary`,
     });
+    await finishAgentJob(
+      job.id,
+      "completed",
+      status === "completed_degraded"
+        ? "Setup Run completed with recoverable gaps."
+        : "Setup Run complete: Claudia is on the job.",
+      { steps: steps.map((s) => ({ key: s.key, status: s.status })), status },
+    );
     logInfo("setup_run.completed", { workspaceId: scope.workspaceId, brandId: scope.brandId });
   } else {
     logError("setup_run.failed", {
@@ -525,6 +692,10 @@ export async function finalizeSetupRun(scope: BrandScope) {
       error: "No material setup steps completed",
     });
   }
+  await saveRun(run.id, steps, {
+    status,
+    recoveryOwner: status === "blocked" ? "owner" : status === "failed" ? "operator" : null,
+  });
   return getSetupRun(scope.brandId);
 }
 
@@ -535,7 +706,7 @@ export async function finalizeSetupRun(scope: BrandScope) {
  */
 export async function executeSetupRun(scope: BrandScope, planId: string | null | undefined) {
   const run = await getSetupRun(scope.brandId);
-  if (!run || run.status === "completed") return run;
+  if (!run || run.status === "completed" || run.status === "completed_degraded") return run;
   for (const { key } of SETUP_STEPS) {
     try {
       await executeSetupStep(scope, planId, key);
@@ -558,6 +729,15 @@ export async function triggerSetupRun(
   run: { id: string },
   opts: { resume?: boolean } = {},
 ): Promise<"workflow" | "inline"> {
+  if (opts.resume) {
+    const current = await getSetupRun(scope.brandId);
+    if (current && (current.status === "blocked" || current.status === "failed")) {
+      const reset = current.steps.map((step) =>
+        step.status === "skipped" ? { ...step, status: "pending" as const, note: undefined } : step,
+      );
+      await saveRun(current.id, reset, { status: "running", recoveryOwner: null });
+    }
+  }
   try {
     await beginSetupAgentTask(scope);
   } catch (error) {
@@ -639,7 +819,7 @@ export async function igniteWorkspaceSetupRuns(workspaceId: string): Promise<voi
     const scope: BrandScope = { workspaceId, brandId: brand.id };
     try {
       const { run, created } = await startSetupRun(scope);
-      if (created || run.status === "failed" || isSetupRunStale(run)) {
+      if (created || run.status === "failed" || run.status === "blocked" || isSetupRunStale(run)) {
         await triggerSetupRun(scope, planId, run, { resume: !created });
       }
     } catch (error) {

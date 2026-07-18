@@ -1,5 +1,6 @@
 import { analyzeCrawlerAccess } from "./crawler-access";
 import { DEFAULT_HEADERS } from "./fetch-page";
+import { safePublicFetch } from "./egress";
 import { auditMeta } from "./meta-audit";
 import type { RenderComparison } from "./render";
 import type { Finding, PageSnapshot, RobotsResult } from "./types";
@@ -414,10 +415,19 @@ export async function checkAgentReadiness(
 
   const markdown: AgentReadiness["markdown"] = { status: "error" };
   try {
-    const res = await fetchImpl(snapshot.url, {
-      headers: { ...DEFAULT_HEADERS, Accept: "text/markdown" },
-      signal: AbortSignal.timeout(15_000),
-    });
+    const res = await safePublicFetch(
+      snapshot.url,
+      {
+        headers: { ...DEFAULT_HEADERS, Accept: "text/markdown" },
+        signal: AbortSignal.timeout(15_000),
+      },
+      {
+        fetchImpl,
+        sameSiteWith: snapshot.url,
+        maxBytes: 64 * 1024,
+        discardBody: true,
+      },
+    );
     const contentType = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /text\/markdown/i.test(contentType)) {
       markdown.status = "supported";

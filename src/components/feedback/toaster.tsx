@@ -1,6 +1,6 @@
 "use client";
 
-import { Toast } from "@heroui/react";
+import { Toast } from "@heroui/react/toast";
 
 /**
  * App-wide toast outlet. Mount once near the root so any client component can

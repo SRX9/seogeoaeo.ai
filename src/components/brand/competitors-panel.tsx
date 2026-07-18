@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Input, Label, toast } from "@heroui/react";
+import { Card, Form, Input, Label, toast } from "@heroui/react";
 import { useState, type FormEvent } from "react";
 import { CompetitorDiscovery } from "@/components/brand/competitor-discovery";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -79,7 +79,7 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
     <div className="space-y-4">
       <CompetitorDiscovery />
 
-      <Card className="material-panel">
+      <Card>
         <Card.Header>
           <Card.Title className="tracking-tight">Competitors</Card.Title>
           <Card.Description className="leading-relaxed">
@@ -93,7 +93,7 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
               another.
             </p>
           ) : (
-            <form onSubmit={handleAdd} className="space-y-3">
+            <Form aria-label="Add competitor" onSubmit={handleAdd} className="space-y-3">
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Name</Label>
@@ -115,7 +115,7 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
               <LoadingButton type="submit" isPending={add.isPending} pendingLabel="Saving…">
                 Add competitor
               </LoadingButton>
-            </form>
+            </Form>
           )}
         </Card.Content>
       </Card>
@@ -127,7 +127,7 @@ export function CompetitorsPanel({ competitors }: CompetitorsPanelProps) {
           {competitors.map((competitor) => (
             <li
               key={competitor.id}
-              className="material-panel flex flex-wrap items-start justify-between gap-3 rounded-2xl p-4"
+              className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-surface-secondary p-4"
             >
               <div>
                 <p className="font-medium tracking-tight text-foreground">{competitor.name}</p>

@@ -77,7 +77,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
   const busy = save.isPending || disconnect.isPending;
 
   return (
-    <Card className="material-panel">
+    <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Card.Title className="tracking-tight">Search Console & Analytics</Card.Title>
@@ -87,9 +87,9 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
           </Card.Description>
         </div>
         {status.gsc.connected ? (
-          <span className="text-[11px] uppercase tracking-[0.08em] text-success">Connected</span>
+          <span className="text-xs font-medium text-success">Connected</span>
         ) : (
-          <span className="text-[11px] uppercase tracking-[0.08em] text-muted">Optional</span>
+          <span className="text-xs font-medium text-muted">Optional</span>
         )}
       </div>
 
@@ -110,7 +110,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
           <div className="space-y-2">
             <Label>Search Console site</Label>
             {status.gsc.connected ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/50 bg-surface-muted/80 px-3.5 py-2.5 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-secondary px-4 py-3 text-sm">
                 <span className="font-medium tracking-tight text-foreground">
                   {status.gsc.siteUrl}
                 </span>
@@ -155,7 +155,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
                 </LoadingButton>
               </>
             ) : (
-              <p className="rounded-xl border border-border/50 bg-surface-muted/80 px-3.5 py-2.5 text-sm leading-relaxed text-muted">
+              <p className="rounded-xl bg-surface-secondary px-4 py-3 text-sm leading-relaxed text-muted">
                 No verified Search Console sites found for this Google account. Verify your site in
                 Search Console, then reload.
               </p>

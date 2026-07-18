@@ -1,10 +1,22 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  queryOptions,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
+import { useEffect } from "react";
 import { getAgentPresence, isAgentLive } from "@/lib/agent/presence";
 import type { AgentState as AgentOperatingState } from "@/lib/agent/types";
 import { apiGet } from "@/lib/api/fetcher";
+import { queryKeys } from "@/lib/api/query-keys";
+import { queryPolicy } from "@/lib/api/query-policy";
 import type { BrandIdentitySummary, BrandIntelligenceData } from "@/lib/brand/intelligence-types";
+import type { ClaudiaHomeView } from "@/lib/dashboard/home-view";
+import type { OwnerRequestView } from "@/lib/inbox/owner-request";
 import type { ConnectorCapability } from "@/lib/integrations/capabilities";
 import type {
   IntegrationConfig,
@@ -16,44 +28,9 @@ import type {
   IntegrationSecretDefinition,
   IntegrationSecretKey,
 } from "@/lib/integrations/providers";
+import type { GoalView } from "@/lib/settings/goal";
 
-/** Central query keys so mutations can invalidate the right caches. */
-export const queryKeys = {
-  me: ["me"] as const,
-  dashboard: ["dashboard", "overview"] as const,
-  automation: ["dashboard", "automation"] as const,
-  agentBrief: ["dashboard", "brief"] as const,
-  agentState: ["agent", "state"] as const,
-  agentApprovals: ["agent", "approvals"] as const,
-  agentActions: ["agent", "actions"] as const,
-  onboarding: ["onboarding"] as const,
-  brands: ["brands"] as const,
-  brandProfile: ["brand", "profile"] as const,
-  brandIntelligence: ["brand", "intelligence"] as const,
-  competitors: ["brand", "competitors"] as const,
-  useCases: ["brand", "use-cases"] as const,
-  topics: ["topics"] as const,
-  articles: ["articles"] as const,
-  article: (id: string) => ["articles", id] as const,
-  activity: ["activity"] as const,
-  research: ["research"] as const,
-  integrations: ["integrations"] as const,
-  googleTraffic: ["integrations", "google"] as const,
-  brandAutonomy: ["brand", "autonomy"] as const,
-  reports: ["reports"] as const,
-  report: (id: string) => ["reports", id] as const,
-  credits: ["credits"] as const,
-  visibilitySummary: ["visibility", "summary"] as const,
-  visibilityFindings: ["visibility", "findings"] as const,
-  siteHealth: ["visibility", "site-health"] as const,
-  visibilityAnswers: ["visibility", "answers"] as const,
-  visibilityTraffic: ["visibility", "traffic"] as const,
-  visibilityReport: (auditId: string) => ["visibility", "report", auditId] as const,
-  setupRun: ["setup-run"] as const,
-  toolLatestRuns: ["tools", "latest"] as const,
-  toolRun: (slug: string) => ["tools", "run", slug] as const,
-  inboxSummary: ["inbox", "summary"] as const,
-};
+export { queryKeys };
 
 export type SessionUser = { id: string; email: string; name: string; image?: string | null };
 
@@ -106,6 +83,7 @@ export type MeResponse = {
 export type DashboardData = {
   brand: { id: string; name: string; identity: BrandIdentitySummary | null };
   setup: SetupRunResponse;
+  home: ClaudiaHomeView;
   agent: AgentOperatingState;
   summary: VisibilitySummary;
   answers: VisibilityAnswers;
@@ -114,6 +92,13 @@ export type DashboardData = {
   findings: VisibilityFinding[];
   integrations: IntegrationView[];
   automation: AutomationStats;
+  ownerRequests: OwnerRequestView[];
+  inboxCount: number;
+};
+
+/** Customer-ready decisions only; internal workflow records never reach the Inbox UI. */
+export type InboxData = {
+  requests: OwnerRequestView[];
   inboxCount: number;
 };
 
@@ -230,6 +215,13 @@ export type Article = {
   createdAt: string;
   /** C4: latest performance checkpoint verdict, when one has run. */
   performance?: { verdict: "winner" | "stalling" | "dead" | "watching"; day: number; position: number | null } | null;
+  /** Most useful publication destination for compact content-library rows. */
+  publication?: {
+    provider: string;
+    status: string;
+    externalUrl: string | null;
+    publishedAt: string | null;
+  } | null;
 };
 
 export type Publication = {
@@ -296,67 +288,103 @@ export type IntegrationView = {
   requirementsMet: boolean;
 };
 
-// Shared query options so a hook and its prefetch call can't drift apart.
-const automationQueryOptions = () => ({
+type ApiQueryContext = { signal: AbortSignal };
+
+/** Every GET consumes TanStack's AbortSignal so abandoned navigations stop work. */
+const apiQuery = <T,>(path: string) =>
+  ({ signal }: ApiQueryContext) => apiGet<T>(path, { signal });
+
+// Shared query options so hooks and intent-prefetch calls cannot drift apart.
+const meQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.me,
+  queryFn: apiQuery<MeResponse>("/api/me"),
+});
+const automationQueryOptions = () => queryOptions({
+  ...queryPolicy.live,
   queryKey: queryKeys.automation,
-  queryFn: () => apiGet<AutomationStats>("/api/dashboard/automation"),
+  queryFn: apiQuery<AutomationStats>("/api/dashboard/automation"),
 });
-const onboardingQueryOptions = () => ({
+const agentGoalQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.agentGoal,
+  queryFn: apiQuery<{ goal: GoalView }>("/api/agent/goal"),
+});
+const onboardingQueryOptions = () => queryOptions({
+  ...queryPolicy.frequent,
   queryKey: queryKeys.onboarding,
-  queryFn: () => apiGet<OnboardingResponse>("/api/onboarding"),
+  queryFn: apiQuery<OnboardingResponse>("/api/onboarding"),
 });
-const creditsQueryOptions = () => ({
+const creditsQueryOptions = () => queryOptions({
+  ...queryPolicy.frequent,
   queryKey: queryKeys.credits,
-  queryFn: () => apiGet<CreditsResponse>("/api/credits"),
+  queryFn: apiQuery<CreditsResponse>("/api/credits"),
 });
-const researchQueryOptions = () => ({
+const researchQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
   queryKey: queryKeys.research,
-  queryFn: () => apiGet<{ latest: ResearchRun | null; runs: ResearchRun[] }>("/api/research"),
+  queryFn: apiQuery<{ latest: ResearchRun | null; runs: ResearchRun[] }>("/api/research"),
 });
-const topicsQueryOptions = () => ({
+const topicsQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
   queryKey: queryKeys.topics,
-  queryFn: () => apiGet<{ topics: Topic[]; sourceWeights?: Record<string, number> }>("/api/topics"),
+  queryFn: apiQuery<{ topics: Topic[]; sourceWeights?: Record<string, number> }>("/api/topics"),
 });
-const articlesQueryOptions = () => ({
+const articlesQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
   queryKey: queryKeys.articles,
-  queryFn: () => apiGet<{ articles: Article[] }>("/api/articles"),
+  queryFn: apiQuery<{ articles: Article[] }>("/api/articles"),
 });
-const activityQueryOptions = () => ({
+const activityQueryOptions = () => queryOptions({
+  ...queryPolicy.live,
   queryKey: queryKeys.activity,
-  queryFn: () => apiGet<ActivityResponse>("/api/activity"),
+  queryFn: apiQuery<ActivityResponse>("/api/activity"),
 });
-const agentBriefQueryOptions = () => ({
+const agentBriefQueryOptions = () => queryOptions({
+  ...queryPolicy.snapshot,
   queryKey: queryKeys.agentBrief,
-  queryFn: () => apiGet<{ brief: AgentBrief }>("/api/dashboard/brief"),
+  queryFn: apiQuery<{ brief: AgentBrief }>("/api/dashboard/brief"),
 });
-const dashboardQueryOptions = () => ({
+const dashboardQueryOptions = () => queryOptions({
+  ...queryPolicy.live,
   queryKey: queryKeys.dashboard,
-  queryFn: () => apiGet<DashboardData>("/api/dashboard"),
+  queryFn: apiQuery<DashboardData>("/api/dashboard"),
 });
-const agentStateQueryOptions = () => ({
+export const inboxQueryOptions = () => queryOptions({
+  ...queryPolicy.live,
+  queryKey: queryKeys.inbox,
+  queryFn: apiQuery<InboxData>("/api/inbox"),
+});
+const agentStateQueryOptions = () => queryOptions({
+  ...queryPolicy.live,
   queryKey: queryKeys.agentState,
-  queryFn: () => apiGet<AgentOperatingState>("/api/agent/state"),
+  queryFn: apiQuery<AgentOperatingState>("/api/agent/state"),
 });
-const visibilitySummaryQueryOptions = () => ({
+const visibilitySummaryQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
   queryKey: queryKeys.visibilitySummary,
-  queryFn: () => apiGet<VisibilitySummary>("/api/visibility/summary"),
+  queryFn: apiQuery<VisibilitySummary>("/api/visibility/summary"),
 });
-const visibilityFindingsQueryOptions = () => ({
+const visibilityFindingsQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
   queryKey: queryKeys.visibilityFindings,
-  queryFn: () => apiGet<{ findings: VisibilityFinding[] }>("/api/visibility/findings"),
+  queryFn: apiQuery<{ findings: VisibilityFinding[] }>("/api/visibility/findings"),
 });
-const siteHealthQueryOptions = () => ({
+const siteHealthQueryOptions = () => queryOptions({
+  ...queryPolicy.snapshot,
   queryKey: queryKeys.siteHealth,
-  queryFn: () => apiGet<SiteHealthResponse>("/api/visibility/site-health"),
+  queryFn: apiQuery<SiteHealthResponse>("/api/visibility/site-health"),
 });
-const visibilityAnswersQueryOptions = () => ({
+const visibilityAnswersQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
   queryKey: queryKeys.visibilityAnswers,
-  queryFn: () => apiGet<VisibilityAnswers>("/api/visibility/answers"),
+  queryFn: apiQuery<VisibilityAnswers>("/api/visibility/answers"),
 });
-const visibilityTrafficQueryOptions = () => ({
+const visibilityTrafficQueryOptions = () => queryOptions({
+  ...queryPolicy.snapshot,
   queryKey: queryKeys.visibilityTraffic,
   // API returns the traffic payload at the top level (not wrapped in `{ data }`).
-  queryFn: () => apiGet<VisibilityTraffic>("/api/visibility/traffic"),
+  queryFn: apiQuery<VisibilityTraffic>("/api/visibility/traffic"),
 });
 
 /** The minimal shape `<Section>` consumes; `combineQueries` produces it too. */
@@ -393,13 +421,16 @@ export function combineQueries<T extends readonly QueryLike<unknown>[]>(
 }
 
 export function useMe() {
-  return useQuery({ queryKey: queryKeys.me, queryFn: () => apiGet<MeResponse>("/api/me") });
+  return useQuery(meQueryOptions());
 }
 
 /** Active brand id from the workspace bootstrap: null while `me` loads or the
  * workspace has no brand yet (mid-onboarding). */
 export function useActiveBrandId(): string | null {
-  return useMe().data?.activeBrandId ?? null;
+  return useQuery({
+    ...meQueryOptions(),
+    select: (data) => data.activeBrandId,
+  }).data ?? null;
 }
 
 /**
@@ -411,9 +442,22 @@ function useHasBrand(): boolean {
   return Boolean(useActiveBrandId());
 }
 
+function seedIfOlder<T>(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+  data: T,
+  updatedAt: number,
+) {
+  const currentUpdatedAt = queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? 0;
+  if (currentUpdatedAt < updatedAt) {
+    queryClient.setQueryData(queryKey, data, { updatedAt });
+  }
+}
+
 export function useDashboard(options: { enabled?: boolean } = {}) {
   const hasBrand = useHasBrand();
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     ...dashboardQueryOptions(),
     enabled: options.enabled !== false && hasBrand,
     refetchInterval: (query) => {
@@ -434,6 +478,50 @@ export function useDashboard(options: { enabled?: boolean } = {}) {
       return false;
     },
   });
+
+  useEffect(() => {
+    if (!query.data) return;
+    const { agent, ownerRequests, findings, integrations, automation, inboxCount } =
+      query.data;
+    seedIfOlder<InboxData>(
+      queryClient,
+      queryKeys.inbox,
+      {
+        requests: ownerRequests,
+        inboxCount,
+      },
+      query.dataUpdatedAt,
+    );
+    seedIfOlder(queryClient, queryKeys.agentState, agent, query.dataUpdatedAt);
+    seedIfOlder(queryClient, queryKeys.automation, automation, query.dataUpdatedAt);
+    seedIfOlder(queryClient, queryKeys.setupRun, query.data.setup, query.dataUpdatedAt);
+    seedIfOlder(queryClient, queryKeys.integrations, { integrations }, query.dataUpdatedAt);
+    seedIfOlder(queryClient, queryKeys.visibilityFindings, { findings }, query.dataUpdatedAt);
+    seedIfOlder(queryClient, queryKeys.inboxSummary, { count: inboxCount }, query.dataUpdatedAt);
+  }, [query.data, query.dataUpdatedAt, queryClient]);
+
+  return query;
+}
+
+export function useInbox(options: { enabled?: boolean } = {}) {
+  const hasBrand = useHasBrand();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    ...inboxQueryOptions(),
+    enabled: options.enabled !== false && hasBrand,
+  });
+
+  useEffect(() => {
+    if (!query.data) return;
+    seedIfOlder(
+      queryClient,
+      queryKeys.inboxSummary,
+      { count: query.data.inboxCount },
+      query.dataUpdatedAt,
+    );
+  }, [query.data, query.dataUpdatedAt, queryClient]);
+
+  return query;
 }
 
 export function useAutomation() {
@@ -453,6 +541,10 @@ export type AgentBrief = { text: string; generatedAt: string };
 
 export function useAgentBrief() {
   return useQuery({ ...agentBriefQueryOptions(), enabled: useHasBrand() });
+}
+
+export function useGoal() {
+  return useQuery({ ...agentGoalQueryOptions(), enabled: useHasBrand() });
 }
 
 export function useAgentState(enabled = true) {
@@ -486,14 +578,6 @@ export type AgentApprovalView = {
   createdAt: string;
 };
 
-export function useAgentApprovals() {
-  return useQuery({
-    queryKey: queryKeys.agentApprovals,
-    queryFn: () => apiGet<{ approvals: AgentApprovalView[] }>("/api/agent/approvals"),
-    enabled: useHasBrand(),
-  });
-}
-
 export type AgentActionView = {
   id: string;
   actionType: string;
@@ -510,10 +594,15 @@ export type AgentActionView = {
   verifiedAt: string | null;
 };
 
+const agentActionsQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
+  queryKey: queryKeys.agentActions,
+  queryFn: apiQuery<{ actions: AgentActionView[] }>("/api/agent/actions"),
+});
+
 export function useAgentActions() {
   return useQuery({
-    queryKey: queryKeys.agentActions,
-    queryFn: () => apiGet<{ actions: AgentActionView[] }>("/api/agent/actions"),
+    ...agentActionsQueryOptions(),
     enabled: useHasBrand(),
   });
 }
@@ -522,35 +611,54 @@ export function useOnboarding() {
   return useQuery({ ...onboardingQueryOptions(), enabled: useHasBrand() });
 }
 
+const brandProfileQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.brandProfile,
+  queryFn: apiQuery<{ profile: BrandProfile }>("/api/brand/profile"),
+});
+
 export function useBrandProfile() {
   return useQuery({
-    queryKey: queryKeys.brandProfile,
-    queryFn: () => apiGet<{ profile: BrandProfile }>("/api/brand/profile"),
+    ...brandProfileQueryOptions(),
     enabled: useHasBrand(),
   });
 }
+
+const brandIntelligenceQueryOptions = () => queryOptions({
+  ...queryPolicy.snapshot,
+  queryKey: queryKeys.brandIntelligence,
+  queryFn: apiQuery<BrandIntelligenceResponse>("/api/brand/intelligence"),
+});
 
 export function useBrandIntelligence() {
   return useQuery({
-    queryKey: queryKeys.brandIntelligence,
-    queryFn: () => apiGet<BrandIntelligenceResponse>("/api/brand/intelligence"),
+    ...brandIntelligenceQueryOptions(),
     enabled: useHasBrand(),
-    staleTime: 60 * 60 * 1000,
   });
 }
+
+const competitorsQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.competitors,
+  queryFn: apiQuery<{ competitors: Competitor[] }>("/api/brand/competitors"),
+});
 
 export function useCompetitors() {
   return useQuery({
-    queryKey: queryKeys.competitors,
-    queryFn: () => apiGet<{ competitors: Competitor[] }>("/api/brand/competitors"),
+    ...competitorsQueryOptions(),
     enabled: useHasBrand(),
   });
 }
 
+const brandUseCasesQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.useCases,
+  queryFn: apiQuery<{ useCases: UseCase[] }>("/api/brand/use-cases"),
+});
+
 export function useUseCases() {
   return useQuery({
-    queryKey: queryKeys.useCases,
-    queryFn: () => apiGet<{ useCases: UseCase[] }>("/api/brand/use-cases"),
+    ...brandUseCasesQueryOptions(),
     enabled: useHasBrand(),
   });
 }
@@ -565,9 +673,10 @@ export function useArticles() {
 
 export function useArticle(id: string) {
   return useQuery({
+    ...queryPolicy.working,
     queryKey: queryKeys.article(id),
-    queryFn: () =>
-      apiGet<{ article: Article; publications: Publication[] }>(`/api/articles/${id}`),
+    queryFn: ({ signal }) =>
+      apiGet<{ article: Article; publications: Publication[] }>(`/api/articles/${id}`, { signal }),
     enabled: useHasBrand() && Boolean(id),
     // Keep the previously opened article on screen while the next one loads.
     placeholderData: keepPreviousData,
@@ -616,31 +725,14 @@ export function useAgentIsLive(): boolean {
   });
 }
 
-/** Combined inbox data for home + /inbox: one place to update inputs. */
-export function useInboxData() {
-  const articles = useArticles();
-  const findings = useVisibilityFindings();
-  const traffic = useVisibilityTraffic();
-  const integrations = useIntegrations();
-  const automation = useAutomation();
-  return {
-    articles,
-    findings,
-    traffic,
-    integrations,
-    automation,
-    combined: combineQueries(articles, findings, traffic, integrations, automation),
-  };
-}
-
 /** Shell badge only: cheap count endpoint, not full article payloads. */
 export function useInboxSummaryCount(enabled = true): number {
   const hasBrand = useHasBrand();
   const q = useQuery({
+    ...queryPolicy.frequent,
     queryKey: queryKeys.inboxSummary,
-    queryFn: () => apiGet<{ count: number }>("/api/inbox/summary"),
+    queryFn: apiQuery<{ count: number }>("/api/inbox/summary"),
     enabled: enabled && hasBrand,
-    staleTime: 30_000,
   });
   return q.data?.count ?? 0;
 }
@@ -670,10 +762,15 @@ export function useResearch() {
   return useQuery({ ...researchQueryOptions(), enabled: useHasBrand() });
 }
 
+const integrationsQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.integrations,
+  queryFn: apiQuery<{ integrations: IntegrationView[] }>("/api/integrations"),
+});
+
 export function useIntegrations() {
   return useQuery({
-    queryKey: queryKeys.integrations,
-    queryFn: () => apiGet<{ integrations: IntegrationView[] }>("/api/integrations"),
+    ...integrationsQueryOptions(),
     enabled: useHasBrand(),
   });
 }
@@ -698,10 +795,15 @@ export type GoogleTrafficStatus = {
   ga4: GoogleTrafficSourceState;
 };
 
+const googleTrafficQueryOptions = () => queryOptions({
+  ...queryPolicy.configuration,
+  queryKey: queryKeys.googleTraffic,
+  queryFn: apiQuery<GoogleTrafficStatus>("/api/integrations/google"),
+});
+
 export function useGoogleTraffic() {
   return useQuery({
-    queryKey: queryKeys.googleTraffic,
-    queryFn: () => apiGet<GoogleTrafficStatus>("/api/integrations/google"),
+    ...googleTrafficQueryOptions(),
     enabled: useHasBrand(),
   });
 }
@@ -730,25 +832,41 @@ export type BrandAutonomyState = {
 export type WeeklyReportRow = {
   id: string;
   weekStart: string;
+  siteUrl: string;
   subject: string;
   emailedAt: string | null;
   createdAt: string;
+  summary: {
+    completedWork: number;
+    publishedCount: number;
+    answerMentions: number;
+    visibilityScore: number | null;
+    visibilityChangePercent: number | null;
+  };
 };
+
+type WeeklyReportDetailRow = Omit<WeeklyReportRow, "summary" | "siteUrl">;
+
+const reportsQueryOptions = () => queryOptions({
+  ...queryPolicy.snapshot,
+  queryKey: queryKeys.reports,
+  queryFn: apiQuery<{ reports: WeeklyReportRow[] }>("/api/reports"),
+});
 
 export function useReports() {
   return useQuery({
-    queryKey: queryKeys.reports,
-    queryFn: () => apiGet<{ reports: WeeklyReportRow[] }>("/api/reports"),
+    ...reportsQueryOptions(),
     enabled: useHasBrand(),
   });
 }
 
 export function useReport(id: string) {
   return useQuery({
+    ...queryPolicy.immutable,
     queryKey: queryKeys.report(id),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiGet<{
-        report: WeeklyReportRow;
+        report: WeeklyReportDetailRow;
         lines: string[];
         story: {
           proof: {
@@ -767,15 +885,21 @@ export function useReport(id: string) {
           planChanges: string[];
         };
         ask: { what: string; href: string } | null;
-      }>(`/api/reports/${id}`),
+      }>(`/api/reports/${id}`, { signal }),
     enabled: useHasBrand() && Boolean(id),
   });
 }
 
+const brandAutonomyQueryOptions = (brandId: string) => queryOptions({
+    ...queryPolicy.configuration,
+    queryKey: [...queryKeys.brandAutonomy, brandId] as const,
+    queryFn: ({ signal }) =>
+      apiGet<BrandAutonomyState>(`/api/brand/autonomy?brandId=${brandId}`, { signal }),
+  });
+
 export function useBrandAutonomy(brandId: string | null) {
   return useQuery({
-    queryKey: [...queryKeys.brandAutonomy, brandId] as const,
-    queryFn: () => apiGet<BrandAutonomyState>(`/api/brand/autonomy?brandId=${brandId}`),
+    ...(brandId ? brandAutonomyQueryOptions(brandId) : brandAutonomyQueryOptions("unselected")),
     enabled: Boolean(brandId),
   });
 }
@@ -874,16 +998,29 @@ export function useVisibilityTraffic() {
 export type VisibilityReport = {
   model: {
     site: string;
+    businessType: string | null;
+    generatedAt: string;
     overall: number | null;
     band: string;
     aiVisibility: number | null;
     subScores: { key: string; label: string; score: number | null }[];
     platforms: { platform: string; score: number | null }[];
-    quickWins: { title: string; recommendation: string }[];
+    severityCounts: Record<"critical" | "high" | "medium" | "low", number>;
+    quickWins: {
+      category: string;
+      severity: "critical" | "high" | "medium" | "low";
+      title: string;
+      recommendation: string;
+    }[];
     themes: {
       week: number;
       title: string;
-      findings: { title: string; recommendation: string }[];
+      findings: {
+        category: string;
+        severity: "critical" | "high" | "medium" | "low";
+        title: string;
+        recommendation: string;
+      }[];
     }[];
     impact: string;
   };
@@ -892,8 +1029,10 @@ export type VisibilityReport = {
 
 export function useVisibilityReport(auditId: string) {
   return useQuery({
+    ...queryPolicy.immutable,
     queryKey: queryKeys.visibilityReport(auditId),
-    queryFn: () => apiGet<VisibilityReport>(`/api/visibility/${auditId}/report`),
+    queryFn: ({ signal }) =>
+      apiGet<VisibilityReport>(`/api/visibility/${auditId}/report`, { signal }),
     enabled: useHasBrand() && Boolean(auditId),
   });
 }
@@ -920,8 +1059,10 @@ export type ToolRunDetail = {
 
 export function useToolRun(slug: string) {
   return useQuery({
+    ...queryPolicy.working,
     queryKey: queryKeys.toolRun(slug),
-    queryFn: () => apiGet<{ run: ToolRunDetail | null }>(`/api/tools/${slug}`),
+    queryFn: ({ signal }) =>
+      apiGet<{ run: ToolRunDetail | null }>(`/api/tools/${slug}`, { signal }),
     enabled: useHasBrand() && Boolean(slug),
   });
 }
@@ -929,10 +1070,15 @@ export function useToolRun(slug: string) {
 /** Latest run (score + time) per tool slug, for the Toolbox grid cards. */
 export type ToolLatestRuns = Record<string, { score: number | null; createdAt: string }>;
 
+const toolLatestRunsQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
+  queryKey: queryKeys.toolLatestRuns,
+  queryFn: apiQuery<{ latest: ToolLatestRuns }>("/api/tools"),
+});
+
 export function useToolLatestRuns() {
   return useQuery({
-    queryKey: queryKeys.toolLatestRuns,
-    queryFn: () => apiGet<{ latest: ToolLatestRuns }>("/api/tools"),
+    ...toolLatestRunsQueryOptions(),
     enabled: useHasBrand(),
   });
 }
@@ -944,12 +1090,17 @@ export type SetupRunResponse = {
   labels: Record<string, string>;
 };
 
+const setupRunQueryOptions = () => queryOptions({
+  ...queryPolicy.live,
+  queryKey: queryKeys.setupRun,
+  queryFn: apiQuery<SetupRunResponse>("/api/setup-run"),
+});
+
 /** Claudia's one-time Setup Run: polled while running so the Overview hero can
  * show her steps checking off live. */
 export function useSetupRun() {
   return useQuery({
-    queryKey: queryKeys.setupRun,
-    queryFn: () => apiGet<SetupRunResponse>("/api/setup-run"),
+    ...setupRunQueryOptions(),
     enabled: useHasBrand(),
     refetchInterval: (q) => (q.state.data?.run?.status === "running" ? 10_000 : false),
   });
@@ -964,4 +1115,108 @@ export function useSetupRun() {
 export function useSetupInProgress(): boolean {
   const { data } = useSetupRun();
   return data?.run?.status === "running";
+}
+
+/**
+ * Warm the exact queries a primary route mounts when the user shows navigation
+ * intent. Fresh entries are skipped automatically by TanStack Query, so this
+ * remains cheap when data is already cached.
+ *
+ * Dashboard and Inbox are hydrated by their Server Component routes and are
+ * intentionally omitted here to avoid racing a duplicate browser request.
+ */
+export async function prefetchRouteQueries(
+  queryClient: QueryClient,
+  path: string,
+  activeBrandId: string | null,
+): Promise<void> {
+  if (!activeBrandId) return;
+  const destination = new URL(path, "https://claudia.local");
+  const pathname = destination.pathname;
+
+  switch (pathname) {
+    case "/topics":
+      await Promise.all([
+        queryClient.prefetchQuery(topicsQueryOptions()),
+        queryClient.prefetchQuery(creditsQueryOptions()),
+        queryClient.prefetchQuery(setupRunQueryOptions()),
+      ]);
+      break;
+    case "/articles":
+      await Promise.all([
+        queryClient.prefetchQuery(articlesQueryOptions()),
+        queryClient.prefetchQuery(topicsQueryOptions()),
+      ]);
+      break;
+    case "/visibility":
+      await Promise.all([
+        queryClient.prefetchQuery(visibilitySummaryQueryOptions()),
+        queryClient.prefetchQuery(visibilityTrafficQueryOptions()),
+        queryClient.prefetchQuery(setupRunQueryOptions()),
+      ]);
+      break;
+    case "/reports":
+      await queryClient.prefetchQuery(reportsQueryOptions());
+      break;
+    case "/work":
+    case "/activity":
+      await Promise.all([
+        queryClient.prefetchQuery(activityQueryOptions()),
+        queryClient.prefetchQuery(setupRunQueryOptions()),
+        queryClient.prefetchQuery(automationQueryOptions()),
+      ]);
+      break;
+    case "/tools":
+      await Promise.all([
+        queryClient.prefetchQuery(topicsQueryOptions()),
+        queryClient.prefetchQuery(visibilitySummaryQueryOptions()),
+        queryClient.prefetchQuery(toolLatestRunsQueryOptions()),
+        queryClient.prefetchQuery(activityQueryOptions()),
+      ]);
+      break;
+    case "/settings":
+      switch (destination.searchParams.get("tab")) {
+        case "goals":
+          await queryClient.prefetchQuery(agentGoalQueryOptions());
+          break;
+        case "publishing":
+        case "automation":
+          await queryClient.prefetchQuery(integrationsQueryOptions());
+          break;
+        case "preferences":
+          await Promise.all([
+            queryClient.prefetchQuery(automationQueryOptions()),
+            queryClient.prefetchQuery(agentStateQueryOptions()),
+          ]);
+          break;
+        case "integrations":
+        case "connections":
+          await Promise.all([
+            queryClient.prefetchQuery(integrationsQueryOptions()),
+            queryClient.prefetchQuery(googleTrafficQueryOptions()),
+          ]);
+          break;
+        case "billing":
+        case "account":
+          await queryClient.prefetchQuery(creditsQueryOptions());
+          break;
+        case "advanced":
+          await Promise.all([
+            queryClient.prefetchQuery(agentActionsQueryOptions()),
+            queryClient.prefetchQuery(brandAutonomyQueryOptions(activeBrandId)),
+          ]);
+          break;
+        default:
+          await Promise.all([
+            queryClient.prefetchQuery(brandProfileQueryOptions()),
+            queryClient.prefetchQuery(brandIntelligenceQueryOptions()),
+            queryClient.prefetchQuery(competitorsQueryOptions()),
+            queryClient.prefetchQuery(brandUseCasesQueryOptions()),
+          ]);
+      }
+      break;
+    case "/account":
+      await queryClient.prefetchQuery(creditsQueryOptions());
+      break;
+  }
 }

@@ -22,13 +22,25 @@ vi.mock("@/lib/workspace", async () => (await import("./helpers/memory-store")).
 vi.mock("@/lib/llm/client", async () => (await import("./helpers/memory-store")).llmClient);
 vi.mock("@/lib/integrations/repository", async () => (await import("./helpers/memory-store")).integrationsRepo);
 vi.mock("@/lib/publishing/repository", async () => (await import("./helpers/memory-store")).publishingRepo);
+vi.mock("@/lib/grounding/service", async () => (await import("./helpers/memory-store")).groundingService);
 vi.mock("@/lib/billing/access", async () => (await import("./helpers/memory-store")).billingAccess);
 vi.mock("@/lib/research/run", async () => (await import("./helpers/memory-store")).researchRun);
 vi.mock("@/lib/email/notify", async () => (await import("./helpers/memory-store")).emailNotify);
 vi.mock("@/lib/agent/memory", async () => (await import("./helpers/memory-store")).agentMemoryRepo);
+vi.mock("@/lib/agent/memory-context", () => ({
+  loadTrustedDraftMemory: vi.fn(async () => ({
+    promptContext: null,
+    evidenceRefs: [],
+    truncated: false,
+  })),
+}));
 vi.mock("@/lib/agent/events", async () => (await import("./helpers/memory-store")).agentEventsRepo);
 vi.mock("@/lib/agent/planner", () => ({
-  beginDailyAgentTask: vi.fn(async () => ({ id: "daily-task", missionId: "mission" })),
+  beginDailyAgentTask: vi.fn(async () => ({
+    id: "daily-task",
+    missionId: "mission",
+    status: "in_progress",
+  })),
   completeDailyAgentTask: vi.fn(async () => null),
   ensureNextDailyTask: vi.fn(async () => null),
   replanAgentWork: vi.fn(async () => null),
@@ -41,6 +53,7 @@ vi.mock("@/lib/agent/planner", () => ({
 vi.mock("@/lib/integrations/google-traffic", () => ({ syncTrafficForBrand: vi.fn(async () => []) }));
 
 import { generateArticleFromTopic } from "@/lib/articles/generate";
+import { beginDailyAgentTask } from "@/lib/agent/planner";
 import { planDailyForBrand, researchForDaily, settleDailyForBrand } from "@/lib/jobs/daily";
 import { InsufficientCreditsError } from "@/lib/usage/credits";
 import { getUtcDayKey } from "@/lib/workspace/settings";
@@ -125,6 +138,21 @@ beforeEach(() => {
 });
 
 describe("daily content agent", () => {
+  it("does no work after the owner removes the daily task", async () => {
+    seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
+    setCredits("ws-1", 5000);
+    seedScoredTopics(3);
+    vi.mocked(beginDailyAgentTask).mockResolvedValueOnce({
+      status: "cancelled",
+    } as Awaited<ReturnType<typeof beginDailyAgentTask>>);
+
+    const result = await runDaily("scale");
+
+    expect(result).toMatchObject({ generated: 0, status: "paused_by_owner" });
+    expect(store.articles.size).toBe(0);
+    expect(dailyRunFor("ws-1", today())?.status).toBe("paused_by_owner");
+  });
+
   it("writes up to the plan's daily cap and no more", async () => {
     seedWorkspace({ id: "ws-1", autonomyMode: "REVIEW" });
     setCredits("ws-1", 5000);
@@ -133,7 +161,7 @@ describe("daily content agent", () => {
     const result = await runDaily("scale"); // cap 10
 
     expect(result.generated).toBe(10);
-    expect(result.status).toBe("active");
+    expect(result.status).toBe("completed");
     expect(store.articles.size).toBe(10);
     expect(pendingTopics()).toHaveLength(5);
     // Queue already covered the budget, so no research run was needed.
@@ -142,7 +170,7 @@ describe("daily content agent", () => {
 
     const run = dailyRunFor("ws-1", today());
     expect(run?.articlesWritten).toBe(10);
-    expect(run?.status).toBe("active");
+    expect(run?.status).toBe("completed");
   });
 
   it("pauses and emails the owner when credits run out mid-day", async () => {
@@ -169,7 +197,7 @@ describe("daily content agent", () => {
 
     expect(research.calls).toBe(1); // topped up exactly once
     expect(result.generated).toBe(6); // wrote what was genuinely available
-    expect(result.status).toBe("active");
+    expect(result.status).toBe("completed");
     expect(email.sent).toHaveLength(0);
   });
 

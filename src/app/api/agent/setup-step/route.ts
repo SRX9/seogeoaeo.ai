@@ -1,19 +1,32 @@
 import { NextResponse } from "next/server";
-import { isCronAuthorized } from "@/lib/cron/auth";
+import { z } from "zod";
+import {
+  agentCallbackErrorResponse,
+  authorizeAgentCallback,
+  parseAgentCallbackBody,
+  readAgentCallbackJson,
+} from "@/lib/agent/callback-auth";
+import {
+  claimStepExecution,
+  classifyExecutionError,
+  recordStepOutputRef,
+  settleStepExecution,
+  withStepHeartbeat,
+} from "@/lib/agent/execution";
 import {
   executeSetupStep,
   finalizeSetupRun,
+  getSetupRun,
   SETUP_STEPS,
   type SetupStepKey,
 } from "@/lib/jobs/setup-run";
 
-type SetupStepBody = {
-  workspaceId: string;
-  brandId: string;
-  planId?: string | null;
-  /** One of SETUP_STEPS' keys, or "finalize" to settle the run. */
-  step: string;
-};
+const setupStepBodySchema = z.object({
+  workspaceId: z.string().uuid(),
+  brandId: z.string().uuid(),
+  planId: z.enum(["free", "indie", "startup", "scale", "enterprise"]).nullable().optional(),
+  step: z.string().min(1).max(80),
+}).strict();
 
 const STEP_KEYS = new Set<string>(SETUP_STEPS.map((s) => s.key));
 
@@ -24,29 +37,117 @@ const STEP_KEYS = new Set<string>(SETUP_STEPS.map((s) => s.key));
  * thrown step returns 500: persisted as `failed`: and the Workflow retries.
  */
 export async function POST(request: Request) {
-  if (!isCronAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let body: z.infer<typeof setupStepBodySchema>;
+  let authorization: Awaited<ReturnType<typeof authorizeAgentCallback>>;
+  try {
+    body = parseAgentCallbackBody(setupStepBodySchema, await readAgentCallbackJson(request));
+    authorization = await authorizeAgentCallback(request, { ...body, step: body.step });
+  } catch (error) {
+    return agentCallbackErrorResponse(error);
   }
-
-  const body = (await request.json()) as SetupStepBody;
   const scope = { workspaceId: body.workspaceId, brandId: body.brandId };
-
-  if (body.step === "finalize") {
-    const run = await finalizeSetupRun(scope);
-    return NextResponse.json({ status: run?.status ?? "failed" });
+  const setupRun = await getSetupRun(body.brandId);
+  const logicalWorkflowId = setupRun
+    ? `setup-${setupRun.id}`
+    : authorization.claims.workflowInstanceId;
+  const executorId = authorization.claims.requestId;
+  const claimed = await claimStepExecution(
+    {
+      ...scope,
+      workflowInstanceId: logicalWorkflowId,
+      stepKey: `setup:${body.step}`,
+      input: { planId: body.planId ?? null },
+    },
+    executorId,
+  );
+  if (!claimed.claimed) {
+    if (claimed.reason === "settled") {
+      return NextResponse.json(claimed.execution.output ?? { status: claimed.execution.outcome });
+    }
+    return NextResponse.json({ error: "Setup step has a live execution lease" }, { status: 409 });
   }
 
   if (!STEP_KEYS.has(body.step)) {
-    return NextResponse.json({ error: `Unknown step "${body.step}"` }, { status: 400 });
+    if (body.step !== "finalize") {
+      const error = classifyExecutionError(new Error(`Unknown step "${body.step}"`));
+      await settleStepExecution(claimed.execution.id, executorId, "permanent_failure", { error });
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
   }
 
   try {
-    const step = await executeSetupStep(scope, body.planId ?? null, body.step as SetupStepKey);
-    return NextResponse.json({ status: step.status, note: step.note ?? null });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 },
+    if (body.step === "finalize") {
+      const run = await finalizeSetupRun(scope);
+      const output = { status: run?.status ?? "failed" };
+      await settleStepExecution(claimed.execution.id, executorId, "completed", { output });
+      return NextResponse.json(output);
+    }
+
+    const step = await withStepHeartbeat(claimed.execution.id, executorId, () =>
+      executeSetupStep(scope, body.planId ?? null, body.step as SetupStepKey, {
+      billingWorkId: claimed.execution.billingWorkId,
+      outputRef: claimed.execution.outputRef,
+      recordOutputRef: (outputRef) =>
+        recordStepOutputRef(claimed.execution.id, executorId, outputRef),
+      checkpoint: async (key, work) => {
+        const child = await claimStepExecution(
+          {
+            ...scope,
+            workflowInstanceId: logicalWorkflowId,
+            stepKey: `setup:${body.step}:${key}`,
+            workKey: body.step,
+          },
+          executorId,
+        );
+        if (!child.claimed) {
+          if (child.reason === "settled" && child.execution.output) {
+            return child.execution.output as Awaited<ReturnType<typeof work>>;
+          }
+          throw new Error(`Setup checkpoint ${key} has a live execution lease`);
+        }
+        try {
+          const output = await withStepHeartbeat(child.execution.id, executorId, () =>
+            work({
+              billingWorkId: child.execution.billingWorkId,
+              outputRef: child.execution.outputRef,
+              recordOutputRef: (outputRef) =>
+                recordStepOutputRef(child.execution.id, executorId, outputRef),
+            }),
+          );
+          await settleStepExecution(child.execution.id, executorId, "completed", { output });
+          return output;
+        } catch (error) {
+          const classified = classifyExecutionError(error);
+          await settleStepExecution(
+            child.execution.id,
+            executorId,
+            classified.retryable ? "transient_failure" : "permanent_failure",
+            { error: classified },
+          );
+          throw error;
+        }
+      },
+    }),
     );
+    const output = { status: step.status, note: step.note ?? null };
+    await settleStepExecution(
+      claimed.execution.id,
+      executorId,
+      step.status === "skipped" ? "no_work" : "completed",
+      { output },
+    );
+    return NextResponse.json(output);
+  } catch (error) {
+    const classified = classifyExecutionError(error);
+    await settleStepExecution(
+      claimed.execution.id,
+      executorId,
+      classified.retryable ? "transient_failure" : "permanent_failure",
+      { error: classified },
+    );
+    if (!classified.retryable) {
+      return NextResponse.json({ status: "failed", error: classified.message });
+    }
+    return NextResponse.json({ error: classified.message }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { generateJson } from "@/lib/llm/client";
 import type { ResearchContext, ResearchFinding, ResearchProvider } from "@/lib/research/types";
 import { getLlmConfig } from "@/lib/llm/client";
@@ -6,9 +7,17 @@ type QueryResponse = {
   queries: Array<{
     query: string;
     intent: string;
-    title: string;
+    title?: string;
   }>;
 };
+
+const queryResponseSchema: z.ZodType<QueryResponse> = z.object({
+  queries: z.array(z.object({
+    query: z.string().min(1).max(500),
+    intent: z.string().max(500),
+    title: z.string().min(1).max(300).optional(),
+  })).max(12),
+});
 
 export const trendQueryProvider: ResearchProvider = {
   id: "trend_query",
@@ -17,7 +26,7 @@ export const trendQueryProvider: ResearchProvider = {
   },
   async discover(context: ResearchContext) {
     const seedKeywords = context.brand.seedKeywords ?? "content marketing";
-    const result = await generateJson<QueryResponse>("light", [
+    const result = await generateJson("light", [
       {
         role: "system",
         content:
@@ -33,7 +42,7 @@ Seed keywords: ${seedKeywords}
 
 Each query should look like autocomplete or People Also Ask phrasing.`,
       },
-    ]);
+    ], { schema: queryResponseSchema });
 
     const queries = Array.isArray(result.data?.queries) ? result.data.queries : [];
     return queries

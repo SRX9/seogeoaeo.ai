@@ -1,5 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { appCaller, RETRIES, type AppEnv } from "./app-call";
+import { createLogger } from "./logger";
 
 /**
  * Instance params. `manual` = a user-triggered Toolbox audit (the audit row
@@ -34,7 +35,15 @@ type StepResponse = { ok?: boolean; auditId?: string; alerted?: boolean };
 export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const p = event.payload;
-    const post = appCaller<StepResponse>(this.env, "/api/agent/audit-step");
+    const log = createLogger({
+      workflow: "audit-run",
+      instanceId: event.instanceId,
+      workspaceId: p.workspaceId,
+      mode: p.mode,
+      siteUrl: p.siteUrl,
+    });
+    log.info("workflow.audit.started");
+    const post = appCaller<StepResponse>(this.env, "/api/agent/audit-step", event.instanceId);
     const call = (body: Record<string, unknown>) =>
       post({ workspaceId: p.workspaceId, siteUrl: p.siteUrl, ...body });
 
@@ -44,7 +53,9 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
         { retries: RETRIES, timeout: EXECUTE_TIMEOUT },
         () => call({ step: "manual", auditId: p.auditId }),
       );
-      return { mode: p.mode, auditId: p.auditId, ok: result.ok === true };
+      const ok = result.ok === true;
+      log.info("workflow.audit.completed", { mode: p.mode, auditId: p.auditId, ok });
+      return { mode: p.mode, auditId: p.auditId, ok };
     }
 
     // monitor: create the new audit row (checkpointed, so a retry of a later
@@ -62,6 +73,7 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
     );
     if (executed.ok !== true) {
       // The audit row is already `failed` app-side; nothing to compare or fix.
+      log.info("workflow.audit.completed", { mode: p.mode, auditId, ok: false });
       return { mode: p.mode, auditId, ok: false };
     }
 
@@ -81,9 +93,15 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
         call({ step: "answers", auditId }),
       );
     } catch (error) {
-      console.error("[audit-workflow] answers step failed (non-fatal)", error);
+      log.error("workflow.audit.answers.failed", {
+        auditId,
+        error_message:
+          error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      });
     }
 
-    return { mode: p.mode, auditId, ok: true, alerted: finished.alerted === true };
+    const alerted = finished.alerted === true;
+    log.info("workflow.audit.completed", { mode: p.mode, auditId, ok: true, alerted });
+    return { mode: p.mode, auditId, ok: true, alerted };
   }
 }

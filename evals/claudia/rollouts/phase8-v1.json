@@ -1,0 +1,35 @@
+{
+  "version": "claudia-autonomy-rollout-v1",
+  "status": "code_complete_evidence_pending",
+  "productionAuthorityExpanded": false,
+  "stages": [
+    { "stage": 1, "name": "local_eval_replay", "executionMode": "eval", "requiresPriorEvidence": false },
+    { "stage": 2, "name": "staging_synthetic", "executionMode": "synthetic", "requiresPriorEvidence": true },
+    { "stage": 3, "name": "internal_dogfood", "executionMode": "internal", "requiresPriorEvidence": true },
+    { "stage": 4, "name": "real_brand_shadow", "executionMode": "shadow", "requiresPriorEvidence": true },
+    { "stage": 5, "name": "owner_approved_beta", "executionMode": "live", "requiresPriorEvidence": true },
+    { "stage": 6, "name": "delegated_small_cohort", "executionMode": "live", "requiresPriorEvidence": true },
+    { "stage": 7, "name": "percentage_canary", "executionMode": "live", "requiresPriorEvidence": true },
+    { "stage": 8, "name": "certified_capability_ga", "executionMode": "live", "requiresPriorEvidence": true }
+  ],
+  "stopConditions": [
+    "authority_violation",
+    "cross_tenant_access",
+    "duplicate_billing_or_remote_mutation",
+    "unsupported_auto_published_claim",
+    "verification_or_rollback_regression",
+    "unexpected_spend_or_volume",
+    "search_quality_regression",
+    "business_metric_harm",
+    "trace_reconstruction_failure"
+  ],
+  "requiredProductionLikeExercises": [
+    "emergency_stop",
+    "incident_reconstruction",
+    "rollback"
+  ],
+  "claimPolicy": {
+    "sotaClaimAllowed": false,
+    "reason": "Production observation windows, independent reviews, and controlled business outcomes have not been collected."
+  }
+}

@@ -2,6 +2,7 @@
 
 import { Card } from "@heroui/react";
 import { useState } from "react";
+import posthog from "posthog-js";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { CheckIcon } from "@/components/icons";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
@@ -34,6 +35,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
   });
 
   async function startCheckout(planId: PlanId) {
+    posthog.capture("subscription_checkout_selected", { plan_id: planId });
     setError(null);
     setLoadingPlan(planId);
     try {
@@ -46,6 +48,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
   }
 
   async function startTopup(packId: CreditPackId) {
+    posthog.capture("credit_pack_checkout_selected", { pack_id: packId });
     setError(null);
     setLoadingPack(packId);
     try {
@@ -100,7 +103,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
               <Card
                 key={plan.id}
                 className={cn(
-                  "material-panel flex flex-col",
+                  "flex flex-col",
                   isCurrent && "border-success/40 ring-1 ring-success/30",
                 )}
               >
@@ -108,11 +111,11 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
                   <div className="flex items-start justify-between gap-2">
                     <Card.Title className="tracking-tight">{plan.name}</Card.Title>
                     {isCurrent ? (
-                      <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-success">
+                      <span className="text-xs font-medium tracking-[0.02em] text-success">
                         Current
                       </span>
                     ) : plan.id === POPULAR_PLAN && !hasPlan ? (
-                      <span className="rounded-full bg-accent-soft/50 px-2 py-0.5 text-[11px] font-medium tracking-[0.02em] text-accent">
+                      <span className="text-xs font-medium tracking-[0.02em] text-accent">
                         Popular
                       </span>
                     ) : null}
@@ -165,7 +168,7 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
         </div>
         <div className="grid gap-3.5 sm:grid-cols-3">
           {Object.values(creditPacks).map((pack) => (
-            <Card key={pack.id} className="material-panel">
+            <Card key={pack.id}>
               <Card.Header>
                 <Card.Title className="tracking-tight">{pack.name}</Card.Title>
                 <Card.Description>

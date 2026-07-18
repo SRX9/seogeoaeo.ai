@@ -3,6 +3,30 @@ import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } fr
 import { workspaces } from "./app";
 import type { BrandIntelligenceData } from "@/lib/brand/intelligence-types";
 
+export const BRAND_PROFILE_MEMORY_FIELDS = [
+  "product_description",
+  "target_audience",
+  "tone",
+  "website",
+  "seed_keywords",
+] as const;
+
+export type BrandProfileMemoryField = (typeof BRAND_PROFILE_MEMORY_FIELDS)[number];
+
+export type BrandProfileMemoryPendingAssertion = {
+  value: string;
+  revision: string;
+  writtenAt: string;
+};
+
+export type BrandProfileMemoryPending = Partial<
+  Record<BrandProfileMemoryField, BrandProfileMemoryPendingAssertion>
+>;
+
+export type BrandIdentityMemoryPending = Partial<
+  Record<"name", BrandProfileMemoryPendingAssertion>
+>;
+
 export const brands = pgTable(
   "brands",
   {
@@ -14,12 +38,18 @@ export const brands = pgTable(
     // Per-brand autonomy: "FULL_AUTO" auto-publishes the agent's articles,
     // "REVIEW" leaves them as drafts. Each brand (site) runs independently;
     // billing is the only setting shared across a workspace's brands.
-    autonomyMode: text("autonomy_mode").notNull().default("FULL_AUTO"),
+    // Existing rows retain their mode. New brands start in review until the
+    // grounded publishing gate is explicitly certified and enabled.
+    autonomyMode: text("autonomy_mode").notNull().default("REVIEW"),
     // V8.6: opt-in for the public score badge. The /api/public/badge endpoint
     // only renders a score for domains whose brand flipped this on; default off
     // so a customer's audit score is never publicly readable unless they chose
     // to embed the badge.
     badgePublic: boolean("badge_public").notNull().default(false),
+    memoryProjectionPending: jsonb("memory_projection_pending")
+      .$type<BrandIdentityMemoryPending>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -49,6 +79,13 @@ export const brandProfiles = pgTable(
     // rules learned from the user's edits). Grows via voice.ts, never via the
     // profile form: upsertBrandProfile must not touch it.
     voiceJson: text("voice_json"),
+    // Durable owner-write outbox for layered-memory projection. Profile writes
+    // merge changed fields here in the same transaction; reconciliation clears
+    // only matching revisions after their trusted memories are settled.
+    memoryProjectionPending: jsonb("memory_projection_pending")
+      .$type<BrandProfileMemoryPending>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

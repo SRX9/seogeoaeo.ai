@@ -1,6 +1,17 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { z } from "zod";
+import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
 import { slugify, parseTags, serializeTags } from "@/lib/articles/format";
-import { getLlmConfig, sanitizeLlmText } from "@/lib/llm/client";
+import {
+  generateImage,
+  generateJson,
+  generateText,
+  getLlmConfig,
+  sanitizeLlmText,
+} from "@/lib/llm/client";
+
+vi.mock("@/lib/db", () => ({
+  getDb: () => ({ insert: () => ({ values: async () => undefined }) }),
+}));
 
 describe("article format helpers", () => {
   it("slugifies titles", () => {
@@ -51,5 +62,98 @@ describe("getLlmConfig", () => {
     const config = getLlmConfig();
     expect(config?.models.light).toBe("gpt-4o-mini");
     expect(config?.models.heavy).toBe("gpt-4o");
+  });
+});
+
+describe("hardened LLM transport", () => {
+  const envBackup = { ...process.env };
+
+  beforeEach(() => {
+    process.env.LLM_BASE_URL = "https://llm.example/v1";
+    process.env.LLM_API_KEY = "test-key";
+    process.env.LLM_LIGHT_MODEL = "light-model";
+    process.env.LLM_HEAVY_MODEL = "heavy-model";
+    process.env.LLM_IMAGE_MODEL = "image-model";
+  });
+
+  afterEach(() => {
+    process.env = { ...envBackup };
+    vi.unstubAllGlobals();
+  });
+
+  it("enforces the JSON contract and sends deterministic sampling controls", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: '{"count":"wrong"}' }, finish_reason: "stop" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateJson(
+        "light",
+        [{ role: "user", content: "Return a count." }],
+        {
+          schema: z.object({ count: z.number() }),
+          seed: 42,
+          maxRetries: 0,
+          maxRepairAttempts: 0,
+        },
+      ),
+    ).rejects.toMatchObject({ errorClass: "invalid_response", retryable: false });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      temperature: 0,
+      seed: 42,
+      response_format: { type: "json_object" },
+    });
+  });
+
+  it("keeps the timeout active while consuming the response body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+        const signal = init.signal as AbortSignal;
+        const body = new ReadableStream({
+          start(controller) {
+            signal.addEventListener(
+              "abort",
+              () => controller.error(new DOMException("Aborted", "AbortError")),
+              { once: true },
+            );
+          },
+        });
+        return Promise.resolve(new Response(body, { status: 200 }));
+      }),
+    );
+
+    await expect(
+      generateText("light", [{ role: "user", content: "Wait forever." }], {
+        timeoutMs: 5,
+        maxRetries: 0,
+      }),
+    ).rejects.toMatchObject({ errorClass: "timeout", retryable: true });
+  });
+
+  it("classifies moderation blocks and malformed image JSON", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('{"error":{"code":"content_policy_violation"}}', { status: 400 }),
+      )
+      .mockResolvedValueOnce(new Response("not-json", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateText("light", [{ role: "user", content: "Blocked." }], { maxRetries: 0 }),
+    ).rejects.toMatchObject({ errorClass: "moderation", retryable: false });
+    await expect(generateImage("An image", { maxRetries: 0 })).rejects.toMatchObject({
+      errorClass: "invalid_response",
+      retryable: false,
+    });
   });
 });

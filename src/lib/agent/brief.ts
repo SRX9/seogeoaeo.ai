@@ -1,4 +1,5 @@
 import { and, desc, eq, gte } from "drizzle-orm";
+import { z } from "zod";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
 import type { BrandScope } from "@/lib/brand/repository";
 import { kvGetJson, kvPutJson } from "@/lib/cloudflare/kv";
@@ -29,6 +30,7 @@ export type AgentBrief = {
 
 const BRIEF_TTL_SECONDS = 8 * 24 * 60 * 60; // survives a missed daily run
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const agentBriefResponseSchema = z.object({ brief: z.string().min(1).max(2_000).optional() });
 
 const briefKey = (brandId: string) => `agent-brief:v1:${brandId}`;
 
@@ -166,10 +168,10 @@ export async function refreshAgentBrief(
   if (getLlmConfig()) {
     try {
       const prompt = agentBriefPrompt(brandName, factsBlock(facts));
-      const { data } = await generateJson<{ brief?: unknown }>("light", [
+      const { data } = await generateJson("light", [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
-      ]);
+      ], { schema: agentBriefResponseSchema });
       if (typeof data?.brief === "string" && data.brief.trim()) {
         text = data.brief.trim().slice(0, 2000);
       }

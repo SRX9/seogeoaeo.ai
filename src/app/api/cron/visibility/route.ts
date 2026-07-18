@@ -5,6 +5,7 @@ import { enqueueWorkflowInstances, type InstanceOptions } from "@/lib/jobs/workf
 import { logError, logInfo } from "@/lib/logging/logger";
 import { getUtcDayKey } from "@/lib/workspace/settings";
 import { listDueSites, reauditSite, settleStaleAudits, type DueSite } from "@/server/visibility/cron";
+import { getAgentSafetyDecision } from "@/lib/agent/safety";
 
 /**
  * V7.3/V8.5: scheduled visibility monitoring. Cloudflare's scheduled handler
@@ -20,6 +21,11 @@ import { listDueSites, reauditSite, settleStaleAudits, type DueSite } from "@/se
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const safety = getAgentSafetyDecision("observation", { actor: "agent" });
+  if (!safety.allowed) {
+    return NextResponse.json({ ok: true, disabled: true, reason: safety.reason });
   }
 
   try {

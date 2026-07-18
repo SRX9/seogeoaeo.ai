@@ -4,6 +4,7 @@ import { Button, TextArea, toast } from "@heroui/react";
 import { Sheet } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/queries";
@@ -15,7 +16,21 @@ const EXAMPLES = [
   "Why is this the next task?",
 ] as const;
 
-export function SteerClaudia() {
+type SteerClaudiaProps = {
+  label?: string;
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "tertiary" | "outline" | "ghost";
+  className?: string;
+  icon?: ReactNode;
+};
+
+export function SteerClaudia({
+  label = "Steer Claudia",
+  size = "md",
+  variant = "secondary",
+  className,
+  icon,
+}: SteerClaudiaProps = {}) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<SteeringResult | null>(null);
@@ -51,7 +66,10 @@ export function SteerClaudia() {
       }}
     >
       <Sheet.Trigger>
-        <Button variant="secondary">Steer Claudia</Button>
+        <Button className={className} size={size} variant={variant}>
+          {icon}
+          {label}
+        </Button>
       </Sheet.Trigger>
       <Sheet.Backdrop variant="blur">
         <Sheet.Content className="mx-auto max-h-[92vh] max-w-xl">
@@ -61,8 +79,7 @@ export function SteerClaudia() {
             <Sheet.Header>
               <Sheet.Heading>Steer Claudia</Sheet.Heading>
               <p className="mt-1 max-w-lg text-sm leading-relaxed text-muted">
-                Change a priority, constraint, permission, schedule, or next task. Your direction
-                becomes structured operating state, not chat history.
+                Tell Claudia what to prioritize, avoid, pause, or do next.
               </p>
             </Sheet.Header>
             <Sheet.Body className="space-y-4">
@@ -101,11 +118,10 @@ export function SteerClaudia() {
                   <p className="font-medium text-foreground">{result.title}</p>
                   <p className="mt-1 text-sm leading-relaxed text-muted">{result.summary}</p>
                   {result.planDiff ? (
-                    <p className="mt-3 text-xs text-muted tabular-nums">
-                      Plan v{result.planDiff.fromVersion} → v{result.planDiff.toVersion}
+                    <p className="mt-3 text-xs text-muted">
                       {result.planDiff.movedTaskCount > 0
-                        ? ` · ${result.planDiff.movedTaskCount} future task${result.planDiff.movedTaskCount === 1 ? "" : "s"} moved`
-                        : " · completed work unchanged"}
+                        ? `Claudia updated ${result.planDiff.movedTaskCount} future work item${result.planDiff.movedTaskCount === 1 ? "" : "s"}.`
+                        : "Claudia updated what she will do next. Completed work is unchanged."}
                     </p>
                   ) : null}
                   {result.sources?.length ? (

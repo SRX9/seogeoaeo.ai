@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useState, type CSSProperties } from "react";
+import { Avatar, Card, Checkbox, Skeleton, Spinner } from "@heroui/react";
 import { cn } from "@/lib/cn";
 
 export type CompetitorVisual = {
@@ -18,10 +17,6 @@ function hostFromUrl(value: string): string | null {
   }
 }
 
-function faviconUrl(host: string) {
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
-}
-
 function initials(value: string) {
   const parts = value
     .replace(/https?:\/\//, "")
@@ -29,18 +24,6 @@ function initials(value: string) {
     .filter(Boolean);
   const letters = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : parts[0]?.slice(0, 2);
   return (letters || "?").toUpperCase();
-}
-
-function radarPosition(index: number, total: number): CSSProperties {
-  const count = Math.max(total, 4);
-  const angle = -90 + (360 / count) * index;
-  const radians = (angle * Math.PI) / 180;
-  const radius = 37;
-  return {
-    left: `${50 + Math.cos(radians) * radius}%`,
-    top: `${50 + Math.sin(radians) * radius}%`,
-    animationDelay: `${index * 70}ms`,
-  };
 }
 
 export function CompetitorLogo({
@@ -52,43 +35,15 @@ export function CompetitorLogo({
   url: string;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
   const host = hostFromUrl(url);
   const fallback = initials(name || host || url);
 
-  if (!host || failed) {
-    return (
-      <span
-        aria-hidden
-        className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-xl border border-border/50 bg-surface-muted text-xs font-semibold tracking-tight text-foreground tabular-nums",
-          className,
-        )}
-      >
-        {fallback}
-      </span>
-    );
-  }
-
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid size-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/50 bg-surface p-1",
-        className,
-      )}
-    >
-      <Image
-        src={faviconUrl(host)}
-        alt=""
-        width={32}
-        height={32}
-        sizes="32px"
-        unoptimized
-        className="size-full rounded-[inherit]"
-        onError={() => setFailed(true)}
-      />
-    </span>
+    <Avatar aria-hidden size="sm" className={cn("size-9 shrink-0 bg-surface-secondary", className)}>
+      <Avatar.Fallback className="text-xs font-semibold tracking-tight text-foreground">
+        {fallback}
+      </Avatar.Fallback>
+    </Avatar>
   );
 }
 
@@ -104,64 +59,36 @@ export function CompetitorRadar({
   subtitle: string;
 }) {
   const visible = competitors.slice(0, 6);
-  const placeholders = Array.from({ length: 5 });
 
   return (
-    <div className="material-panel rounded-2xl px-4 py-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div
-          aria-hidden
-          className="competitor-radar relative grid size-36 shrink-0 place-items-center overflow-hidden rounded-full border border-border/50 bg-surface/80"
-        >
-          <span className="competitor-radar__sweep absolute inset-0 rounded-full" />
-          <span className="relative z-10 grid size-7 place-items-center rounded-full border border-accent/30 bg-surface shadow-sm">
-            <span className="size-2 rounded-full bg-accent" />
+    <Card>
+      <Card.Content className="flex flex-col gap-4 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
+            {scanning ? <Spinner size="sm" /> : <span className="size-2 rounded-full bg-accent" />}
           </span>
-          {visible.length > 0
-            ? visible.map((competitor, index) => (
-                <span
-                  key={competitor.url}
-                  className="competitor-radar__blip absolute z-20"
-                  style={radarPosition(index, visible.length)}
-                >
-                  <CompetitorLogo
-                    name={competitor.name}
-                    url={competitor.url}
-                    className="size-8 rounded-full"
-                  />
-                </span>
-              ))
-            : placeholders.map((_, index) => (
-                <span
-                  key={index}
-                  className="competitor-radar__placeholder absolute z-20 size-2 rounded-full bg-accent/60"
-                  style={radarPosition(index, placeholders.length)}
-                />
-              ))}
-        </div>
-
-        <div className="min-w-0">
+          <div className="min-w-0">
           <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted">{subtitle}</p>
-          {visible.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {visible.slice(0, 4).map((competitor) => (
-                <span
-                  key={competitor.url}
-                  className="max-w-full truncate rounded-full bg-surface/80 px-2.5 py-1 text-xs tracking-[0.01em] text-muted"
-                >
-                  {competitor.name}
-                </span>
-              ))}
-            </div>
-          ) : scanning ? (
-            <p className="mt-3 text-xs leading-relaxed text-muted">
-              Search, comparisons, and AI answers are being checked.
-            </p>
-          ) : null}
+            <p className="mt-1 text-pretty text-sm leading-6 text-muted">{subtitle}</p>
+          </div>
         </div>
-      </div>
-    </div>
+        {visible.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {visible.map((competitor) => (
+              <span key={competitor.url} className="text-sm font-medium text-muted">
+                {competitor.name}
+              </span>
+            ))}
+          </div>
+        ) : scanning ? (
+          <div className="grid gap-2 sm:grid-cols-3" aria-label="Finding competitors">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-8 rounded-xl" />
+            ))}
+          </div>
+        ) : null}
+      </Card.Content>
+    </Card>
   );
 }
 
@@ -177,32 +104,35 @@ export function CompetitorSuggestionCard({
   const host = hostFromUrl(suggestion.url) ?? suggestion.url;
 
   return (
-    <label
+    <Checkbox
+      aria-label={`${checked ? "Remove" : "Select"} ${suggestion.name}`}
+      isSelected={checked}
+      onChange={onToggle}
+      variant="secondary"
       className={cn(
-        "pressable flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition-[border-color,background-color,box-shadow] duration-ui ease-out-strong",
+        "w-full rounded-2xl p-3.5",
         checked
-          ? "border-accent/45 bg-accent-soft/50 shadow-sm"
-          : "border-border/50 bg-surface/70 hover-fine:border-accent/30",
+          ? "bg-accent-soft/50"
+          : "bg-surface-secondary",
       )}
     >
-      <input
-        type="checkbox"
-        className="mt-2 h-4 w-4 shrink-0 accent-accent"
-        checked={checked}
-        onChange={onToggle}
-      />
-      <CompetitorLogo name={suggestion.name} url={suggestion.url} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium tracking-tight text-foreground">
-          {suggestion.name}
-        </span>
-        <span className="block truncate text-sm tracking-[0.01em] text-muted">{host}</span>
-        {suggestion.reason ? (
-          <span className="mt-1 block text-sm leading-relaxed text-muted">
-            {suggestion.reason}
+      <Checkbox.Content className="w-full items-start gap-3">
+        <Checkbox.Control className="mt-2 shrink-0">
+          <Checkbox.Indicator />
+        </Checkbox.Control>
+        <CompetitorLogo name={suggestion.name} url={suggestion.url} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium tracking-tight text-foreground">
+            {suggestion.name}
           </span>
-        ) : null}
-      </span>
-    </label>
+          <span className="block truncate text-sm tracking-[0.01em] text-muted">{host}</span>
+          {suggestion.reason ? (
+            <span className="mt-1 block text-sm leading-relaxed text-muted">
+              {suggestion.reason}
+            </span>
+          ) : null}
+        </span>
+      </Checkbox.Content>
+    </Checkbox>
   );
 }

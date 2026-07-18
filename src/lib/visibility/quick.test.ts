@@ -64,7 +64,10 @@ describe("quickSnapshot", () => {
 <body><div id="root"></div><script src="/bundle.js"></script></body></html>`;
     const result = await quickSnapshot("https://acme.example/", {
       fetchImpl: siteFetch({
-        "/": new Response(spa, { status: 200 }),
+        "/": new Response(spa, {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
         "/robots.txt": new Response("User-agent: GPTBot\nDisallow: /\n", { status: 200 }),
       }),
     });

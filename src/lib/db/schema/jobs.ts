@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { workspaces } from "./app";
 import { brands } from "./brand";
@@ -13,13 +14,19 @@ export const agentJobs = pgTable(
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
     kind: text("kind").notNull(),
+    idempotencyKey: text("idempotency_key"),
     status: text("status").notNull().default("running"),
     message: text("message"),
     metadataJson: text("metadata_json"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("agent_jobs_brand_id_idx").on(table.brandId)],
+  (table) => [
+    index("agent_jobs_brand_id_idx").on(table.brandId),
+    uniqueIndex("agent_jobs_brand_kind_idempotency_idx")
+      .on(table.brandId, table.kind, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} is not null`),
+  ],
 );
 
 /**
@@ -38,8 +45,9 @@ export const setupRuns = pgTable(
     brandId: uuid("brand_id")
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
-    /** running | completed | failed */
+    /** running | completed | completed_degraded | blocked | failed */
     status: text("status").notNull().default("running"),
+    recoveryOwner: text("recovery_owner"),
     /** Ordered array of { key, status: "pending"|"running"|"done"|"failed"|"skipped", note? }. */
     stepsJson: text("steps_json").notNull(),
     /** Day-0 brief in Claudia's voice, written by the final step. */
@@ -89,7 +97,7 @@ export const agentDailyRuns = pgTable(
     runDate: text("run_date").notNull(),
     articlesWritten: integer("articles_written").notNull().default(0),
     topicsResearched: integer("topics_researched").notNull().default(0),
-    /** active | paused_no_credits | idle | no_topics */
+    /** completed | completed_degraded | blocked | paused_* | idle | no_topics */
     status: text("status").notNull().default("active"),
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

@@ -30,6 +30,8 @@ export interface AuditSummary {
   totalFindings: number;
   /** Scoring methodology version (visibility/version.ts) this audit was scored with. */
   scorerVersion: number;
+  analyzerSetVersion?: string;
+  completeness?: string;
 }
 
 export interface DeltaReport {
@@ -40,6 +42,7 @@ export interface DeltaReport {
   trajectory: { month: number; projected: number }[];
   impact: string;
   baselineOnly: boolean;
+  compatible: boolean;
 }
 
 export function trendFor(delta: number): Trend {
@@ -58,14 +61,23 @@ function delta(key: string, label: string, baseline: number | null, current: num
 /** Pure delta computation over two audit summaries. */
 export function computeDelta(baseline: AuditSummary, current: AuditSummary): DeltaReport {
   const baselineOnly = baseline === current;
-  const overall = delta("overall", "Overall visibility", baseline.overall, current.overall);
+  const compatible =
+    baselineOnly ||
+    (baseline.scorerVersion === current.scorerVersion &&
+      baseline.analyzerSetVersion === current.analyzerSetVersion &&
+      (baseline.completeness ?? "complete") === "complete" &&
+      (current.completeness ?? "complete") === "complete");
+  // Incompatible runs are never presented as a site-performance delta. Keep the
+  // report shape stable for consumers, but compare the current run to itself.
+  const comparisonBaseline = compatible ? baseline : current;
+  const overall = delta("overall", "Overall visibility", comparisonBaseline.overall, current.overall);
 
   const subScores = (Object.keys(SUBSCORE_LABELS) as SubScore["key"][]).map((key) =>
-    delta(key, SUBSCORE_LABELS[key], baseline.subScores[key] ?? null, current.subScores[key] ?? null),
+    delta(key, SUBSCORE_LABELS[key], comparisonBaseline.subScores[key] ?? null, current.subScores[key] ?? null),
   );
 
-  const platformKeys = [...new Set([...Object.keys(baseline.platforms), ...Object.keys(current.platforms)])];
-  const platforms = platformKeys.map((p) => delta(p, p, baseline.platforms[p] ?? null, current.platforms[p] ?? null));
+  const platformKeys = [...new Set([...Object.keys(comparisonBaseline.platforms), ...Object.keys(current.platforms)])];
+  const platforms = platformKeys.map((p) => delta(p, p, comparisonBaseline.platforms[p] ?? null, current.platforms[p] ?? null));
 
   // 6-month trajectory: extend the observed monthly delta, clamped to 0-100.
   const monthly = overall.delta;
@@ -84,9 +96,12 @@ export function computeDelta(baseline: AuditSummary, current: AuditSummary): Del
 
   // When the scoring methodology changed between the two runs, part of the delta
   // reflects the upgraded scorer rather than the site: say so, don't hide it.
-  if (!baselineOnly && baseline.scorerVersion !== current.scorerVersion) {
-    impact +=
-      " Note: the scoring methodology was upgraded between these runs, so part of this change reflects the new scorer, not your site.";
+  if (!compatible) {
+    impact =
+      "These runs use incompatible analyzer or scoring versions, so no performance delta was calculated. A new compatible baseline is required.";
+    if (baseline.scorerVersion !== current.scorerVersion) {
+      impact += " The scoring methodology was upgraded between these runs.";
+    }
   }
 
   return {
@@ -97,6 +112,7 @@ export function computeDelta(baseline: AuditSummary, current: AuditSummary): Del
     trajectory,
     impact,
     baselineOnly,
+    compatible,
   };
 }
 
@@ -121,6 +137,8 @@ export async function loadAuditSummary(auditId: string): Promise<AuditSummary> {
     resolvedFindings: findingRows.filter((f) => f.isResolved).length,
     totalFindings: findingRows.length,
     scorerVersion: row.scorerVersion,
+    analyzerSetVersion: row.analyzerSetVersion,
+    completeness: row.completeness,
   };
 }
 

@@ -10,6 +10,7 @@ import {
 import { slugify } from "@/lib/articles/format";
 import { getArticle, updateArticle } from "@/lib/articles/repository";
 import { learnVoiceFromEdit } from "@/lib/brand/voice";
+import { getArticleGroundingDetail } from "@/lib/grounding/repository";
 import { listPublicationsForArticle } from "@/lib/publishing/repository";
 
 type RouteProps = { params: Promise<{ id: string }> };
@@ -29,16 +30,18 @@ const articleSchema = z.object({
 /** Get a single article. */
 export async function GET(_request: Request, { params }: RouteProps) {
   return handleApi(async () => {
-    const [{ id }, { brand }] = await Promise.all([params, requireApiBrand()]);
-    const [article, publications] = await Promise.all([
+    const [{ id }, { brand, scope }] = await Promise.all([params, requireApiBrand()]);
+    const [article, publications, grounding] = await Promise.all([
       getArticle(brand.id, id),
       listPublicationsForArticle(brand.id, id),
+      getArticleGroundingDetail(scope, id),
     ]);
     if (!article) {
       throw new HttpError(404, "Article not found");
     }
     return jsonOk({
       article,
+      grounding,
       publications: publications.map((publication) => ({
         provider: publication.provider,
         status: publication.status,

@@ -1,30 +1,18 @@
 "use client";
 
+import { Button, Input } from "@heroui/react";
 import { useState, type KeyboardEvent } from "react";
-
-/**
- * Tag-style editor over a comma-separated string. It *looks* like tags: each
- * value is a small rounded-lg block you can remove: but the data model stays a
- * plain comma-joined string, so it drops into any field that already stores one
- * (seed keywords, audience) with no schema change.
- *
- * Design rule: rounded-lg blocks, never rounded-full pills.
- */
+import { XIcon } from "@/components/icons";
 
 function parseTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+  return value.split(",").map((tag) => tag.trim()).filter(Boolean);
 }
 
 function dedupe(tags: string[]): string[] {
   const seen = new Set<string>();
   return tags.filter((tag) => {
     const key = tag.toLowerCase();
-    if (!tag || seen.has(key)) {
-      return false;
-    }
+    if (!tag || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
@@ -52,20 +40,16 @@ export function TagInput({
 
   function addDraft() {
     const parts = parseTags(draft);
-    if (parts.length > 0) {
-      commit([...tags, ...parts]);
-    }
+    if (parts.length > 0) commit([...tags, ...parts]);
     setDraft("");
   }
 
   function removeAt(index: number) {
-    commit(tags.filter((_, i) => i !== index));
+    commit(tags.filter((_, tagIndex) => tagIndex !== index));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter" || event.key === ",") {
-      // Only intercept when there's something to commit: an empty Enter is left
-      // to bubble so the onboarding "press Enter to continue" flow still works.
       if (draft.trim()) {
         event.preventDefault();
         event.stopPropagation();
@@ -82,33 +66,34 @@ export function TagInput({
   return (
     <div
       data-tag-input
-      className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-surface/80 p-2 backdrop-blur-sm transition duration-ui ease-out-strong focus-within:border-accent"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) addDraft();
+      }}
+      className="flex min-h-11 flex-wrap items-center gap-2"
     >
       {tags.map((tag, index) => (
-        <span
-          key={`${tag}-${index}`}
-          className="flex items-center gap-1.5 rounded-full border border-border/50 bg-surface-muted px-2.5 py-1 text-sm tracking-[0.01em] text-foreground"
-        >
+        <span key={tag.toLowerCase()} className="inline-flex items-center gap-1 text-sm font-medium text-accent">
           {tag}
-          <button
-            type="button"
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
             aria-label={`Remove ${tag}`}
-            onClick={() => removeAt(index)}
-            className="pressable rounded-sm text-muted hover-fine:text-foreground"
+            onPress={() => removeAt(index)}
           >
-            ×
-          </button>
+            <XIcon className="size-3" />
+          </Button>
         </span>
       ))}
-      <input
+      <Input
         id={id}
         aria-label={ariaLabel}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={handleKeyDown}
-        onBlur={addDraft}
         placeholder={tags.length === 0 ? placeholder : "Add another…"}
-        className="min-w-[9rem] flex-1 bg-transparent px-1 py-1 text-sm text-foreground outline-none placeholder:text-muted"
+        variant="secondary"
+        className="min-w-[12rem] flex-1"
       />
     </div>
   );

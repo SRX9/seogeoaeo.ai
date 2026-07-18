@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { logError, logInfo } from "@/lib/logging/logger";
 import { sendWeeklyReports } from "@/server/reports/weekly";
+import { getAgentSafetyDecision } from "@/lib/agent/safety";
 
 /**
  * AP5: the weekly report. Cloudflare's scheduled handler POSTs here every
@@ -12,6 +13,11 @@ import { sendWeeklyReports } from "@/server/reports/weekly";
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const safety = getAgentSafetyDecision("publishing", { actor: "agent" });
+  if (!safety.allowed) {
+    return NextResponse.json({ ok: true, disabled: true, reason: safety.reason });
   }
 
   try {

@@ -1,6 +1,11 @@
+import { z } from "zod";
 import { generateJson } from "@/lib/llm/client";
-import { AiContentSchema, type AiContentLabel, EeatSchema } from "./eeat-schema";
+import { type AiContentLabel, EeatSchema } from "./eeat-schema";
 import type { Finding, PageSnapshot } from "./types";
+
+const contentGapResponseSchema = z.object({
+  gaps: z.array(z.string().min(1).max(300)).max(8).optional(),
+});
 
 /**
  * V4: content quality & E-E-A-T. Ports `agents/geo-content.md`: readability &
@@ -336,7 +341,7 @@ export function analyzeTopicalAuthority(
 /** LLM `light` content-gap synthesis (feeds the topic backlog). Best-effort. */
 export async function suggestContentGaps(topic: string, existingTitles: string[]): Promise<string[]> {
   try {
-    const { data } = await generateJson<{ gaps?: string[] }>("light", [
+    const { data } = await generateJson("light", [
       {
         role: "system",
         content:
@@ -344,7 +349,7 @@ export async function suggestContentGaps(topic: string, existingTitles: string[]
           'Respond as JSON: {"gaps": ["subtopic", ...]} with up to 8 concise subtopics.',
       },
       { role: "user", content: `Topic: ${topic}\nExisting pages: ${existingTitles.slice(0, 40).join(" | ")}` },
-    ]);
+    ], { schema: contentGapResponseSchema });
     return Array.isArray(data.gaps) ? data.gaps.slice(0, 8) : [];
   } catch {
     return [];
@@ -548,13 +553,13 @@ const EEAT_SYSTEM = [
 export async function analyzeEeat(snapshot: PageSnapshot): Promise<EeatResult> {
   try {
     const excerpt = snapshot.text_content.slice(0, 6000);
-    const { data } = await generateJson<unknown>("heavy", [
+    const { data } = await generateJson("heavy", [
       { role: "system", content: EEAT_SYSTEM },
       {
         role: "user",
         content: `URL: ${snapshot.url}\nAuthor byline: ${snapshot.meta_tags["author"] ?? "none"}\nExternal links: ${snapshot.external_links.length}\n\nContent:\n${excerpt}`,
       },
-    ]);
+    ], { schema: EeatSchema });
     const parsed = EeatSchema.safeParse(data);
     if (parsed.success) {
       const d = parsed.data;

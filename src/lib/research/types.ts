@@ -12,12 +12,27 @@ export type ResearchSourceType =
 /** C1 buyer-intent tiers: the first ranking key for the backlog. */
 export type IntentTier = "bofu" | "mofu" | "tofu";
 
+/** Bounded source metadata carried from discovery into a versioned evidence bundle. */
+export type ResearchEvidenceSource = {
+  url: string;
+  title?: string;
+  publisher?: string;
+  excerpt?: string;
+  publishedAt?: string;
+  fetchedAt?: string;
+  sourceType: ResearchSourceType | "brand_owned";
+  sourceLabel: string;
+  query?: string;
+  isPrimary?: boolean;
+};
+
 export type ResearchFinding = {
   title: string;
   query?: string;
   source: string;
   sourceType: ResearchSourceType;
   evidenceUrls: string[];
+  evidenceSources?: ResearchEvidenceSource[];
   snippet?: string;
   /** Buyer intent, when the provider knows it (target-profile/competitor findings do). */
   intentTier?: IntentTier;
@@ -59,6 +74,7 @@ export type ScoredTopic = {
   source: string;
   sourceType: ResearchSourceType;
   evidenceUrls: string[];
+  evidenceSources?: ResearchEvidenceSource[];
   query?: string;
   intentTier?: IntentTier;
   thesis?: string;

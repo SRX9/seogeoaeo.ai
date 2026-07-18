@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { getBillingContext } from "@/lib/billing/access";
 import { listBrands } from "@/lib/brand/repository";
 
@@ -19,13 +20,13 @@ function pickActiveBrand(brandList: BrandRow[], cookieId: string | undefined) {
  * Resolve the workspace, subscription, and the currently selected brand.
  * Never redirects: use for read-only contexts like the app shell.
  */
-export async function getActiveBrandContext() {
+export const getActiveBrandContext = cache(async function getActiveBrandContext() {
   const ctx = await getBillingContext();
   const brandList = await listBrands(ctx.workspace.id);
   const cookieId = (await cookies()).get(ACTIVE_BRAND_COOKIE)?.value;
   const brand = pickActiveBrand(brandList, cookieId);
   return { ...ctx, brands: brandList, brand };
-}
+});
 
 /**
  * Require a workspace with at least one brand and a selected brand. Redirects to
@@ -36,21 +37,14 @@ export async function getActiveBrandContext() {
  * users without a plan still see their data and a clear upgrade path.
  */
 export async function requireBrand() {
-  const ctx = await getBillingContext();
-  const brandList = await listBrands(ctx.workspace.id);
-  if (brandList.length === 0) {
-    redirect("/onboarding");
-  }
-  const cookieId = (await cookies()).get(ACTIVE_BRAND_COOKIE)?.value;
-  const brand = pickActiveBrand(brandList, cookieId);
-  if (!brand) {
+  const ctx = await getActiveBrandContext();
+  if (ctx.brands.length === 0 || !ctx.brand) {
     redirect("/onboarding");
   }
   return {
     ...ctx,
-    brands: brandList,
-    brand,
-    scope: { workspaceId: ctx.workspace.id, brandId: brand.id },
+    brand: ctx.brand,
+    scope: { workspaceId: ctx.workspace.id, brandId: ctx.brand.id },
   };
 }
 

@@ -20,10 +20,11 @@ for (const [key, value] of Object.entries(buildTimeDefaults)) {
   env[key] ||= value;
 }
 
-const result = spawnSync("pnpm exec opennextjs-cloudflare build", {
+const openNextCli = resolve("node_modules/@opennextjs/cloudflare/dist/cli/index.js");
+const result = spawnSync(process.execPath, [openNextCli, "build"], {
   env,
   stdio: "inherit",
-  shell: true,
+  shell: false,
 });
 
 if (result.error) {
@@ -64,6 +65,7 @@ if (!worker.includes("async scheduled(")) {
         // event.cron is the exact expression that fired; map it to a route so
         // adding a cron is just a new entry here + in wrangler.jsonc.
         const cronRoutes = {
+            "*/15 * * * *": "/api/cron/daily?reconcile=1",
             "0 7 * * *": "/api/cron/brand-intelligence",
             "0 8 * * *": "/api/cron/daily",
             "0 9 * * *": "/api/cron/visibility",
@@ -85,9 +87,9 @@ if (!worker.includes("async scheduled(")) {
         if (!response.ok) {
             const body = await response.text();
             // Throw so Cloudflare records the invocation as failed (visible in
-            // cron metrics/alerts). Cloudflare does NOT auto-retry a failed cron:
-            // recovery is the next scheduled fire or a manual re-run, both safe
-            // because every cron route is idempotent.
+            // cron metrics/alerts). Cloudflare does NOT auto-retry a failed cron;
+            // scheduled-work recovery runs every 15 minutes and manual re-runs
+            // remain safe because every cron route is idempotent.
             throw new Error(\`Cron \${path} failed: \${response.status} \${body.slice(0, 300)}\`);
         }
     },

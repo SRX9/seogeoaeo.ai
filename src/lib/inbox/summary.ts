@@ -1,51 +1,51 @@
 import { and, count, eq, gt, isNull, or } from "drizzle-orm";
-import type { BrandScope } from "@/lib/brand/repository";
+import type { requireApiBrand } from "@/lib/api/server";
+import { CREDIT_COSTS } from "@/lib/billing/credits";
+import { isActiveSubscription } from "@/lib/billing/plans";
 import { getDb } from "@/lib/db";
 import { articles } from "@/lib/db/schema/content";
 import { agentApprovals } from "@/lib/db/schema";
-import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { listIntegrations } from "@/lib/integrations/repository";
 import { isIntegrationOperational } from "@/lib/integrations/providers";
-import { getOpenFindings } from "@/lib/visibility/findings-repository";
-import { countInboxFromParts } from "@/lib/inbox/rows";
-import { isInstallReady } from "@/lib/visibility/fix-policy";
+import { countOwnerRequestsFromParts } from "@/lib/inbox/owner-request";
+import { getCreditBalance } from "@/lib/usage/credits";
+
+type InboxSummaryContext = Awaited<ReturnType<typeof requireApiBrand>>;
 
 /**
  * Cheap server-side inbox badge count: no article bodies, no full traffic series.
- * Semantics match `buildInboxRows` / the owner Inbox UI.
+ * Semantics match the customer-ready owner request model without loading article bodies.
  */
-export async function getInboxSummaryCount(scope: BrandScope): Promise<number> {
+export async function getInboxSummaryCount(context: InboxSummaryContext): Promise<number> {
+  const { workspace, subscription, brand } = context;
   const db = getDb();
-  const [draftRow, findings, gscSnap, integrations, approvalRow] = await Promise.all([
+  const [draftRow, integrations, approvalRow, credits] = await Promise.all([
     db
       .select({ n: count() })
       .from(articles)
-      .where(and(eq(articles.brandId, scope.brandId), eq(articles.status, "draft"))),
-    getOpenFindings(scope.workspaceId, { brandId: scope.brandId }),
-    listTrafficConnections(scope.brandId),
-    listIntegrations(scope.brandId),
+      .where(and(eq(articles.brandId, brand.id), eq(articles.status, "draft"))),
+    listIntegrations(brand.id),
     db
       .select({ n: count() })
       .from(agentApprovals)
       .where(
         and(
-          eq(agentApprovals.brandId, scope.brandId),
+          eq(agentApprovals.brandId, brand.id),
           eq(agentApprovals.status, "pending"),
           or(isNull(agentApprovals.expiresAt), gt(agentApprovals.expiresAt, new Date())),
         ),
       ),
+    getCreditBalance(workspace.id),
   ]);
 
   const draftCount = Number(draftRow[0]?.n ?? 0);
-  const approvableFixCount = findings.filter(
-    (finding) => isInstallReady(finding.fixCapability) && finding.proposedAt != null,
-  ).length;
-
-  return Number(approvalRow[0]?.n ?? 0) + countInboxFromParts({
+  return countOwnerRequestsFromParts({
+    approvalCount: Number(approvalRow[0]?.n ?? 0),
     draftCount,
-    approvableFixCount,
-    gscConnected: gscSnap.some((connection) => connection.source === "gsc"),
-    hasIntegrations: integrations.length > 0,
-    anyIntegrationEnabled: integrations.some(isIntegrationOperational),
+    reviewBeforePublishing: brand.autonomyMode !== "FULL_AUTO",
+    publishingConnected: integrations.some(isIntegrationOperational),
+    billingPaused:
+      !isActiveSubscription(subscription?.status) ||
+      credits.total < CREDIT_COSTS.article_generation,
   });
 }

@@ -2,7 +2,7 @@
 
 import { toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { LoadingButton } from "@/components/ui/loading-button";
 import {
   CircleCheckIcon,
@@ -34,7 +34,7 @@ const sources = [
 
 export function ResearchPanel() {
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const router = useProgressRouter();
   const { data } = useResearch();
   const credits = useCredits();
   const settingUp = useSetupInProgress();
@@ -54,7 +54,7 @@ export function ResearchPanel() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/account?tab=billing&upgrade=1");
+        router.push("/settings?tab=billing&upgrade=1");
         return;
       }
       toast.danger(getErrorMessage(error, "Research failed. Try again."));

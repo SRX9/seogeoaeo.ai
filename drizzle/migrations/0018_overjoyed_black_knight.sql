@@ -1,3 +1,0 @@
-ALTER TABLE "research_runs" ADD COLUMN "idempotency_key" text;--> statement-breakpoint
-CREATE UNIQUE INDEX "research_runs_idempotency_idx" ON "research_runs" USING btree ("brand_id","idempotency_key") WHERE "research_runs"."idempotency_key" is not null;--> statement-breakpoint
-CREATE UNIQUE INDEX "credit_ledger_ref_unique_idx" ON "credit_ledger" USING btree ("workspace_id","reason","ref_id") WHERE "credit_ledger"."ref_id" is not null;

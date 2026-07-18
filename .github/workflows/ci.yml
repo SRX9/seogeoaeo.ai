@@ -1,9 +1,8 @@
-name: CI
+name: Pull request verification
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_call:
 
 jobs:
   verify:
@@ -29,13 +28,20 @@ jobs:
       - run: node scripts/verify-heroui-pro.mjs
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm workflow:typegen:check
+      - run: pnpm workflow:typecheck
       - run: pnpm test
+      - run: pnpm eval:claudia:check
       - run: pnpm build
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/seo_ai
           BETTER_AUTH_SECRET: ci-build-secret-minimum-32-characters
           BETTER_AUTH_URL: http://localhost:3000
           ENCRYPTION_KEY: ci-encryption-key-32-characters-long
+          # NEXT_PUBLIC_* vars are inlined at build time; the PostHog project
+          # token ships to the browser anyway, so a repo secret is fine here.
+          NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ secrets.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
       - run: pnpm build:cf
         env:
           BETTER_AUTH_URL: https://seo-ai.example.com

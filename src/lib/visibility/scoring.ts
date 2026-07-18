@@ -5,7 +5,8 @@ import type { SubScore } from "./types";
  * V2.3: composite scoring. Weights + bands are the source of truth from
  * `inspiration-code/docs/scoring-methodology.md` (composite 27-33, bands 53-59)
  * and `agents/geo-ai-visibility.md` Step 7 (AI-visibility sub-composite).
- * Missing (null) sub-scores count as 0 so partial audits still produce a score.
+ * Missing analyzers are excluded and measured weights are normalized. A
+ * provider failure must never masquerade as a measured score of zero.
  */
 
 export const COMPOSITE_WEIGHTS: Record<SubScore["key"], number> = {
@@ -27,13 +28,18 @@ export interface Composite {
 export function computeComposite(subScores: SubScore[]): Composite {
   const map = new Map(subScores.map((s) => [s.key, s.score]));
   let overall = 0;
+  let measuredWeight = 0;
   const notMeasured: SubScore["key"][] = [];
   for (const key of Object.keys(COMPOSITE_WEIGHTS) as SubScore["key"][]) {
     const score = map.get(key);
-    if (score == null) notMeasured.push(key);
-    overall += COMPOSITE_WEIGHTS[key] * (score ?? 0);
+    if (score == null) {
+      notMeasured.push(key);
+      continue;
+    }
+    measuredWeight += COMPOSITE_WEIGHTS[key];
+    overall += COMPOSITE_WEIGHTS[key] * score;
   }
-  const rounded = Math.round(overall);
+  const rounded = measuredWeight > 0 ? Math.round(overall / measuredWeight) : 0;
   return { overall: rounded, band: scoreBand(rounded), notMeasured };
 }
 

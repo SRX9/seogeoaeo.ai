@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   auditPages,
+  auditAnalyzerRuns,
   audits,
   brandSignals,
   platformScores,
@@ -13,6 +14,7 @@ import { analyzePageCitability } from "@/lib/visibility/citability";
 import { analyzeFreshness } from "@/lib/visibility/content";
 import { analyzeCrawlerAccess } from "@/lib/visibility/crawler-access";
 import { logError } from "@/lib/logging/logger";
+import { classifyExecutionError } from "@/lib/agent/execution";
 import { fetchPage } from "@/lib/visibility/fetch-page";
 import { analyzeLlmsTxt, fetchLlmsTxt } from "@/lib/visibility/llms";
 import { analyzePlatforms } from "@/lib/visibility/platforms";
@@ -30,7 +32,7 @@ import type {
   RobotsResult,
 } from "@/lib/visibility/types";
 import { SCORER_VERSION } from "@/lib/visibility/version";
-import { analyzers } from "./analyzers";
+import { ANALYZER_SET_VERSION, analyzers } from "./analyzers";
 
 /**
  * V0.3: audit orchestrator: Discovery → Analysis → Synthesis, mirroring the
@@ -184,8 +186,26 @@ export async function createAudit(
   siteUrl: string,
   kind: AuditKind = "owned",
   brandId?: string | null,
+  auditId?: string,
 ): Promise<string> {
   const db = getDb();
+  if (auditId) {
+    const existing = await db.query.audits.findFirst({
+      where: eq(audits.id, auditId),
+      columns: { id: true, workspaceId: true, brandId: true, siteUrl: true, kind: true },
+    });
+    if (existing) {
+      if (
+        existing.workspaceId !== workspaceId ||
+        existing.siteUrl !== siteUrl ||
+        existing.kind !== kind ||
+        existing.brandId !== (brandId ?? null)
+      ) {
+        throw new Error("Stable audit identity belongs to different work");
+      }
+      return existing.id;
+    }
+  }
   const previous = await db.query.audits.findFirst({
     where: (table, { and, eq: eqOp }) =>
       and(eqOp(table.workspaceId, workspaceId), eqOp(table.siteUrl, siteUrl)),
@@ -195,14 +215,24 @@ export async function createAudit(
   const [row] = await db
     .insert(audits)
     .values({
+      ...(auditId ? { id: auditId } : {}),
       workspaceId,
       siteUrl,
       kind,
       brandId: brandId ?? null,
       runVersion: (previous?.runVersion ?? 0) + 1,
     })
+    .onConflictDoNothing({ target: audits.id })
     .returning({ id: audits.id });
-  return row.id;
+  if (row) return row.id;
+  if (auditId) {
+    const raced = await db.query.audits.findFirst({
+      where: eq(audits.id, auditId),
+      columns: { id: true },
+    });
+    if (raced) return raced.id;
+  }
+  throw new Error("Audit record could not be created");
 }
 
 /** Remove an audit row that never started (e.g. the credit charge failed). */
@@ -216,7 +246,11 @@ export async function deleteAudit(auditId: string): Promise<void> {
  * row. Returns `true` only when the audit completed, so callers can charge credits
  * for successful work and skip charging for failures.
  */
-export async function executeAudit(auditId: string, siteUrl: string): Promise<boolean> {
+export async function executeAudit(
+  auditId: string,
+  siteUrl: string,
+  options: { throwOnTransient?: boolean } = {},
+): Promise<boolean> {
   const db = getDb();
   const auditRow = await db.query.audits.findFirst({
     where: eq(audits.id, auditId),
@@ -231,7 +265,7 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
   // retry after a mid-run kill must not accumulate duplicate detail rows.
   // wipe partials and start clean. (Findings are already deduped downstream by
   // persistNewFindings.)
-  if (auditRow?.status === "complete") return true;
+  if (auditRow?.status === "complete" || auditRow?.status === "partial") return true;
   if (auditRow?.status === "failed") return false;
   await Promise.all([
     db.delete(auditPages).where(eq(auditPages.auditId, auditId)),
@@ -311,25 +345,113 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     // ── Analysis (parallel, mirrors the 6 subagents) ─────────────────────
     // PageSpeed runs a full Lighthouse pass (~10-30s): start it alongside
     // the analyzers so it never adds wall-clock time to the audit.
-    const [analyzerResults, psi] = await Promise.all([
-      Promise.all(
-        analyzers.map((run) =>
-          run({ homepage, pages, robots, llms, businessType: businessType.type, brand, platforms, render }),
-        ),
-      ) as Promise<AnalyzerResult[]>,
+    const analyzerInput = {
+      homepage,
+      pages,
+      robots,
+      llms,
+      businessType: businessType.type,
+      brand,
+      platforms,
+      render,
+    };
+    const [analyzerSettled, psi] = await Promise.all([
+      Promise.allSettled(
+        analyzers.map(async (definition) => {
+          const startedAt = Date.now();
+          await db
+            .insert(auditAnalyzerRuns)
+            .values({
+              auditId,
+              analyzerKey: definition.key,
+              analyzerVersion: definition.version,
+              required: definition.required,
+              status: "running",
+            })
+            .onConflictDoUpdate({
+              target: [
+                auditAnalyzerRuns.auditId,
+                auditAnalyzerRuns.analyzerKey,
+                auditAnalyzerRuns.analyzerVersion,
+              ],
+              set: {
+                status: "running",
+                errorClass: null,
+                error: null,
+                completedAt: null,
+                updatedAt: new Date(),
+              },
+            });
+          try {
+            const result = await definition.run(analyzerInput);
+            await db
+              .update(auditAnalyzerRuns)
+              .set({
+                status: "completed",
+                durationMs: Date.now() - startedAt,
+                completedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(auditAnalyzerRuns.auditId, auditId),
+                  eq(auditAnalyzerRuns.analyzerKey, definition.key),
+                  eq(auditAnalyzerRuns.analyzerVersion, definition.version),
+                ),
+              );
+            return result;
+          } catch (error) {
+            await db
+              .update(auditAnalyzerRuns)
+              .set({
+                status: "failed",
+                durationMs: Date.now() - startedAt,
+                errorClass: error instanceof Error ? error.name : "unknown",
+                error: (error instanceof Error ? error.message : String(error)).slice(0, 2_000),
+                completedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(auditAnalyzerRuns.auditId, auditId),
+                  eq(auditAnalyzerRuns.analyzerKey, definition.key),
+                  eq(auditAnalyzerRuns.analyzerVersion, definition.version),
+                ),
+              );
+            throw error;
+          }
+        }),
+      ),
       isPsiConfigured() ? fetchPageSpeed(homepage.url) : Promise.resolve(null),
     ]);
 
+    const analyzerResults = analyzerSettled.map((settled, index): AnalyzerResult => {
+      const definition = analyzers[index]!;
+      return settled.status === "fulfilled"
+        ? settled.value
+        : { subScore: { key: definition.key, score: null }, findings: [] };
+    });
+    const failedAnalyzers = analyzerSettled.flatMap((settled, index) => {
+      const definition = analyzers[index]!;
+      return settled.status === "rejected" ? [definition.key] : [];
+    });
+
     // ── Synthesis ────────────────────────────────────────────────────────
-    // Missing analyzers count as 0 so partial audits still yield a composite.
+    // Missing analyzers stay unmeasured; the composite normalizes the weights
+    // of successful analyzers instead of turning infrastructure failure into 0.
     const composite = computeComposite(analyzerResults.map((r) => r.subScore));
     const subScores = new Map(analyzerResults.map((r) => [r.subScore.key, r.subScore.score]));
-    const aiVisibility = computeAiVisibility({
-      citability: subScores.get("citability") ?? 0,
-      brand: subScores.get("brand") ?? 0,
-      crawler: crawlerScore,
-      llmstxt: analyzeLlmsTxt(llms).score,
-    });
+    const citabilityScore = subScores.get("citability");
+    const brandScore = subScores.get("brand");
+    const aiVisibility =
+      citabilityScore != null && brandScore != null
+        ? computeAiVisibility({
+            citability: citabilityScore,
+            brand: brandScore,
+            crawler: crawlerScore,
+            llmstxt: analyzeLlmsTxt(llms).score,
+          })
+        : null;
 
     const findings = analyzerResults.flatMap((r) => r.findings);
 
@@ -402,7 +524,9 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     await db
       .update(audits)
       .set({
-        status: "complete",
+        status: failedAnalyzers.length > 0 ? "partial" : "complete",
+        completeness: failedAnalyzers.length > 0 ? "partial" : "complete",
+        analyzerSetVersion: ANALYZER_SET_VERSION,
         overallScore: composite.overall,
         aiVisibilityScore: aiVisibility,
         citabilityScore: subScores.get("citability") ?? null,
@@ -412,12 +536,17 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
         schemaScore: subScores.get("schema") ?? null,
         platformScore: subScores.get("platform") ?? null,
         siteHealth,
+        error: failedAnalyzers.length > 0
+          ? `Partial audit: ${failedAnalyzers.join(", ")} analyzer(s) failed.`
+          : null,
         scorerVersion: SCORER_VERSION,
         completedAt: new Date(),
       })
       .where(eq(audits.id, auditId));
     return true;
   } catch (error) {
+    const classified = classifyExecutionError(error);
+    const retryable = options.throwOnTransient === true && classified.retryable;
     // Server-side signal for ops dashboards: the failed row alone is silent.
     logError("visibility.audit_failed", {
       auditId,
@@ -427,11 +556,12 @@ export async function executeAudit(auditId: string, siteUrl: string): Promise<bo
     await db
       .update(audits)
       .set({
-        status: "failed",
-        error: error instanceof Error ? error.message : String(error),
-        completedAt: new Date(),
+        status: retryable ? "running" : "failed",
+        error: classified.message,
+        completedAt: retryable ? null : new Date(),
       })
       .where(eq(audits.id, auditId));
+    if (retryable) throw error;
     return false;
   }
 }

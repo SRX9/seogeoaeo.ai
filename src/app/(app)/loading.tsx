@@ -1,33 +1,38 @@
-function Bar({ className }: { className: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-2xl bg-default/70 ${className}`}
-    />
-  );
-}
+import { Card, Skeleton } from "@heroui/react";
 
 export default function AppLoading() {
   return (
     <div
-      className="min-h-dvh w-full px-4 py-8 sm:px-6 lg:px-8"
+      className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4"
       aria-busy="true"
-      aria-label="Loading"
+      aria-label="Loading workspace"
     >
-      <div className="mx-auto w-full max-w-5xl space-y-9">
-        <div className="space-y-2.5">
-          <Bar className="h-7 w-40" />
-          <Bar className="h-4 w-64 max-w-full" />
-        </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Bar key={index} className="h-24" />
-          ))}
-        </div>
-        <Bar className="h-40" />
-        <div className="space-y-2.5">
-          <Bar className="h-16" />
-          <Bar className="h-16" />
-        </div>
+      <div className="space-y-3">
+        <Skeleton className="h-9 w-52 rounded-xl" />
+        <Skeleton className="h-5 w-full max-w-md rounded-lg" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Card key={index}>
+            <Card.Content className="gap-4">
+              <Skeleton className="h-4 w-24 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-3 w-32 max-w-full rounded-lg" />
+            </Card.Content>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <Card.Content className="gap-4">
+          <Skeleton className="h-5 w-40 rounded-lg" />
+          <Skeleton className="h-4 w-full rounded-lg" />
+          <Skeleton className="h-4 w-5/6 rounded-lg" />
+          <Skeleton className="h-4 w-2/3 rounded-lg" />
+        </Card.Content>
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
       </div>
     </div>
   );

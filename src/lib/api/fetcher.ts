@@ -36,7 +36,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
       credentials: "same-origin",
     });
-  } catch {
+  } catch (error) {
+    // Preserve abort semantics so TanStack Query can cancel superseded
+    // navigations without recording a transport failure in the cache.
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
     // Network / CORS / offline failures throw a raw browser error ("Failed to
     // fetch"). Normalize to a friendly, non-user-facing ApiError.
     throw new ApiError(GENERIC_ERROR_MESSAGE, 0);
@@ -78,7 +83,13 @@ function safeJson(raw: string): unknown {
   }
 }
 
-export const apiGet = <T>(path: string) => request<T>(path);
+/**
+ * GETs deliberately bypass the browser HTTP cache: TanStack Query is the
+ * authoritative, mutation-aware cache. This prevents a query invalidation
+ * from being answered with an older opaque browser response.
+ */
+export const apiGet = <T>(path: string, init?: Omit<RequestInit, "method" | "body">) =>
+  request<T>(path, { ...init, method: "GET", cache: init?.cache ?? "no-store" });
 
 export const apiPost = <T>(path: string, body?: unknown, init?: Omit<RequestInit, "method" | "body">) =>
   request<T>(path, {

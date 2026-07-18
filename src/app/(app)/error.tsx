@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import { useEffect } from "react";
+import posthog from "posthog-js";
 import { logError } from "@/lib/logging/logger";
 
 type ErrorPageProps = {
@@ -15,22 +16,25 @@ export default function AppError({ error, reset }: ErrorPageProps) {
       message: error.message,
       digest: error.digest,
     });
+    posthog.captureException(error);
   }, [error]);
 
   return (
     <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center px-6 text-center">
-      <div className="material-panel w-full space-y-4 rounded-2xl p-8">
-        <h1 className="type-title text-2xl text-foreground">Something went wrong</h1>
-        <p className="text-sm leading-relaxed text-muted">
-          An unexpected error occurred in the dashboard. You can retry or return to the overview.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3 pt-2">
+      <Card className="w-full">
+        <Card.Header className="items-center text-center">
+          <Card.Title>Something went wrong</Card.Title>
+          <Card.Description className="max-w-sm text-pretty">
+            We couldn&apos;t load this page. Try again or return to your dashboard.
+          </Card.Description>
+        </Card.Header>
+        <Card.Footer className="flex-wrap justify-center gap-2">
           <Button onPress={reset}>Try again</Button>
-          <Button variant="secondary" onPress={() => window.location.assign("/dashboard")}>
+          <Button variant="outline" onPress={() => window.location.assign("/dashboard")}>
             Go to dashboard
           </Button>
-        </div>
-      </div>
+        </Card.Footer>
+      </Card>
     </div>
   );
 }

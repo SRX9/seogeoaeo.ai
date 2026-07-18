@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Label, TextArea, toast } from "@heroui/react";
+import { Form, Input, Label, TextArea, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -47,7 +47,7 @@ export function BrandProfileForm({ initial }: BrandProfileFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <Form aria-label="Brand profile" onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
         <Label htmlFor="productDescription">Product description</Label>
         <TextArea
@@ -116,6 +116,6 @@ export function BrandProfileForm({ initial }: BrandProfileFormProps) {
       <LoadingButton type="submit" isPending={save.isPending} pendingLabel="Saving…">
         Save brand profile
       </LoadingButton>
-    </form>
+    </Form>
   );
 }

@@ -8,6 +8,7 @@ import {
 } from "@/lib/billing/credits";
 import { getBillingContext, getRequestOrigin } from "@/lib/billing/access";
 import { getStripe } from "@/lib/billing/stripe";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 type CheckoutBody = {
   planId?: PlanId;
@@ -55,8 +56,8 @@ export async function POST(request: Request) {
             `${origin}/onboarding?checkout=canceled`,
           ]
         : [
-            `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-            `${origin}/account?tab=billing&checkout=canceled`,
+            `${origin}/settings?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+            `${origin}/settings?tab=billing&checkout=canceled`,
           ];
 
     let params: Stripe.Checkout.SessionCreateParams;
@@ -136,6 +137,12 @@ export async function POST(request: Request) {
     if (!checkoutSession.url) {
       return NextResponse.json({ error: "Checkout URL missing" }, { status: 500 });
     }
+
+    await captureServerEvent(session.user.id, "checkout_started", {
+      checkout_type: packId ? "credit_pack" : "subscription",
+      item_id: packId ?? planId,
+      return_to: returnTo ?? "billing",
+    });
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {

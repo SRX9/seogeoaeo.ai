@@ -3,17 +3,19 @@
 import { useParams } from "next/navigation";
 import { ArticleEditor } from "@/components/articles/article-editor";
 import { PageError, PageLoader } from "@/components/feedback/states";
+import { useArticle, useIntegrations, useMe, useTopics } from "@/lib/api/queries";
 import { isActiveSubscription } from "@/lib/billing/plans";
-import { useArticle, useMe } from "@/lib/api/queries";
 
 export default function ArticlePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const me = useMe();
   const { data, isLoading, error, refetch, isPlaceholderData } = useArticle(id);
+  const topics = useTopics();
+  const integrations = useIntegrations();
 
-  // keepPreviousData keeps the prior article visible while the next loads: treat
-  // that as loading so we never mount the editor with A under B's route id.
+  // keepPreviousData keeps the prior article visible while the next loads. Do
+  // not mount that prior record under a new article route.
   if (isLoading || isPlaceholderData || me.isLoading) {
     return <PageLoader label="Loading article…" />;
   }
@@ -22,22 +24,24 @@ export default function ArticlePage() {
   }
 
   const canPublish = isActiveSubscription(me.data?.subscription?.status);
+  const topic = topics.data?.topics.find((item) => item.id === data.article.topicId) ?? null;
+  const publishingDestinations =
+    integrations.data?.integrations.filter(
+      (integration) =>
+        integration.enabled &&
+        (integration.publishMode === "article" ||
+          integration.publishMode === "webhook" ||
+          integration.publishMode === "export"),
+    ) ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-10">
-      <div>
-        <h1 className="type-title text-2xl text-foreground">Edit article</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">
-          Edit the content and SEO fields, then save as a draft or approve &amp; publish.
-        </p>
-      </div>
-      {/* key forces a full remount when navigating A → B on the same dynamic route */}
-      <ArticleEditor
-        key={data.article.id}
-        article={data.article}
-        canPublish={canPublish}
-        publications={data.publications}
-      />
-    </div>
+    <ArticleEditor
+      key={data.article.id}
+      article={data.article}
+      canPublish={canPublish}
+      integrations={publishingDestinations}
+      publications={data.publications}
+      topic={topic}
+    />
   );
 }

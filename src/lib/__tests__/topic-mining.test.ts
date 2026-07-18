@@ -114,13 +114,22 @@ describe("unified backlog scoring (heuristic path)", () => {
     );
     const confirmed = await scoreFindings(
       [
-        finding({ title: "Invoice reminders guide", sourceType: "keyword_api" }),
-        finding({ title: "Invoice Reminders Guide", sourceType: "web_search" }),
+        finding({
+          title: "Invoice reminders guide",
+          sourceType: "keyword_api",
+          evidenceUrls: ["https://keywords.example/invoice-reminders"],
+        }),
+        finding({
+          title: "Invoice Reminders Guide",
+          sourceType: "web_search",
+          evidenceUrls: ["https://search.example/invoice-reminders"],
+        }),
       ],
       makeContext(),
     );
 
     expect(confirmed.topics).toHaveLength(1);
     expect(confirmed.topics[0].score).toBeGreaterThan(single.topics[0].score);
+    expect(confirmed.topics[0].evidenceSources).toHaveLength(2);
   });
 });

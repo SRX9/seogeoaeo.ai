@@ -1,1 +1,0 @@
-ALTER TABLE "audits" ADD COLUMN "ai_visibility_score" real;

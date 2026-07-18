@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getBillingContext } from "@/lib/billing/access";
 import { getStripe } from "@/lib/billing/stripe";
 import { applyCompletedCheckoutSession } from "@/lib/billing/webhook";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * Confirm a Checkout Session straight from the browser's return redirect
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
     }
 
-    const { workspace } = await getBillingContext();
+    const { workspace, session } = await getBillingContext();
     const checkoutSession = await getStripe().checkout.sessions.retrieve(sessionId);
 
     // Only the workspace that started the checkout may confirm it.
@@ -31,6 +32,11 @@ export async function POST(request: Request) {
     }
 
     const result = await applyCompletedCheckoutSession(checkoutSession);
+    if (result.handled) {
+      await captureServerEvent(session.user.id, "checkout_confirmed", {
+        checkout_type: checkoutSession.metadata?.type === "topup" ? "credit_pack" : "subscription",
+      });
+    }
     return NextResponse.json({ activated: result.handled });
   } catch (error) {
     console.error("checkout confirm error", error);

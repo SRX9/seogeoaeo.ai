@@ -41,10 +41,14 @@ export interface AnalyzerInput {
 }
 
 export type Analyzer = (input: AnalyzerInput) => Promise<AnalyzerResult>;
+export type AnalyzerDefinition = {
+  key: SubScore["key"];
+  version: string;
+  required: boolean;
+  run: Analyzer;
+};
 
-function stub(key: SubScore["key"]): Analyzer {
-  return async () => ({ subScore: { key, score: null }, findings: [] });
-}
+export const ANALYZER_SET_VERSION = "visibility-analyzers-v1";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const WEAK_BLOCK = 60;
@@ -210,11 +214,11 @@ const platformAnalyzer: Analyzer = async ({ platforms }) => ({
   findings: platforms.findings,
 });
 
-export const analyzers: Analyzer[] = [
-  citabilityAnalyzer, // V2.1
-  brandAnalyzer, // V5.1
-  eeatAnalyzer, // V4.x
-  technicalAnalyzer, // V2.2
-  schemaAnalyzer, // V3.x
-  platformAnalyzer, // V5.2
+export const analyzers: AnalyzerDefinition[] = [
+  { key: "citability", version: "2.1", required: true, run: citabilityAnalyzer },
+  { key: "brand", version: "5.1", required: true, run: brandAnalyzer },
+  { key: "eeat", version: "4.1", required: true, run: eeatAnalyzer },
+  { key: "technical", version: "2.2", required: true, run: technicalAnalyzer },
+  { key: "schema", version: "3.1", required: true, run: schemaAnalyzer },
+  { key: "platform", version: "5.2", required: true, run: platformAnalyzer },
 ];

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  jsonb,
   pgTable,
   real,
   text,
@@ -219,11 +220,18 @@ export const articles = pgTable(
     // C3 gate results (JSON array of { gate, passed, detail }): shown in the
     // editor; a failing set means the draft was flagged for human review.
     gateResultsJson: text("gate_results_json"),
+    /** Trusted memory used for this exact generated version; cleared on owner edits. */
+    memoryEvidenceRefs: jsonb("memory_evidence_refs").$type<string[]>().notNull().default([]),
+    memoryEvidenceVersion: integer("memory_evidence_version"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index("articles_brand_id_idx").on(table.brandId),
+    index("articles_grounding_search_idx").using(
+      "gin",
+      sql`to_tsvector('english', coalesce(${table.title}, '') || ' ' || coalesce(${table.tags}, '') || ' ' || coalesce(${table.bodyMarkdown}, ''))`,
+    ),
     // One article per topic: prevents concurrent generate races from double-writing.
     uniqueIndex("articles_topic_id_unique_idx")
       .on(table.topicId)

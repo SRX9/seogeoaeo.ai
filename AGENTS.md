@@ -18,9 +18,17 @@ Postgres. v1 is complete on `main` per `docs/v1-implementation-phases.md`.
 | Test | `pnpm test` |
 | Build | `pnpm build` |
 | Cloudflare build | `pnpm build:cf` |
-| DB migrate | `pnpm db:migrate` |
+| DB schema sync | `pnpm db:push` (push-based; deploy diffs `src/lib/db/schema` against the live DB) |
 
 Do not start the local dev server unless the user explicitly asks for it.
+
+## UI design rules
+
+These are hard requirements for every new or modified interface:
+
+- Never use pills, chips, badges, or pill-shaped text containers. Render status and metadata as plain text, using semantic text color for emphasis. Reserve circular geometry for genuinely circular elements such as avatars, progress rings, and small status marks.
+- Use the free Hugeicons stroke packages for interface icons: `@hugeicons/react` with `@hugeicons/core-free-icons`. Do not add custom inline SVG icons, emojis, sparkles, stars, magic wands, or other AI-cliche iconography. Choose a literal, task-specific icon and inherit color through `currentColor`.
+- Never use a HeroUI Button variant containing `soft`, including destructive soft variants. Use the appropriate primary, secondary, outline, ghost, or danger treatment instead.
 
 ## Services
 
@@ -30,6 +38,23 @@ Do not start the local dev server unless the user explicitly asks for it.
 | PlanetScale Postgres | For DB features | Set `DATABASE_URL` in `.env` |
 | HeroUI Pro | For Pro UI components | Set `HEROUI_AUTH_TOKEN` in CI; run `pnpm rebuild @heroui-pro/react` after install if types are missing |
 | Cloudflare Workers | For production deploy | `pnpm deploy:cf` after wrangler auth |
+
+## Logging (PostHog)
+
+Production logs go: structured `console` JSON → Cloudflare Workers Observability →
+PostHog (`posthog-logs` destination). App code uses `logInfo` / `logWarn` /
+`logError` from `@/lib/logging/logger`; agent workflows use
+`workers/agent/src/logger.ts`.
+
+One-time Cloudflare setup:
+
+1. Workers Observability → Destinations → add Logs destination named `posthog-logs`
+2. Endpoint `https://us.i.posthog.com/i/v1/logs` (or EU host)
+3. Header `Authorization: Bearer phc_...`
+4. Redeploy app + agent workers
+
+Local: set `POSTHOG_PROJECT_TOKEN` (and optional `POSTHOG_HOST`) in `.env` to
+also ship OTLP logs while running `pnpm dev`.
 
 ## Cursor Cloud specific instructions
 

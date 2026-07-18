@@ -1,4 +1,5 @@
 import { DEFAULT_HEADERS } from "./fetch-page";
+import { safePublicFetch } from "./egress";
 import type { PageSnapshot } from "./types";
 
 /**
@@ -28,10 +29,11 @@ async function probeImage(
   fetchImpl: typeof fetch,
 ): Promise<{ reachable: boolean; contentType: string | null }> {
   try {
-    const res = await fetchImpl(url, {
-      headers: DEFAULT_HEADERS,
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    });
+    const res = await safePublicFetch(
+      url,
+      { headers: DEFAULT_HEADERS, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) },
+      { fetchImpl, sameSiteWith: url, maxBytes: 64 * 1024, discardBody: true },
+    );
     const contentType = res.headers.get("content-type");
     return { reachable: res.status === 200 && looksLikeImage(contentType, url), contentType };
   } catch {

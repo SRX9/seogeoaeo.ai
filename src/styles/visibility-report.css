@@ -1,5 +1,5 @@
 /* V6.2: visibility report print stylesheet. Navy/coral palette + score-band
-   color rules (green 80+ / blue 60-79 / amber 40-59 / red <40), mirroring
+   color rules (green 80+ / blue 60-79 / violet 40-59 / red <40), mirroring
    templates/geo-report-style.css. Shared by the PDF renderer and print view. */
 
 :root {
@@ -7,7 +7,7 @@
   --report-coral: #ff6b57;
   --score-excellent: #16a34a;
   --score-good: #2563eb;
-  --score-fair: #d97706;
+  --score-fair: #7c3aed;
   --score-poor: #dc2626;
   --report-border: #e2e8f0;
 }

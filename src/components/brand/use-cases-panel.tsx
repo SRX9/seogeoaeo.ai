@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Input, Label, Switch, toast } from "@heroui/react";
+import { Card, Form, Input, Label, Switch, toast } from "@heroui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -100,7 +100,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
   }
 
   return (
-    <Card className="material-panel">
+    <Card>
       <Card.Header>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -170,7 +170,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
           </ul>
         )}
 
-        <form onSubmit={handleAdd} className="space-y-3 border-t border-border/50 pt-4">
+        <Form aria-label="Add buyer profile" onSubmit={handleAdd} className="space-y-3 border-t border-separator pt-4">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="uc-job">Need or situation</Label>
@@ -188,7 +188,7 @@ export function UseCasesPanel({ useCases }: UseCasesPanelProps) {
           <LoadingButton type="submit" variant="secondary" isPending={add.isPending} pendingLabel="Adding...">
             Add profile
           </LoadingButton>
-        </form>
+        </Form>
       </Card.Content>
     </Card>
   );

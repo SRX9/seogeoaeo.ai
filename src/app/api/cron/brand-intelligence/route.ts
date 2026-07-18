@@ -6,6 +6,7 @@ import {
   refreshBrandIntelligence,
 } from "@/lib/brand/intelligence";
 import { logError, logInfo } from "@/lib/logging/logger";
+import { getAgentSafetyDecision } from "@/lib/agent/safety";
 
 const CONCURRENCY = 5;
 
@@ -13,6 +14,10 @@ const CONCURRENCY = 5;
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const safety = getAgentSafetyDecision("observation", { actor: "agent" });
+  if (!safety.allowed) {
+    return NextResponse.json({ ok: true, disabled: true, reason: safety.reason });
   }
   if (!isBrandIntelligenceConfigured()) {
     return NextResponse.json({ ok: true, skipped: "CONTEXT_DEV_API_KEY is not configured" });

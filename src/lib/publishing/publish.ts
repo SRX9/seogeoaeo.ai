@@ -1,9 +1,17 @@
 import { parseTags } from "@/lib/articles/format";
-import { recordAgentAction } from "@/lib/agent/events";
+import {
+  recordAgentAction,
+  validateAgentApprovalForExecution,
+} from "@/lib/agent/events";
 import { getAgentControlState } from "@/lib/agent/memory";
+import { validateMemoryEvidenceRefsAtExecution } from "@/lib/agent/layered-memory";
 import { authorizeAction } from "@/lib/agent/policy";
+import { DEFAULT_ACTION_POLICY_VERSION } from "@/lib/agent/proposal";
+import { assertAgentOperationAllowed } from "@/lib/agent/safety";
 import { getArticle } from "@/lib/articles/repository";
 import { getBrand, type BrandScope } from "@/lib/brand/repository";
+import { assertFreshAutomaticPublicationGate } from "@/lib/grounding/service";
+import { hashFinalPublicationContent } from "@/lib/grounding/publication-gate";
 import { getRequestOrigin } from "@/lib/billing/access";
 import { incrementArticlesPublished } from "@/lib/jobs/repository";
 import { logError, logWarn } from "@/lib/logging/logger";
@@ -21,24 +29,6 @@ export type DestinationPublishResult = {
   provider: IntegrationProviderId;
   result: PublishResult;
 };
-
-/**
- * Stable fingerprint of the fields we actually send to a destination. Used to
- * detect whether anything changed since the last successful publish so we can
- * skip a no-op re-publish. Web Crypto keeps this runtime-agnostic (Node + the
- * Cloudflare Workers runtime the app deploys to).
- */
-async function contentFingerprint(article: PublishArticle): Promise<string> {
-  const payload = JSON.stringify([
-    article.title,
-    article.slug,
-    article.metaDescription ?? "",
-    article.tags,
-    article.bodyMarkdown,
-  ]);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 function toPublishArticle(article: {
   id: string;
@@ -99,32 +89,81 @@ async function publishToDestination(
   }
 
   const existing = await getPublication(scope.brandId, article.id, provider);
-  if (authority.actor === "agent" && authority.publishingPaused) {
+  const liveControls =
+    authority.actor === "agent" ? await getAgentControlState(scope.brandId) : null;
+  if (
+    authority.actor === "agent" &&
+    (liveControls?.paused || liveControls?.publishingPaused || authority.publishingPaused)
+  ) {
     return {
       provider,
       result: {
         ok: false,
-        error: authority.publishingPauseInstruction ?? "Publishing is paused by the owner.",
+        error:
+          liveControls?.pauseInstruction ??
+          liveControls?.publishingPauseInstruction ??
+          authority.publishingPauseInstruction ??
+          "Publishing is paused by the owner.",
       } satisfies PublishResult,
     };
   }
   const capability = existing?.externalId ? "article.update" : "article.create";
+  const actionType = existing?.externalId ? "update article" : "publish article";
+  const resourceRef = `${provider}:article:${article.id}`;
+  const beforeState = existing
+    ? {
+        externalId: existing.externalId,
+        externalUrl: existing.externalUrl,
+        publishedHash: existing.publishedHash,
+      }
+    : null;
+  const afterState = {
+    title: article.title,
+    slug: article.slug,
+    metaDescription: article.metaDescription,
+    contentFingerprint: fingerprint,
+  };
+  const approvalValidation =
+    authority.actor === "agent" && authority.approvalId
+      ? await validateAgentApprovalForExecution(scope, authority.approvalId, {
+          actionType,
+          capability,
+          resourceRef,
+          beforeState,
+          afterState,
+          destination: provider,
+          policyVersion: DEFAULT_ACTION_POLICY_VERSION,
+        })
+      : null;
+  // Refresh at the executor boundary so revocation affects workflows that were
+  // already running when the owner changed authority.
   const authorityResult = authorizeAction({
     mode: authority.autonomyMode,
     capability,
     availableCapabilities: integration.capabilities,
     riskLevel: "low",
     resourceRef: `${provider}:article:${article.slug}`,
-    ownerConstraints: authority.ownerConstraints,
-    grantedCapabilities: authority.grantedCapabilities,
+    destination: provider,
+    ownerConstraints: liveControls?.ownerConstraints ?? authority.ownerConstraints,
+    grantedCapabilities: liveControls?.grantedCapabilities ?? authority.grantedCapabilities,
+    canonicalPolicies: liveControls?.canonicalPolicies ?? [],
+    approvalValidated: approvalValidation?.valid === true,
   });
   if (
     authorityResult.decision === "deny" ||
-    (authority.actor === "agent" && authorityResult.decision === "require_approval")
+    (authority.actor === "agent" &&
+      authorityResult.decision === "require_approval" &&
+      approvalValidation?.valid !== true)
   ) {
     return {
       provider,
-      result: { ok: false, error: authorityResult.reason } satisfies PublishResult,
+      result: {
+        ok: false,
+        error:
+          approvalValidation?.valid === false
+            ? approvalValidation.reason
+            : authorityResult.reason,
+      } satisfies PublishResult,
     };
   }
 
@@ -132,23 +171,14 @@ async function publishToDestination(
     try {
       await recordAgentAction(scope, {
         taskId: authority.taskId,
-        approvalId: authority.approvalId,
-        actionType: existing?.externalId ? "update article" : "publish article",
-        resourceRef: `${provider}:article:${article.id}`,
+        approvalId: approvalValidation?.valid === true ? authority.approvalId : null,
+        actionType,
+        resourceRef,
         capability,
         idempotencyKey: `publish:${provider}:${article.id}:${fingerprint}`,
-        beforeState: existing
-          ? {
-              externalId: existing.externalId,
-              externalUrl: existing.externalUrl,
-              publishedHash: existing.publishedHash,
-            }
-          : null,
+        beforeState,
         appliedChange: {
-          title: article.title,
-          slug: article.slug,
-          metaDescription: article.metaDescription,
-          contentFingerprint: fingerprint,
+          ...afterState,
           authority: {
             actor: authority.actor,
             mode: authority.autonomyMode,
@@ -191,10 +221,39 @@ async function publishToDestination(
     };
   }
 
+  // A prior executor reached the remote-call boundary but did not persist a
+  // definitive result. Without provider read-back (Phase 6), retrying could
+  // create a duplicate. Keep the item operator-visible and fail closed.
+  if (existing?.status === "pending") {
+    return {
+      provider,
+      result: {
+        ok: false,
+        error:
+          existing.errorMessage ??
+          "Previous publish delivery is uncertain; verify the destination before retrying.",
+      } satisfies PublishResult,
+    };
+  }
+
   const attemptCount = (existing?.attemptCount ?? 0) + 1;
+  const wasPublished = existing?.status === "published";
+  // Persist the stable destination work record before crossing the remote
+  // boundary. A process/response loss leaves `pending`, which prevents an
+  // automatic duplicate on Workflow retry.
+  await upsertPublication(scope, article.id, provider, {
+    status: "pending",
+    externalUrl: existing?.externalUrl ?? null,
+    externalId: existing?.externalId ?? null,
+    errorMessage: "Remote delivery started; verification is pending.",
+    attemptCount,
+    publishedAt: existing?.publishedAt ?? null,
+    publishedHash: existing?.publishedHash ?? null,
+  });
   const secrets = await readIntegrationSecrets(scope.brandId, provider);
 
   let result: PublishResult;
+  let deliveryUncertain = false;
   try {
     result = await adapter.publish(article, {
       workspaceId: scope.workspaceId,
@@ -207,10 +266,15 @@ async function publishToDestination(
     });
   } catch (error) {
     // Adapters should return { ok: false }, but never let one throw abort siblings.
+    deliveryUncertain = true;
     result = {
       ok: false,
       error: error instanceof Error ? error.message : "Publishing adapter failed unexpectedly",
     };
+  }
+
+  if (!result.ok && /request failed:/i.test(result.error ?? "")) {
+    deliveryUncertain = true;
   }
 
   if (result.ok) {
@@ -225,9 +289,21 @@ async function publishToDestination(
     });
     await recordPublicationAction(result.externalUrl ?? result.externalId);
   } else {
+    if (deliveryUncertain) {
+      await upsertPublication(scope, article.id, provider, {
+        status: "pending",
+        externalUrl: existing?.externalUrl ?? null,
+        externalId: existing?.externalId ?? null,
+        errorMessage:
+          "Remote delivery may have succeeded, but its response was lost. Verify the destination before retrying.",
+        attemptCount,
+        publishedAt: existing?.publishedAt ?? null,
+        publishedHash: existing?.publishedHash ?? null,
+      });
+      return { provider, result };
+    }
     // Never wipe a previously successful publish: the remote post is still live.
     // Only stamp the error + attempt count so the UI can show retry context.
-    const wasPublished = existing?.status === "published";
     await upsertPublication(scope, article.id, provider, {
       status: wasPublished ? "published" : "failed",
       externalUrl: existing?.externalUrl ?? null,
@@ -266,6 +342,29 @@ export async function publishArticleToDestinations(
   }
   if (!brand) throw new Error("Brand not found");
 
+  if (article.memoryEvidenceRefs.length > 0) {
+    if (article.memoryEvidenceVersion !== article.version) {
+      throw new Error(
+        "This article's memory evidence does not match its current version. Regenerate it before publishing.",
+      );
+    }
+    const memoryEvidence = await validateMemoryEvidenceRefsAtExecution(
+      scope,
+      article.memoryEvidenceRefs,
+      { consumer: "draft" },
+    );
+    if (!memoryEvidence.valid) {
+      throw new Error(
+        `This article depends on memory that is no longer current (${memoryEvidence.reason}). Regenerate it before publishing.`,
+      );
+    }
+  }
+
+  assertAgentOperationAllowed("publishing", {
+    actor: options.actor ?? "owner",
+    controls,
+  });
+
   const integrations = await listIntegrations(scope.brandId);
   const enabledProviders = integrations.flatMap((integration) => {
     if (!isIntegrationOperational(integration)) {
@@ -280,7 +379,10 @@ export async function publishArticleToDestinations(
 
   const publishArticle = toPublishArticle(article);
   const resolvedOrigin = origin ?? (await getRequestOrigin());
-  const fingerprint = await contentFingerprint(publishArticle);
+  const fingerprint = await hashFinalPublicationContent(publishArticle);
+  if ((options.actor ?? "owner") === "agent") {
+    await assertFreshAutomaticPublicationGate(scope, article, { origin: resolvedOrigin });
+  }
   const results: DestinationPublishResult[] = await Promise.all(
     enabledProviders.map((provider) =>
       publishToDestination(scope, publishArticle, provider, resolvedOrigin, fingerprint, {

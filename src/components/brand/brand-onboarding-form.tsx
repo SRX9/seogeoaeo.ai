@@ -1,24 +1,16 @@
 "use client";
 
-import {
-  Button,
-  Input,
-  Label,
-  ListBox,
-  ProgressBar,
-  Select,
-  TextArea,
-} from "@heroui/react";
+import { Alert, Button, Card, Input, Label, ListBox, Select, TextArea } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
   useSyncExternalStore,
-  type ChangeEventHandler,
 } from "react";
+import posthog from "posthog-js";
+import { ClaudiaActivationScreen } from "@/components/brand/claudia-activation-screen";
 import {
   OnboardingDiscovery,
   type DiscoveryStage,
@@ -27,49 +19,60 @@ import {
   OnboardingExitDialog,
   useOnboardingExitGuard,
 } from "@/components/brand/onboarding-exit-guard";
-import { CheckIcon, SparklesIcon, SgaLogo } from "@/components/icons";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArticlesIcon,
+  ChartBarIcon,
+  CheckIcon,
+  ClaudiaIcon,
+  GaugeIcon,
+  GlobeIcon,
+  LayersIcon,
+  SearchIcon,
+  UsersIcon,
+  XIcon,
+} from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe, type MeResponse } from "@/lib/api/queries";
-import {
-  articlesPerMonth,
-  isActiveSubscription,
-  plans,
-  type PlanId,
-} from "@/lib/billing/plans";
-import { SIGNUP_GRANT_CREDITS } from "@/lib/billing/credits";
+import { isActiveSubscription, plans, type PlanId } from "@/lib/billing/plans";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
 import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
-import type {
-  IntegrationConfigKey,
-  IntegrationProviderDefinition,
-  IntegrationProviderId,
-  IntegrationSecretKey,
-} from "@/lib/integrations/providers";
+import {
+  DEFAULT_FIRST_OUTCOME,
+  FIRST_OUTCOME_IDS,
+  type FirstOutcomeId,
+} from "@/lib/onboarding/first-outcome";
 
-type ProviderOption = IntegrationProviderDefinition;
 type Competitor = { name: string; url: string; reason?: string };
-type UseCase = { job: string; persona: string; industry: string; enabled: boolean };
+type DiscoveredUseCase = { job: string; persona: string; industry: string | null };
 
 type Fields = {
   name: string;
   website: string;
   productDescription: string;
   audience: string;
+  customerOutcomes: string;
   tone: string;
   seedKeywords: string;
   competitors: Competitor[];
-  useCases: UseCase[];
-  integrationProvider: "" | IntegrationProviderId;
-  integrationConfig: Record<string, string>;
-  integrationSecrets: Record<string, string>;
-  autonomyMode: "FULL_AUTO" | "REVIEW";
+  firstOutcome: FirstOutcomeId;
 };
 
-type BrandCreatePayload = Omit<Fields, "competitors" | "useCases"> & {
+type BrandCreatePayload = {
+  name: string;
+  website: string;
+  productDescription: string;
+  audience: string;
+  tone: string;
+  seedKeywords: string;
   competitors: Array<{ name: string; url: string }>;
   useCases: Array<{ job: string; persona: string; industry: string }>;
+  autonomyMode: "FULL_AUTO";
+  firstOutcome: FirstOutcomeId;
   resumeExisting?: boolean;
   checkoutSessionId?: string;
 };
@@ -79,57 +82,72 @@ const INITIAL_FIELDS: Fields = {
   website: "",
   productDescription: "",
   audience: "",
+  customerOutcomes: "",
   tone: "",
   seedKeywords: "",
   competitors: [],
-  useCases: [],
-  integrationProvider: "",
-  integrationConfig: {},
-  integrationSecrets: {},
-  autonomyMode: "FULL_AUTO",
+  firstOutcome: DEFAULT_FIRST_OUTCOME,
 };
 
-const MOMENTS = [
+const STEPS = [
   {
-    label: "Discover",
-    title: "Turn your site into an operating brief",
-    description: "Paste one URL. Claudia reads the positioning, audience, and market for you.",
+    title: "Where should Claudia start?",
+    description: "Share your website. Claudia will learn the rest before asking you to confirm it.",
   },
   {
-    label: "Review",
-    title: "Your first week, already planned",
-    description: "Check the useful assumptions now. Everything stays editable after setup.",
+    title: "Here is what Claudia understood",
+    description: "Correct anything important. You can change these details later in Settings.",
   },
   {
-    label: "Launch",
-    title: "Choose how Claudia works",
-    description: "Set her authority, connect publishing when useful, and choose your starting pace.",
+    title: "What should Claudia improve first?",
+    description: "Choose the first priority. Claudia will still support the other outcomes as she works.",
   },
 ] as const;
 
-const DRAFT_KEY = "claudia:onboarding-v2-draft";
-const SKIP_PROVIDER_KEY = "__skip__";
+const OUTCOMES: ReadonlyArray<{
+  id: FirstOutcomeId;
+  title: string;
+  description: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  recommended?: boolean;
+}> = [
+  {
+    id: "discovery",
+    title: "Get discovered by more customers",
+    description: "Find the strongest opportunities across search and AI answers.",
+    Icon: SearchIcon,
+    recommended: true,
+  },
+  {
+    id: "consistent_content",
+    title: "Publish useful content consistently",
+    description: "Build a steady flow of useful, brand-grounded content.",
+    Icon: ArticlesIcon,
+  },
+  {
+    id: "priority_keywords",
+    title: "Improve priority keyword performance",
+    description: "Focus first on the search themes that matter most to your business.",
+    Icon: ChartBarIcon,
+  },
+  {
+    id: "ai_answers",
+    title: "Appear more often in AI answers",
+    description: "Improve the evidence and coverage AI assistants can cite.",
+    Icon: ClaudiaIcon,
+  },
+  {
+    id: "website_health",
+    title: "Improve website search health",
+    description: "Find important access, speed, metadata, and schema issues.",
+    Icon: GaugeIcon,
+  },
+];
+
+const DRAFT_KEY = "claudia:onboarding-v3-draft";
+const LEGACY_DRAFT_KEY = "claudia:onboarding-v2-draft";
 const POPULAR_PLAN: PlanId = "startup";
 const BRAND_CREATE_TIMEOUT_MS = 30_000;
-
-const PLAN_CHOICE_COPY: Record<PlanId, { fit: string; eyebrow: string }> = {
-  indie: {
-    eyebrow: "Focused start",
-    fit: "For solo operators proving a repeatable growth channel.",
-  },
-  startup: {
-    eyebrow: "Most popular",
-    fit: "For growing teams that want consistent weekly momentum.",
-  },
-  scale: {
-    eyebrow: "Category growth",
-    fit: "For established teams ready to increase output and coverage.",
-  },
-  enterprise: {
-    eyebrow: "High-volume",
-    fit: "For large programs that need serious publishing capacity.",
-  },
-};
 
 type Draft = { fields: Fields; moment: number; checkoutSessionId?: string | null };
 type Bootstrap = {
@@ -143,15 +161,57 @@ type Bootstrap = {
 
 const subscribeToClient = () => () => undefined;
 
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeFields(value: unknown): Fields {
+  const candidate = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const legacyUseCases = Array.isArray(candidate.useCases) ? candidate.useCases : [];
+  const competitors = Array.isArray(candidate.competitors)
+    ? candidate.competitors.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const entry = item as Record<string, unknown>;
+        const name = stringValue(entry.name);
+        const url = stringValue(entry.url);
+        return name && url ? [{ name, url, reason: stringValue(entry.reason) }] : [];
+      })
+    : [];
+  const storedOutcome = stringValue(candidate.firstOutcome);
+  const firstOutcome = FIRST_OUTCOME_IDS.includes(storedOutcome as FirstOutcomeId)
+    ? (storedOutcome as FirstOutcomeId)
+    : DEFAULT_FIRST_OUTCOME;
+  const legacyOutcomes = legacyUseCases
+    .flatMap((item) =>
+      item && typeof item === "object" ? [stringValue((item as Record<string, unknown>).job)] : [],
+    )
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    ...INITIAL_FIELDS,
+    name: stringValue(candidate.name),
+    website: stringValue(candidate.website),
+    productDescription: stringValue(candidate.productDescription),
+    audience: stringValue(candidate.audience),
+    customerOutcomes: stringValue(candidate.customerOutcomes) || legacyOutcomes,
+    tone: stringValue(candidate.tone),
+    seedKeywords: stringValue(candidate.seedKeywords),
+    competitors: competitors.slice(0, MAX_COMPETITORS),
+    firstOutcome,
+  };
+}
+
 function loadDraft(): Draft | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(DRAFT_KEY) ?? localStorage.getItem(LEGACY_DRAFT_KEY);
     if (!raw) return null;
-    const draft = JSON.parse(raw) as Draft;
-    // Connector credentials must never be restored from script-readable storage.
+    const draft = JSON.parse(raw) as Record<string, unknown>;
     return {
-      ...draft,
-      fields: { ...draft.fields, integrationSecrets: {} },
+      fields: normalizeFields(draft.fields),
+      moment: typeof draft.moment === "number" ? draft.moment : 0,
+      checkoutSessionId:
+        typeof draft.checkoutSessionId === "string" ? draft.checkoutSessionId : null,
     };
   } catch {
     return null;
@@ -160,13 +220,7 @@ function loadDraft(): Draft | null {
 
 function saveDraft(draft: Draft) {
   try {
-    localStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({
-        ...draft,
-        fields: { ...draft.fields, integrationSecrets: {} },
-      }),
-    );
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch {
     // A blocked storage layer only disables checkout-return resume.
   }
@@ -175,6 +229,7 @@ function saveDraft(draft: Draft) {
 function clearDraft() {
   try {
     localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(LEGACY_DRAFT_KEY);
   } catch {
     // No-op.
   }
@@ -191,10 +246,10 @@ function readBootstrap(): Bootstrap {
 
   return {
     fields: draft?.fields ?? INITIAL_FIELDS,
-    moment: canceled ? 2 : Math.min(2, draft?.moment ?? 0),
+    moment: canceled ? 2 : Math.min(2, Math.max(0, draft?.moment ?? 0)),
     phase: finalizing ? "finalizing" : "form",
     checkoutSessionId,
-    error: canceled ? "Checkout canceled. Your operating brief is saved." : null,
+    error: canceled ? "Checkout was canceled. Your setup is still saved." : null,
     cleanUrl: checkout === "success" || canceled,
   };
 }
@@ -222,6 +277,7 @@ function inferredName(website: string) {
 }
 
 function buildPayload(fields: Fields): BrandCreatePayload {
+  const persona = fields.audience.trim() || "Customer";
   return {
     name: fields.name.trim(),
     website: fields.website.trim(),
@@ -230,24 +286,18 @@ function buildPayload(fields: Fields): BrandCreatePayload {
     tone: fields.tone.trim(),
     seedKeywords: fields.seedKeywords.trim(),
     competitors: fields.competitors.map(({ name, url }) => ({ name, url })),
-    useCases: fields.useCases.reduce<BrandCreatePayload["useCases"]>((result, item) => {
-      if (item.enabled && item.job.trim() && item.persona.trim()) {
-        result.push({ job: item.job, persona: item.persona, industry: item.industry });
-      }
-      return result;
-    }, []),
-    integrationProvider: fields.integrationProvider,
-    integrationConfig: Object.fromEntries(
-      Object.entries(fields.integrationConfig).map(([key, value]) => [key, value.trim()]),
-    ),
-    integrationSecrets: Object.fromEntries(
-      Object.entries(fields.integrationSecrets).map(([key, value]) => [key, value.trim()]),
-    ),
-    autonomyMode: fields.autonomyMode,
+    useCases: fields.customerOutcomes
+      .split("\n")
+      .map((job) => job.trim())
+      .filter(Boolean)
+      .slice(0, 24)
+      .map((job) => ({ job, persona, industry: "" })),
+    autonomyMode: "FULL_AUTO",
+    firstOutcome: fields.firstOutcome,
   };
 }
 
-async function discoverOperatingBrief(
+async function discoverBrand(
   name: string,
   website: string,
   onStageChange: (stage: DiscoveryStage) => void,
@@ -260,11 +310,10 @@ async function discoverOperatingBrief(
     });
     profile = result.profile;
   } catch {
-    // The brief remains editable when enrichment is unavailable.
+    // Every inferred field remains editable when enrichment is unavailable.
   }
 
-  onStageChange("market");
-
+  onStageChange("opportunities");
   const [competitors, useCases] = await Promise.all([
     apiPost<{ suggestions: Competitor[] }>("/api/brand/competitors/preview", {
       name,
@@ -272,62 +321,39 @@ async function discoverOperatingBrief(
       productDescription: profile.productDescription,
       seedKeywords: profile.seedKeywords,
     }).catch(() => ({ suggestions: [] })),
-    apiPost<{ useCases: Array<{ job: string; persona: string; industry: string | null }> }>(
-      "/api/brand/use-cases/preview",
-      {
-        name,
-        website,
-        productDescription: profile.productDescription,
-        audience: profile.audience,
-        seedKeywords: profile.seedKeywords,
-      },
-    ).catch(() => ({ useCases: [] })),
+    apiPost<{ useCases: DiscoveredUseCase[] }>("/api/brand/use-cases/preview", {
+      name,
+      website,
+      productDescription: profile.productDescription,
+      audience: profile.audience,
+      seedKeywords: profile.seedKeywords,
+    }).catch(() => ({ useCases: [] })),
   ]);
 
   return {
     profile,
     competitors: competitors.suggestions.slice(0, MAX_COMPETITORS),
-    useCases: useCases.useCases.map((item) => ({
-      job: item.job,
-      persona: item.persona,
-      industry: item.industry ?? "",
-      enabled: true,
-    })),
+    customerOutcomes: useCases.useCases
+      .flatMap((item) => (item.job ? [item.job] : []))
+      .join("\n"),
   };
 }
 
-export function BrandOnboardingForm({
-  providers,
-  showDashboardEscape = false,
-}: {
-  providers: ProviderOption[];
-  showDashboardEscape?: boolean;
-}) {
+export function BrandOnboardingForm({ showDashboardEscape = false }: { showDashboardEscape?: boolean }) {
   const isClient = useSyncExternalStore(subscribeToClient, () => true, () => false);
   if (!isClient) {
     return (
       <CenteredFrame>
-        <p className="text-sm text-muted">Preparing Claudia setup…</p>
+        <p className="text-sm text-muted">Preparing Claudia setup&hellip;</p>
       </CenteredFrame>
     );
   }
-  return (
-    <BrandOnboardingClient
-      providers={providers}
-      showDashboardEscape={showDashboardEscape}
-    />
-  );
+  return <BrandOnboardingClient showDashboardEscape={showDashboardEscape} />;
 }
 
-function BrandOnboardingClient({
-  providers,
-  showDashboardEscape,
-}: {
-  providers: ProviderOption[];
-  showDashboardEscape: boolean;
-}) {
+function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: boolean }) {
   const [bootstrap] = useState(readBootstrap);
-  const router = useRouter();
+  const router = useProgressRouter();
   const queryClient = useQueryClient();
   const me = useMe();
   const subscribed = isActiveSubscription(me.data?.subscription?.status);
@@ -338,7 +364,8 @@ function BrandOnboardingClient({
   const [phase, setPhase] = useState<"form" | "finalizing">(bootstrap.phase);
   const checkoutSessionId = bootstrap.checkoutSessionId;
   const [checkoutLoading, setCheckoutLoading] = useState<PlanId | null>(null);
-  const [discoveryStage, setDiscoveryStage] = useState<DiscoveryStage>("site");
+  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(POPULAR_PLAN);
+  const [discoveryStage, setDiscoveryStage] = useState<DiscoveryStage>("brand");
   const [finalizeTimedOut, setFinalizeTimedOut] = useState(false);
   const finalizeStarted = useRef(false);
   const isFirstBrand = (me.data?.brands.length ?? 0) === 0;
@@ -359,7 +386,7 @@ function BrandOnboardingClient({
 
   const discover = useMutation({
     mutationFn: ({ name, website }: { name: string; website: string }) =>
-      discoverOperatingBrief(name, website, setDiscoveryStage),
+      discoverBrand(name, website, setDiscoveryStage),
     onSuccess: (result) => {
       setFields((current) => ({
         ...current,
@@ -368,26 +395,25 @@ function BrandOnboardingClient({
         tone: result.profile.tone,
         seedKeywords: result.profile.seedKeywords,
         competitors: result.competitors,
-        useCases: result.useCases,
+        customerOutcomes: result.customerOutcomes,
       }));
       setMoment(1);
     },
     onError: () => {
-      setError("I couldn't read the site yet. Add the brief manually and continue.");
+      setError("Claudia could not read the site yet. Add what you know and continue.");
       setMoment(1);
     },
   });
 
   const create = useMutation({
     mutationFn: (payload: BrandCreatePayload) =>
-      apiPost<{ brand: { id: string; name: string }; canIgnite: boolean }>("/api/brands", payload, {
-        signal: AbortSignal.timeout(BRAND_CREATE_TIMEOUT_MS),
-      }),
+      apiPost<{ brand: { id: string; name: string }; canIgnite: boolean }>(
+        "/api/brands",
+        payload,
+        { signal: AbortSignal.timeout(BRAND_CREATE_TIMEOUT_MS) },
+      ),
     onSuccess: async ({ brand, canIgnite }) => {
       clearDraft();
-      // The create response and active-brand cookie are authoritative. Update
-      // the bootstrap cache before navigating so the app layout cannot observe
-      // the old empty brand list and bounce the user back to onboarding.
       queryClient.setQueryData<MeResponse>(queryKeys.me, (current) =>
         current
           ? {
@@ -399,7 +425,7 @@ function BrandOnboardingClient({
                     {
                       id: brand.id,
                       name: brand.name,
-                      autonomyMode: fields.autonomyMode,
+                      autonomyMode: "FULL_AUTO",
                       badgePublic: false,
                       identity: null,
                     },
@@ -411,14 +437,14 @@ function BrandOnboardingClient({
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
       await releaseExitGuard();
-      router.replace(canIgnite ? "/dashboard" : "/account?tab=billing&next=ignition");
+      router.replace(canIgnite ? "/dashboard" : "/settings?tab=billing&next=ignition");
     },
     onError: (failure) => {
       rearmExitGuard();
       setError(
         getErrorMessage(
           failure,
-          "Claudia could not finish activation. Your payment and saved brief are safe.",
+          "Claudia could not finish setup. Your payment and saved answers are safe.",
         ),
       );
     },
@@ -426,12 +452,16 @@ function BrandOnboardingClient({
 
   const submitCreate = useCallback(() => {
     if (!fields.name.trim()) {
-      setError("Add a brand name before starting.");
+      setError("Add the brand name Claudia should use.");
       setPhase("form");
       setMoment(1);
       return;
     }
     setError(null);
+    posthog.capture("brand_activation_started", {
+      first_outcome: fields.firstOutcome,
+      is_checkout_finalization: phase === "finalizing",
+    });
     disarmExitGuard();
     create.mutate({
       ...buildPayload(fields),
@@ -441,8 +471,6 @@ function BrandOnboardingClient({
   }, [checkoutSessionId, create, disarmExitGuard, fields, phase]);
 
   useEffect(() => {
-    // Save Stripe's replay token before removing it from the address bar. A
-    // refresh/crash during activation can then resume confirmation safely.
     if (phase === "finalizing" && checkoutSessionId) {
       saveDraft({ fields, moment, checkoutSessionId });
     } else if (phase === "form") {
@@ -451,9 +479,7 @@ function BrandOnboardingClient({
   }, [checkoutSessionId, fields, moment, phase]);
 
   useEffect(() => {
-    if (bootstrap.cleanUrl) {
-      window.history.replaceState(null, "", "/onboarding");
-    }
+    if (bootstrap.cleanUrl) window.history.replaceState(null, "", "/onboarding");
   }, [bootstrap.cleanUrl]);
 
   const refetchMe = me.refetch;
@@ -465,11 +491,11 @@ function BrandOnboardingClient({
 
   useEffect(() => {
     if (phase !== "finalizing" || subscribed) return;
-    const poll = setInterval(() => void refetchMe(), 2_500);
-    const timeout = setTimeout(() => setFinalizeTimedOut(true), 45_000);
+    const poll = window.setInterval(() => void refetchMe(), 2_500);
+    const timeout = window.setTimeout(() => setFinalizeTimedOut(true), 45_000);
     return () => {
-      clearInterval(poll);
-      clearTimeout(timeout);
+      window.clearInterval(poll);
+      window.clearTimeout(timeout);
     };
   }, [phase, refetchMe, subscribed]);
 
@@ -488,12 +514,13 @@ function BrandOnboardingClient({
     }
     const name = fields.name.trim() || inferredName(website);
     if (!name) {
-      setError("Add a brand name so Claudia knows what to look for.");
+      setError("Claudia could not infer a brand name from that address.");
       return;
     }
     setError(null);
-    setDiscoveryStage("site");
-    setFields((current) => ({ ...current, name }));
+    posthog.capture("onboarding_discovery_started");
+    setDiscoveryStage("brand");
+    setFields((current) => ({ ...current, name, website }));
     discover.mutate({ name, website });
   }
 
@@ -537,343 +564,235 @@ function BrandOnboardingClient({
     const activationFailed = create.isError;
     const confirmationFailed = Boolean(me.error) && !subscribed;
     const needsRetry = activationFailed || confirmationFailed || finalizeTimedOut;
-
     return (
-      <CenteredFrame>
-        <p className="text-sm font-medium text-muted">Activating Claudia</p>
-        <h1 className="mt-3 text-3xl text-foreground">
-          {create.isPending
-            ? "Starting the first day…"
-            : needsRetry
-              ? "Activation needs another try"
-              : "Confirming your plan…"}
-        </h1>
-        <p className="mt-3 max-w-lg text-sm leading-7 text-muted">
-          {needsRetry
-            ? error ?? "We could not confirm the latest account state. Your payment and saved brief are safe."
-            : "The operating brief is saved. Claudia starts Setup Run as soon as the plan is active."}
-        </p>
-        {needsRetry && !create.isPending ? (
-          <Button
-            className="mt-6"
-            onPress={() => {
-              setError(null);
-              setFinalizeTimedOut(false);
-              if (activationFailed) {
-                submitCreate();
-              } else {
-                checkoutConfirm.reset();
-                void refetchMe();
-              }
-            }}
-          >
-            Try activation again
-          </Button>
-        ) : null}
-      </CenteredFrame>
+      <ClaudiaActivationScreen
+        brandName={fields.name}
+        subscribed={subscribed}
+        isCreating={create.isPending}
+        needsRetry={needsRetry}
+        errorMessage={
+          error ??
+          "We could not confirm the latest account state. Your payment and saved answers are safe."
+        }
+        onRetry={() => {
+          setError(null);
+          setFinalizeTimedOut(false);
+          if (activationFailed) submitCreate();
+          else {
+            checkoutConfirm.reset();
+            void refetchMe();
+          }
+        }}
+        onExit={() => {
+          saveDraft({ fields, moment, checkoutSessionId });
+          router.replace(showDashboardEscape ? "/dashboard" : "/");
+        }}
+      />
     );
   }
 
-  const current = MOMENTS[moment];
-  const isDiscovering = moment === 0 && discover.isPending;
-  return (
-    <div className="onboarding-canvas relative isolate min-h-dvh overflow-x-clip">
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 pb-12 pt-6 sm:px-8 sm:pb-16 sm:pt-8 lg:px-10">
-        <OnboardingHeader
-          current={current}
-          moment={moment}
-          isFirstBrand={isFirstBrand}
-          showDashboardEscape={showDashboardEscape}
-          onExit={openExitDialog}
+  if (discover.isPending) {
+    return (
+      <div className="min-h-dvh bg-background px-5 sm:px-8">
+        <OnboardingDiscovery
+          brandName={fields.name}
+          website={fields.website}
+          stage={discoveryStage}
         />
-
-        <main className="mt-10 grid flex-1 items-start gap-12 lg:mt-14 lg:grid-cols-[minmax(0,1fr)_17.5rem] lg:gap-16">
-          <OnboardingStepPanel
-            current={current}
-            moment={moment}
-            fields={fields}
-            setFields={setFields}
-            providers={providers}
-            manualCompetitor={manualCompetitor}
-            setManualCompetitor={setManualCompetitor}
-            error={error}
-            isDiscovering={isDiscovering}
-            discoveryStage={discoveryStage}
-            subscribed={subscribed}
-            createPending={create.isPending}
-            checkoutLoading={checkoutLoading}
-            onBeginDiscovery={beginDiscovery}
-            onAddCompetitor={addCompetitor}
-            onContinueBrief={() => setMoment(2)}
-            onBack={() => setMoment((value) => value - 1)}
-            onSubmit={submitCreate}
-            onStartCheckout={startCheckout}
-          />
-
-          <OnboardingValueRail isFirstBrand={isFirstBrand} moment={moment} />
-        </main>
       </div>
+    );
+  }
+
+  return (
+    <OnboardingFormShell
+      moment={moment}
+      fields={fields}
+      setFields={setFields}
+      error={error}
+      busy={create.isPending || checkoutLoading !== null}
+      createPending={create.isPending}
+      checkoutPending={checkoutLoading !== null}
+      subscribed={subscribed}
+      selectedPlanId={selectedPlanId}
+      setSelectedPlanId={setSelectedPlanId}
+      manualCompetitor={manualCompetitor}
+      setManualCompetitor={setManualCompetitor}
+      isExitDialogOpen={isExitDialogOpen}
+      isFirstBrand={isFirstBrand}
+      onExit={openExitDialog}
+      onStay={stayInOnboarding}
+      onLeave={() => void leaveOnboarding()}
+      onBeginDiscovery={beginDiscovery}
+      onAddCompetitor={addCompetitor}
+      onBack={() => {
+        setError(null);
+        setMoment((value) => Math.max(0, value - 1));
+      }}
+      onConfirm={() => {
+        if (!fields.name.trim()) {
+          setError("Add the brand name Claudia should use.");
+          return;
+        }
+        setError(null);
+        setMoment(2);
+      }}
+      onSubmit={submitCreate}
+      onCheckout={() => void startCheckout(selectedPlanId)}
+    />
+  );
+}
+
+function OnboardingFormShell({
+  moment,
+  fields,
+  setFields,
+  error,
+  busy,
+  createPending,
+  checkoutPending,
+  subscribed,
+  selectedPlanId,
+  setSelectedPlanId,
+  manualCompetitor,
+  setManualCompetitor,
+  isExitDialogOpen,
+  isFirstBrand,
+  onExit,
+  onStay,
+  onLeave,
+  onBeginDiscovery,
+  onAddCompetitor,
+  onBack,
+  onConfirm,
+  onSubmit,
+  onCheckout,
+}: {
+  moment: number;
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  error: string | null;
+  busy: boolean;
+  createPending: boolean;
+  checkoutPending: boolean;
+  subscribed: boolean;
+  selectedPlanId: PlanId;
+  setSelectedPlanId: React.Dispatch<React.SetStateAction<PlanId>>;
+  manualCompetitor: { name: string; url: string };
+  setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
+  isExitDialogOpen: boolean;
+  isFirstBrand: boolean;
+  onExit: () => void;
+  onStay: () => void;
+  onLeave: () => void;
+  onBeginDiscovery: () => void;
+  onAddCompetitor: () => void;
+  onBack: () => void;
+  onConfirm: () => void;
+  onSubmit: () => void;
+  onCheckout: () => void;
+}) {
+  const current = STEPS[moment];
+  return (
+    <div className="min-h-dvh bg-background">
+      <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-5 py-8 sm:px-8 sm:py-12">
+        <header className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium text-muted">Step {moment + 1} of 3</span>
+          <Button variant="ghost" isDisabled={busy} onPress={onExit}>
+            Save and exit
+          </Button>
+        </header>
+
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-10 sm:py-14">
+          <div className="max-w-2xl">
+            <h1 className="type-display text-3xl text-foreground text-pretty sm:text-5xl">
+              {current.title}
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-muted text-pretty">
+              {current.description}
+            </p>
+          </div>
+
+          {error ? (
+            <Alert status="danger" className="mt-6">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Setup needs attention</Alert.Title>
+                <Alert.Description>{error}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ) : null}
+
+          {moment === 0 ? (
+            <WebsiteStep fields={fields} setFields={setFields} onContinue={onBeginDiscovery} />
+          ) : null}
+          {moment === 1 ? (
+            <ConfirmStep
+              fields={fields}
+              setFields={setFields}
+              manualCompetitor={manualCompetitor}
+              setManualCompetitor={setManualCompetitor}
+              onAddCompetitor={onAddCompetitor}
+            />
+          ) : null}
+          {moment === 2 ? (
+            <OutcomeStep
+              fields={fields}
+              setFields={setFields}
+              subscribed={subscribed}
+              selectedPlanId={selectedPlanId}
+              setSelectedPlanId={setSelectedPlanId}
+            />
+          ) : null}
+
+          {moment > 0 ? (
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button variant="ghost" isDisabled={busy} onPress={onBack}>
+                <ArrowLeftIcon className="size-4" />
+                Back
+              </Button>
+              {moment === 1 ? (
+                <Button className="min-h-11" isDisabled={busy} onPress={onConfirm}>
+                  Yes, this is right
+                  <ArrowRightIcon className="size-4" />
+                </Button>
+              ) : subscribed ? (
+                <LoadingButton
+                  className="min-h-11"
+                  isPending={createPending}
+                  pendingLabel="Starting Claudia…"
+                  onPress={onSubmit}
+                >
+                  Start Claudia
+                  <ArrowRightIcon className="size-4" />
+                </LoadingButton>
+              ) : (
+                <LoadingButton
+                  className="min-h-11"
+                  isPending={checkoutPending}
+                  pendingLabel="Opening checkout…"
+                  onPress={onCheckout}
+                >
+                  Continue to checkout
+                  <ArrowRightIcon className="size-4" />
+                </LoadingButton>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </main>
 
       <OnboardingExitDialog
         isOpen={isExitDialogOpen}
         isFirstBrand={isFirstBrand}
-        remainingSteps={MOMENTS.length - moment}
-        onStay={stayInOnboarding}
-        onLeave={() => void leaveOnboarding()}
+        remainingSteps={STEPS.length - moment}
+        onStay={onStay}
+        onLeave={onLeave}
       />
     </div>
   );
 }
 
-function OnboardingHeader({
-  current,
-  moment,
-  isFirstBrand,
-  showDashboardEscape,
-  onExit,
-}: {
-  current: (typeof MOMENTS)[number];
-  moment: number;
-  isFirstBrand: boolean;
-  showDashboardEscape: boolean;
-  onExit: () => void;
-}) {
-  return (
-    <>
-      <header className="flex items-center justify-between gap-4">
-        <SgaLogo className="flex items-center gap-2.5" iconClassName="size-8" />
-        <div className="flex items-center gap-2 sm:gap-3">
-          {isFirstBrand ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-soft-foreground lg:hidden">
-              <SparklesIcon className="size-3.5" />
-              {SIGNUP_GRANT_CREDITS} free credits
-            </span>
-          ) : (
-            <span className="hidden items-center gap-1.5 text-xs font-medium text-muted sm:inline-flex">
-              <CheckIcon className="size-3.5" />
-              Draft saved
-            </span>
-          )}
-          {showDashboardEscape ? (
-            <Button size="sm" variant="ghost" onPress={onExit}>
-              Back to Claudia
-            </Button>
-          ) : null}
-        </div>
-      </header>
-
-      <div className="mt-8 sm:mt-10">
-        <ProgressBar
-          aria-label={`Onboarding progress: ${current.label}`}
-          value={((moment + 1) / MOMENTS.length) * 100}
-        >
-          <ProgressBar.Track className="h-1 bg-surface-secondary/80">
-            <ProgressBar.Fill className="bg-accent transition-transform duration-ui ease-out-strong" />
-          </ProgressBar.Track>
-        </ProgressBar>
-        <ol className="mt-3 grid grid-cols-3 gap-3" aria-label="Onboarding steps">
-          {MOMENTS.map((item, index) => (
-            <li
-              key={item.label}
-              aria-current={index === moment ? "step" : undefined}
-              className={`text-xs font-medium sm:text-sm ${
-                index <= moment ? "text-foreground" : "text-muted/65"
-              }`}
-            >
-              <span className="mr-1 tabular-nums text-muted">0{index + 1}</span>
-              {item.label}
-            </li>
-          ))}
-        </ol>
-      </div>
-    </>
-  );
-}
-
-function OnboardingStepPanel({
-  current,
-  moment,
-  fields,
-  setFields,
-  providers,
-  manualCompetitor,
-  setManualCompetitor,
-  error,
-  isDiscovering,
-  discoveryStage,
-  subscribed,
-  createPending,
-  checkoutLoading,
-  onBeginDiscovery,
-  onAddCompetitor,
-  onContinueBrief,
-  onBack,
-  onSubmit,
-  onStartCheckout,
-}: {
-  current: (typeof MOMENTS)[number];
-  moment: number;
-  fields: Fields;
-  setFields: React.Dispatch<React.SetStateAction<Fields>>;
-  providers: ProviderOption[];
-  manualCompetitor: { name: string; url: string };
-  setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
-  error: string | null;
-  isDiscovering: boolean;
-  discoveryStage: DiscoveryStage;
-  subscribed: boolean;
-  createPending: boolean;
-  checkoutLoading: PlanId | null;
-  onBeginDiscovery: () => void;
-  onAddCompetitor: () => void;
-  onContinueBrief: () => void;
-  onBack: () => void;
-  onSubmit: () => void;
-  onStartCheckout: (planId: PlanId) => void;
-}) {
-  return (
-    <section className="min-w-0">
-      <div
-        key={`${moment}-${isDiscovering ? "working" : "ready"}`}
-        className="onboarding-step"
-      >
-        <p className="text-sm font-semibold text-accent">{current.label}</p>
-        <h1 className="type-display mt-2 max-w-3xl text-4xl text-foreground sm:text-5xl">
-          {isDiscovering ? "Claudia is building your brief" : current.title}
-        </h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-muted sm:text-base">
-          {isDiscovering
-            ? "She is turning the site into a practical first-week plan. Watch the useful pieces come together while research runs."
-            : current.description}
-        </p>
-
-        <div className="mt-8 sm:mt-10">
-          {isDiscovering ? (
-            <OnboardingDiscovery
-              brandName={fields.name}
-              website={fields.website}
-              stage={discoveryStage}
-            />
-          ) : moment === 0 ? (
-            <SiteMoment fields={fields} setFields={setFields} onContinue={onBeginDiscovery} />
-          ) : moment === 1 ? (
-            <BriefMoment
-              fields={fields}
-              setFields={setFields}
-              manualCompetitor={manualCompetitor}
-              setManualCompetitor={setManualCompetitor}
-              addCompetitor={onAddCompetitor}
-            />
-          ) : (
-            <AuthorityMoment fields={fields} setFields={setFields} providers={providers} />
-          )}
-        </div>
-
-        {error ? (
-          <p
-            role="alert"
-            className="mt-6 rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger-soft-foreground"
-          >
-            {error}
-          </p>
-        ) : null}
-
-        {!isDiscovering ? (
-          <div className="mt-8">
-            <div className="flex flex-wrap items-center gap-3">
-              {moment === 0 ? (
-                <Button onPress={onBeginDiscovery}>Build my brief</Button>
-              ) : moment === 1 ? (
-                <Button onPress={onContinueBrief}>Looks right: continue</Button>
-              ) : subscribed ? (
-                <LoadingButton
-                  isPending={createPending}
-                  pendingLabel="Starting…"
-                  onPress={onSubmit}
-                >
-                  Start Claudia&apos;s first day
-                </LoadingButton>
-              ) : null}
-              {moment > 0 ? (
-                <Button variant="ghost" isDisabled={createPending} onPress={onBack}>
-                  Back
-                </Button>
-              ) : null}
-            </div>
-            {moment < 2 ? (
-              <p className="mt-3 text-xs leading-5 text-muted">
-                Saved automatically · Everything remains editable later
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {moment === 2 && !subscribed ? (
-          <PlanChoices loading={checkoutLoading} onPick={onStartCheckout} />
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function OnboardingValueRail({
-  isFirstBrand,
-  moment,
-}: {
-  isFirstBrand: boolean;
-  moment: number;
-}) {
-  const details = [
-    "Your brief saves automatically",
-    "Every assumption stays editable",
-    moment === 2 ? "Cancel or change plans anytime" : "No technical setup required",
-  ];
-
-  return (
-    <aside className="hidden lg:sticky lg:top-8 lg:block" aria-label="Setup benefits">
-      <div className="material-panel rounded-[1.75rem] p-5">
-        {isFirstBrand ? (
-          <>
-            <span className="grid size-10 place-items-center rounded-2xl bg-accent-soft text-accent-soft-foreground">
-              <SparklesIcon className="size-5" />
-            </span>
-            <p className="mt-5 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
-              {SIGNUP_GRANT_CREDITS}
-            </p>
-            <p className="mt-1 text-sm font-medium text-foreground">free credits are ready</p>
-            <p className="mt-2 text-xs leading-5 text-muted">
-              Already added to your workspace, enough for your first complete article.
-            </p>
-          </>
-        ) : (
-          <>
-            <span className="grid size-10 place-items-center rounded-2xl bg-success-soft text-success-soft-foreground">
-              <CheckIcon className="size-5" />
-            </span>
-            <p className="mt-5 font-semibold text-foreground">A calm, reversible setup</p>
-            <p className="mt-2 text-xs leading-5 text-muted">
-              Add this brand without changing how your existing workspace runs.
-            </p>
-          </>
-        )}
-
-        <ul className="mt-6 space-y-3">
-          {details.map((detail) => (
-            <li key={detail} className="flex items-start gap-2.5 text-xs leading-5 text-muted">
-              <CheckIcon className="mt-0.5 size-4 shrink-0 text-accent" />
-              {detail}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <p className="mt-4 text-center text-xs leading-5 text-muted">
-        Private by default · Built for your workspace
-      </p>
-    </aside>
-  );
-}
-
-function SiteMoment({
+function WebsiteStep({
   fields,
   setFields,
   onContinue,
@@ -883,388 +802,343 @@ function SiteMoment({
   onContinue: () => void;
 }) {
   return (
-    <div className="material-panel max-w-xl space-y-5 rounded-[1.75rem] p-5 sm:p-6">
-      <div className="space-y-2">
+    <Card className="mt-8 max-w-2xl rounded-3xl p-0">
+      <Card.Content className="p-6 sm:p-8">
         <Label htmlFor="onboarding-website">Website URL</Label>
-        <Input
-          id="onboarding-website"
-          autoFocus
-          autoComplete="url"
-          fullWidth
-          type="url"
-          variant="secondary"
-          placeholder="https://example.com"
-          value={fields.website}
-          onChange={(event) => setFields((current) => ({ ...current, website: event.target.value }))}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") onContinue();
-          }}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="onboarding-name">Brand name <span className="text-muted">(optional)</span></Label>
-        <Input
-          id="onboarding-name"
-          fullWidth
-          variant="secondary"
-          placeholder="Derived from the site when left blank"
-          value={fields.name}
-          onChange={(event) => setFields((current) => ({ ...current, name: event.target.value }))}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") onContinue();
-          }}
-        />
-      </div>
-      <p className="text-xs leading-5 text-muted">
-        Claudia uses the public site to draft your positioning, buyer profiles, competitors, and
-        first-week plan. Press Enter to continue.
-      </p>
-    </div>
+        <div className="mt-2 flex items-center gap-3">
+          <GlobeIcon className="hidden size-5 shrink-0 text-muted sm:block" aria-hidden />
+          <Input
+            id="onboarding-website"
+            autoFocus
+            autoComplete="url"
+            fullWidth
+            type="url"
+            variant="secondary"
+            placeholder="https://your-site.com"
+            value={fields.website}
+            onChange={(event) =>
+              setFields((current) => ({ ...current, website: event.target.value }))
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onContinue();
+            }}
+          />
+        </div>
+        <p className="mt-4 text-sm leading-6 text-muted">
+          Claudia will read your public site to understand what you sell, who it helps, and where
+          the best opportunities may be.
+        </p>
+      </Card.Content>
+      <Card.Footer className="justify-end border-t border-separator px-6 py-5 sm:px-8">
+        <Button className="min-h-11" onPress={onContinue}>
+          Learn about my brand
+          <ArrowRightIcon className="size-4" />
+        </Button>
+      </Card.Footer>
+    </Card>
   );
 }
 
-function BriefMoment({
+function ConfirmStep({
   fields,
   setFields,
   manualCompetitor,
   setManualCompetitor,
-  addCompetitor,
+  onAddCompetitor,
 }: {
   fields: Fields;
   setFields: React.Dispatch<React.SetStateAction<Fields>>;
   manualCompetitor: { name: string; url: string };
   setManualCompetitor: React.Dispatch<React.SetStateAction<{ name: string; url: string }>>;
-  addCompetitor: () => void;
+  onAddCompetitor: () => void;
 }) {
-  const set =
-    (key: keyof Pick<Fields, "name" | "productDescription" | "audience" | "tone" | "seedKeywords">) =>
-    (event: { target: { value: string } }) =>
-      setFields((current) => ({ ...current, [key]: event.target.value }));
   return (
-    <div className="space-y-8">
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="brief-name">Brand</Label>
-          <Input id="brief-name" fullWidth variant="secondary" value={fields.name} onChange={set("name")} />
-        </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="brief-product">What the brand sells</Label>
-          <TextArea id="brief-product" fullWidth rows={4} variant="secondary" value={fields.productDescription} onChange={set("productDescription")} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="brief-audience">Who it serves</Label>
-          <TextArea id="brief-audience" fullWidth rows={3} variant="secondary" value={fields.audience} onChange={set("audience")} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="brief-tone">How it should sound</Label>
-          <TextArea id="brief-tone" fullWidth rows={3} variant="secondary" value={fields.tone} onChange={set("tone")} />
-        </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="brief-keywords">Initial query themes</Label>
-          <Input id="brief-keywords" fullWidth variant="secondary" value={fields.seedKeywords} onChange={set("seedKeywords")} />
-        </div>
-      </div>
+    <div className="mt-8 space-y-4">
+      <SummaryField label="What you sell" Icon={LayersIcon}>
+        <TextArea
+          aria-label="What you sell"
+          fullWidth
+          rows={3}
+          variant="secondary"
+          placeholder="Describe the product or service"
+          value={fields.productDescription}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, productDescription: event.target.value }))
+          }
+        />
+      </SummaryField>
+      <SummaryField label="Who it helps" Icon={UsersIcon}>
+        <TextArea
+          aria-label="Who it helps"
+          fullWidth
+          rows={2}
+          variant="secondary"
+          placeholder="The customers Claudia should focus on"
+          value={fields.audience}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, audience: event.target.value }))
+          }
+        />
+      </SummaryField>
+      <SummaryField label="Most important customer outcomes" Icon={CheckIcon}>
+        <TextArea
+          aria-label="Most important customer outcomes"
+          fullWidth
+          rows={4}
+          variant="secondary"
+          placeholder={"Save time on reporting\nFind better growth opportunities"}
+          value={fields.customerOutcomes}
+          onChange={(event) =>
+            setFields((current) => ({ ...current, customerOutcomes: event.target.value }))
+          }
+        />
+        <p className="mt-2 text-xs leading-5 text-muted">One outcome per line.</p>
+      </SummaryField>
+      <SummaryField label="Competitors Claudia found" Icon={SearchIcon}>
+        {fields.competitors.length ? (
+          <ul className="divide-y divide-separator">
+            {fields.competitors.map((competitor) => (
+              <li key={competitor.url} className="flex min-h-14 items-center gap-3 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-foreground">{competitor.name}</span>
+                  <span className="block truncate text-xs text-muted">{competitor.url}</span>
+                </span>
+                <Button
+                  isIconOnly
+                  variant="ghost"
+                  aria-label={`Remove ${competitor.name}`}
+                  onPress={() =>
+                    setFields((current) => ({
+                      ...current,
+                      competitors: current.competitors.filter(
+                        (item) => item.url !== competitor.url,
+                      ),
+                    }))
+                  }
+                >
+                  <XIcon className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="py-3 text-sm text-muted">No confident matches yet. Claudia can keep looking.</p>
+        )}
+      </SummaryField>
 
-      <section>
-        <h2 className="text-xl text-foreground">Main competitors</h2>
-        <div className="mt-3 space-y-2">
-          {fields.competitors.map((competitor) => (
-            <div key={competitor.url} className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-surface-secondary px-3 py-2">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{competitor.name}</p>
-                <p className="truncate text-xs text-muted">{competitor.url}</p>
-              </div>
-              <Button size="sm" variant="ghost" onPress={() => setFields((current) => ({ ...current, competitors: current.competitors.filter((item) => item.url !== competitor.url) }))}>
-                Remove
+      <details className="rounded-2xl bg-surface p-5 open:pb-6">
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-foreground">
+          Review more details
+        </summary>
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-name">Brand name</Label>
+            <Input
+              id="onboarding-name"
+              fullWidth
+              variant="secondary"
+              value={fields.name}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-tone">Brand voice</Label>
+            <Input
+              id="onboarding-tone"
+              fullWidth
+              variant="secondary"
+              placeholder="Clear, practical, confident"
+              value={fields.tone}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, tone: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="onboarding-keywords">Important search themes</Label>
+            <TextArea
+              id="onboarding-keywords"
+              fullWidth
+              rows={2}
+              variant="secondary"
+              placeholder="Invoice automation, payment reminders"
+              value={fields.seedKeywords}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, seedKeywords: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="competitor-name">Add a competitor</Label>
+            <Input
+              id="competitor-name"
+              fullWidth
+              variant="secondary"
+              placeholder="Competitor name"
+              value={manualCompetitor.name}
+              onChange={(event) =>
+                setManualCompetitor((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="competitor-url">Competitor website</Label>
+            <div className="flex gap-2">
+              <Input
+                id="competitor-url"
+                fullWidth
+                type="url"
+                variant="secondary"
+                placeholder="https://competitor.com"
+                value={manualCompetitor.url}
+                onChange={(event) =>
+                  setManualCompetitor((current) => ({ ...current, url: event.target.value }))
+                }
+              />
+              <Button
+                variant="secondary"
+                isDisabled={fields.competitors.length >= MAX_COMPETITORS}
+                onPress={onAddCompetitor}
+              >
+                Add
               </Button>
             </div>
-          ))}
-          {!fields.competitors.length ? <p className="text-sm text-muted">No confident competitor matches yet.</p> : null}
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
-          <Input aria-label="Competitor name" variant="secondary" placeholder="Competitor" value={manualCompetitor.name} onChange={(event) => setManualCompetitor((current) => ({ ...current, name: event.target.value }))} />
-          <Input aria-label="Competitor URL" type="url" variant="secondary" placeholder="https://competitor.com" value={manualCompetitor.url} onChange={(event) => setManualCompetitor((current) => ({ ...current, url: event.target.value }))} />
-          <Button variant="secondary" onPress={addCompetitor}>Add</Button>
-        </div>
-      </section>
-
-      {fields.useCases.length ? (
-        <section>
-          <h2 className="text-xl text-foreground">Buyer profiles</h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {fields.useCases.map((useCase, index) => (
-              <button
-                key={`${useCase.job}-${useCase.persona}`}
-                type="button"
-                aria-pressed={useCase.enabled}
-                onClick={() => setFields((current) => ({ ...current, useCases: current.useCases.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: !item.enabled } : item) }))}
-                className={`pressable min-h-20 rounded-xl p-3 text-left ${useCase.enabled ? "bg-accent-soft text-accent-soft-foreground" : "bg-surface-secondary text-muted"}`}
-              >
-                <span className="block text-sm font-medium">{useCase.persona}</span>
-                <span className="mt-1 block text-xs leading-5 opacity-80">{useCase.job}</span>
-              </button>
-            ))}
           </div>
-        </section>
-      ) : null}
-
-      <section className="rounded-2xl bg-surface-secondary p-5">
-        <h2 className="text-xl text-foreground">First-week plan</h2>
-        <ol className="mt-4 grid gap-3 sm:grid-cols-2">
-          {["Establish the visibility baseline", "Track the questions buyers ask AI", "Research the strongest content opportunity", "Prepare and write the first useful asset"].map((item, index) => (
-            <li key={item} className="flex items-start gap-3 text-sm leading-6 text-foreground">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface text-xs tabular-nums">{index + 1}</span>
-              {item}
-            </li>
-          ))}
-        </ol>
-      </section>
+        </div>
+      </details>
     </div>
   );
 }
 
-function AuthorityMoment({
+function SummaryField({
+  label,
+  Icon,
+  children,
+}: {
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="rounded-2xl p-0">
+      <Card.Content className="p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            aria-hidden
+          >
+            <Icon className="size-5" />
+          </span>
+          <h2 className="text-sm font-semibold text-foreground">{label}</h2>
+        </div>
+        {children}
+      </Card.Content>
+    </Card>
+  );
+}
+
+function OutcomeStep({
   fields,
   setFields,
-  providers,
+  subscribed,
+  selectedPlanId,
+  setSelectedPlanId,
 }: {
   fields: Fields;
   setFields: React.Dispatch<React.SetStateAction<Fields>>;
-  providers: ProviderOption[];
+  subscribed: boolean;
+  selectedPlanId: PlanId;
+  setSelectedPlanId: React.Dispatch<React.SetStateAction<PlanId>>;
 }) {
-  const provider = providers.find((item) => item.id === fields.integrationProvider) ?? null;
-  const setConfig =
-    (key: IntegrationConfigKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) => setFields((current) => ({ ...current, integrationConfig: { ...current.integrationConfig, [key]: event.target.value } }));
-  const setSecret =
-    (key: IntegrationSecretKey): ChangeEventHandler<HTMLInputElement> =>
-    (event) => setFields((current) => ({ ...current, integrationSecrets: { ...current.integrationSecrets, [key]: event.target.value } }));
   return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="text-xl text-foreground">Authority</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {([
-            { value: "FULL_AUTO" as const, title: "Autopilot", description: "Publish approved Claudia-created articles automatically. Site fixes remain prepared unless a proven capability exists." },
-            { value: "REVIEW" as const, title: "Copilot", description: "Prepare the same work, but wait for owner approval before publishing articles." },
-          ]).map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={fields.autonomyMode === option.value}
-              onClick={() => setFields((current) => ({ ...current, autonomyMode: option.value }))}
-              className={`pressable relative min-h-36 rounded-2xl border p-5 pr-14 text-left outline-none transition-[background-color,border-color,box-shadow,filter] duration-ui ease-out-strong focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                fields.autonomyMode === option.value
-                  ? "border-accent bg-accent-soft/80 text-accent-soft-foreground shadow-surface ring-2 ring-accent/30 brightness-105"
-                  : "border-border/60 bg-surface-secondary text-foreground hover-fine:border-accent/40 hover-fine:bg-surface"
-              }`}
+    <div className="mt-8 space-y-8">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {OUTCOMES.map(({ id, title, description, Icon, recommended }) => {
+          const selected = fields.firstOutcome === id;
+          return (
+            <Button
+              key={id}
+              aria-pressed={selected}
+              variant={selected ? "secondary" : "outline"}
+              className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-5 text-left active:scale-[0.96]"
+              onPress={() => setFields((current) => ({ ...current, firstOutcome: id }))}
             >
               <span
-                className={`absolute right-4 top-4 grid size-7 place-items-center rounded-full transition-[background-color,border-color,color,box-shadow] duration-ui ease-out-strong ${
-                  fields.autonomyMode === option.value
-                    ? "border border-accent bg-accent text-accent-foreground shadow-sm"
-                    : "border border-border bg-surface/70 text-transparent"
-                }`}
+                className="grid size-11 shrink-0 place-items-center rounded-xl bg-background text-muted"
                 aria-hidden
               >
-                <CheckIcon className="size-4" />
+                <Icon className="size-5" />
               </span>
-              <span className="text-lg font-semibold">{option.title}</span>
-              <span className="mt-1 block text-xs font-medium opacity-70">
-                {option.value === "FULL_AUTO" ? "Publishes automatically" : "You approve publishing"}
-              </span>
-              <span className="mt-2 block text-sm leading-6 opacity-80">{option.description}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-xl text-foreground">Publishing connection</h2>
-        <p className="mt-1 text-sm leading-6 text-muted">Connect now, or skip and Claudia will place it in Waiting only when it unlocks useful work.</p>
-        <div className="mt-4 max-w-xl space-y-4">
-          <Select
-            aria-label="Publishing destination"
-            fullWidth
-            variant="secondary"
-            placeholder="Connect later"
-            value={fields.integrationProvider || null}
-            onChange={(value) => setFields((current) => ({ ...current, integrationProvider: value && value !== SKIP_PROVIDER_KEY ? (String(value) as IntegrationProviderId) : "", integrationConfig: {}, integrationSecrets: {} }))}
-          >
-            <Select.Trigger><Select.Value /><Select.Indicator /></Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id={SKIP_PROVIDER_KEY} textValue="Connect later">Connect later<ListBox.ItemIndicator /></ListBox.Item>
-                {providers.map((item) =>
-                  item.status === "available" ? (
-                    <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
-                      {item.name}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ) : null,
-                )}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-          {provider ? <ConnectionFields provider={provider} config={fields.integrationConfig} secrets={fields.integrationSecrets} onConfig={setConfig} onSecret={setSecret} /> : null}
-        </div>
-      </section>
-
-      <section className="rounded-2xl bg-surface-secondary p-5">
-        <p className="font-medium text-foreground">Analytics can connect after start</p>
-        <p className="mt-1 text-sm leading-6 text-muted">Search Console needs the saved brand context. Claudia will request it only when real traffic proof can improve the next decision.</p>
-      </section>
-    </div>
-  );
-}
-
-function ConnectionFields({
-  provider,
-  config,
-  secrets,
-  onConfig,
-  onSecret,
-}: {
-  provider: ProviderOption;
-  config: Record<string, string>;
-  secrets: Record<string, string>;
-  onConfig: (key: IntegrationConfigKey) => ChangeEventHandler<HTMLInputElement>;
-  onSecret: (key: IntegrationSecretKey) => ChangeEventHandler<HTMLInputElement>;
-}) {
-  return (
-    <div className="space-y-3">
-      {provider.fields.map((field) =>
-        field.required ? (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={`connection-${field.key}`}>{field.label}</Label>
-            <Input id={`connection-${field.key}`} fullWidth type={field.validation === "url" ? "url" : "text"} variant="secondary" placeholder={field.placeholder} value={config[field.key] ?? ""} onChange={onConfig(field.key)} />
-          </div>
-        ) : null,
-      )}
-      {provider.secrets.map((secret) =>
-        secret.required ? (
-          <div key={secret.key} className="space-y-2">
-            <Label htmlFor={`connection-${secret.key}`}>{secret.label}</Label>
-            <Input id={`connection-${secret.key}`} fullWidth type="password" autoComplete="new-password" variant="secondary" placeholder={secret.placeholder} value={secrets[secret.key] ?? ""} onChange={onSecret(secret.key)} />
-          </div>
-        ) : null,
-      )}
-    </div>
-  );
-}
-
-function PlanChoices({ loading, onPick }: { loading: PlanId | null; onPick: (planId: PlanId) => void }) {
-  const [selectedPlanId, setSelectedPlanId] = useState<PlanId>(POPULAR_PLAN);
-  const selectedPlan = plans[selectedPlanId];
-  const selectedCopy = PLAN_CHOICE_COPY[selectedPlanId];
-  const cadence = selectedPlan.visibility.monitoringCadence;
-  const highlights = [
-    `Capacity for up to ${articlesPerMonth(selectedPlan.monthlyCredits)} search-led articles each month`,
-    `${cadence.charAt(0).toUpperCase() + cadence.slice(1)} visibility checks with ${selectedPlan.visibility.trackedPrompts} buyer questions tracked`,
-    `${selectedPlan.visibility.autoFixCap} prepared site fixes included each month`,
-  ];
-
-  return (
-    <section className="mt-12 border-t border-separator pt-10" aria-labelledby="plan-choice-title">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-accent">Ready to launch</p>
-          <h2 id="plan-choice-title" className="mt-1 text-3xl text-foreground">Choose your starting pace</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-            Start where the workload fits today. Every plan includes research, writing, publishing,
-            and safe fixes.
-          </p>
-        </div>
-        <p className="shrink-0 text-xs font-medium text-muted">No long-term contract</p>
-      </div>
-
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Object.values(plans).map((plan) => {
-          const selected = plan.id === selectedPlanId;
-          return (
-            <button
-              key={plan.id}
-              type="button"
-              aria-pressed={selected}
-              disabled={loading !== null}
-              onClick={() => setSelectedPlanId(plan.id)}
-              className={`pressable relative min-h-44 rounded-2xl border p-4 text-left outline-none transition-[background-color,border-color,box-shadow,filter,opacity] duration-ui ease-out-strong focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait disabled:opacity-60 ${
-                selected
-                  ? "border-accent bg-accent-soft/75 shadow-surface ring-2 ring-accent/25 brightness-105"
-                  : "border-border/60 bg-surface/75 hover-fine:border-accent/35 hover-fine:bg-surface"
-              }`}
-            >
-              <span className="flex items-start justify-between gap-2">
-                <span className="font-semibold text-foreground">{plan.name}</span>
-                <span
-                  className={`grid size-6 shrink-0 place-items-center rounded-full transition-[background-color,border-color,color] duration-ui ${
-                    selected
-                      ? "border border-accent bg-accent text-accent-foreground"
-                      : "border border-border/70 bg-surface text-transparent"
-                  }`}
-                  aria-hidden
-                >
-                  <CheckIcon className="size-3.5" />
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <strong className="text-sm font-semibold text-foreground">{title}</strong>
+                  {recommended ? (
+                    <span className="text-xs font-medium text-success">Recommended</span>
+                  ) : null}
                 </span>
+                <small className="mt-1 block text-sm leading-5 text-muted">{description}</small>
               </span>
-              <span className={`mt-2 block text-xs font-medium ${plan.id === POPULAR_PLAN ? "text-accent" : "text-muted"}`}>
-                {PLAN_CHOICE_COPY[plan.id].eyebrow}
-              </span>
-              <span className="mt-3 block text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                ${plan.price}<span className="text-xs font-normal text-muted"> / month</span>
-              </span>
-              <span className="mt-1 block text-xs font-medium text-foreground tabular-nums">
-                {plan.monthlyCredits.toLocaleString()} credits / month
-              </span>
-              <span className="mt-2 block text-xs leading-5 text-muted">{PLAN_CHOICE_COPY[plan.id].fit}</span>
-            </button>
+            </Button>
           );
         })}
       </div>
 
-      <div className="material-panel mt-4 overflow-hidden rounded-[1.5rem] border-accent/25">
-        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
-          <div>
-            <p className="text-xs font-semibold text-accent">{selectedCopy.eyebrow}</p>
-            <h3 className="mt-2 text-2xl text-foreground">Start with {selectedPlan.name}</h3>
-            <p className="mt-2 text-sm leading-6 text-muted">{selectedCopy.fit}</p>
-          </div>
-
-          <div className="lg:pl-4">
-            <p className="text-sm font-semibold text-foreground">What this pace unlocks</p>
-            <ul className="mt-4 space-y-3">
-              {highlights.map((highlight) => (
-                <li key={highlight} className="flex items-start gap-3 text-sm leading-6 text-foreground/90">
-                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground">
-                    <CheckIcon className="size-3" />
-                  </span>
-                  {highlight}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="border-t border-border/50 bg-surface/55 px-5 py-4 sm:px-6">
-          <LoadingButton
-            fullWidth
-            variant="primary"
-            isPending={loading === selectedPlanId}
-            isDisabled={loading !== null}
-            pendingLabel="Opening secure checkout…"
-            onPress={() => onPick(selectedPlanId)}
-          >
-            Start with {selectedPlan.name}
-          </LoadingButton>
-          <p className="mt-3 text-center text-xs leading-5 text-muted">
-            Encrypted Stripe checkout · Setup saved · Change or cancel anytime
+      {!subscribed ? (
+        <section className="border-t border-separator pt-8" aria-labelledby="capacity-title">
+          <h2 id="capacity-title" className="text-lg font-semibold text-foreground">
+            Choose Claudia&apos;s work capacity
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            This controls how much work Claudia can complete each month. You can change it later.
           </p>
-        </div>
-      </div>
-    </section>
+          <div className="mt-4 max-w-md">
+            <Select
+              aria-label="Work capacity"
+              fullWidth
+              variant="secondary"
+              value={selectedPlanId}
+              onChange={(value) => {
+                if (value) setSelectedPlanId(String(value) as PlanId);
+              }}
+            >
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {Object.values(plans).map((plan) => (
+                    <ListBox.Item key={plan.id} id={plan.id} textValue={plan.name}>
+                      <span>{plan.name}</span>
+                      <span className="ml-auto text-sm text-muted">${plan.price}/month</span>
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+            <p className="mt-3 text-sm text-muted">
+              {plans[selectedPlanId].monthlyCredits.toLocaleString()} work credits each month · up
+              to {plans[selectedPlanId].dailyArticleCap} article draft
+              {plans[selectedPlanId].dailyArticleCap === 1 ? "" : "s"} per day
+            </p>
+          </div>
+        </section>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-success">
+          <CheckIcon className="size-4" /> Your current plan is ready.
+        </p>
+      )}
+    </div>
   );
 }
 
 function CenteredFrame({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">{children}</div>;
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+      {children}
+    </div>
+  );
 }

@@ -25,7 +25,7 @@ export async function POST() {
     }
 
     const { run, created } = await startSetupRun(scope);
-    if (created || run.status === "failed" || isSetupRunStale(run)) {
+    if (created || run.status === "failed" || run.status === "blocked" || isSetupRunStale(run)) {
       await triggerSetupRun(scope, subscription?.planId, run, { resume: !created });
     }
 

@@ -9,8 +9,7 @@ export const SITE_URL = "https://seogeoaeo.ai";
 export const SITE_NAME = "seogeoaeo.ai";
 
 export const SITE_DESCRIPTION =
-  "Claudia checks how your brand appears in Google and AI answers, prepares site fixes, " +
-  "writes content in your voice, and reports what changed each week.";
+  "Claudia is an organic growth operator for SaaS companies and digital brands. She finds the next SEO, AEO, or GEO opportunity, prepares the work, and follows up on results.";
 
 /** Primary marketing nav, used by the public site header. */
 export const NAV_LINKS = [
@@ -28,7 +27,6 @@ export const FOOTER_LINKS = [
       { label: "How she works", href: "/#how-it-works" },
       { label: "What she does", href: "/#features" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Publishing", href: "/#publish" },
       { label: "Integration guide", href: "/help/integrations" },
     ],
   },
@@ -38,7 +36,7 @@ export const FOOTER_LINKS = [
       { label: "Google & search", href: "/#features" },
       { label: "Answer boxes", href: "/#features" },
       { label: "AI assistants", href: "/#features" },
-      { label: "Visibility score", href: "/#features" },
+      { label: "Buyer-intent content", href: "/#features" },
     ],
   },
   {

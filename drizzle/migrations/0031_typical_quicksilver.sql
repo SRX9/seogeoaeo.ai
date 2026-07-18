@@ -1,1 +1,0 @@
-ALTER TABLE "audits" ADD COLUMN "site_health" jsonb;

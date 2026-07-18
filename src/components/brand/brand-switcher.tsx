@@ -2,8 +2,8 @@
 
 import { Avatar, Button, Dropdown, Label, Spinner } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { toast } from "@heroui/react";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { apiPut, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type MeResponse } from "@/lib/api/queries";
 import { ChevronUpDownIcon, CircleCheckIcon } from "@/components/icons";
@@ -21,15 +21,11 @@ function brandInitial(name: string) {
 }
 
 function BrandGlyph({ brand }: { brand: BrandOption }) {
-  const accent = brand.identity?.colors[0]?.hex;
   return (
     <Avatar size="sm" className="size-6 shrink-0 rounded-lg bg-accent-soft">
       {brand.identity?.logoUrl ? <Avatar.Image alt="" src={brand.identity.logoUrl} /> : null}
       <Avatar.Fallback>
-        <span
-          className="flex size-full items-center justify-center text-xs font-semibold tracking-tight text-accent-soft-foreground"
-          style={accent ? { backgroundColor: accent } : undefined}
-        >
+        <span className="flex size-full items-center justify-center text-xs font-semibold tracking-tight text-accent-soft-foreground">
           {brandInitial(brand.name)}
         </span>
       </Avatar.Fallback>
@@ -44,7 +40,7 @@ export function BrandSwitcher({
   brands: BrandOption[];
   activeBrandId: string | null;
 }) {
-  const router = useRouter();
+  const router = useProgressRouter();
   const queryClient = useQueryClient();
   const active = brands.find((brand) => brand.id === activeBrandId) ?? brands[0] ?? null;
 
@@ -66,8 +62,19 @@ export function BrandSwitcher({
       }
       toast.danger(getErrorMessage(error, "Couldn't switch brands."));
     },
-    // The active brand scopes every query, so refresh the whole cache on switch.
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: async () => {
+      // Query keys intentionally omit the brand id because the active brand is
+      // cookie-scoped. Remove every brand-scoped entry atomically so data from
+      // the previous brand can never flash while the new route is loading.
+      await queryClient.cancelQueries({
+        predicate: (query) => query.queryKey[0] !== queryKeys.me[0],
+      });
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== queryKeys.me[0],
+      });
+      router.push("/dashboard");
+      router.refresh();
+    },
   });
 
   function handleAction(key: string) {
@@ -115,7 +122,7 @@ export function BrandSwitcher({
         )}
       </Button>
       <Dropdown.Popover className="min-w-[240px]" placement="bottom start">
-        <div className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
+        <div className="px-3 pb-1 pt-2 text-xs font-medium text-muted">
           Brands
         </div>
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import {
@@ -15,6 +15,184 @@ import {
 import { getNextDailyRun, getUtcDayKey } from "@/lib/workspace/settings";
 
 const FUTURE_TASK_STATUSES = ["planned", "scheduled", "waiting"];
+
+const CORRECTED_MEMORY_CONTEXT_VERSION = "claudia-memory-runtime-v1";
+
+type MemoryCorrectionTaskSnapshot = Pick<
+  typeof agentTasks.$inferSelect,
+  | "taskType"
+  | "title"
+  | "input"
+  | "attempt"
+  | "startedAt"
+  | "completedAt"
+  | "leaseOwner"
+  | "leaseExpiresAt"
+  | "heartbeatAt"
+  | "artifactRef"
+  | "outcomeRef"
+>;
+
+type MemoryCorrectionTaskRebuild = {
+  action: "rebuild";
+  values: {
+    parentTaskId: null;
+    title: string;
+    reason: string;
+    executor: string;
+    dependencies: string[];
+    expectedImpact: string;
+    confidence: number;
+    riskLevel: string;
+    requiredAuthority: string;
+    input: Record<string, unknown>;
+    attempt: number;
+    startedAt: null;
+    completedAt: null;
+    leaseOwner: null;
+    leaseExpiresAt: null;
+    heartbeatAt: null;
+    originalExecutorId: null;
+    takeoverExecutorId: null;
+    lastErrorCode: null;
+    lastErrorClass: null;
+    retryAfter: null;
+    settledAt: null;
+    artifactRef: null;
+    outcomeRef: null;
+  };
+};
+
+export type MemoryCorrectionTaskDisposition =
+  | MemoryCorrectionTaskRebuild
+  | { action: "cancel"; reason: string };
+
+/**
+ * Only fixed tasks whose durable identity has never started can be rebuilt
+ * without guessing at stale planner input. They deliberately keep their row
+ * and idempotency key, but every derived input/dependency/runtime field is
+ * reconstructed. Unknown or previously attempted work is cancelled instead
+ * of being replayed under a new plan.
+ */
+export function rebuildFutureTaskForMemoryCorrection(
+  task: MemoryCorrectionTaskSnapshot,
+  memoryCorrectionId: string,
+): MemoryCorrectionTaskDisposition {
+  const pristine =
+    task.attempt === 0 &&
+    task.startedAt === null &&
+    task.completedAt === null &&
+    task.leaseOwner === null &&
+    task.leaseExpiresAt === null &&
+    task.heartbeatAt === null &&
+    task.artifactRef === null &&
+    task.outcomeRef === null;
+  if (!pristine) {
+    return {
+      action: "cancel",
+      reason: "The future task had execution history and cannot be replayed safely.",
+    };
+  }
+
+  const correctionContext = {
+    memoryCorrectionId,
+    memoryContextVersion: CORRECTED_MEMORY_CONTEXT_VERSION,
+    resolveMemoryAtExecution: true,
+  };
+  const runtimeReset = {
+    parentTaskId: null,
+    dependencies: [],
+    attempt: 0,
+    startedAt: null,
+    completedAt: null,
+    leaseOwner: null,
+    leaseExpiresAt: null,
+    heartbeatAt: null,
+    originalExecutorId: null,
+    takeoverExecutorId: null,
+    lastErrorCode: null,
+    lastErrorClass: null,
+    retryAfter: null,
+    settledAt: null,
+    artifactRef: null,
+    outcomeRef: null,
+  };
+
+  if (task.taskType === "daily_growth_pass") {
+    return {
+      action: "rebuild",
+      values: {
+        ...runtimeReset,
+        title: "Research and advance the best opportunity",
+        reason:
+          "This pass resolves current owner constraints, corrected memory, and evidence before choosing the next useful content action.",
+        executor: "daily-content-agent",
+        expectedImpact: "Advance qualified visibility without exceeding the daily budget.",
+        confidence: 75,
+        riskLevel: "low",
+        requiredAuthority: "prepare",
+        input: correctionContext,
+      },
+    };
+  }
+
+  if (task.taskType === "setup_run") {
+    return {
+      action: "rebuild",
+      values: {
+        ...runtimeReset,
+        title: "Build the brand operating baseline",
+        reason:
+          "Build the baseline from the current brand profile, corrected memory, buyer questions, competitor evidence, and content plan.",
+        executor: "setup-run-workflow",
+        expectedImpact: "Create the evidence and operating context for autonomous work.",
+        confidence: 95,
+        riskLevel: "low",
+        requiredAuthority: "observe",
+        input: correctionContext,
+      },
+    };
+  }
+
+  if (task.taskType === "owner_directed_writing") {
+    const instruction = task.input?.instruction;
+    const topicId = task.input?.topicId;
+    if (
+      typeof instruction !== "string" ||
+      instruction.trim().length === 0 ||
+      typeof topicId !== "string" ||
+      topicId.length === 0
+    ) {
+      return {
+        action: "cancel",
+        reason: "The owner-directed task is missing its durable owner instruction or topic.",
+      };
+    }
+    return {
+      action: "rebuild",
+      values: {
+        ...runtimeReset,
+        title: task.title.slice(0, 300),
+        reason: "The owner explicitly moved this article ahead of the normal queue.",
+        executor: "daily-content-agent",
+        expectedImpact: "Create the owner-requested article on the next daily pass.",
+        confidence: 100,
+        riskLevel: "low",
+        requiredAuthority: "prepare",
+        input: {
+          instruction,
+          topicId,
+          ...correctionContext,
+        },
+      },
+    };
+  }
+
+  return {
+    action: "cancel",
+    reason: "No deterministic corrected-memory rebuild exists for this task type.",
+  };
+}
 
 function planningWindow(date = new Date()) {
   const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -234,6 +412,7 @@ export async function beginDailyAgentTask(scope: BrandScope, runDate: string) {
     idempotencyKey: `daily:${runDate}`,
   });
   return transitionAgentTask(scope, task.id, {
+    fromStatuses: ["planned", "scheduled"],
     status: "in_progress",
     eventType: "started",
     summary: "Started the daily research and content pass.",
@@ -255,6 +434,7 @@ export async function beginSetupAgentTask(scope: BrandScope) {
     idempotencyKey: "setup:initial",
   });
   return transitionAgentTask(scope, task.id, {
+    fromStatuses: ["planned", "scheduled", "waiting", "failed"],
     status: "in_progress",
     eventType: "started",
     summary: "Started building the brand operating baseline.",
@@ -293,6 +473,7 @@ export async function completeSetupAgentTask(
   });
   if (!task) return null;
   return transitionAgentTask(scope, task.id, {
+    fromStatuses: ["in_progress"],
     status,
     eventType: status,
     summary:
@@ -317,6 +498,7 @@ export async function completeDailyAgentTask(
   if (!task) return null;
   if (input.status === "paused_by_owner") {
     return transitionAgentTask(scope, task.id, {
+      fromStatuses: ["in_progress"],
       status: "waiting",
       eventType: "blocked",
       summary: "The owner paused work before the daily pass settled.",
@@ -326,6 +508,7 @@ export async function completeDailyAgentTask(
   }
   const failed = input.status === "failed";
   return transitionAgentTask(scope, task.id, {
+    fromStatuses: ["in_progress"],
     status: failed ? "failed" : "completed",
     eventType: failed ? "failed" : "completed",
     summary: failed
@@ -357,11 +540,103 @@ export async function replanAgentWork(
   scope: BrandScope,
   reason: string,
   evidence: Record<string, unknown>,
+  options: {
+    expectedMissionDefinitionVersion?: number;
+    objectiveReplanKey?: string;
+    memoryCorrectionId?: string;
+    memoryCorrectionBoundary?: Date;
+  } = {},
 ) {
+  if (
+    (options.objectiveReplanKey !== undefined && options.objectiveReplanKey.length === 0) ||
+    (options.memoryCorrectionId !== undefined && options.memoryCorrectionId.length === 0)
+  ) {
+    throw new Error("Replan receipt keys cannot be empty");
+  }
+  if (
+    options.objectiveReplanKey !== undefined &&
+    options.memoryCorrectionId !== undefined
+  ) {
+    throw new Error("A plan revision can carry only one replan receipt");
+  }
+  if (
+    (options.memoryCorrectionId !== undefined) !==
+      (options.memoryCorrectionBoundary !== undefined) ||
+    (options.memoryCorrectionBoundary !== undefined &&
+      !Number.isFinite(options.memoryCorrectionBoundary.getTime()))
+  ) {
+    throw new Error("Memory correction replans require a valid commit boundary");
+  }
+  const replanReceipt = options.objectiveReplanKey !== undefined
+    ? { field: "objectiveReplanKey", key: options.objectiveReplanKey }
+    : options.memoryCorrectionId !== undefined
+      ? { field: "memoryCorrectionId", key: options.memoryCorrectionId }
+      : null;
+  if (
+    replanReceipt !== null &&
+    options.expectedMissionDefinitionVersion === undefined
+  ) {
+    throw new Error("Replan receipts require an expected mission definition version");
+  }
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { mission, plan: current } = await ensureWeeklyPlan(scope);
+    if (
+      options.expectedMissionDefinitionVersion !== undefined &&
+      mission.definitionVersion !== options.expectedMissionDefinitionVersion
+    ) {
+      throw new Error("Objective changed before the plan revision started");
+    }
     const nextVersion = current.version + 1;
     const result = await getDb().transaction(async (tx) => {
+      if (options.expectedMissionDefinitionVersion !== undefined) {
+        const [lockedMission] = await tx
+          .select({ definitionVersion: agentMissions.definitionVersion })
+          .from(agentMissions)
+          .where(
+            and(
+              eq(agentMissions.id, mission.id),
+              eq(agentMissions.workspaceId, scope.workspaceId),
+              eq(agentMissions.brandId, scope.brandId),
+            ),
+          )
+          .for("update")
+          .limit(1);
+        if (
+          !lockedMission ||
+          lockedMission.definitionVersion !== options.expectedMissionDefinitionVersion
+        ) {
+          throw new Error("Objective changed before the plan revision committed");
+        }
+      }
+
+      if (replanReceipt) {
+        const [receipt] = await tx
+          .select()
+          .from(agentPlanVersions)
+          .where(
+            and(
+              eq(agentPlanVersions.workspaceId, scope.workspaceId),
+              eq(agentPlanVersions.brandId, scope.brandId),
+              eq(agentPlanVersions.missionId, mission.id),
+              sql`${agentPlanVersions.evidenceSnapshot}->>${replanReceipt.field} = ${replanReceipt.key}`,
+            ),
+          )
+          .orderBy(desc(agentPlanVersions.version))
+          .limit(1);
+        if (receipt) {
+          return {
+            mission,
+            current,
+            plan: receipt,
+            movedTaskCount: 0,
+            rebuiltTaskCount: 0,
+            invalidatedTaskCount: 0,
+            invalidatedTopicCount: 0,
+            alreadyApplied: true,
+          };
+        }
+      }
+
       const [plan] = await tx
         .insert(agentPlanVersions)
         .values({
@@ -371,7 +646,13 @@ export async function replanAgentWork(
           windowStart: current.windowStart,
           windowEnd: current.windowEnd,
           rationale: reason,
-          evidenceSnapshot: evidence,
+          evidenceSnapshot: {
+            ...evidence,
+            ...(replanReceipt ? { [replanReceipt.field]: replanReceipt.key } : {}),
+            ...(options.memoryCorrectionBoundary
+              ? { memoryCorrectionBoundary: options.memoryCorrectionBoundary.toISOString() }
+              : {}),
+          },
           version: nextVersion,
           supersedesId: current.id,
           replanReason: reason,
@@ -382,17 +663,120 @@ export async function replanAgentWork(
         .returning();
       if (!plan) return null;
 
-      const moved = await tx
-        .update(agentTasks)
-        .set({ planVersionId: plan.id, updatedAt: new Date() })
-        .where(
-          and(
-            eq(agentTasks.brandId, scope.brandId),
-            eq(agentTasks.planVersionId, current.id),
-            inArray(agentTasks.status, FUTURE_TASK_STATUSES),
-          ),
-        )
-        .returning({ id: agentTasks.id });
+      const now = new Date();
+      let movedTaskCount = 0;
+      let rebuiltTaskCount = 0;
+      let invalidatedTaskCount = 0;
+      let invalidatedTopicCount = 0;
+      const rebuiltTaskIds: string[] = [];
+      const invalidatedTaskIds: string[] = [];
+
+      if (options.memoryCorrectionId) {
+        const futureTasks = await tx
+          .select()
+          .from(agentTasks)
+          .where(
+            and(
+              eq(agentTasks.workspaceId, scope.workspaceId),
+              eq(agentTasks.brandId, scope.brandId),
+              eq(agentTasks.planVersionId, current.id),
+              inArray(agentTasks.status, FUTURE_TASK_STATUSES),
+            ),
+          )
+          .for("update");
+
+        for (const task of futureTasks) {
+          const disposition = rebuildFutureTaskForMemoryCorrection(
+            task,
+            options.memoryCorrectionId,
+          );
+          if (disposition.action === "rebuild") {
+            const [rebuilt] = await tx
+              .update(agentTasks)
+              .set({
+                ...disposition.values,
+                planVersionId: plan.id,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  eq(agentTasks.id, task.id),
+                  eq(agentTasks.workspaceId, scope.workspaceId),
+                  eq(agentTasks.brandId, scope.brandId),
+                  eq(agentTasks.planVersionId, current.id),
+                  inArray(agentTasks.status, FUTURE_TASK_STATUSES),
+                ),
+              )
+              .returning({ id: agentTasks.id });
+            if (!rebuilt) throw new Error("Future task changed during corrected-memory rebuild");
+            rebuiltTaskIds.push(rebuilt.id);
+            continue;
+          }
+
+          const [invalidated] = await tx
+            .update(agentTasks)
+            .set({
+              status: "cancelled",
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              heartbeatAt: null,
+              retryAfter: null,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(agentTasks.id, task.id),
+                eq(agentTasks.workspaceId, scope.workspaceId),
+                eq(agentTasks.brandId, scope.brandId),
+                eq(agentTasks.planVersionId, current.id),
+                inArray(agentTasks.status, FUTURE_TASK_STATUSES),
+              ),
+            )
+            .returning({ id: agentTasks.id });
+          if (!invalidated) throw new Error("Future task changed during memory invalidation");
+          invalidatedTaskIds.push(invalidated.id);
+        }
+
+        rebuiltTaskCount = rebuiltTaskIds.length;
+        invalidatedTaskCount = invalidatedTaskIds.length;
+        movedTaskCount = rebuiltTaskCount;
+
+        const correctionConsumers = Array.isArray(evidence.allowedConsumers)
+          ? evidence.allowedConsumers.filter(
+              (consumer): consumer is string => typeof consumer === "string",
+            )
+          : [];
+        if (correctionConsumers.includes("research")) {
+          const invalidatedTopics = await tx
+            .update(topics)
+            .set({ status: "invalidated", updatedAt: now })
+            .where(
+              and(
+                eq(topics.workspaceId, scope.workspaceId),
+                eq(topics.brandId, scope.brandId),
+                eq(topics.source, "research"),
+                inArray(topics.status, ["pending", "failed"]),
+                lte(topics.createdAt, options.memoryCorrectionBoundary!),
+              ),
+            )
+            .returning({ id: topics.id });
+          invalidatedTopicCount = invalidatedTopics.length;
+        }
+      } else {
+        const moved = await tx
+          .update(agentTasks)
+          .set({ planVersionId: plan.id, updatedAt: now })
+          .where(
+            and(
+              eq(agentTasks.workspaceId, scope.workspaceId),
+              eq(agentTasks.brandId, scope.brandId),
+              eq(agentTasks.planVersionId, current.id),
+              inArray(agentTasks.status, FUTURE_TASK_STATUSES),
+            ),
+          )
+          .returning({ id: agentTasks.id });
+        movedTaskCount = moved.length;
+      }
 
       const [event] = await tx
         .insert(agentEvents)
@@ -405,12 +789,30 @@ export async function replanAgentWork(
           data: {
             fromVersion: current.version,
             toVersion: plan.version,
-            movedTaskCount: moved.length,
+            movedTaskCount,
+            ...(options.memoryCorrectionId
+              ? {
+                  memoryCorrectionId: options.memoryCorrectionId,
+                  rebuiltTaskCount,
+                  invalidatedTaskCount,
+                  invalidatedTaskIds,
+                  invalidatedTopicCount,
+                }
+              : {}),
           },
         })
         .returning({ id: agentEvents.id });
       if (!event) throw new Error("Agent replan event could not be recorded");
-      return { mission, current, plan, movedTaskCount: moved.length };
+      return {
+        mission,
+        current,
+        plan,
+        movedTaskCount,
+        rebuiltTaskCount,
+        invalidatedTaskCount,
+        invalidatedTopicCount,
+        alreadyApplied: false,
+      };
     });
     if (result) return result;
   }
@@ -552,6 +954,7 @@ export async function beginOwnerDirectedWritingTask(scope: BrandScope, topicId: 
   const task = await ownerDirectedTaskForTopic(scope.brandId, topicId);
   if (!task || task.status === "completed") return task ?? null;
   return transitionAgentTask(scope, task.id, {
+    fromStatuses: ["planned", "scheduled", "waiting", "failed"],
     status: "in_progress",
     eventType: "started",
     summary: "Started the owner-directed article.",
@@ -566,6 +969,7 @@ export async function completeOwnerDirectedWritingTask(
   const task = await ownerDirectedTaskForTopic(scope.brandId, topicId);
   if (!task || task.status === "completed") return task ?? null;
   return transitionAgentTask(scope, task.id, {
+    fromStatuses: ["in_progress"],
     status: input.failed ? "failed" : "completed",
     eventType: input.failed ? "failed" : "completed",
     summary: input.failed

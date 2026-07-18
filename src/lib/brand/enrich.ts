@@ -4,6 +4,7 @@
  * (no server-side fetch of user URLs → no SSRF) and refined by one light-tier
  * LLM call. Everything degrades gracefully when Serper or the LLM is unconfigured.
  */
+import { z } from "zod";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
 import { brandPrefillPrompt, competitorDiscoveryPrompt } from "@/lib/llm/prompts";
 import { serperSearch, type SerperResult } from "@/lib/research/serper";
@@ -152,6 +153,21 @@ const EMPTY_DETAILS: BrandDetails = {
   tone: "",
   seedKeywords: "",
 };
+
+const brandDetailsResponseSchema = z.object({
+  productDescription: z.string().max(FIELD_LIMITS.productDescription).optional(),
+  audience: z.string().max(FIELD_LIMITS.audience).optional(),
+  tone: z.string().max(FIELD_LIMITS.tone).optional(),
+  seedKeywords: z.string().max(FIELD_LIMITS.seedKeywords).optional(),
+});
+
+const competitorResponseSchema = z.object({
+  competitors: z.array(z.object({
+    name: z.string().max(200).optional(),
+    url: z.string().max(2_048).optional(),
+    reason: z.string().max(200).optional(),
+  })).max(10).optional(),
+});
 
 function clampField(value: unknown, key: keyof typeof FIELD_LIMITS): string {
   if (typeof value !== "string") {
@@ -395,10 +411,10 @@ export async function extractBrandDetails(brand: {
 
   const prompt = brandPrefillPrompt(brand, context);
   try {
-    const { data } = await generateJson<Partial<BrandDetails>>("light", [
+    const { data } = await generateJson("light", [
       { role: "system", content: prompt.system },
       { role: "user", content: prompt.user },
-    ]);
+    ], { schema: brandDetailsResponseSchema });
     return {
       productDescription: clampField(data?.productDescription, "productDescription"),
       audience: clampField(data?.audience, "audience"),
@@ -594,12 +610,10 @@ export async function discoverCompetitors(
 
   let raw: Array<{ name?: string; url?: string; reason?: string }> = [];
   try {
-    const { data } = await generateJson<{
-      competitors?: Array<{ name?: string; url?: string; reason?: string }>;
-    }>("light", [
+    const { data } = await generateJson("light", [
       { role: "system", content: prompt.system },
       { role: "user", content: prompt.user },
-    ]);
+    ], { schema: competitorResponseSchema });
     raw = Array.isArray(data?.competitors) ? data.competitors : [];
   } catch {
     raw = candidates.map((c) => ({ name: c.title, url: c.host }));

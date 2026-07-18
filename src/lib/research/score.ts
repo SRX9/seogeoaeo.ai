@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { generateJson } from "@/lib/llm/client";
 import { getLlmConfig } from "@/lib/llm/client";
 import { addTokenUsage, emptyTokenUsage } from "@/lib/llm/usage";
@@ -5,6 +6,7 @@ import type { TokenUsageSummary } from "@/lib/llm/usage";
 import type {
   IntentTier,
   ResearchContext,
+  ResearchEvidenceSource,
   ResearchFinding,
   ScoredTopic,
 } from "@/lib/research/types";
@@ -20,6 +22,27 @@ const NO_TIER_RANK = 3;
 /** An idea confirmed by two or more independent sources jumps the queue. */
 const MULTI_SOURCE_BOOST = 15;
 
+function evidenceForFinding(finding: ResearchFinding): ResearchEvidenceSource[] {
+  if (finding.evidenceSources?.length) return finding.evidenceSources;
+  return finding.evidenceUrls.map((url) => ({
+    url,
+    title: finding.title,
+    excerpt: finding.snippet,
+    sourceType: finding.sourceType,
+    sourceLabel: finding.source,
+    query: finding.query,
+  }));
+}
+
+function evidenceByTitle(findings: ResearchFinding[]) {
+  const map = new Map<string, ResearchEvidenceSource[]>();
+  for (const finding of findings) {
+    const slug = slugify(finding.title);
+    map.set(slug, [...(map.get(slug) ?? []), ...evidenceForFinding(finding)]);
+  }
+  return map;
+}
+
 type ScoreBatchResponse = {
   topics: Array<{
     title: string;
@@ -30,6 +53,17 @@ type ScoreBatchResponse = {
     keywords?: string;
   }>;
 };
+
+const scoreBatchResponseSchema: z.ZodType<ScoreBatchResponse> = z.object({
+  topics: z.array(z.object({
+    title: z.string().min(1).max(300),
+    score: z.number().min(0).max(100),
+    rationale: z.string().max(1_000),
+    answerFit: z.string().max(1_000),
+    angle: z.string().max(1_000).optional(),
+    keywords: z.string().max(1_000).optional(),
+  })).max(20),
+});
 
 function heuristicScore(finding: ResearchFinding, context: ResearchContext) {
   let score = 50;
@@ -66,7 +100,7 @@ function heuristicScore(finding: ResearchFinding, context: ResearchContext) {
 }
 
 async function scoreWithLlm(findings: ResearchFinding[], context: ResearchContext) {
-  const result = await generateJson<ScoreBatchResponse>("light", [
+  const result = await generateJson("light", [
     {
       role: "system",
       content:
@@ -81,7 +115,7 @@ Seed keywords: ${context.brand.seedKeywords ?? "N/A"}
 Score these findings for relevance, freshness, and product-as-answer fit:
 ${JSON.stringify(findings.slice(0, 20), null, 2)}`,
     },
-  ]);
+  ], { schema: scoreBatchResponseSchema });
 
   const scoredTopics = Array.isArray(result.data?.topics) ? result.data.topics : [];
   const byTitle = new Map(scoredTopics.map((topic) => [topic.title.toLowerCase(), topic]));
@@ -99,6 +133,7 @@ ${JSON.stringify(findings.slice(0, 20), null, 2)}`,
       source: finding.source,
       sourceType: finding.sourceType,
       evidenceUrls: finding.evidenceUrls,
+      evidenceSources: evidenceForFinding(finding),
       query: finding.query,
       intentTier: finding.intentTier,
       thesis: finding.thesis,
@@ -124,6 +159,7 @@ function scoreHeuristically(findings: ResearchFinding[], context: ResearchContex
     source: finding.source,
     sourceType: finding.sourceType,
     evidenceUrls: finding.evidenceUrls,
+    evidenceSources: evidenceForFinding(finding),
     query: finding.query,
     intentTier: finding.intentTier,
     thesis: finding.thesis,
@@ -153,6 +189,7 @@ export async function scoreFindings(
   } = {},
 ) {
   const sources = sourcesByTitle(findings);
+  const evidence = evidenceByTitle(findings);
   const unique = uniqueByTitle(findings);
   let tokenUsage: TokenUsageSummary = emptyTokenUsage();
   let rawScored: ScoredTopic[];
@@ -181,7 +218,11 @@ export async function scoreFindings(
         return eligible;
       }
       seenSlugs.add(slug);
-      eligible.push({ ...topic, score });
+      eligible.push({
+        ...topic,
+        score,
+        evidenceSources: evidence.get(slug) ?? topic.evidenceSources ?? [],
+      });
       return eligible;
     }, [])
     // Intent tier first (bofu > mofu > tofu > unknown), evidence strength second.

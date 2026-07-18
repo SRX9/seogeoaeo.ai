@@ -128,7 +128,7 @@ export async function classifyBusinessType(snapshot: PageSnapshot): Promise<Busi
 
   try {
     const navText = snapshot.internal_links.map((l) => l.text).filter(Boolean).slice(0, 30).join(" | ");
-    const { data } = await generateJson<unknown>("light", [
+    const { data } = await generateJson("light", [
       {
         role: "system",
         content:
@@ -139,7 +139,7 @@ export async function classifyBusinessType(snapshot: PageSnapshot): Promise<Busi
         role: "user",
         content: `Title: ${snapshot.title ?? ""}\nDescription: ${snapshot.description ?? ""}\nNav: ${navText}`,
       },
-    ]);
+    ], { schema: LLM_LABELS });
     const parsed = LLM_LABELS.safeParse(data);
     if (parsed.success) {
       return { ...deterministic, type: parsed.data.type, confidence: Math.max(deterministic.confidence, 0.6) };

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { INTEGRATION_PROVIDER_IDS } from "@/lib/integrations/providers";
+import { DEFAULT_FIRST_OUTCOME, FIRST_OUTCOME_IDS } from "@/lib/onboarding/first-outcome";
 
 function isHttpUrl(value: string) {
   try {
@@ -84,6 +85,7 @@ export const brandOnboardingSchema = z.object({
   // Copilot prepares the same work and asks before publishing. Live site changes remain
   // gated by exact connector capabilities and deterministic authority policy.
   autonomyMode: z.enum(["FULL_AUTO", "REVIEW"]).optional().default("FULL_AUTO"),
+  firstOutcome: z.enum(FIRST_OUTCOME_IDS).optional().default(DEFAULT_FIRST_OUTCOME),
 });
 
 export type BrandProfileInput = z.infer<typeof brandProfileSchema>;

@@ -88,8 +88,6 @@ export async function enrichSchemaFixes(
   snapshot: PageSnapshot,
   opts: { generate?: EnrichFn } = {},
 ): Promise<SchemaFix[]> {
-  const generate = opts.generate ?? generateJson;
-
   // Deep-clone so a failure never mutates the deterministic input.
   const clones: SchemaFix[] = fixes.map((f) => ({ schema: f.schema, jsonLd: structuredClone(f.jsonLd) }));
   const slots: Slot[] = [];
@@ -99,10 +97,13 @@ export async function enrichSchemaFixes(
   try {
     const excerpt = snapshot.text_content.slice(0, 4000);
     const fieldList = slots.map((s) => `${s.id}: ${s.key}: ${s.label}`).join("\n");
-    const { data } = await generate("light", [
+    const messages = [
       { role: "system", content: SYSTEM },
       { role: "user", content: `Page text:\n${excerpt}\n\nFields to fill:\n${fieldList}` },
-    ]);
+    ] as const;
+    const { data } = opts.generate
+      ? await opts.generate("light", [...messages])
+      : await generateJson("light", [...messages], { schema: SchemaEnrichSchema });
     const parsed = SchemaEnrichSchema.safeParse(data);
     if (!parsed.success) return fixes;
 

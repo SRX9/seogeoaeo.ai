@@ -16,6 +16,11 @@ import {
 import type { SteeringIntent, SteeringResult } from "@/lib/agent/types";
 import type { BrandScope } from "@/lib/brand/repository";
 import type { ConnectorCapability } from "@/lib/integrations/capabilities";
+import {
+  interpretOwnerPolicyInstruction,
+  type CanonicalOwnerPolicy,
+} from "@/lib/agent/policy-model";
+import { persistOwnerPolicies } from "@/lib/agent/policies";
 
 const WEEKDAYS = [
   "sunday",
@@ -40,13 +45,12 @@ export function resolveSteeringIntent(message: string): SteeringIntent {
   const value = message.trim().toLowerCase();
   if (!value) return "unsupported";
   if (/\bwhy\b|explain|reason|evidence/.test(value)) return "explanation";
-  if (/\b(you may|you can|i authorize)\b/.test(value)) return "permission";
+  const policy = interpretOwnerPolicyInstruction(message);
+  if (policy.kind === "ambiguous") return "ambiguous";
+  if (policy.kind === "restriction") return "constraint";
+  if (policy.kind === "permission_proposal") return "permission";
   if (/\b(pause|resume|schedule|until|after monday|after tuesday|after wednesday|after thursday|after friday)\b/.test(value)) {
     return "schedule";
-  }
-  if (/\b(never|do not|don't|dont|must not|avoid)\b/.test(value)) return "constraint";
-  if (/\b(you may|you can|authorize|permission|automatically|auto-apply)\b/.test(value)) {
-    return "permission";
   }
   if (/\b(focus|prioritize|priority|emphasize|concentrate)\b/.test(value)) return "priority";
   if (/\b(write|create|research|audit|publish|launch|work on)\b/.test(value)) return "direction";
@@ -140,6 +144,16 @@ export async function steerAgent(
   const message = input.message.trim();
   const intent = resolveSteeringIntent(message);
   const key = shortHash(message.toLowerCase());
+  const policyInterpretation = interpretOwnerPolicyInstruction(message);
+
+  if (intent === "ambiguous") {
+    return {
+      intent,
+      outcome: "clarification_required",
+      title: "Clarify the authority boundary",
+      summary: policyInterpretation.summary,
+    };
+  }
 
   if (intent === "priority") {
     const expiresAt = expiryFromInstruction(message);
@@ -227,12 +241,29 @@ export async function steerAgent(
   }
 
   if (intent === "constraint") {
-    const memory = await rememberAgentInstruction(scope, {
-      kind: "constraint",
-      key: `constraint:${key}`,
-      value: { instruction: message },
-      provenance: "owner_steering",
-    });
+    if (policyInterpretation.kind !== "restriction") {
+      return {
+        intent: "ambiguous",
+        outcome: "clarification_required",
+        title: "Clarify the restriction",
+        summary: "I could not compile that restriction into a safe capability and resource scope.",
+      };
+    }
+    const constraintExpiresAt = expiryFromInstruction(message);
+    const restrictionPolicies = policyInterpretation.policies.map((policy) => ({
+      ...policy,
+      expiresAt: constraintExpiresAt?.toISOString() ?? policy.expiresAt,
+    }));
+    const [policies, memory] = await Promise.all([
+      persistOwnerPolicies(scope, restrictionPolicies, { confirmed: true }),
+      rememberAgentInstruction(scope, {
+        kind: "constraint",
+        key: `constraint:${key}`,
+        value: { instruction: message },
+        provenance: "owner_steering",
+        expiresAt: constraintExpiresAt,
+      }),
+    ]);
     const planDiff = await structuredReplan(scope, message, `Owner constraint: ${message}`);
     return {
       intent,
@@ -240,13 +271,26 @@ export async function steerAgent(
       title: "Constraint remembered",
       summary: "I will enforce this before matching live actions and keep it in the plan history.",
       planDiff,
-      memory: { kind: memory.kind, key: memory.key, expiresAt: null },
+      memory: {
+        kind: memory.kind,
+        key: memory.key,
+        expiresAt: memory.expiresAt?.toISOString() ?? null,
+      },
+      policies: policies.map((policy) => ({
+        id: policy.id,
+        effect: policy.effect,
+        capabilities: policy.capabilities,
+        resources: policy.resources,
+        conditions: policy.conditions,
+        originalText: policy.originalText,
+        parserVersion: policy.parserVersion,
+        policyVersion: policy.policyVersion,
+      })),
     };
   }
 
   if (intent === "permission") {
-    const capability = capabilityFromInstruction(message);
-    if (!capability) {
+    if (policyInterpretation.kind !== "permission_proposal") {
       return {
         intent: "unsupported",
         outcome: "unsupported",
@@ -254,43 +298,47 @@ export async function steerAgent(
         summary: "Specify publishing, article updates, metadata, schema, robots.txt, or llms.txt so the authority change has a deterministic scope.",
       };
     }
-    const isDirectGrant = /\b(you may|you can|i authorize)\b/i.test(message);
-    const permissionExpiresAt = expiryFromInstruction(message);
-    if (isDirectGrant) {
-      const memory = await rememberAgentInstruction(scope, {
-        kind: "permission",
-        key: capability,
-        value: { instruction: message, capability, granted: true },
-        provenance: "owner_steering",
-        expiresAt: permissionExpiresAt,
-      });
-      const planDiff = await structuredReplan(
-        scope,
-        message,
-        `Owner granted ${capability} authority. Connector capability and risk policy still apply.`,
+    const capability = capabilityFromInstruction(message) ??
+      policyInterpretation.policies.find((policy) =>
+        policy.capabilities.some((item) => item !== "observe" && item !== "prepare"),
+      )?.capabilities.find((item): item is ConnectorCapability =>
+        item !== "observe" && item !== "prepare",
       );
+    if (!capability) {
       return {
-        intent,
-        outcome: "permission_updated",
-        title: "Permission updated",
-        summary:
-          "I recorded the authority. I will still require a matching connector capability and pass the deterministic risk policy before acting.",
-        planDiff,
-        memory: {
-          kind: memory.kind,
-          key: memory.key,
-          expiresAt: memory.expiresAt?.toISOString() ?? null,
-        },
+        intent: "unsupported",
+        outcome: "unsupported",
+        title: "Name the live permission",
+        summary: "Preparation does not need expanded authority. Name the exact publishing or site-change capability you want to delegate.",
       };
     }
+    const permissionExpiresAt = expiryFromInstruction(message);
+    const policies: CanonicalOwnerPolicy[] = policyInterpretation.policies.map((policy) => ({
+      ...policy,
+      expiresAt: permissionExpiresAt?.toISOString() ?? policy.expiresAt,
+    }));
+    const resources = policies[0]?.resources ?? { type: "all" as const };
+    const exactResource = resources.type === "resource" && resources.values.length === 1;
+    const authorityEnvelope = {
+      capability,
+      resources,
+      duration: permissionExpiresAt?.toISOString() ?? null,
+      budget: null,
+      maximumActions: exactResource ? 1 : null,
+      riskClass: "medium",
+      approvalMode: exactResource ? "per_action" : "delegated",
+    };
 
     const approval = await createAgentApproval(scope, {
       actionType: `grant ${capability}`,
+      capability,
       resourceRef: capability,
       afterState: {
         instruction: message,
         capability,
         expiresAt: permissionExpiresAt?.toISOString() ?? null,
+        policies,
+        authorityEnvelope,
       },
       riskLevel: "medium",
       expectedBenefit: "Allow the requested work and record each action in the audit log.",
@@ -305,7 +353,10 @@ export async function steerAgent(
         id: approval.id,
         actionType: approval.actionType,
         resourceRef: approval.resourceRef,
+        proposalHash: approval.proposalHash,
+        proposal: authorityEnvelope,
       },
+      policies: policies.map((policy) => ({ ...policy })),
     };
   }
 

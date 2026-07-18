@@ -3,33 +3,25 @@ import { Card } from "@heroui/react/card";
 import Link from "next/link";
 import {
   ArrowRightIcon,
-  BoltIcon,
   CalendarIcon,
   ChartBarIcon,
   CircleCheckIcon,
   GaugeIcon,
   GlobeIcon,
-  LayersIcon,
   PenIcon,
   PlugIcon,
+  PlusIcon,
   RefreshIcon,
-  RocketIcon,
   SearchIcon,
-  SparklesIcon,
+  InsightIcon,
   UsersIcon,
 } from "@/components/icons";
 import { plans } from "@/lib/billing/plans";
 
 const heroEvidence = [
-  "Works while you're offline",
-  "You only approve exceptions",
-  "Proves gains with real traffic",
-];
-
-const heroPreviewPillars = [
-  { label: "Google & search", value: 82 },
-  { label: "Answer boxes", value: 74 },
-  { label: "AI assistants", value: 79 },
+  "Chooses the next best action",
+  "Produces copy-ready implementation",
+  "Follows up with real evidence",
 ];
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
@@ -45,14 +37,13 @@ export function Hero() {
   return (
     <section className="relative mx-auto max-w-6xl px-4 pb-20 pt-24 sm:pt-32">
       <div className="mx-auto max-w-3xl text-center">
-        <SectionEyebrow>Your SEO and AI visibility hire</SectionEyebrow>
+        <SectionEyebrow>Your organic growth operator</SectionEyebrow>
         <h1 className="type-display mt-7 text-4xl text-foreground sm:text-6xl sm:leading-[1.02]">
-          Meet <span className="text-accent">Claudia</span>. She keeps your brand findable.
+          Meet <span className="text-accent">Claudia</span>. She turns organic opportunities into finished work.
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted sm:text-xl sm:leading-relaxed">
-          Claudia checks how your brand shows up in Google and AI answers, prepares site fixes,
-          and writes content in your voice. Each week, she tells you what changed and what needs
-          your attention.
+          Built for SaaS companies and growth-focused brands, Claudia finds the highest-value
+          SEO, AEO, or GEO action, prepares exactly what needs to ship, and follows up on the result.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Link href="/login" className={buttonVariants({ size: "lg" })}>
@@ -80,48 +71,40 @@ export function Hero() {
   );
 }
 
-/** A static, CSS-only "audit + content" product snapshot for credibility. */
+/** A static operator snapshot: priority, reasoning, deliverable, and recent work. */
 function HeroPreview() {
   return (
     <div className="mx-auto mt-16 max-w-4xl">
       <Card variant="transparent" className="rounded-none border-y border-border/60 py-8">
         <div className="grid gap-6 p-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-8">
           <div>
-            <p className="text-sm font-medium tracking-[0.01em] text-muted">Visibility score</p>
-            <div className="mt-2 flex items-end gap-2">
-              <span className="text-5xl font-semibold tabular-nums tracking-tight text-foreground">
-                78
-              </span>
-              <span className="pb-1 text-sm text-muted">/ 100</span>
-              <span className="mb-1 ml-auto rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium tracking-[0.01em] text-success-soft-foreground">
-                +14 this month
-              </span>
-            </div>
-            <div className="mt-6 space-y-4">
-              {heroPreviewPillars.map((pillar) => (
-                <div key={pillar.label}>
-                  <div className="mb-1.5 flex items-center justify-between text-sm">
-                    <span className="font-medium text-foreground">{pillar.label}</span>
-                    <span className="tabular-nums text-muted">{pillar.value}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-border/50">
-                    <div
-                      className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-ui ease-out-strong motion-reduce:transition-none"
-                      style={{ transform: `scaleX(${pillar.value / 100})` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-sm font-medium tracking-[0.01em] text-accent">Current priority</p>
+            <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-foreground text-balance">
+              Refresh the comparison page already close to page one
+            </h2>
+            <dl className="mt-6 space-y-4 border-t border-border/50 pt-5">
+              <div>
+                <dt className="text-xs font-medium text-muted">Why now</dt>
+                <dd className="mt-1 text-sm leading-6 text-foreground text-pretty">
+                  Search Console shows rising impressions, position 12, and a clear CTR gap.
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-muted">Deliverable</dt>
+                <dd className="mt-1 text-sm leading-6 text-foreground text-pretty">
+                  Revised copy, metadata, internal links, and a copy-ready implementation prompt.
+                </dd>
+              </div>
+            </dl>
           </div>
 
-          <div className="border-y border-border/50 py-4">
-            <p className="text-sm font-medium tracking-[0.01em] text-muted">Claudia this week</p>
+          <div className="border-y border-border/50 py-4 md:border-y-0 md:border-l md:pl-8">
+            <p className="text-sm font-medium tracking-[0.01em] text-muted">Completed this week</p>
             <ul className="mt-3 divide-y divide-border/40">
               {[
-                { title: 'Published "How AI assistants pick sources"', status: "Done" },
-                { title: "Fixed schema on 3 key pages", status: "Done" },
-                { title: "Drafting comparison page for Perplexity gap", status: "Working" },
+                { title: "Found three striking-distance buyer queries", status: "Done" },
+                { title: "Prepared schema prompt for three key pages", status: "Done" },
+                { title: "Refreshing the comparison page", status: "Working" },
               ].map((row) => (
                 <li
                   key={row.title}
@@ -159,37 +142,6 @@ function HeroPreview() {
   );
 }
 
-const publishTargets = [
-  "dev.to",
-  "WordPress",
-  "Ghost",
-  "Hashnode",
-  "Webhooks",
-  "Markdown export",
-];
-
-export function TrustBar() {
-  return (
-    <section className="border-y border-border/50">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-9 sm:flex-row sm:justify-between">
-        <p className="text-sm font-medium tracking-[0.01em] text-muted">
-          She publishes where your audience already is
-        </p>
-        <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          {publishTargets.map((target) => (
-            <li
-              key={target}
-              className="text-sm font-medium tracking-tight text-foreground/80"
-            >
-              {target}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
 const pillars = [
   {
     icon: SearchIcon,
@@ -199,7 +151,7 @@ const pillars = [
     points: ["Technical & on-page audit", "Core Web Vitals risk", "Schema & rich results"],
   },
   {
-    icon: SparklesIcon,
+    icon: InsightIcon,
     name: "AEO",
     full: "Answer Engine Optimization",
     blurb: "Give search engines clear answers they can quote.",
@@ -216,25 +168,36 @@ const pillars = [
 
 const capabilities = [
   {
-    icon: GaugeIcon,
-    title: "She measures & fixes visibility",
+    icon: InsightIcon,
+    title: "She decides what matters next",
     blurb:
-      "Claudia scores how findable you are on Google and AI assistants, queues fixes by impact, and prepares ready-to-install artifacts you deploy on your site.",
+      "Claudia combines your brand, buyer questions, Search Console, competitors, site health, and AI answers into one ranked opportunity queue.",
     points: [
-      "A score that shows what changed",
-      "Prepared fixes in one inbox",
-      "Scheduled audits that track progress",
+      "Priorities backed by real evidence",
+      "Existing pages considered before new content",
+      "One useful next action, not another dashboard",
     ],
   },
   {
     icon: PenIcon,
-    title: "She writes & publishes content",
+    title: "She produces finished work",
     blurb:
-      "She learns your voice, picks topics with a traffic thesis, writes human-sounding pieces, and ships them to the CMS you connect.",
+      "She writes in your voice and turns technical recommendations into handoffs your team can use immediately.",
     points: [
-      "Topic ideas tied to search evidence",
-      "Drafts written in your brand voice",
-      "Automatic publishing or review first",
+      "Research-backed drafts and page refreshes",
+      "Prompts for Claude Code, Codex, and Cursor",
+      "Step-by-step instructions for manual changes",
+    ],
+  },
+  {
+    icon: ChartBarIcon,
+    title: "She follows up on outcomes",
+    blurb:
+      "Claudia keeps the baseline, checks what changed, and reports the evidence without making you interpret a wall of metrics.",
+    points: [
+      "Search Console traffic and position checks",
+      "AI-answer and site rechecks",
+      "A concise weekly outcome report",
     ],
   },
 ];
@@ -245,16 +208,16 @@ export function Features() {
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>What she does every week</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-            One employee for visibility and content
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
+            One operator. One continuous growth loop.
           </h2>
           <p className="mt-4 text-pretty leading-relaxed text-muted">
-            Claudia handles the recurring work: audits, fixes, research, writing, and reporting.
-            You can follow every task without spending your week inside another SEO tool.
+            Claudia investigates, prioritizes, produces, and follows up. The individual analyzers
+            stay behind the scenes unless you want to inspect the evidence.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-5 lg:grid-cols-2">
+        <div className="mt-14 grid gap-5 lg:grid-cols-3">
           {capabilities.map((cap) => (
             <Card key={cap.title} variant="transparent" className="rounded-none border-y border-border/50 px-0 py-7">
               <div className="flex size-9 items-center justify-center text-accent">
@@ -279,11 +242,11 @@ export function Features() {
         <div className="mt-16">
           <div className="mx-auto max-w-2xl text-center">
             <h3 className="type-title text-2xl text-foreground sm:text-3xl">
-              Built for search and AI answers
+              Three methods, one priority queue
             </h3>
             <p className="mt-3 leading-relaxed text-muted">
-              Google, answer boxes, and AI assistants look for different signals. Claudia checks
-              each one and explains what to fix.
+              SEO, AEO, and GEO are how Claudia investigates opportunities. You manage one
+              operator, not three separate products.
             </p>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
@@ -327,21 +290,21 @@ const steps = [
   },
   {
     icon: GaugeIcon,
-    title: "She onboards herself",
+    title: "She chooses the best next action",
     blurb:
-      "She runs the first audit, checks AI answers, researches topics, and prepares the first useful work.",
+      "She weighs search demand, existing pages, competitors, buyer questions, and site issues by likely impact.",
   },
   {
-    icon: SparklesIcon,
-    title: "She works the standing loop",
+    icon: PenIcon,
+    title: "She prepares the finished work",
     blurb:
-      "She writes, audits, and follows up on a schedule. Every task appears in the work log.",
+      "You receive the draft, refresh, exact code prompt, or manual checklist needed to ship the improvement.",
   },
   {
-    icon: RocketIcon,
-    title: "You only decide exceptions",
+    icon: RefreshIcon,
+    title: "You ship it; she follows up",
     blurb:
-      "Review drafts when you want to, install prepared site fixes, and read the weekly report. Autopilot can publish approved work for you.",
+      "Publish through a connected CMS or use the handoff. Claudia rechecks the evidence and tells you what to do next.",
   },
 ];
 
@@ -351,12 +314,12 @@ export function HowItWorks() {
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>How she works</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-            Set her up once, then let her work
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
+            From opportunity to verified follow-up
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
-            Connect your site and choose how much Claudia can do on her own. She takes it from
-            there and asks when she needs a decision.
+            Connect the evidence once. Claudia keeps the work moving and asks only when she needs
+            context, approval, or confirmation that a change is live.
           </p>
         </div>
 
@@ -386,10 +349,10 @@ export function HowItWorks() {
 }
 
 const employeePerks = [
-  { icon: CalendarIcon, text: "Researches topics and writes on your plan schedule" },
-  { icon: RefreshIcon, text: "Runs new audits and prepares the next fixes" },
-  { icon: ChartBarIcon, text: "Sends a weekly report with scores, AI mentions, and traffic" },
-  { icon: BoltIcon, text: "Keeps a work log so you can check every claim" },
+  { icon: CalendarIcon, text: "Keeps one ranked queue of the most useful work" },
+  { icon: PenIcon, text: "Produces content, coding prompts, and manual instructions" },
+  { icon: RefreshIcon, text: "Rechecks shipped changes against the original evidence" },
+  { icon: ChartBarIcon, text: "Reports outcomes, open decisions, and the next priority" },
 ];
 
 export function ContentEmployee() {
@@ -400,13 +363,13 @@ export function ContentEmployee() {
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
               <SectionEyebrow>Meet Claudia</SectionEyebrow>
-              <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-                Your visibility and content specialist
+              <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
+                Your organic growth operator
               </h2>
               <p className="mt-4 leading-relaxed text-muted">
-                Claudia handles the work that usually gets pushed to next week. She checks search
-                and AI visibility, prepares fixes, writes useful content, and reports back every
-                Monday.
+                Claudia handles the recurring work that usually gets split across SEO tools,
+                content calendars, technical audits, and weekly reporting. You see the priority,
+                the deliverable, and the evidence in one place.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/login" className={buttonVariants()}>
@@ -441,62 +404,16 @@ export function ContentEmployee() {
   );
 }
 
-const integrations = [
-  { name: "dev.to", blurb: "Publish straight to your dev.to account via API key." },
-  { name: "WordPress", blurb: "Post to any self-hosted or WordPress.com site." },
-  { name: "Ghost", blurb: "Send drafts or live posts to your Ghost publication." },
-  { name: "Hashnode", blurb: "Ship to your Hashnode publication in one click." },
-  { name: "Webhooks", blurb: "Fire a signed payload to any custom endpoint." },
-  { name: "Markdown export", blurb: "Download clean Markdown for anywhere else." },
-];
-
-export function Publish() {
-  return (
-    <section id="publish" className="border-t border-border/40 px-4 py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl">
-        <div className="mx-auto max-w-2xl text-center">
-          <SectionEyebrow>Publish anywhere</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
-            Connect your platforms and ship
-          </h2>
-          <p className="mt-4 leading-relaxed text-muted">
-            Connect once. Autopilot can publish for you, while Copilot waits for your approval.
-            You can also export clean Markdown whenever you need it.
-          </p>
-        </div>
-
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {integrations.map((integration) => (
-            <Card key={integration.name} variant="transparent" className="rounded-none border-y border-border/50 px-0 py-5">
-              <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-surface/70 text-accent">
-                  <LayersIcon className="size-5" />
-                </div>
-                <div>
-                  <p className="font-semibold tracking-tight text-foreground">
-                    {integration.name}
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">{integration.blurb}</p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 const freeTeaser = [
-  "Meet Claudia & set up the brand",
-  "She pre-fills voice, competitors & use cases",
-  "A free visibility snapshot for your site",
+  "Set up the brand and buyer context",
+  "Review the voice and competitors she finds",
+  "See the first evidence-backed opportunities",
 ];
 
 const paidTeaser = [
-  "Claudia works every day on your brand",
-  "Articles, audits, and prepared fixes included",
-  "A weekly report with scores, AI answers, and traffic",
+  "The same Claudia on every paid plan",
+  "More credits mean more completed work",
+  "Article equivalents make capacity easy to compare",
 ];
 
 export function Pricing() {
@@ -506,12 +423,12 @@ export function Pricing() {
       <div className="mx-auto max-w-5xl">
         <div className="mx-auto max-w-2xl text-center">
           <SectionEyebrow>Plans</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             Pick a plan that fits the workload
           </h2>
           <p className="mt-4 leading-relaxed text-muted">
-            Start with a free site check. A paid plan gives Claudia a monthly budget for writing,
-            audits, fixes, and reporting.
+            Every paid plan includes the same capabilities. Choose the monthly capacity Claudia
+            can spend on research, writing, audits, answer checks, and prepared fixes.
           </p>
         </div>
 
@@ -525,7 +442,7 @@ export function Pricing() {
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
-              Set up your brand and check your site. No card required.
+              Let Claudia learn the brand and show what she would tackle first.
             </Card.Description>
             <ul className="mt-5 flex-1 space-y-2.5">
               {freeTeaser.map((item) => (
@@ -549,7 +466,7 @@ export function Pricing() {
               <span className="text-sm text-muted">/mo</span>
             </div>
             <Card.Description className="mt-1">
-              Choose how much work Claudia can take on each month.
+              Choose how much work Claudia can complete each month.
             </Card.Description>
             <ul className="mt-5 flex-1 space-y-2.5">
               {paidTeaser.map((item) => (
@@ -582,27 +499,27 @@ export function Pricing() {
 const faqs = [
   {
     q: "Is this another SEO dashboard?",
-    a: "Claudia is the main product. Most days, you only need her status, inbox, and weekly report. The detailed scorecard and individual tools are still available in Workshop when you need them.",
+    a: "No. Claudia is the main product. Most days, you only need her current priority, Inbox, Work history, and weekly outcome report. Detailed evidence appears inside the work that needs it.",
   },
   {
     q: "What does Claudia actually do?",
-    a: "She checks how your brand appears in Google, answer boxes, and AI assistants. She then prepares site fixes, researches topics, writes articles, and can publish them. Connect Search Console and her reports will also include real traffic.",
+    a: "She learns the brand, investigates search and AI-answer opportunities, chooses the strongest next action, writes or prepares the work, and follows up using Search Console and fresh checks.",
   },
   {
     q: "Do I need to be technical?",
-    a: "No. Share your site, check the brand details Claudia found, and choose Autopilot or Copilot. She explains issues in plain language and gives you copy-ready files or code when a fix cannot be applied directly.",
+    a: "No. For code changes, Claudia gives you a complete prompt to paste into Claude Code, Codex, or Cursor. For CMS or hosting changes, she gives you a step-by-step manual checklist and tells you how to verify it.",
   },
   {
-    q: "Autopilot vs Copilot?",
-    a: "Autopilot publishes articles to your CMS. Copilot waits for your approval first. Both modes prepare site fixes in your inbox, and you can switch modes whenever you like.",
+    q: "Why are there different plans if Claudia is the same?",
+    a: "The capabilities are the same. Plans change Claudia's monthly work credits, daily pace, and monitoring volume. Higher capacity means more research, drafts, audits, answer checks, and prepared changes can be completed.",
   },
   {
     q: "What are credits?",
-    a: "Credits pay for heavier work such as articles, research, and audits. Your plan includes a monthly allowance for prepared site fixes. If you need more volume, top-up credits do not expire.",
+    a: "Credits are Claudia's work capacity. An article draft uses more capacity than a research run or answer check, so each plan shows an article-draft equivalent for easy comparison. Actual output depends on the mix of work Claudia prioritizes.",
   },
   {
     q: "Can I try before hiring her?",
-    a: "Yes. You can set up your brand and run a visibility snapshot for free. A paid plan starts Claudia's regular writing, audit, and reporting schedule.",
+    a: "Yes. You can set up the brand and review a free site snapshot before choosing monthly work capacity.",
   },
 ];
 
@@ -612,7 +529,7 @@ export function Faq() {
       <div className="mx-auto max-w-3xl">
         <div className="text-center">
           <SectionEyebrow>FAQ</SectionEyebrow>
-          <h2 className="type-title mt-5 text-3xl text-foreground sm:text-4xl">
+          <h2 className="type-display mt-5 text-3xl text-foreground sm:text-4xl">
             Questions, answered
           </h2>
         </div>
@@ -622,10 +539,8 @@ export function Faq() {
             <details key={faq.q} className="group py-5">
               <summary className="pressable flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg text-left text-base font-medium tracking-tight text-foreground [&::-webkit-details-marker]:hidden">
                 {faq.q}
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border/60 text-muted transition-transform duration-ui ease-out-strong group-open:rotate-45">
-                  <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
+                <span className="flex size-7 shrink-0 items-center justify-center text-muted transition-transform duration-ui ease-out-strong group-open:rotate-45">
+                  <PlusIcon className="size-4" />
                 </span>
               </summary>
               <p className="mt-3 text-pretty text-sm leading-relaxed text-muted">{faq.a}</p>
@@ -646,7 +561,7 @@ export function FinalCta() {
             <div className="mx-auto flex size-10 items-center justify-center text-accent">
               <UsersIcon className="size-6" />
             </div>
-            <h2 className="type-title mt-6 text-3xl text-foreground sm:text-4xl">
+            <h2 className="type-display mt-6 text-3xl text-foreground sm:text-4xl">
               Put Claudia to work on your site
             </h2>
             <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted">

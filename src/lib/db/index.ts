@@ -7,7 +7,11 @@ import * as authSchema from "./schema/auth";
 import * as brandSchema from "./schema/brand";
 import * as contentSchema from "./schema/content";
 import * as creditsSchema from "./schema/credits";
+import * as groundingSchema from "./schema/grounding";
+import * as autonomySchema from "./schema/autonomy";
+import * as connectorsSchema from "./schema/connectors";
 import * as jobsSchema from "./schema/jobs";
+import * as observabilitySchema from "./schema/observability";
 import * as publicationsSchema from "./schema/publications";
 import * as rateLimitSchema from "./schema/rate-limits";
 import * as visibilitySchema from "./schema/visibility";
@@ -17,9 +21,13 @@ const schema = {
   ...authSchema,
   ...appSchema,
   ...brandSchema,
+  ...connectorsSchema,
   ...contentSchema,
   ...creditsSchema,
+  ...groundingSchema,
   ...jobsSchema,
+  ...observabilitySchema,
+  ...autonomySchema,
   ...publicationsSchema,
   ...rateLimitSchema,
   ...visibilitySchema,

@@ -1,21 +1,17 @@
 "use client";
 
-import { Button, TextArea } from "@heroui/react";
+import { Button, Card, Input, Skeleton, TextArea } from "@heroui/react";
+import { EmptyState } from "@heroui-pro/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
 import { use, useEffect, useRef, useState } from "react";
-import { CardSkeleton } from "@/components/feedback/skeletons";
+import { CreditCardIcon, GaugeIcon } from "@/components/icons";
 import { PageHeader } from "@/components/layout/page-header";
+import { AiCitabilityRunner } from "@/components/tools/ai-citability-runner";
 import { ToolResultCard, type ToolFindingView } from "@/components/tools/tool-result";
 import { queryKeys, useBrandProfile, useToolRun } from "@/lib/api/queries";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { getToolMeta } from "@/lib/visibility/toolbox-meta";
-
-/**
- * V8.3: one Toolbox tool. Opens on the tool's latest stored result (so the
- * page is a report, not an empty box) with a re-run action that spends credits
- * only when the owner explicitly asks for a fresh reading.
- */
 
 const PLACEHOLDER: Record<string, string> = {
   domain: "example.com",
@@ -42,8 +38,6 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prefill the input once: the last run's input, else the brand's website for
-  // URL/domain tools: so re-running is one click, not a copy-paste chore.
   const lastInput = latest.data?.run?.input ?? null;
   const inputKind = tool?.inputKind;
   useEffect(() => {
@@ -78,37 +72,108 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
       queryClient.invalidateQueries({ queryKey: queryKeys.toolRun(slug) });
       queryClient.invalidateQueries({ queryKey: queryKeys.toolLatestRuns });
       queryClient.invalidateQueries({ queryKey: queryKeys.visibilityFindings });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Run failed");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Run failed");
     } finally {
       setBusy(false);
     }
   };
 
-  return (
-    <div className="mx-auto w-full max-w-3xl space-y-12">
-      <PageHeader title={tool.name} description={tool.description} />
+  if (slug === "citability") {
+    return (
+      <AiCitabilityRunner
+        input={input}
+        onInputChange={(value) => {
+          touched.current = true;
+          setInput(value);
+        }}
+        onRun={run}
+        busy={busy}
+        error={error}
+        isLoading={latest.isLoading}
+        result={
+          fresh
+            ? {
+                score: fresh.score,
+                data: fresh.data,
+                ranAt: null,
+                freshRun: true,
+              }
+            : storedRun
+              ? {
+                  score: storedRun.score,
+                  data: storedRun.data,
+                  ranAt: storedRun.createdAt,
+                  freshRun: false,
+                }
+              : null
+        }
+      />
+    );
+  }
 
-      <section className="space-y-4 border-y border-separator/70 py-6">
-        <TextArea
-          aria-label={tool.name}
-          className="min-h-20"
-          placeholder={PLACEHOLDER[tool.inputKind]}
-          value={input}
-          onChange={(e) => {
-            touched.current = true;
-            setInput(e.target.value);
-          }}
-          variant="secondary"
-          fullWidth
-        />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs leading-relaxed tracking-[0.01em] text-default-400">
-            A run costs {CREDIT_COSTS[tool.costKey]} credits. Your last result stays here for
-            free.
+  return (
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
+      <PageHeader
+        title={tool.name}
+        description={tool.description}
+        meta={
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted">
+            <GaugeIcon className="size-3.5" aria-hidden />
+            {tool.pillar.toUpperCase()} analyzer
+          </span>
+        }
+      />
+
+      <Card>
+        <Card.Header className="p-5 pb-3 sm:p-6 sm:pb-3">
+          <Card.Title>{hasResult ? "Run Again" : "Run Analyzer"}</Card.Title>
+          <Card.Description>
+            Enter the source to analyze. Your latest saved result stays available between runs.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content className="space-y-4 px-5 sm:px-6">
+          {tool.inputKind === "page-or-text" ? (
+            <TextArea
+              aria-label={tool.name}
+              className="min-h-28"
+              placeholder={PLACEHOLDER[tool.inputKind]}
+              value={input}
+              onChange={(event) => {
+                touched.current = true;
+                setInput(event.target.value);
+              }}
+              variant="secondary"
+              fullWidth
+            />
+          ) : (
+            <Input
+              aria-label={tool.name}
+              placeholder={PLACEHOLDER[tool.inputKind]}
+              value={input}
+              onChange={(event) => {
+                touched.current = true;
+                setInput(event.target.value);
+              }}
+              variant="secondary"
+              fullWidth
+            />
+          )}
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-xl bg-danger-soft px-4 py-3 text-sm leading-6 text-danger-soft-foreground"
+            >
+              {error}
+            </p>
+          ) : null}
+        </Card.Content>
+        <Card.Footer className="flex-col items-stretch gap-3 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <span className="inline-flex items-center gap-2 text-xs leading-5 text-muted tabular-nums">
+            <CreditCardIcon className="size-3.5" aria-hidden />
+            {CREDIT_COSTS[tool.costKey].toLocaleString()} credits per run
           </span>
           <Button
-            size="sm"
             variant="primary"
             className="sm:shrink-0"
             isDisabled={busy || input.trim().length === 0}
@@ -116,9 +181,8 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
           >
             {busy ? "Running…" : hasResult ? "Re-run tool" : "Run tool"}
           </Button>
-        </div>
-        {error && <p className="text-sm leading-relaxed text-danger">{error}</p>}
-      </section>
+        </Card.Footer>
+      </Card>
 
       {fresh ? (
         <ToolResultCard
@@ -132,17 +196,43 @@ export default function ToolRunnerPage({ params }: { params: Promise<{ slug: str
         <ToolResultCard
           score={storedRun.score}
           ranAt={storedRun.createdAt}
-          findings={storedRun.findings.filter((f) => !f.isResolved)}
+          findings={storedRun.findings.filter((finding) => !finding.isResolved)}
           data={storedRun.data}
           freshRun={false}
         />
       ) : latest.isLoading ? (
-        <CardSkeleton lines={4} />
+        <Card className="space-y-4 p-6" aria-label="Loading saved tool result">
+          <Skeleton className="h-8 w-36 rounded-lg" />
+          <Skeleton className="h-4 w-full rounded-lg" />
+          <Skeleton className="h-4 w-4/5 rounded-lg" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+        </Card>
+      ) : latest.isError ? (
+        <Card>
+          <EmptyState size="sm">
+            <EmptyState.Header>
+              <EmptyState.Title>{"Couldn't Load the Saved Result"}</EmptyState.Title>
+              <EmptyState.Description>
+                You can still run the analyzer now, or refresh this page to try loading the previous result again.
+              </EmptyState.Description>
+            </EmptyState.Header>
+          </EmptyState>
+        </Card>
       ) : (
-        <div className="border-y border-separator/70 py-6 text-sm leading-relaxed text-default-500">
-          No runs yet. Run it once and this page will always show your latest result.
-        </div>
+        <Card>
+          <EmptyState size="sm">
+            <EmptyState.Header>
+              <EmptyState.Media variant="icon">
+                <GaugeIcon className="size-5" aria-hidden />
+              </EmptyState.Media>
+              <EmptyState.Title>No Runs Yet</EmptyState.Title>
+              <EmptyState.Description>
+                Run this analyzer once and the page will keep your latest result here.
+              </EmptyState.Description>
+            </EmptyState.Header>
+          </EmptyState>
+        </Card>
       )}
-    </div>
+    </main>
   );
 }

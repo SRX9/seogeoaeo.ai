@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/brands/route";
+import { ensurePrimaryObjective } from "@/lib/agent/objectives";
 import { getApiContext } from "@/lib/api/server";
 import { setActiveBrandCookie } from "@/lib/brand/context";
 import {
@@ -21,6 +22,10 @@ vi.mock("@/lib/api/server", async (importOriginal) => {
     getApiContext: vi.fn(),
   };
 });
+
+vi.mock("@/lib/agent/objectives", () => ({
+  ensurePrimaryObjective: vi.fn(),
+}));
 
 vi.mock("@/lib/brand/context", () => ({
   setActiveBrandCookie: vi.fn(),
@@ -162,6 +167,10 @@ describe("/api/brands", () => {
       productDescription: "Analytics for growing teams.",
     }));
     expect(setActiveBrandCookie).toHaveBeenCalledWith(brand.id);
+    expect(ensurePrimaryObjective).toHaveBeenCalledWith(scope, "Acme", {
+      objective: "Grow qualified discovery and trusted visibility for Acme.",
+      origin: "owner_selected",
+    });
     expect(startSetupRun).toHaveBeenCalledWith(scope);
     expect(triggerSetupRun).toHaveBeenCalledWith(scope, "startup", expect.objectContaining({
       id: setupRun.id,

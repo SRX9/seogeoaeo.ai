@@ -116,6 +116,22 @@ describe("fetchPage", () => {
     expect(snap.title).toContain("Acme Analytics");
   });
 
+  it("revalidates a redirect and blocks private destinations", async () => {
+    let calls = 0;
+    const snap = await fetchPage("https://acme.example/", {
+      resolveHostname: async () => ["8.8.8.8"],
+      fetchImpl: mockFetch(() => {
+        calls += 1;
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "http://127.0.0.1/admin" },
+        });
+      }),
+    });
+    expect(calls).toBe(1);
+    expect(snap.errors[0]).toContain("Blocked crawler destination");
+  });
+
   it("rejects non-http(s) schemes without fetching", async () => {
     const snap = await fetchPage("ftp://acme.example/file");
     expect(snap.status_code).toBeNull();

@@ -1,29 +1,20 @@
 "use client";
 
+import { Button, Card, Form, Input, Label, Spinner, TextArea, Tooltip, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
-import { Button, Input, Label, Spinner, Tooltip, toast } from "@heroui/react";
-import { Segment } from "@heroui-pro/react";
-import type { Key } from "react-aria-components";
+import { EmptyState, Segment } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { EmptyState } from "@heroui-pro/react/empty-state";
-import { LoadingButton } from "@/components/ui/loading-button";
-import { InlineLoader } from "@/components/feedback/states";
-import { PenIcon, PlusIcon, SparklesIcon, TopicsIcon } from "@/components/icons";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
+import { PenIcon, PlusIcon, ResearchIcon, TopicsIcon } from "@/components/icons";
+import { StatusText, ToneText } from "@/components/ui/status-text";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useSetupInProgress, useTopics, type Topic } from "@/lib/api/queries";
-import { cn } from "@/lib/cn";
-import { statusTextClass } from "@/lib/ui/status";
 
 type TopicsCache = { topics: Topic[] };
-
-type TopicQueueProps = {
-  canGenerate: boolean;
-  articleCost: number;
-};
+type TopicQueueProps = { canGenerate: boolean; articleCost: number };
 
 const filters = [
   { id: "all", label: "All" },
@@ -31,27 +22,24 @@ const filters = [
   { id: "manual", label: "Manual" },
 ] as const;
 
-// Owner language for where a topic idea came from: never the raw enum.
 const SOURCE_BADGES: Record<string, string> = {
-  use_case: "Customer profiles",
-  competitor_gap: "Competitor gap",
+  use_case: "Customer Profile",
+  competitor_gap: "Competitor Gap",
   gsc: "Search Console",
-  web_search: "Web search",
+  web_search: "Web Search",
   trend_query: "Trending",
-  keyword_api: "Keyword ideas",
-  rss: "Competitor blog",
-  sitemap: "Competitor blog",
+  keyword_api: "Keyword Ideas",
+  rss: "Competitor Blog",
+  sitemap: "Competitor Blog",
 };
 
-// Buyer intent, in owner language: why this topic ranks where it does.
 const INTENT_BADGES: Record<string, string> = {
-  bofu: "Buying now",
-  mofu: "Comparing options",
+  bofu: "Buying Now",
+  mofu: "Comparing Options",
   tofu: "Learning",
 };
 
-/** The research source badge, read from the topic's stored evidence. */
-function sourceBadge(topic: Topic): string | null {
+function sourceLabel(topic: Topic): string | null {
   if (!topic.evidenceJson) return null;
   try {
     const evidence = JSON.parse(topic.evidenceJson) as { sourceType?: string };
@@ -64,24 +52,14 @@ function sourceBadge(topic: Topic): string | null {
 const EMPTY_TOPIC = { title: "", angle: "", keywords: "" };
 
 export function ManualTopicForm() {
-  // Controlled state: HeroUI inputs don't reliably submit via native FormData.
   const [fields, setFields] = useState(EMPTY_TOPIC);
+  const set = (key: keyof typeof EMPTY_TOPIC) => (event: { target: { value: string } }) =>
+    setFields((previous) => ({ ...previous, [key]: event.target.value }));
 
-  const set =
-    (key: keyof typeof EMPTY_TOPIC) =>
-      (event: { target: { value: string } }) =>
-        setFields((prev) => ({ ...prev, [key]: event.target.value }));
-
-  const createTopic = useOptimisticMutation<
-    unknown,
-    { title: string; angle: string; keywords: string },
-    TopicsCache
-  >({
+  const createTopic = useOptimisticMutation<unknown, typeof EMPTY_TOPIC, TopicsCache>({
     mutationFn: (input) => apiPost("/api/topics", input),
     queryKey: queryKeys.topics,
     optimisticUpdate: (current, input) => ({
-      // Show the new manual topic at the top of the queue immediately; the
-      // settle-invalidate swaps the temp id for the server's record.
       topics: [
         {
           id: `temp-${Date.now()}`,
@@ -103,9 +81,9 @@ export function ManualTopicForm() {
     invalidateKeys: [queryKeys.automation],
     onSuccess: () => {
       setFields(EMPTY_TOPIC);
-      toast.success("Topic added to your queue");
+      toast.success("Topic added to your queue.");
     },
-    onError: (error) => toast.danger(getErrorMessage(error, "Could not add topic")),
+    onError: (error) => toast.danger(getErrorMessage(error, "Could not add topic.")),
   });
 
   function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -118,48 +96,69 @@ export function ManualTopicForm() {
   }
 
   return (
-    <section className="border-y border-separator/70 py-7 sm:py-9">
-      {/* Header */}
-      <div className="flex items-start gap-3.5">
-        <PenIcon className="mt-1 size-5 shrink-0 text-foreground" />
-        <div className="space-y-2">
-          <h3 className="type-title text-lg text-foreground">Create a manual topic</h3>
-          <p className="max-w-prose text-sm leading-relaxed text-muted">
-            Already know what you want to write? Drop it straight into the queue and generate
-            when you&apos;re ready.
-          </p>
+    <Card>
+      <Card.Header className="flex-row items-start gap-3">
+        <div className="rounded-xl bg-accent-soft p-2 text-accent-soft-foreground"><PenIcon className="size-5" /></div>
+        <div>
+          <Card.Title>Create a Manual Topic</Card.Title>
+          <Card.Description className="mt-1">Add a specific idea directly to the writing queue.</Card.Description>
         </div>
-      </div>
-
-      <form onSubmit={handleCreate} className="mt-8">
-        <div className="space-y-2">
-          <Label htmlFor="title">Topic title</Label>
-          <Input id="title" name="title" value={fields.title} onChange={set("title")} required placeholder="How to automate SEO blog production" variant="secondary" fullWidth />
-          <p className="text-xs leading-relaxed text-muted">Enter the main idea for the article.</p>
-        </div>
-
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+      </Card.Header>
+      <Form aria-label="Create a manual topic" onSubmit={handleCreate}>
+        <Card.Content className="grid gap-5">
           <div className="space-y-2">
-            <Label htmlFor="angle">Angle</Label>
-            <Input id="angle" name="angle" value={fields.angle} onChange={set("angle")} placeholder="Focus on founders with small teams" variant="secondary" fullWidth />
-            <p className="text-xs leading-relaxed text-muted">Who it&apos;s for, or the take to lead with.</p>
+            <Label htmlFor="topic-title">Topic Title</Label>
+            <Input
+              id="topic-title"
+              name="title"
+              value={fields.title}
+              onChange={set("title")}
+              required
+              placeholder="How to automate SEO content production"
+              variant="secondary"
+              fullWidth
+            />
+            <p className="text-xs text-muted">The main question or idea the article should address.</p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="keywords">Keywords</Label>
-            <Input id="keywords" name="keywords" value={fields.keywords} onChange={set("keywords")} placeholder="seo automation, content marketing" variant="secondary" fullWidth />
-            <p className="text-xs leading-relaxed text-muted">Comma-separated terms to target.</p>
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="topic-angle">Angle</Label>
+              <TextArea
+                id="topic-angle"
+                name="angle"
+                value={fields.angle}
+                onChange={set("angle")}
+                rows={3}
+                placeholder="Focus on founders with small teams"
+                variant="secondary"
+                fullWidth
+              />
+              <p className="text-xs text-muted">The audience, point of view, or outcome to lead with.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="topic-keywords">Keywords</Label>
+              <TextArea
+                id="topic-keywords"
+                name="keywords"
+                value={fields.keywords}
+                onChange={set("keywords")}
+                rows={3}
+                placeholder="seo automation, content marketing"
+                variant="secondary"
+                fullWidth
+              />
+              <p className="text-xs text-muted">Comma-separated search terms to consider.</p>
+            </div>
           </div>
-        </div>
-
-        <div className="mt-8 flex flex-col gap-3 border-t border-border/50 pt-7">
-          <LoadingButton className="w-fit" type="submit" isPending={createTopic.isPending} pendingLabel="Adding…">
+        </Card.Content>
+        <Card.Footer className="mt-5 justify-end">
+          <Button type="submit" isPending={createTopic.isPending} isDisabled={!fields.title.trim()}>
             <PlusIcon className="size-4" />
-            Add to queue
-          </LoadingButton>
-          <p className="text-xs leading-relaxed text-muted">Appears at the top of your topic queue.</p>
-        </div>
-      </form>
-    </section>
+            {createTopic.isPending ? "Adding" : "Add to Queue"}
+          </Button>
+        </Card.Footer>
+      </Form>
+    </Card>
   );
 }
 
@@ -167,7 +166,6 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
   const [filter, setFilter] = useState("all");
   const { data, isLoading } = useTopics();
   const topics = data?.topics ?? [];
-
   const visibleTopics = topics.filter((topic) => {
     if (filter === "research") return topic.source === "research";
     if (filter === "manual") return topic.source !== "research";
@@ -176,46 +174,28 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="type-title text-lg text-foreground">Topic queue</h2>
-        <div className="flex items-center gap-3">
-          <span className="text-sm tracking-[0.01em] text-muted tabular-nums">
-            {visibleTopics.length} topics
-          </span>
-          <Segment
-            aria-label="Filter topics by source"
-            size="sm"
-            variant="ghost"
-            selectedKey={filter}
-            onSelectionChange={(key: Key) => setFilter(String(key))}
-          >
-            {filters.map((item) => (
-              <Segment.Item key={item.id} id={item.id}>
-                {item.label}
-              </Segment.Item>
-            ))}
-          </Segment>
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Topic Queue</h2>
+          <p className="mt-1 text-sm text-muted"><span className="tabular-nums">{visibleTopics.length}</span> topics ready to review</p>
         </div>
+        <Segment aria-label="Filter topics by source" size="sm" variant="ghost" selectedKey={filter} onSelectionChange={(key) => setFilter(String(key))}>
+          {filters.map((item) => <Segment.Item key={item.id} id={item.id}>{item.label}</Segment.Item>)}
+        </Segment>
       </div>
 
       {isLoading ? (
-        <InlineLoader label="Loading topics…" />
+        <Card className="items-center py-10"><Spinner /><p className="text-sm text-muted">Loading topics</p></Card>
       ) : visibleTopics.length === 0 ? (
-        <EmptyState size="sm" className="material-panel rounded-2xl border-dashed">
-          <EmptyState.Header>
-            <EmptyState.Media variant="icon">
-              <TopicsIcon />
-            </EmptyState.Media>
-            <EmptyState.Title>
-              {filter === "manual" ? "No manual topics yet" : "No topics in the queue"}
-            </EmptyState.Title>
-            <EmptyState.Description>
-              {filter === "manual"
-                ? "Add your own idea in the Manual topic tab and it lands here, ready to write."
-                : "Run topic research and Claudia fills this queue with ranked, traffic-backed ideas."}
-            </EmptyState.Description>
-          </EmptyState.Header>
-        </EmptyState>
+        <Card>
+          <EmptyState size="sm">
+            <EmptyState.Header>
+              <EmptyState.Media variant="icon"><TopicsIcon /></EmptyState.Media>
+              <EmptyState.Title>No Topics Here</EmptyState.Title>
+              <EmptyState.Description>Add an idea manually or run research to build your queue.</EmptyState.Description>
+            </EmptyState.Header>
+          </EmptyState>
+        </Card>
       ) : (
         <TopicList topics={visibleTopics} canGenerate={canGenerate} articleCost={articleCost} />
       )}
@@ -224,7 +204,6 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
   );
 }
 
-/** Owner-language labels for C4's learned source weights. */
 const SOURCE_WEIGHT_LABELS: Record<string, string> = {
   gsc_query: "Search Console topics",
   use_case: "customer-profile topics",
@@ -234,43 +213,22 @@ const SOURCE_WEIGHT_LABELS: Record<string, string> = {
   keyword_api: "keyword topics",
 };
 
-/**
- * C4 transparency: when the performance loop has learned a meaningful weight
- * for a source, say so: the backlog ranking shouldn't feel arbitrary.
- */
 function SourceWeightsNote({ weights }: { weights?: Record<string, number> }) {
   if (!weights) return null;
   const learned = Object.entries(weights)
     .filter(([source, weight]) => Math.abs(weight - 1) >= 0.1 && SOURCE_WEIGHT_LABELS[source])
     .sort((a, b) => b[1] - a[1]);
   if (learned.length === 0) return null;
-  const lines = learned.map(
-    ([source, weight]) =>
-      `${SOURCE_WEIGHT_LABELS[source]} ${weight.toFixed(1)}× (${weight > 1 ? "they keep winning here" : "they haven't been landing"})`,
-  );
-  return (
-    <p className="text-xs text-muted">
-      From what&apos;s worked for your site so far, Claudia is weighing {lines.join(", ")}.
-    </p>
-  );
+  const lines = learned.map(([source, weight]) => `${SOURCE_WEIGHT_LABELS[source]} ${weight.toFixed(1)}×`);
+  return <p className="text-xs leading-5 text-muted">Claudia is adjusting the ranking from past performance: {lines.join(", ")}.</p>;
 }
 
-function TopicList({
-  topics,
-  canGenerate,
-  articleCost,
-}: {
-  topics: Topic[];
-  canGenerate: boolean;
-  articleCost: number;
-}) {
-  const router = useRouter();
+function TopicList({ topics, canGenerate, articleCost }: { topics: Topic[]; canGenerate: boolean; articleCost: number }) {
+  const router = useProgressRouter();
   const queryClient = useQueryClient();
   const settingUp = useSetupInProgress();
-
   const generate = useMutation({
-    mutationFn: (topicId: string) =>
-      apiPost<{ articleId: string }>("/api/articles/generate", { topicId }),
+    mutationFn: (topicId: string) => apiPost<{ articleId: string }>("/api/articles/generate", { topicId }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.topics });
       queryClient.invalidateQueries({ queryKey: queryKeys.articles });
@@ -281,91 +239,51 @@ function TopicList({
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/account?tab=billing&upgrade=1");
+        router.push("/settings?tab=billing&upgrade=1");
         return;
       }
-      toast.danger(getErrorMessage(error, "Could not generate article"));
+      toast.danger(getErrorMessage(error, "Could not generate article."));
     },
   });
 
   return (
-    <ul className="divide-y divide-separator/70 border-y border-separator/70">
+    <div className="grid gap-3">
       {topics.map((topic) => {
         const isGenerating = generate.isPending && generate.variables === topic.id;
         return (
-          <li
-            key={topic.id}
-            className="flex items-start justify-between gap-4 py-5 sm:py-6"
-          >
-            {/* Title, subtitle, and details: stacked so the row never needs horizontal scroll */}
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="space-y-1">
-                <p className="font-medium leading-snug tracking-tight text-foreground">
-                  {topic.title}
-                </p>
-                {/* The thesis is the one line that says why this will drive
-                    traffic: always preferred over the generic rationale. */}
-                {topic.thesis || topic.rationale ? (
-                  <p className="line-clamp-2 text-xs leading-relaxed text-muted">
-                    {topic.thesis ?? topic.rationale}
-                  </p>
-                ) : null}
+          <Card key={topic.id} className="flex-row items-start gap-4">
+            <Card.Content className="min-w-0 flex-1">
+              <p className="font-medium leading-snug text-foreground">{topic.title}</p>
+              {topic.thesis || topic.rationale ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted">{topic.thesis ?? topic.rationale}</p> : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ToneText className="text-xs">{sourceLabel(topic) ?? topic.source}</ToneText>
+                {topic.intentTier && INTENT_BADGES[topic.intentTier] ? <ToneText tone="accent" className="text-xs">{INTENT_BADGES[topic.intentTier]}</ToneText> : null}
+                <StatusText status={topic.status} className="text-xs" />
+                {topic.score != null ? <ToneText tone="accent" className="text-xs tabular-nums">Score {Math.round(topic.score)}</ToneText> : null}
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="capitalize text-muted">{sourceBadge(topic) ?? topic.source}</span>
-                {topic.intentTier && INTENT_BADGES[topic.intentTier] ? (
-                  <span className={topic.intentTier === "bofu" ? "text-success" : "text-muted"}>
-                    {INTENT_BADGES[topic.intentTier]}
-                  </span>
-                ) : null}
-                <span className={cn("uppercase tracking-wide", statusTextClass(topic.status))}>
-                  {topic.status}
-                </span>
-                {topic.score != null ? (
-                  <span className="text-xs text-muted tabular-nums">Score {topic.score}</span>
-                ) : null}
-              </div>
-            </div>
-
-            {/* Action stays pinned to the right and always visible */}
+            </Card.Content>
             <div className="shrink-0">
               {canGenerate ? (
                 <Tooltip delay={300}>
                   <Button
                     size="sm"
                     isIconOnly
-                    aria-label={`Generate article · ${articleCost} credits`}
+                    aria-label={`Generate article, ${articleCost} credits`}
                     isPending={isGenerating}
                     isDisabled={generate.isPending || settingUp}
                     onPress={() => generate.mutate(topic.id)}
                   >
-                    {isGenerating ? (
-                      <Spinner color="current" size="sm" />
-                    ) : (
-                      <SparklesIcon className="size-4" />
-                    )}
+                    {isGenerating ? <Spinner color="current" size="sm" /> : <ResearchIcon className="size-4" />}
                   </Button>
-                  <Tooltip.Content>
-                    <p>
-                      {settingUp
-                        ? "Claudia is setting up your brand. You can generate an article when setup is done."
-                        : `Generate article · ${articleCost} credits`}
-                    </p>
-                  </Tooltip.Content>
+                  <Tooltip.Content>{settingUp ? "Available after brand setup" : `Generate Article · ${articleCost} credits`}</Tooltip.Content>
                 </Tooltip>
               ) : (
-                <Link
-                  href="/account?tab=billing&upgrade=1"
-                  className={buttonVariants({ variant: "secondary", size: "sm" })}
-                  title="You need credits to generate an article"
-                >
-                  Get credits
-                </Link>
+                <Link href="/settings?tab=billing&upgrade=1" className={buttonVariants({ variant: "outline", size: "sm" })}>Add Capacity</Link>
               )}
             </div>
-          </li>
+          </Card>
         );
       })}
-    </ul>
+    </div>
   );
 }

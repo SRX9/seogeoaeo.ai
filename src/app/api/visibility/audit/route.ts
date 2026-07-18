@@ -7,6 +7,7 @@ import { assertVisibilityCredits, InsufficientCreditsError } from "@/lib/usage/c
 import { getBrandProfile } from "@/lib/brand/repository";
 import { triggerManualAudit } from "@/server/visibility/manual-audit";
 import { createAudit } from "@/server/visibility/run-audit";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * Past this age a `running` audit is considered dead: the Workflow's execute
@@ -32,7 +33,7 @@ const startAuditSchema = z.object({ url: urlSchema.optional() });
 /** Kick off an audit of the active brand's site; the run continues in the background. Returns `auditId`. */
 export async function POST(request: Request) {
   return handleApi(async () => {
-    const { workspace, brand } = await requireApiBrand();
+    const { workspace, brand, session } = await requireApiBrand();
     await assertNoSetupRunning(brand.id);
     const { url: override } = parseBody(startAuditSchema, await readJson(request));
     const website = override ?? (await getBrandProfile(brand.id))?.website;
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
     // Durable execution (AuditRunWorkflow): survives isolate eviction, charges
     // credits only on success. Falls back to waitUntil outside Cloudflare.
     await triggerManualAudit(workspace.id, auditId, url);
+    await captureServerEvent(session.user.id, "visibility_audit_started", {
+      target_source: override ? "override" : "brand_website",
+    });
 
     return jsonOk({ auditId }, { status: 202 });
   });

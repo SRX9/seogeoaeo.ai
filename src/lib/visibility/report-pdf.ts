@@ -13,12 +13,12 @@ export interface ReportBrand {
   logo?: string;
 }
 
-/** Gauge color band: green 80+ · blue 60-79 · amber 40-59 · red <40. */
+/** Gauge color band: green 80+ · blue 60-79 · violet 40-59 · red <40. */
 export function gaugeColor(score: number | null): string {
   if (score == null) return "#94a3b8"; // slate: not scored
   if (score >= 80) return "#16a34a";
   if (score >= 60) return "#2563eb";
-  if (score >= 40) return "#d97706";
+  if (score >= 40) return "#7c3aed";
   return "#dc2626";
 }
 

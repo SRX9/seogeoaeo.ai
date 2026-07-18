@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { articles, topics } from "@/lib/db/schema";
@@ -21,7 +21,15 @@ export async function listTopicTitles(brandId: string) {
   const rows = await getDb()
     .select({ title: topics.title })
     .from(topics)
-    .where(eq(topics.brandId, brandId));
+    .where(
+      and(
+        eq(topics.brandId, brandId),
+        // A memory correction can invalidate research-derived queue entries.
+        // Excluding them lets the next corrected research pass rediscover a
+        // still-valid title instead of treating stale planning work as a dedupe hit.
+        sql`${topics.status} <> 'invalidated'`,
+      ),
+    );
   return rows.map((row) => row.title);
 }
 
@@ -29,6 +37,7 @@ export async function createResearchTopics(
   scope: BrandScope,
   researchRunId: string,
   items: ScoredTopic[],
+  options: { memoryEvidenceRefs?: readonly string[] } = {},
 ) {
   if (items.length === 0) {
     return [];
@@ -52,6 +61,7 @@ export async function createResearchTopics(
           sourceType: item.sourceType,
           evidenceUrls: item.evidenceUrls,
           query: item.query,
+          memoryEvidenceRefs: [...new Set(options.memoryEvidenceRefs ?? [])],
         }),
         status: "pending",
         source: "research",
@@ -62,10 +72,23 @@ export async function createResearchTopics(
     .returning();
 }
 
-/** Remove the topics a (partial, non-completed) research run created, so the run
- * can be safely retried without leaving duplicate pending topics behind. */
-export async function deleteResearchTopicsForRun(researchRunId: string) {
-  await getDb().delete(topics).where(eq(topics.researchRunId, researchRunId));
+/** Remove only queued artifacts from a partial research run. In-flight and
+ * completed topics are immutable history and may already own an article. */
+export async function deleteResearchTopicsForRun(
+  scope: BrandScope,
+  researchRunId: string,
+) {
+  await getDb()
+    .delete(topics)
+    .where(
+      and(
+        eq(topics.workspaceId, scope.workspaceId),
+        eq(topics.brandId, scope.brandId),
+        eq(topics.researchRunId, researchRunId),
+        eq(topics.source, "research"),
+        inArray(topics.status, ["pending", "failed", "invalidated"]),
+      ),
+    );
 }
 
 export async function listPendingTopicsForWriting(brandId: string, limit: number) {
@@ -164,6 +187,69 @@ export async function listArticles(brandId: string) {
     .orderBy(desc(articles.updatedAt));
 }
 
+/** Atomically refuse stale, invalidated, completed, or concurrently claimed work. */
+export async function claimTopicForGeneration(scope: BrandScope, topicId: string) {
+  const [topic] = await getDb()
+    .update(topics)
+    .set({ status: "generating", updatedAt: new Date() })
+    .where(
+      and(
+        eq(topics.id, topicId),
+        eq(topics.workspaceId, scope.workspaceId),
+        eq(topics.brandId, scope.brandId),
+        sql`${topics.status} IN ('pending', 'failed')`,
+      ),
+    )
+    .returning();
+  return topic ?? null;
+}
+
+/**
+ * The bounded brand corpus used by the Phase 3 originality and internal-link
+ * evaluators. This is server-only and intentionally separate from listArticles,
+ * which keeps large bodies out of normal UI list responses.
+ */
+export async function listArticleGroundingCorpus(
+  brandId: string,
+  options: number | { query?: string; limit?: number } = 100,
+) {
+  const limit = typeof options === "number" ? options : options.limit ?? 100;
+  const query = typeof options === "number" ? "" : options.query?.trim() ?? "";
+  const stopTerms = new Set([
+    "and", "are", "for", "from", "has", "have", "how", "into", "its", "that", "the",
+    "their", "this", "was", "were", "what", "when", "where", "which", "with", "your",
+  ]);
+  const terms = [...new Set(query.toLowerCase().match(/[a-z0-9]+/g) ?? [])]
+    .filter((term) => term.length >= 3 && !stopTerms.has(term))
+    .slice(0, 40);
+  const search = terms.join(" OR ");
+  const searchVector = sql`to_tsvector('english', coalesce(${articles.title}, '') || ' ' || coalesce(${articles.tags}, '') || ' ' || coalesce(${articles.bodyMarkdown}, ''))`;
+  const brandPredicate = search
+    ? and(
+        eq(articles.brandId, brandId),
+        sql`${searchVector} @@ websearch_to_tsquery('english', ${search})`,
+      )
+    : eq(articles.brandId, brandId);
+  const relevanceOrder = search
+    ? sql`ts_rank_cd(${searchVector}, websearch_to_tsquery('english', ${search})) desc`
+    : desc(articles.updatedAt);
+  return getDb()
+    .select({
+      id: articles.id,
+      title: articles.title,
+      slug: articles.slug,
+      metaDescription: articles.metaDescription,
+      tags: articles.tags,
+      bodyMarkdown: articles.bodyMarkdown,
+      status: articles.status,
+      updatedAt: articles.updatedAt,
+    })
+    .from(articles)
+    .where(brandPredicate)
+    .orderBy(relevanceOrder, desc(articles.updatedAt))
+    .limit(Math.min(200, Math.max(1, limit)));
+}
+
 export async function getArticle(brandId: string, articleId: string) {
   const [article] = await getDb()
     .select()
@@ -185,8 +271,21 @@ export async function createArticle(
     status?: string;
     shape?: string;
     gateResultsJson?: string;
+    memoryEvidenceRefs?: readonly string[];
   },
 ) {
+  const memoryEvidenceRefs = [...new Set(input.memoryEvidenceRefs ?? [])];
+  if (
+    memoryEvidenceRefs.length > 32 ||
+    memoryEvidenceRefs.some(
+      (ref) =>
+        !/^memory:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          ref,
+        ),
+    )
+  ) {
+    throw new Error("Generated article memory evidence is invalid");
+  }
   const [article] = await getDb()
     .insert(articles)
     .values({
@@ -202,9 +301,34 @@ export async function createArticle(
       version: 1,
       shape: input.shape ?? null,
       gateResultsJson: input.gateResultsJson ?? null,
+      memoryEvidenceRefs,
+      memoryEvidenceVersion: memoryEvidenceRefs.length > 0 ? 1 : null,
     })
     .returning();
   return article;
+}
+
+/**
+ * Finalize the initial generated draft after its claim ledger and publication
+ * gate have been stored. The content itself did not change, so this does not
+ * create a new article version.
+ */
+export async function setGeneratedArticleStatus(
+  brandId: string,
+  articleId: string,
+  status: "draft" | "approved",
+  gateResultsJson?: string,
+) {
+  const [article] = await getDb()
+    .update(articles)
+    .set({
+      status,
+      ...(gateResultsJson === undefined ? {} : { gateResultsJson }),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(articles.brandId, brandId), eq(articles.id, articleId)))
+    .returning();
+  return article ?? null;
 }
 
 export async function updateArticle(
@@ -241,6 +365,11 @@ export async function updateArticle(
       bodyMarkdown: input.bodyMarkdown,
       status: input.status,
       version: existing.version + 1,
+      // Status transitions and owner edits do not silently waive generated
+      // evidence. A later correction must still stop publication of this line.
+      memoryEvidenceRefs: existing.memoryEvidenceRefs,
+      memoryEvidenceVersion:
+        existing.memoryEvidenceRefs.length > 0 ? existing.version + 1 : null,
       updatedAt: new Date(),
     })
     .where(eq(articles.id, articleId))

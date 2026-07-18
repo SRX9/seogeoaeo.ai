@@ -1,5 +1,6 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getAgentState } from "@/lib/agent/state";
+import { listPendingAgentApprovals } from "@/lib/agent/events";
 import { getBrandIdentitySummary } from "@/lib/brand/intelligence";
 import { listArticles, listTopics } from "@/lib/articles/repository";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
@@ -15,8 +16,10 @@ import type {
 } from "@/lib/api/queries";
 import { getDb } from "@/lib/db";
 import { answerRuns, audits, trafficSnapshots } from "@/lib/db/schema/visibility";
-import { buildInboxRows } from "@/lib/inbox/rows";
+import { buildClaudiaHomeView } from "@/lib/dashboard/home-view";
+import { buildOwnerRequests } from "@/lib/inbox/owner-request";
 import { listTrafficConnections } from "@/lib/integrations/google-traffic";
+import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { listIntegrations } from "@/lib/integrations/repository";
 import { getDailyRun } from "@/lib/jobs/daily-repository";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
@@ -254,6 +257,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const connectionsPromise = listTrafficConnections(brand.id);
   const integrationsPromise = listIntegrations(brand.id);
   const identityPromise = getBrandIdentitySummary(brand.id);
+  const approvalsPromise = listPendingAgentApprovals(brand.id);
 
   const setupDataPromise = setupPromise.then(async (run) => {
     if (run && isActiveSubscription(subscription?.status) && isSetupRunStale(run)) {
@@ -283,6 +287,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
       findings: findingsPromise,
       gscRows: connectionsPromise,
       integrations: integrationsPromise,
+      approvals: approvalsPromise,
     },
   });
 
@@ -294,7 +299,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const answersPromise = getVisibilityAnswers(brand.id);
   const trafficPromise = getVisibilityTraffic(brand.id, connectionsPromise);
 
-  const [setup, agent, automation, summary, answers, traffic, articleRows, rawFindings, integrations, identity] =
+  const [setup, agent, automation, summary, answers, traffic, articleRows, rawFindings, integrations, identity, approvalRows] =
     await Promise.all([
       setupDataPromise,
       agentPromise,
@@ -306,6 +311,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
       findingsPromise,
       integrationsPromise,
       identityPromise,
+      approvalsPromise,
     ]);
 
   const articles = toDashboardArticles(articleRows);
@@ -320,11 +326,40 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     fixPayload: finding.fixPayload,
     proposedAt: finding.proposedAt?.toISOString() ?? null,
   }));
-  const inboxCount = buildInboxRows({ articles, findings, traffic, integrations, automation }).length;
+  const approvals = approvalRows.map((approval) => ({
+    id: approval.id,
+    taskId: approval.taskId,
+    actionType: approval.actionType,
+    resourceRef: approval.resourceRef,
+    beforeState: approval.beforeState,
+    afterState: approval.afterState,
+    riskLevel: approval.riskLevel,
+    expectedBenefit: approval.expectedBenefit,
+    expiresAt: approval.expiresAt?.toISOString() ?? null,
+    createdAt: approval.createdAt.toISOString(),
+  }));
+  const ownerRequests = buildOwnerRequests({
+    agent,
+    approvals,
+    articles,
+    reviewBeforePublishing: !automation.autoPublish,
+    publishingConnected: integrations.some(isIntegrationOperational),
+  });
+  const inboxCount = ownerRequests.length;
+  const home = buildClaudiaHomeView({
+    agent,
+    ownerRequests,
+    articles,
+    automation,
+    answers,
+    summary,
+    traffic,
+  });
 
   return {
     brand: { id: brand.id, name: brand.name, identity },
     setup,
+    home,
     agent,
     summary,
     answers,
@@ -333,6 +368,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     findings,
     integrations,
     automation,
+    ownerRequests,
     inboxCount,
   };
 }

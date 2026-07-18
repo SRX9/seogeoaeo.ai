@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "@heroui/react";
+import { toast } from "@heroui/react/toast";
 import { ApiError, getErrorMessage } from "@/lib/api/fetcher";
 
 export type PublishSummary = {

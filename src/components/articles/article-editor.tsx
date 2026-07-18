@@ -1,51 +1,48 @@
 "use client";
 
-import { buttonVariants } from "@heroui/react/button";
-import { Input, Label, Tabs, TextArea, toast } from "@heroui/react";
+import { Surface, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { LoadingButton } from "@/components/ui/loading-button";
-import { AlertTriangleIcon, CheckIcon } from "@/components/icons";
+import { useMemo, useState } from "react";
+import posthog from "posthog-js";
+import {
+  ArticleCanvas,
+  ArticleEditorTopbar,
+  ArticleInspector,
+  type DestinationItem,
+  type EditorFields,
+  type EditorIntent,
+  type GateResult,
+  type QualityCheck,
+} from "@/components/articles/article-editor-sections";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { ApiError, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
-import { queryKeys, type Article, type Publication } from "@/lib/api/queries";
+import {
+  queryKeys,
+  type Article,
+  type IntegrationView,
+  type Publication,
+  type Topic,
+} from "@/lib/api/queries";
 import { parseTags } from "@/lib/articles/format";
 import {
   notifyPublishResult,
   type PublishSummary,
 } from "@/lib/articles/notify-publish";
-import { cn } from "@/lib/cn";
 import { INTEGRATION_PROVIDERS } from "@/lib/integrations/providers";
-import { statusTextClass } from "@/lib/ui/status";
 
 type ArticleCache = { article: Article; publications: Publication[] };
 
 type ArticleEditorProps = {
-  article: {
-    id: string;
-    title: string;
-    slug: string;
-    metaDescription: string | null;
-    tags: string | null;
-    bodyMarkdown: string;
-    status: string;
-    version: number;
-    shape?: string | null;
-    gateResultsJson?: string | null;
-  };
+  article: Article;
   publications: Publication[];
+  integrations: IntegrationView[];
+  topic: Topic | null;
   canPublish: boolean;
 };
 
-type GateResult = { gate: string; passed: boolean; detail: string };
-
-// Owner-facing names for the machine gates: never show the raw ids.
-const GATE_LABELS: Record<string, string> = {
-  "style-lint": "Reads human",
-  "eeat-source": "Cites a source",
-};
+const providerNames = new Map<string, string>(
+  INTEGRATION_PROVIDERS.map((provider) => [provider.id, provider.name]),
+);
 
 function parseGateResults(json: string | null | undefined): GateResult[] {
   if (!json) return [];
@@ -57,42 +54,52 @@ function parseGateResults(json: string | null | undefined): GateResult[] {
   }
 }
 
-type Intent = "draft" | "publish" | "republish";
+function parseEvidenceSignals(json: string | null | undefined) {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    const candidates = Array.isArray(parsed) ? parsed : [parsed];
+    const labels = candidates.flatMap((candidate) => {
+      if (!candidate || typeof candidate !== "object") return [];
+      const item = candidate as Record<string, unknown>;
+      const value = item.sourceType ?? item.source ?? item.name ?? item.title;
+      return typeof value === "string" && value.trim() ? [value.trim()] : [];
+    });
+    return [...new Set(labels)].slice(0, 4);
+  } catch {
+    return [];
+  }
+}
 
-// The rich-text editor pulls in tiptap/ProseMirror: a heavy chunk only needed
-// on this route. Load it on demand so it doesn't bloat the article page's JS.
-const ArticleBodyEditor = dynamic(
-  () => import("@/components/articles/article-body-editor").then((m) => m.ArticleBodyEditor),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="material-panel min-h-[420px] animate-pulse rounded-2xl bg-default/30" />
-    ),
-  },
-);
+function titleCase(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
-const providerNames = new Map<string, string>(
-  INTEGRATION_PROVIDERS.map((provider) => [provider.id, provider.name]),
-);
-
-export function ArticleEditor({ article, publications, canPublish }: ArticleEditorProps) {
-  const router = useRouter();
+export function ArticleEditor({
+  article,
+  publications,
+  integrations,
+  topic,
+  canPublish,
+}: ArticleEditorProps) {
+  const router = useProgressRouter();
   const queryClient = useQueryClient();
-  const [intent, setIntent] = useState<Intent | null>(null);
-  // Controlled state: HeroUI inputs don't reliably submit via native FormData.
-  const [fields, setFields] = useState({
+  const [intent, setIntent] = useState<EditorIntent | null>(null);
+  const [isPreview, setIsPreview] = useState(false);
+  const [fields, setFields] = useState<EditorFields>({
     title: article.title,
     slug: article.slug,
     metaDescription: article.metaDescription ?? "",
     tags: parseTags(article.tags).join(", "),
     bodyMarkdown: article.bodyMarkdown,
   });
-  const isApproved = article.status === "approved";
-
-  const set =
-    (key: "title" | "slug" | "metaDescription" | "tags") =>
-    (event: { target: { value: string } }) =>
-      setFields((prev) => ({ ...prev, [key]: event.target.value }));
+  const gates = useMemo(() => parseGateResults(article.gateResultsJson), [article.gateResultsJson]);
+  const evidenceSignals = useMemo(
+    () => parseEvidenceSignals(topic?.evidenceJson),
+    [topic?.evidenceJson],
+  );
 
   const saveMutation = useMutation({
     mutationFn: (payload: {
@@ -104,8 +111,6 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
       status: "draft" | "approved";
       expectedVersion: number;
     }) => apiPatch(`/api/articles/${article.id}`, payload),
-    // Write the saved values into the cache up front so the status chip flips
-    // (and Re-publish unlocks) immediately instead of after the follow-up GET.
     onMutate: async (payload) => {
       const key = queryKeys.article(article.id);
       await queryClient.cancelQueries({ queryKey: key });
@@ -136,17 +141,11 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
   });
   const publishMutation = useMutation({
     mutationFn: () => apiPost<PublishSummary>(`/api/articles/${article.id}/publish`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.article(article.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.articles });
-      queryClient.invalidateQueries({ queryKey: queryKeys.automation });
-      queryClient.invalidateQueries({ queryKey: queryKeys.onboarding });
-    },
+    onSuccess: () => invalidateArticleQueries(),
   });
-
   const pending = saveMutation.isPending || publishMutation.isPending;
 
-  function invalidate() {
+  function invalidateArticleQueries() {
     queryClient.invalidateQueries({ queryKey: queryKeys.article(article.id) });
     queryClient.invalidateQueries({ queryKey: queryKeys.articles });
     queryClient.invalidateQueries({ queryKey: queryKeys.automation });
@@ -155,33 +154,27 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
 
   function handleApiError(error: unknown) {
     if (error instanceof ApiError && error.status === 402) {
-      router.push("/account?tab=billing&upgrade=1");
+      router.push("/settings?tab=billing&upgrade=1");
       return;
     }
     toast.danger(getErrorMessage(error));
   }
 
-  // Save the form's current values with an explicit status. Publishing is a
-  // separate, explicit step so "Approve & publish" is a single predictable click.
-  async function save(status: "draft" | "approved", thenPublish: boolean, kind: Intent) {
+  async function save(status: "draft" | "approved", thenPublish: boolean, kind: EditorIntent) {
+    posthog.capture(thenPublish ? "article_publish_requested" : "article_save_requested", {
+      article_status: status,
+      editor_intent: kind,
+      has_connected_destination: integrations.some((integration) => integration.requirementsMet),
+    });
     setIntent(kind);
     try {
-      await saveMutation.mutateAsync({
-        title: fields.title,
-        slug: fields.slug,
-        metaDescription: fields.metaDescription,
-        tags: fields.tags,
-        bodyMarkdown: fields.bodyMarkdown,
-        status,
-        expectedVersion: article.version,
-      });
+      await saveMutation.mutateAsync({ ...fields, status, expectedVersion: article.version });
       if (thenPublish) {
-        const summary = await publishMutation.mutateAsync();
-        notifyPublishResult(summary);
+        notifyPublishResult(await publishMutation.mutateAsync());
       } else {
         toast.success("Draft saved.");
       }
-      invalidate();
+      invalidateArticleQueries();
     } catch (error) {
       handleApiError(error);
     } finally {
@@ -189,209 +182,107 @@ export function ArticleEditor({ article, publications, canPublish }: ArticleEdit
     }
   }
 
-  async function republish() {
-    // Always save the form first: publish reads DB, not local editor state.
-    await save("approved", true, "republish");
+  function setField(key: "title" | "slug" | "metaDescription", value: string) {
+    setFields((previous) => ({ ...previous, [key]: value }));
   }
 
-  const gates = parseGateResults(article.gateResultsJson);
-  const heldForReview = gates.some((gate) => gate.gate === "style-lint" && !gate.passed);
+  function removeTag(tag: string) {
+    setFields((previous) => ({
+      ...previous,
+      tags: parseTags(previous.tags).filter((item) => item !== tag).join(", "),
+    }));
+  }
+
+  function addTag(tag: string) {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    setFields((previous) => ({
+      ...previous,
+      tags: [...new Set([...parseTags(previous.tags), trimmed])].join(", "),
+    }));
+  }
+
+  async function copySlug() {
+    try {
+      await navigator.clipboard.writeText(fields.slug);
+      toast.success("Slug copied.");
+    } catch {
+      toast.danger("Could not copy the slug.");
+    }
+  }
+
+  const styleGate = gates.find((gate) => gate.gate === "style-lint");
+  const sourceGate = gates.find((gate) => gate.gate === "eeat-source");
+  const qualityChecks: QualityCheck[] = [
+    {
+      label: "Includes citations and sources",
+      passed: sourceGate?.passed ?? (/\[[^\]]+\]\([^)]+\)/.test(fields.bodyMarkdown) || evidenceSignals.length > 0),
+    },
+    { label: "Answers the target query clearly", passed: Boolean(fields.title.trim() && fields.metaDescription.trim()) },
+    { label: "Scannable structure and headings", passed: /^#{1,3}\s+.+/m.test(fields.bodyMarkdown) },
+    { label: "Brand voice reviewed", passed: styleGate?.passed ?? null },
+  ];
+  const targetQuery = topic?.keywords?.split(",")[0]?.trim() || topic?.title || fields.title;
+  const thesis = topic?.thesis || topic?.rationale || topic?.angle || fields.metaDescription || "No thesis attached yet.";
+  const destinationMap = new Map<string, DestinationItem>();
+  for (const integration of integrations) {
+    destinationMap.set(integration.provider, {
+      provider: integration.provider,
+      name: integration.name,
+      status: integration.requirementsMet ? "Ready" : "Setup needed",
+      externalUrl: null,
+    });
+  }
+  for (const publication of publications) {
+    destinationMap.set(publication.provider, {
+      provider: publication.provider,
+      name: providerNames.get(publication.provider) ?? titleCase(publication.provider),
+      status: titleCase(publication.status),
+      externalUrl: publication.externalUrl,
+    });
+  }
 
   return (
-    <div className="space-y-7">
-      <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.08em]">
-        <span className="text-muted">v{article.version}</span>
-        <span className={isApproved ? "text-success" : "text-muted"}>{article.status}</span>
-        {article.shape ? <span className="text-muted">{article.shape}</span> : null}
-        {gates.map((gate) => (
-          <span
-            key={gate.gate}
-            className={cn(
-              "inline-flex items-center gap-1",
-              gate.passed ? "text-success" : "text-warning",
-            )}
-            title={gate.detail}
-          >
-            {gate.passed ? (
-              <CheckIcon className="size-3" />
-            ) : (
-              <AlertTriangleIcon className="size-3" />
-            )}
-            {GATE_LABELS[gate.gate] ?? gate.gate}
-          </span>
-        ))}
+    <Surface className="min-h-full bg-background">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
+      <ArticleEditorTopbar
+        articleId={article.id}
+        status={article.status}
+        pending={pending}
+        isPreview={isPreview}
+        canPublish={canPublish}
+        intent={intent}
+        onTogglePreview={() => setIsPreview((current) => !current)}
+        onPublish={() => save("approved", true, "publish")}
+      />
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <ArticleCanvas
+          article={article}
+          fields={fields}
+          publications={publications}
+          canPublish={canPublish}
+          pending={pending}
+          intent={intent}
+          isPreview={isPreview}
+          onFieldChange={setField}
+          onCopySlug={copySlug}
+          onRemoveTag={removeTag}
+          onAddTag={addTag}
+          onBodyChange={(bodyMarkdown) => setFields((previous) => ({ ...previous, bodyMarkdown }))}
+          onSaveDraft={() => save("draft", false, "draft")}
+          onRepublish={() => save("approved", true, "republish")}
+        />
+        <ArticleInspector
+          targetQuery={targetQuery}
+          thesis={thesis}
+          evidenceSignals={evidenceSignals}
+          styleGate={styleGate}
+          qualityChecks={qualityChecks}
+          destinations={[...destinationMap.values()]}
+          gates={gates}
+        />
       </div>
-      {heldForReview ? (
-        <p className="text-sm leading-relaxed text-muted">
-          Claudia held this draft for review because it did not pass these quality checks:{" "}
-          {gates.find((gate) => gate.gate === "style-lint" && !gate.passed)?.detail}
-        </p>
-      ) : null}
-
-      <Tabs defaultSelectedKey="editor" variant="secondary">
-        <Tabs.ListContainer>
-          <Tabs.List aria-label="Article views" className="w-fit">
-            <Tabs.Tab id="editor" className="whitespace-nowrap">
-              Editor
-              <Tabs.Indicator />
-            </Tabs.Tab>
-            <Tabs.Tab id="history" className="whitespace-nowrap">
-              History
-              <Tabs.Indicator />
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs.ListContainer>
-
-        <Tabs.Panel id="editor" className="pt-8">
-          <div className="space-y-8">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" name="title" value={fields.title} onChange={set("title")} required fullWidth />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
-                <Input id="slug" name="slug" value={fields.slug} onChange={set("slug")} required fullWidth />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="metaDescription">Meta description</Label>
-              <TextArea
-                id="metaDescription"
-                name="metaDescription"
-                value={fields.metaDescription}
-                onChange={set("metaDescription")}
-                className="min-h-20"
-                fullWidth
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
-              <Input id="tags" name="tags" value={fields.tags} onChange={set("tags")} fullWidth />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium tracking-tight text-foreground">Article body</p>
-              <ArticleBodyEditor
-                defaultMarkdown={article.bodyMarkdown}
-                onChange={(markdown) => setFields((prev) => ({ ...prev, bodyMarkdown: markdown }))}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-separator/70 pt-6">
-              {canPublish ? (
-                <LoadingButton
-                  isPending={intent === "publish"}
-                  pendingLabel="Publishing…"
-                  isDisabled={pending}
-                  onPress={() => save("approved", true, "publish")}
-                >
-                  Approve &amp; publish
-                </LoadingButton>
-              ) : null}
-              <LoadingButton
-                variant={canPublish ? "secondary" : "primary"}
-                isPending={intent === "draft"}
-                pendingLabel="Saving…"
-                isDisabled={pending}
-                onPress={() => save("draft", false, "draft")}
-              >
-                Save as draft
-              </LoadingButton>
-              {canPublish ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  Approve &amp; publish saves your edits and sends the article to every enabled
-                  destination.
-                </p>
-              ) : (
-                <Link
-                  href="/account?tab=billing&upgrade=1"
-                  className={buttonVariants({ variant: "secondary" })}
-                >
-                  Upgrade to publish
-                </Link>
-              )}
-            </div>
-          </div>
-        </Tabs.Panel>
-
-        <Tabs.Panel id="history" className="pt-8">
-          <section className="border-y border-separator/70 py-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="type-title text-lg text-foreground">Publishing</h2>
-                <p className="mt-1 text-sm leading-relaxed text-muted">
-                  Per-destination results. Re-publish after fixing a connector or editing an
-                  approved article.
-                </p>
-              </div>
-              {canPublish ? (
-                <LoadingButton
-                  variant="secondary"
-                  isPending={intent === "republish"}
-                  pendingLabel="Publishing…"
-                  isDisabled={!isApproved || pending}
-                  onPress={republish}
-                >
-                  Re-publish
-                </LoadingButton>
-              ) : (
-                <Link
-                  href="/account?tab=billing&upgrade=1"
-                  className={buttonVariants({ variant: "secondary" })}
-                >
-                  Upgrade to publish
-                </Link>
-              )}
-            </div>
-
-            {!canPublish ? (
-              <p className="mt-4 text-sm text-muted">
-                Publishing to your connected destinations is available on a paid plan.
-              </p>
-            ) : !isApproved ? (
-              <p className="mt-4 text-sm text-muted">
-                Approve the article (above) to publish it to your connected destinations.
-              </p>
-            ) : null}
-
-            {publications.length === 0 ? (
-              <p className="mt-4 text-sm text-muted">No publication attempts yet.</p>
-            ) : (
-              <ul className="mt-5 divide-y divide-separator/70 border-y border-separator/70">
-                {publications.map((publication) => (
-                  <li key={publication.provider} className="py-4 text-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-medium text-foreground">
-                        {providerNames.get(publication.provider) ?? publication.provider}
-                      </p>
-                      <span className={cn("text-xs uppercase tracking-wide", statusTextClass(publication.status))}>
-                        {publication.status}
-                      </span>
-                    </div>
-                    {publication.externalUrl ? (
-                      <a
-                        href={publication.externalUrl}
-                        className="mt-2 inline-block text-muted hover-fine:text-foreground"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {publication.externalUrl}
-                      </a>
-                    ) : null}
-                    {publication.errorMessage ? (
-                      <p className="mt-2 text-danger">{publication.errorMessage}</p>
-                    ) : null}
-                    <p className="mt-2 text-xs text-muted tabular-nums">Attempts: {publication.attemptCount}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </Tabs.Panel>
-      </Tabs>
-    </div>
+      </div>
+    </Surface>
   );
 }

@@ -1,15 +1,12 @@
 "use client";
 
 import { buttonVariants } from "@heroui/react/button";
+import { Accordion, Card, ProgressBar } from "@heroui/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ArrowRightIcon, ChevronRightIcon, CircleCheckIcon } from "@/components/icons";
+import { ToneText } from "@/components/ui/status-text";
 import { scoreBand } from "@/lib/visibility/display";
-
-/**
- * V8.3: renders one Toolbox run as a readable result instead of raw JSON:
- * score + band, the findings it raised, and a generic key/value view of the
- * analyzer's data payload (raw JSON stays available behind a disclosure).
- */
 
 export type ToolFindingView = {
   severity: "critical" | "high" | "medium" | "low";
@@ -17,14 +14,6 @@ export type ToolFindingView = {
   recommendation: string;
 };
 
-const SEVERITY_DOT: Record<ToolFindingView["severity"], string> = {
-  critical: "bg-danger",
-  high: "bg-warning",
-  medium: "bg-accent",
-  low: "bg-default-300",
-};
-
-/** "wordCount" / "word_count" → "Word count". */
 function humanizeKey(key: string): string {
   const spaced = key
     .replace(/[_-]+/g, " ")
@@ -50,65 +39,69 @@ function keyedValues(values: unknown[]): Array<{ item: unknown; key: string }> {
 }
 
 function DataValue({ value, depth }: { value: unknown; depth: number }): ReactNode {
-  if (value == null || value === "") return <span className="text-default-400">No result</span>;
+  if (value == null || value === "") return <span className="text-muted">No result</span>;
   if (typeof value === "boolean") {
-    return value ? (
-      <span className="text-success">Yes</span>
-    ) : (
-      <span className="text-danger">No</span>
-    );
+    return value ? <span className="text-success">Yes</span> : <span className="text-danger">No</span>;
   }
   if (typeof value === "number") {
     return <span className="tabular-nums">{Number.isInteger(value) ? value : value.toFixed(1)}</span>;
   }
-  if (typeof value === "string") {
-    return <span className="break-words">{value}</span>;
-  }
+  if (typeof value === "string") return <span className="break-words">{value}</span>;
+
   if (depth >= MAX_DEPTH) {
     return (
-      <pre className="max-h-48 overflow-auto rounded-xl bg-default-100 p-2.5 text-xs">
+      <pre className="max-h-48 overflow-auto rounded-xl bg-surface-secondary p-3 text-xs leading-5 text-foreground">
         {JSON.stringify(value, null, 2)}
       </pre>
     );
   }
+
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-default-400">None</span>;
-    if (value.every((v) => typeof v !== "object" || v === null)) {
-      return <span className="break-words">{value.map((v) => String(v)).join(", ")}</span>;
+    if (value.length === 0) return <span className="text-muted">None</span>;
+    if (value.every((item) => typeof item !== "object" || item === null)) {
+      return <span className="break-words">{value.map((item) => String(item)).join(", ")}</span>;
     }
     return (
       <div className="space-y-2">
         {keyedValues(value).map(({ item, key }) => (
-          <div key={key} className="border-l border-separator/70 py-1 pl-3">
+          <div key={key} className="rounded-xl bg-surface-secondary p-3">
             <DataValue value={item} depth={depth + 1} />
           </div>
         ))}
       </div>
     );
   }
+
   if (isPlainObject(value)) {
-    const entries = Object.entries(value).filter(([, v]) => v !== undefined);
-    if (entries.length === 0) return <span className="text-default-400">No result</span>;
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+    if (entries.length === 0) return <span className="text-muted">No result</span>;
     return (
-      <div
-        className={
-          depth > 0
-            ? "space-y-1.5 border-l border-border/50 pl-3"
-            : "space-y-1.5"
-        }
-      >
-        {entries.map(([k, v]) => (
-          <div key={k} className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
-            <span className="w-full shrink-0 text-default-500 sm:w-52">{humanizeKey(k)}</span>
-            <div className="min-w-0 flex-1 text-sm">
-              <DataValue value={v} depth={depth + 1} />
-            </div>
+      <dl className="space-y-3">
+        {entries.map(([key, item]) => (
+          <div key={key} className="grid gap-1 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4">
+            <dt className="text-xs font-medium text-muted">{humanizeKey(key)}</dt>
+            <dd className="min-w-0 text-sm leading-6 text-foreground">
+              <DataValue value={item} depth={depth + 1} />
+            </dd>
           </div>
         ))}
-      </div>
+      </dl>
     );
   }
+
   return <span>{String(value)}</span>;
+}
+
+function severityColor(severity: ToolFindingView["severity"]) {
+  if (severity === "critical") return "danger" as const;
+  if (severity === "high" || severity === "medium") return "warning" as const;
+  return "default" as const;
+}
+
+function scoreColor(score: number) {
+  if (score >= 70) return "success" as const;
+  if (score >= 40) return "warning" as const;
+  return "danger" as const;
 }
 
 export function ToolResultCard({
@@ -122,74 +115,127 @@ export function ToolResultCard({
   ranAt: string | null;
   findings: ToolFindingView[];
   data: unknown;
-  /** True when this render is the run the user just triggered. */
   freshRun: boolean;
 }) {
   return (
-    <section className="space-y-7 border-y border-separator/70 py-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+    <Card>
+      <Card.Header className="flex-row flex-wrap items-start justify-between gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
         <div>
-          {score != null ? (
-            <p className="text-3xl font-semibold tracking-tight tabular-nums">
-              {Math.round(score)}
-              <span className="text-base font-normal text-default-400">
-                {" "}
-                / 100 · {scoreBand(score)}
-              </span>
-            </p>
-          ) : (
-            <p className="type-title text-lg">Result</p>
-          )}
+          <Card.Title>Latest Result</Card.Title>
+          <Card.Description>
+            {freshRun ? "Completed just now" : ranAt ? `Last run ${new Date(ranAt).toLocaleString()}` : "Saved analyzer result"}
+          </Card.Description>
         </div>
-        <p className="text-xs tracking-[0.01em] text-default-400">
-          {freshRun ? "Just now" : ranAt ? `Last run ${new Date(ranAt).toLocaleString()}` : null}
-        </p>
-      </div>
+        {score != null ? (
+          <ToneText tone={scoreColor(score)}>
+            {scoreBand(score)}
+          </ToneText>
+        ) : null}
+      </Card.Header>
 
-      {findings.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-semibold tracking-tight text-default-600">
-            What to fix ({findings.length})
-          </p>
-          <div className="divide-y divide-separator/70 border-y border-separator/70">
-          {findings.map((f) => (
-            <div
-              key={`${f.severity}:${f.title}:${f.recommendation}`}
-              className="py-4"
-            >
-              <p className="flex items-center gap-2 text-sm font-medium tracking-tight">
-                <span className={`size-2 rounded-full ${SEVERITY_DOT[f.severity]}`} aria-hidden />
-                {f.title}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-default-500">{f.recommendation}</p>
+      <Card.Content className="space-y-8 px-5 pb-5 sm:px-6 sm:pb-6">
+        {score != null ? (
+          <section aria-labelledby="tool-score-title" className="space-y-3">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p id="tool-score-title" className="text-sm font-medium text-muted">Overall score</p>
+                <p className="mt-1 text-3xl font-semibold leading-none tracking-tight tabular-nums">
+                  {Math.round(score)}
+                  <span className="ml-1 text-sm font-normal text-muted">/ 100</span>
+                </p>
+              </div>
+              <p className="text-xs text-muted">{findings.length} open {findings.length === 1 ? "finding" : "findings"}</p>
             </div>
-          ))}
-          </div>
-          <Link
-            href="/visibility/fixes"
-            className={buttonVariants({ size: "sm", variant: "secondary" })}
-          >
-            Open fix queue
-          </Link>
-        </div>
-      )}
+            <ProgressBar aria-label="Tool score" color={scoreColor(score)} value={score}>
+              <ProgressBar.Track>
+                <ProgressBar.Fill />
+              </ProgressBar.Track>
+            </ProgressBar>
+          </section>
+        ) : null}
 
-      {data != null && (
-        <div className="space-y-2">
-          <p className="text-sm font-semibold tracking-tight text-default-600">Details</p>
-          <div className="text-sm leading-relaxed">
-            <DataValue value={data} depth={0} />
+        <section aria-labelledby="tool-findings-title" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="tool-findings-title" className="text-base font-semibold tracking-tight">
+                Findings
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                Prioritized issues from this analyzer run.
+              </p>
+            </div>
+            {findings.length > 0 ? (
+              <Link
+                href="/visibility/fixes"
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
+                Open fix queue
+                <ArrowRightIcon className="size-4" aria-hidden />
+              </Link>
+            ) : null}
           </div>
-          <details className="text-xs text-default-400">
-            <summary className="pressable cursor-pointer select-none tracking-[0.01em]">
-              Raw JSON
-            </summary>
-            <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-default-100 p-3 text-xs text-foreground">
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          </details>
-        </div>
-      )}
-    </section>
+
+          {findings.length > 0 ? (
+            <div className="divide-y divide-separator">
+              {findings.map((finding) => (
+                <article
+                  key={`${finding.severity}:${finding.title}:${finding.recommendation}`}
+                  className="py-4 first:pt-1 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ToneText tone={severityColor(finding.severity)} className="text-xs capitalize">
+                      {finding.severity}
+                    </ToneText>
+                    <h3 className="text-sm font-medium tracking-tight">{finding.title}</h3>
+                  </div>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+                    {finding.recommendation}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-xl bg-success-soft p-4 text-sm text-success-soft-foreground">
+              <CircleCheckIcon className="size-5 shrink-0 text-success" aria-hidden />
+              No unresolved findings were returned by this run.
+            </div>
+          )}
+        </section>
+
+        {data != null ? (
+          <section aria-labelledby="tool-details-title" className="space-y-3">
+            <div>
+              <h2 id="tool-details-title" className="text-base font-semibold tracking-tight">
+                Details
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                Structured analyzer output and supporting measurements.
+              </p>
+            </div>
+            <DataValue value={data} depth={0} />
+
+            <Accordion>
+              <Accordion.Item id="raw-json">
+                <Accordion.Heading>
+                  <Accordion.Trigger>
+                    Raw JSON
+                    <Accordion.Indicator>
+                      <ChevronRightIcon className="size-4" aria-hidden />
+                    </Accordion.Indicator>
+                  </Accordion.Trigger>
+                </Accordion.Heading>
+                <Accordion.Panel>
+                  <Accordion.Body>
+                    <pre className="max-h-80 overflow-auto rounded-xl bg-surface-secondary p-4 text-xs leading-5 text-foreground">
+                      {JSON.stringify(data, null, 2)}
+                    </pre>
+                  </Accordion.Body>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
+          </section>
+        ) : null}
+      </Card.Content>
+    </Card>
   );
 }

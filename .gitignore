@@ -39,3 +39,9 @@ coverage/
 .DS_Store
 *.pem
 .vercel
+
+# Push-based DB sync (pnpm db:push): migration history is not tracked.
+# The single squashed baseline stays tracked as release/eval evidence
+# (referenced by evals/claudia/releases/current.json).
+drizzle/migrations/*
+!drizzle/migrations/0000_broken_warbird.sql
