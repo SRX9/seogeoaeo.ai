@@ -2,7 +2,6 @@
 
 import { Button, Card, ListBox, Select, Skeleton } from "@heroui/react";
 import { EmptyState } from "@heroui-pro/react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ActivityIcon,
@@ -13,7 +12,9 @@ import {
   SearchIcon,
   UsersIcon,
 } from "@/components/icons";
+import { SectionHeader } from "@/components/ui/section-header";
 import { ToneText } from "@/components/ui/status-text";
+import { WorkspaceRow } from "@/components/ui/workspace-row";
 import {
   activityEventIconKind,
   filterActivityItems,
@@ -86,7 +87,7 @@ function eventTag(item: ActivityFeedItem): {
   color: "danger" | "success" | "accent" | "default";
 } {
   if (item.status === "failed") return { label: "Attention", color: "danger" };
-  if (isItemLive(item)) return { label: "Working", color: "success" };
+  if (isItemLive(item)) return { label: "Working", color: "accent" };
   if (item.category === "visibility") return { label: "Visibility", color: "accent" };
   if (item.category === "content") return { label: "Content", color: "default" };
   if (item.category === "setup") return { label: "Setup", color: "default" };
@@ -107,38 +108,29 @@ function groupItems(items: ActivityFeedItem[]) {
 function TimelineItem({ item }: { item: ActivityFeedItem }) {
   const Icon = ICONS[activityEventIconKind(item)];
   const tag = eventTag(item);
-  const row = (
-    <div className="flex min-w-0 items-start gap-3 px-4 py-4 sm:items-center sm:px-5">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
-        <Icon className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="min-w-0 text-sm font-medium leading-6 text-foreground">{item.narrative}</p>
-          <ToneText tone={tag.color} className="text-xs">{tag.label}</ToneText>
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+  return (
+    <WorkspaceRow
+      href={item.href}
+      icon={<Icon />}
+      title={item.narrative}
+      meta={
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <time className="tabular-nums" dateTime={item.createdAt}>{timeFormatter.format(new Date(item.createdAt))}</time>
           <span aria-hidden>·</span>
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <LinkIcon className="size-3.5 shrink-0" aria-hidden />
             <span className="truncate">{artifactLabel(item)}</span>
           </span>
-        </div>
-      </div>
-      {item.href ? <ChevronRightIcon className="mt-1 size-4 shrink-0 text-muted sm:mt-0" aria-hidden /> : null}
-    </div>
+        </span>
+      }
+      end={
+        <span className="flex items-center gap-2">
+          <ToneText tone={tag.color} withDot className="text-xs">{tag.label}</ToneText>
+          {item.href ? <ChevronRightIcon className="size-4 shrink-0 text-muted" aria-hidden /> : null}
+        </span>
+      }
+    />
   );
-
-  return item.href ? (
-    <Link
-      href={item.href}
-      className="block rounded-2xl no-underline outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-focus"
-      aria-label={`${item.narrative}: ${artifactLabel(item)}`}
-    >
-      {row}
-    </Link>
-  ) : row;
 }
 
 function WorkLogTimeline({ items }: { items: ActivityFeedItem[] }) {
@@ -160,8 +152,13 @@ function WorkLogTimeline({ items }: { items: ActivityFeedItem[] }) {
     <div className="space-y-6">
       {groupItems(items).map((group) => (
         <section key={group.label} aria-labelledby={`work-log-${group.label}`}>
-          <h2 id={`work-log-${group.label}`} className="mb-3 text-sm font-medium text-muted">{group.label}</h2>
-          <Card className="divide-y divide-separator p-0">
+          <SectionHeader
+            compact
+            className="mb-3"
+            headingId={`work-log-${group.label}`}
+            title={group.label}
+          />
+          <Card className="overflow-hidden p-0">
             {group.items.map((item) => <TimelineItem key={`${item.type}-${item.id}`} item={item} />)}
           </Card>
         </section>
@@ -190,7 +187,7 @@ export default function WorkPage() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl">
-          <ToneText tone={live ? "success" : "accent"}>{live ? "Working Now" : "On Duty"}</ToneText>
+          <ToneText tone="accent" withDot>{live ? "Working now" : "On duty"}</ToneText>
           <h1 className="sr-only">Work</h1>
           <p className="mt-1 text-sm leading-6 text-muted">Everything Claudia is doing, has completed, or needs you to review.</p>
         </div>
@@ -227,12 +224,15 @@ export default function WorkPage() {
         </Card.Header>
       </Card>
 
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">Work history</h2>
-        <span className="text-sm text-muted tabular-nums">
-          {visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}
-        </span>
-      </div>
+      <SectionHeader
+        compact
+        title="Work history"
+        action={
+          <span className="text-sm text-muted tabular-nums">
+            {visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}
+          </span>
+        }
+      />
 
       {activity.isLoading ? <LoadingTimeline /> : null}
       {activity.error ? (

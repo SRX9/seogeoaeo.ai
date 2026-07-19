@@ -14,7 +14,6 @@ import {
   type AppNavItem,
   isAppRouteCurrent,
 } from "@/components/layout/app-navigation";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import type { SessionUser } from "@/lib/auth/session";
 import {
   useAgentState,
@@ -188,7 +187,6 @@ function SidebarContents({
               {user.email}
             </span>
           </div>
-          <ThemeToggle className="size-9 shrink-0" />
         </div>
       </Sidebar.Footer>
     </>

@@ -1,0 +1,171 @@
+.shell {
+  --orb-size: clamp(17rem, 34vw, 29rem);
+  position: relative;
+  display: grid;
+  width: var(--orb-size);
+  aspect-ratio: 1;
+  place-items: center;
+  isolation: isolate;
+}
+
+.shell[data-size="processing"] {
+  --orb-size: clamp(11rem, 28vw, 15rem);
+}
+
+.halo,
+.ring,
+.ringSecondary {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.halo {
+  z-index: -2;
+  background: radial-gradient(
+    circle,
+    oklch(75% 0.16 239 / 0.3) 0%,
+    oklch(80% 0.12 282 / 0.16) 42%,
+    transparent 72%
+  );
+  filter: blur(22px);
+  transform: scale(1.08);
+  animation: halo-breathe 5.6s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.ring,
+.ringSecondary {
+  z-index: -1;
+  border: 1px solid oklch(58% 0.14 251 / 0.14);
+}
+
+.ring {
+  animation: ring-breathe 4.8s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.ringSecondary {
+  inset: 1%;
+  border-color: oklch(68% 0.12 285 / 0.09);
+  animation: ring-breathe 4.8s 1.2s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.media {
+  position: absolute;
+  inset: 13%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: oklch(99.4% 0.004 250);
+  box-shadow:
+    0 0 0 1px oklch(0% 0 0 / 0.07),
+    0 24px 70px -34px oklch(49% 0.19 255 / 0.44);
+  animation: orb-float 5.8s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.media img,
+.media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shell:not([data-active="true"]) .media img {
+  object-fit: contain;
+  transform: scale(1.08);
+}
+
+.shell[data-active="true"] .halo {
+  animation-duration: 2.8s;
+}
+
+.shell[data-active="true"] .ring {
+  animation-duration: 2.4s;
+}
+
+.presence {
+  position: absolute;
+  right: 15%;
+  bottom: 18%;
+  display: grid;
+  width: clamp(1rem, 3vw, 1.35rem);
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: white;
+  box-shadow:
+    0 0 0 1px oklch(0% 0 0 / 0.08),
+    0 4px 12px oklch(0% 0 0 / 0.08);
+}
+
+.presence::before {
+  content: "";
+  width: 45%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: oklch(64% 0.18 154);
+}
+
+.shell[data-active="true"] .presence::after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  background: oklch(64% 0.18 154 / 0.34);
+  animation: presence-pulse 1.4s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+@keyframes orb-float {
+  0%,
+  100% {
+    transform: translate3d(0, -4px, 0) scale(0.99);
+  }
+  50% {
+    transform: translate3d(0, 5px, 0) scale(1.01);
+  }
+}
+
+@keyframes halo-breathe {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(1.02);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.13);
+  }
+}
+
+@keyframes ring-breathe {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes presence-pulse {
+  from {
+    opacity: 0.65;
+    transform: scale(0.75);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo,
+  .ring,
+  .ringSecondary,
+  .media,
+  .shell[data-active="true"] .presence::after {
+    animation: none;
+  }
+}
+

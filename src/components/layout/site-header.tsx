@@ -3,7 +3,6 @@
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
 import { SgaLogo } from "@/components/icons";
@@ -75,7 +74,6 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               </Link>
             ))}
           </div>
-          <ThemeToggle />
           {session ? (
             <Link href="/dashboard" className={buttonVariants()}>
               Open Claudia

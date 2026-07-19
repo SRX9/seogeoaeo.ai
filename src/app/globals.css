@@ -9,8 +9,33 @@
  */
 
 html {
+  color-scheme: light;
   font-synthesis: none;
   font-optical-sizing: auto;
+
+  /* Quiet Operator shape language. HeroUI and Tailwind both resolve these. */
+  --radius: 5px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 18px;
+  --radius-3xl: 18px;
+  --field-radius: var(--radius-md);
+
+  /* Shared motion rhythm. */
+  --motion-fast: 140ms;
+  --motion-overlay: 200ms;
+  --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Claudia is a signal palette, not general application chrome. */
+  --claudia-blue: oklch(0.62 0.16 250);
+  --claudia-cyan: oklch(0.76 0.09 210);
+  --claudia-lilac: oklch(0.7 0.12 285);
+  --status-claudia: oklch(0.47 0.14 250);
+  --status-success: oklch(0.42 0.12 150);
+  --status-warning: oklch(0.42 0.1 75);
+  --status-danger: oklch(0.45 0.17 25);
 }
 
 body {
@@ -19,6 +44,8 @@ body {
   --font-sans: var(--font-app);
   font-family: var(--font-app);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 :where(
@@ -65,30 +92,136 @@ body {
 
 .glass-light,
 [data-theme="glass-light"] {
-  /* Theme Colors */
-  --muted: oklch(55.17% 0.0060 253.83);
-  --scrollbar: oklch(87.10% 0.0030 253.83);
-  --border: oklch(90.00% 0.0030 253.83);
+  /* Quiet neutral hierarchy: canvas -> rail -> surface -> overlay. */
+  --background: oklch(0.975 0.003 250);
+  --rail: oklch(0.955 0.004 250);
+  --surface: oklch(0.995 0.001 250);
+  --surface-secondary: oklch(0.965 0.003 250);
+  --surface-tertiary: oklch(0.945 0.004 250);
+  --overlay: oklch(0.995 0.001 250 / 0.96);
+  --foreground: oklch(0.22 0.006 250);
+  --muted: oklch(0.48 0.006 250);
+  --accent: oklch(0.28 0.006 250);
+  --accent-foreground: oklch(0.991 0 0);
+  --default: oklch(0.92 0.004 250 / 0.72);
+  --border: oklch(0.88 0.004 250);
+  --separator: oklch(0.9 0.003 250);
+  --scrollbar: oklch(0.84 0.003 250);
+  --field-background: var(--surface);
+  --field-border: oklch(0.62 0.004 250);
+  --field-border-hover: oklch(0.5 0.004 250);
+  --field-border-focus: var(--accent);
+  --field-placeholder: var(--muted);
+  --focus: var(--accent);
+  --backdrop: oklch(0.2 0.004 250 / 0.42);
+  --background-gradient: none;
+  --surface-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.06),
+    0 1px 2px -1px oklch(0 0 0 / 0.06),
+    0 2px 4px oklch(0 0 0 / 0.04);
+  --surface-shadow-hover:
+    0 0 0 1px oklch(0 0 0 / 0.08),
+    0 1px 2px -1px oklch(0 0 0 / 0.08),
+    0 2px 4px oklch(0 0 0 / 0.06);
+  --overlay-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.08),
+    0 8px 24px -8px oklch(0 0 0 / 0.18),
+    0 24px 48px -20px oklch(0 0 0 / 0.22);
 }
 
-.glass-dark,
-[data-theme="glass-dark"] {
-  color-scheme: dark;
-  /* Theme Colors */
-  --muted: oklch(70.50% 0.0060 253.83);
-  --scrollbar: oklch(70.50% 0.0030 253.83);
-  --surface-secondary-foreground: oklch(25.70% 0.0000 253.83);
-  --surface-tertiary-foreground: oklch(27.21% 0.0000 253.83);
-  --field-placeholder: oklch(70.50% 0.0000 253.83);
-  --segment: oklch(39.64% 0.0030 253.83);
-  --border: oklch(28.00% 0.0030 253.83);
+/* HeroUI defaults are intentionally softer and rounder than Quiet Operator. */
+.button {
+  min-height: 2.5rem;
+  border-radius: var(--radius-md);
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+.button:active,
+.button[data-pressed="true"],
+.button--sm:active,
+.button--sm[data-pressed="true"],
+.button--lg:active,
+.button--lg[data-pressed="true"] {
+  transform: scale(0.96);
+}
+
+.button--sm {
+  min-height: 2.5rem;
+}
+
+.button--icon-only,
+.button--icon-only.button--sm {
+  min-width: 2.5rem;
+}
+
+.card {
+  border-radius: var(--radius-lg);
+}
+
+.input,
+.textarea,
+.input-group,
+.select__trigger,
+.autocomplete__trigger,
+.combo-box__trigger,
+.search-field__group {
+  border-radius: var(--radius-md);
+}
+
+.modal__dialog,
+.alert-dialog__dialog,
+.drawer__dialog,
+.sheet__dialog,
+.popover,
+.dropdown__popover {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--overlay-shadow);
+}
+
+.close-button {
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+}
+
+.sidebar {
+  --sidebar-width: 248px;
+  background-color: var(--rail);
+}
+
+.sidebar__menu-item-content {
+  min-height: 2.5rem;
+  border-radius: var(--radius-md);
+}
+
+.sidebar__main,
+.app-layout__main {
+  background-color: var(--background);
+}
+
+.quiet-media {
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
 }
 
 .app-navbar {
   background: var(--background);
   background: color-mix(in oklab, var(--background) 84%, transparent);
+  border-bottom: 1px solid var(--border);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   backdrop-filter: blur(20px) saturate(150%);
+}
+
+@media (pointer: coarse) {
+  .button,
+  .button--sm,
+  .button--icon-only,
+  .button--icon-only.button--sm,
+  .close-button,
+  .sidebar__menu-item-content {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -140,6 +273,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .button {
+    transition-property: none;
+  }
+
   .navigation-progress {
     transition-duration: 100ms;
   }

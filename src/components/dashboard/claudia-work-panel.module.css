@@ -1,0 +1,326 @@
+.workspace {
+  width: 100%;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  min-height: clamp(43rem, calc(100dvh - 8rem), 58rem);
+  grid-template-areas:
+    "status orb signals"
+    "copy orb signals"
+    "week orb ask";
+  grid-template-columns: minmax(16rem, 0.9fr) minmax(24rem, 1.2fr) minmax(16rem, 0.9fr);
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(1.5rem, 3vw, 3.5rem);
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(1.5rem, 4vw, 4.5rem);
+  isolation: isolate;
+}
+
+.stage::before {
+  content: "";
+  position: absolute;
+  z-index: -3;
+  inset: 6% 20%;
+  background: radial-gradient(
+    circle,
+    oklch(86% 0.07 239 / 0.38),
+    oklch(90% 0.05 284 / 0.18) 38%,
+    transparent 70%
+  );
+  filter: blur(32px);
+  pointer-events: none;
+}
+
+.gridField {
+  position: absolute;
+  z-index: -4;
+  inset: 0;
+  opacity: 0.34;
+  background-image:
+    linear-gradient(to right, oklch(0% 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0% 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+  mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.ambient,
+.ambientSecondary {
+  position: absolute;
+  z-index: -2;
+  width: 18rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(64px);
+  opacity: 0.18;
+}
+
+.ambient {
+  top: 7%;
+  right: 14%;
+  background: oklch(73% 0.15 285);
+  animation: ambient-drift 11s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.ambientSecondary {
+  bottom: 5%;
+  left: 18%;
+  background: oklch(73% 0.14 220);
+  animation: ambient-drift 13s 1.8s cubic-bezier(0.77, 0, 0.175, 1) infinite reverse;
+}
+
+.status {
+  grid-area: status;
+  align-self: start;
+}
+
+.copy {
+  grid-area: copy;
+  align-self: center;
+  max-width: 31rem;
+}
+
+.orb {
+  position: relative;
+  grid-area: orb;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.orbitTrack {
+  position: absolute;
+  width: min(92%, 33rem);
+  aspect-ratio: 1;
+  border: 1px solid oklch(56% 0.12 250 / 0.09);
+  border-radius: 50%;
+  animation: orbit-spin 24s linear infinite;
+  pointer-events: none;
+}
+
+.orbitTrack::before,
+.orbitTrack::after {
+  content: "";
+  position: absolute;
+  width: 0.45rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: oklch(64% 0.17 250);
+  box-shadow: 0 0 0 6px oklch(64% 0.17 250 / 0.08);
+}
+
+.orbitTrack::before {
+  top: -0.24rem;
+  left: 50%;
+}
+
+.orbitTrack::after {
+  right: 8%;
+  bottom: 20%;
+  background: oklch(68% 0.15 154);
+  box-shadow: 0 0 0 6px oklch(68% 0.15 154 / 0.08);
+}
+
+.signals {
+  grid-area: signals;
+  align-self: center;
+  border-left: 1px solid var(--separator);
+  padding-left: clamp(1.25rem, 2.4vw, 2.5rem);
+}
+
+.signalLink {
+  display: grid;
+  min-height: 7.75rem;
+  grid-template-columns: 0.5rem minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: start;
+  padding-block: 1.25rem;
+  border-top: 1px solid var(--separator);
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+  transition-property: transform, opacity;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.signalLink:last-child {
+  border-bottom: 1px solid var(--separator);
+}
+
+.signalLink:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.signalMark {
+  width: 0.5rem;
+  aspect-ratio: 1;
+  margin-top: 0.38rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.signalLink[data-tone="positive"] .signalMark {
+  background: var(--success);
+}
+
+.signalLink[data-tone="attention"] .signalMark {
+  background: var(--danger);
+}
+
+.week {
+  grid-area: week;
+  align-self: end;
+  max-width: 30rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--separator);
+}
+
+.ask {
+  grid-area: ask;
+  align-self: end;
+  justify-self: center;
+  text-align: center;
+}
+
+.ownerRequest,
+.content {
+  border-top: 1px solid var(--separator);
+}
+
+.ownerRequest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: clamp(2rem, 4vw, 3.5rem);
+  border-bottom: 1px solid var(--separator);
+}
+
+.content {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.68fr) minmax(0, 1.32fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  padding: clamp(2.5rem, 5vw, 5rem) clamp(1.5rem, 4vw, 4.5rem);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .signalLink:hover {
+    transform: translate3d(5px, 0, 0);
+  }
+}
+
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ambient-drift {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: translate3d(-5%, -4%, 0) scale(0.95);
+  }
+  50% {
+    opacity: 0.24;
+    transform: translate3d(7%, 6%, 0) scale(1.08);
+  }
+}
+
+@media (max-width: 1180px) {
+  .stage {
+    min-height: auto;
+    grid-template-areas:
+      "status status"
+      "copy orb"
+      "signals signals"
+      "week ask";
+    grid-template-columns: minmax(0, 0.9fr) minmax(19rem, 1.1fr);
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .signals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .signalLink {
+    min-height: 9rem;
+    border-top: 1px solid var(--separator);
+    border-right: 1px solid var(--separator);
+    padding-inline: 1rem;
+  }
+
+  .signalLink:last-child {
+    border-right: 0;
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .stage {
+    grid-template-areas:
+      "status"
+      "copy"
+      "orb"
+      "signals"
+      "week"
+      "ask";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    padding-inline: 1.25rem;
+  }
+
+  .copy {
+    max-width: none;
+  }
+
+  .signals {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .signalLink {
+    min-height: auto;
+    border-right: 0;
+    padding-inline: 0;
+  }
+
+  .signalLink:last-child {
+    border-bottom: 1px solid var(--separator);
+  }
+
+  .ask {
+    justify-self: start;
+    text-align: left;
+  }
+
+  .ownerRequest,
+  .content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ownerRequest {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient,
+  .ambientSecondary,
+  .orbitTrack {
+    animation: none;
+  }
+
+  .signalLink {
+    transition-property: opacity;
+  }
+}

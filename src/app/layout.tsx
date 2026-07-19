@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import localFont from "next/font/local";
-import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/feedback/toaster";
@@ -51,23 +50,14 @@ export const metadata: Metadata = {
   },
 };
 
-// Apply the base HeroUI mode and its matching Glass theme before first paint.
-// Glass refines the surfaces while the base mode supplies the full text palette.
-const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var e=document.documentElement;e.classList.remove("light","dark","glass-light","glass-dark");e.classList.add(t,t==="dark"?"glass-dark":"glass-light");}catch(e){}})();`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light glass-light" suppressHydrationWarning>
+    <html lang="en" className="light glass-light">
       <head>
-        <Script
-          id="theme-script"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
         <meta name="apple-mobile-web-app-title" content="SeoGeoAeo AI" />
       </head>
       <body

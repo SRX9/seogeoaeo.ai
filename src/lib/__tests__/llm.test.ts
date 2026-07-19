@@ -103,7 +103,11 @@ describe("hardened LLM transport", () => {
           maxRepairAttempts: 0,
         },
       ),
-    ).rejects.toMatchObject({ errorClass: "invalid_response", retryable: false });
+    ).rejects.toMatchObject({
+      errorClass: "invalid_response",
+      retryable: false,
+      message: expect.stringContaining("count"),
+    });
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
@@ -111,6 +115,38 @@ describe("hardened LLM transport", () => {
       seed: 42,
       response_format: { type: "json_object" },
     });
+  });
+
+  it("uses validation details to repair structured output twice", async () => {
+    const completion = (content: string) =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content }, finish_reason: "stop" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(completion('{"count":"seven"}'))
+      .mockResolvedValueOnce(completion('{"total":7}'))
+      .mockResolvedValueOnce(completion('{"count":7}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateJson(
+      "light",
+      [{ role: "user", content: "Return a count." }],
+      {
+        schema: z.object({ count: z.number() }),
+        maxRetries: 0,
+      },
+    );
+
+    expect(result.data).toEqual({ count: 7 });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const firstRepair = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body));
+    const secondRepair = JSON.parse(String((fetchMock.mock.calls[2]?.[1] as RequestInit).body));
+    expect(firstRepair.messages.at(-1)?.content).toMatch(/count: Expected number/i);
+    expect(secondRepair.messages.at(-1)?.content).toMatch(/count: Required/i);
   });
 
   it("keeps the timeout active while consuming the response body", async () => {

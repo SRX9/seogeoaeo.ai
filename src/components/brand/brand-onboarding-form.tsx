@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, Card, Input, Label, ListBox, Select, TextArea } from "@heroui/react";
+import { Alert, Button, Card, Input, Label, TextArea } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
@@ -37,8 +37,14 @@ import {
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe, type MeResponse } from "@/lib/api/queries";
-import { isActiveSubscription, plans, type PlanId } from "@/lib/billing/plans";
+import {
+  isActiveSubscription,
+  plans,
+  planTaglines,
+  type PlanId,
+} from "@/lib/billing/plans";
 import { MAX_COMPETITORS } from "@/lib/brand/schemas";
+import { cn } from "@/lib/cn";
 import { useBfcacheReset } from "@/lib/hooks/use-bfcache-reset";
 import { useCheckoutConfirm } from "@/lib/hooks/use-checkout-confirm";
 import {
@@ -46,6 +52,7 @@ import {
   FIRST_OUTCOME_IDS,
   type FirstOutcomeId,
 } from "@/lib/onboarding/first-outcome";
+import styles from "./brand-onboarding-form.module.css";
 
 type Competitor = { name: string; url: string; reason?: string };
 type DiscoveredUseCase = { job: string; persona: string; industry: string | null };
@@ -693,16 +700,37 @@ function OnboardingFormShell({
 }) {
   const current = STEPS[moment];
   return (
-    <div className="min-h-dvh bg-background">
-      <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-5 py-8 sm:px-8 sm:py-12">
+    <div className={cn("min-h-dvh bg-background", styles.shell)}>
+      <main className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 py-7 sm:px-8 sm:py-10">
         <header className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium text-muted">Step {moment + 1} of 3</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-muted tabular-nums">
+              Step {moment + 1} of 3
+            </span>
+            <span className="hidden items-center gap-1.5 sm:flex" aria-hidden>
+              {STEPS.map((step, index) => (
+                <span
+                  key={step.title}
+                  className={cn(
+                    "h-0.5 w-10 bg-border transition-[background-color] duration-200",
+                    index <= moment && "bg-accent",
+                  )}
+                />
+              ))}
+            </span>
+          </div>
           <Button variant="ghost" isDisabled={busy} onPress={onExit}>
             Save and exit
           </Button>
         </header>
 
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-10 sm:py-14">
+        <div
+          key={moment}
+          className={cn(
+            "mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-10 sm:py-14",
+            styles.stageEnter,
+          )}
+        >
           <div className="max-w-2xl">
             <h1 className="type-display text-3xl text-foreground text-pretty sm:text-5xl">
               {current.title}
@@ -802,7 +830,7 @@ function WebsiteStep({
   onContinue: () => void;
 }) {
   return (
-    <Card className="mt-8 max-w-2xl rounded-3xl p-0">
+    <Card className="mt-8 max-w-2xl rounded-[2rem] p-0 shadow-[0_0_0_1px_oklch(0_0_0/0.05),0_24px_70px_-42px_oklch(0_0_0/0.3)]">
       <Card.Content className="p-6 sm:p-8">
         <Label htmlFor="onboarding-website">Website URL</Label>
         <div className="mt-2 flex items-center gap-3">
@@ -853,7 +881,7 @@ function ConfirmStep({
   onAddCompetitor: () => void;
 }) {
   return (
-    <div className="mt-8 space-y-4">
+    <div className="mt-8 grid gap-4 md:grid-cols-2">
       <SummaryField label="What you sell" Icon={LayersIcon}>
         <TextArea
           aria-label="What you sell"
@@ -880,7 +908,11 @@ function ConfirmStep({
           }
         />
       </SummaryField>
-      <SummaryField label="Most important customer outcomes" Icon={CheckIcon}>
+      <SummaryField
+        className="md:col-span-2"
+        label="Most important customer outcomes"
+        Icon={CheckIcon}
+      >
         <TextArea
           aria-label="Most important customer outcomes"
           fullWidth
@@ -894,7 +926,7 @@ function ConfirmStep({
         />
         <p className="mt-2 text-xs leading-5 text-muted">One outcome per line.</p>
       </SummaryField>
-      <SummaryField label="Competitors Claudia found" Icon={SearchIcon}>
+      <SummaryField className="md:col-span-2" label="Competitors Claudia found" Icon={SearchIcon}>
         {fields.competitors.length ? (
           <ul className="divide-y divide-separator">
             {fields.competitors.map((competitor) => (
@@ -926,7 +958,7 @@ function ConfirmStep({
         )}
       </SummaryField>
 
-      <details className="rounded-2xl bg-surface p-5 open:pb-6">
+      <details className="rounded-2xl bg-surface p-5 shadow-[0_0_0_1px_oklch(0_0_0/0.05)] open:pb-6 md:col-span-2">
         <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-foreground">
           Review more details
         </summary>
@@ -1013,16 +1045,23 @@ function ConfirmStep({
 }
 
 function SummaryField({
+  className,
   label,
   Icon,
   children,
 }: {
+  className?: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-2xl p-0">
+    <Card
+      className={cn(
+        "rounded-2xl p-0 shadow-[0_0_0_1px_oklch(0_0_0/0.05),0_10px_30px_-24px_oklch(0_0_0/0.22)]",
+        className,
+      )}
+    >
       <Card.Content className="p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-3">
           <span
@@ -1093,36 +1132,59 @@ function OutcomeStep({
           <p className="mt-2 text-sm leading-6 text-muted">
             This controls how much work Claudia can complete each month. You can change it later.
           </p>
-          <div className="mt-4 max-w-md">
-            <Select
-              aria-label="Work capacity"
-              fullWidth
-              variant="secondary"
-              value={selectedPlanId}
-              onChange={(value) => {
-                if (value) setSelectedPlanId(String(value) as PlanId);
-              }}
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {Object.values(plans).map((plan) => (
-                    <ListBox.Item key={plan.id} id={plan.id} textValue={plan.name}>
-                      <span>{plan.name}</span>
-                      <span className="ml-auto text-sm text-muted">${plan.price}/month</span>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-            <p className="mt-3 text-sm text-muted">
-              {plans[selectedPlanId].monthlyCredits.toLocaleString()} work credits each month · up
-              to {plans[selectedPlanId].dailyArticleCap} article draft
-              {plans[selectedPlanId].dailyArticleCap === 1 ? "" : "s"} per day
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" role="group" aria-label="Work capacity">
+            {Object.values(plans).map((plan) => {
+              const selected = selectedPlanId === plan.id;
+              return (
+                <button
+                  key={plan.id}
+                  type="button"
+                  aria-pressed={selected}
+                  className={cn(
+                    "min-h-40 rounded-2xl bg-surface p-4 text-left shadow-[0_0_0_1px_oklch(0_0_0/0.06),0_8px_24px_-20px_oklch(0_0_0/0.25)] outline-none transition-[transform,box-shadow,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-focus active:scale-[0.96]",
+                    selected &&
+                      "bg-accent/5 shadow-[0_0_0_2px_var(--accent),0_14px_34px_-24px_oklch(50%_0.2_255/0.35)]",
+                  )}
+                  onClick={() => setSelectedPlanId(plan.id)}
+                >
+                  <span className="flex items-start justify-between gap-3">
+                    <span>
+                      <strong className="block text-sm font-semibold text-foreground">
+                        {plan.name}
+                      </strong>
+                      {plan.id === POPULAR_PLAN ? (
+                        <span className="mt-1 block text-xs font-medium text-accent">Recommended</span>
+                      ) : null}
+                    </span>
+                    {selected ? (
+                      <span
+                        className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground"
+                        aria-hidden
+                      >
+                        <CheckIcon className="size-3" />
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="mt-5 block text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                    ${plan.price}
+                    <span className="text-xs font-normal text-muted"> / month</span>
+                  </span>
+                  <span className="mt-3 block text-xs leading-5 text-muted">
+                    {plan.monthlyCredits.toLocaleString()} credits · up to {plan.dailyArticleCap} draft
+                    {plan.dailyArticleCap === 1 ? "" : "s"}/day
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4 max-w-2xl">
+            <p className="text-sm leading-6 text-foreground">
+              {planTaglines[selectedPlanId]}.
+            </p>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              {plans[selectedPlanId].monthlyCredits.toLocaleString()} work credits each month · up to{" "}
+              {plans[selectedPlanId].dailyArticleCap} article draft
+              {plans[selectedPlanId].dailyArticleCap === 1 ? "" : "s"} per day. You can change capacity later.
             </p>
           </div>
         </section>

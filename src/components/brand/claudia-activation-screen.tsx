@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, Card, ProgressBar } from "@heroui/react";
+import { ClaudiaOrb } from "@/components/claudia/claudia-orb";
 import { CheckIcon } from "@/components/icons";
 
 const ACTIVATION_STEPS = [
@@ -30,16 +31,28 @@ export function ClaudiaActivationScreen({
   const activeStep = subscribed || isCreating ? 2 : 1;
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-5 py-12">
-      <Card className="w-full max-w-xl rounded-3xl p-0">
+    <main className="mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-10 bg-background px-5 py-10 sm:px-8 lg:grid-cols-[minmax(18rem,0.8fr)_minmax(24rem,1.2fr)] lg:gap-16">
+      <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+        <ClaudiaOrb working={isCreating || !needsRetry} size="processing" />
+        <p className="mt-6 flex items-center gap-2 text-sm font-medium text-accent">
+          <span className="relative flex size-2" aria-hidden>
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/35 motion-reduce:animate-none" />
+            <span className="relative inline-flex size-2 rounded-full bg-accent" />
+          </span>
+          Starting Claudia
+        </p>
+        <h1 className="type-display mt-3 max-w-lg text-3xl text-foreground text-pretty sm:text-4xl">
+          Preparing the first week for {displayName}
+        </h1>
+        <p className="mt-3 max-w-md text-sm leading-6 text-muted">
+          Your answers and payment state remain safe while Claudia creates the workspace.
+        </p>
+      </div>
+
+      <Card className="w-full rounded-[2rem] p-0 shadow-[0_0_0_1px_oklch(0_0_0/0.05),0_24px_70px_-42px_oklch(0_0_0/0.3)]">
         <Card.Header className="p-6 pb-0 sm:p-8 sm:pb-0">
-          <p className="text-sm font-medium text-accent">Starting Claudia</p>
-          <Card.Title className="mt-2 text-2xl sm:text-3xl">
-            Preparing the first week for {displayName}
-          </Card.Title>
-          <Card.Description className="mt-2">
-            Your answers and payment state remain safe throughout setup.
-          </Card.Description>
+          <p className="text-sm font-medium text-muted">Workspace activation</p>
+          <Card.Title className="mt-1 text-xl">Almost ready</Card.Title>
         </Card.Header>
         <Card.Content className="space-y-6 p-6 sm:p-8">
           <ProgressBar
@@ -50,7 +63,7 @@ export function ClaudiaActivationScreen({
               <ProgressBar.Fill />
             </ProgressBar.Track>
           </ProgressBar>
-          <ol className="space-y-1" aria-live="polite">
+          <ol className="divide-y divide-separator" aria-live="polite">
             {ACTIVATION_STEPS.map((label, index) => {
               const done = index < activeStep;
               const active = index === activeStep;
@@ -58,14 +71,14 @@ export function ClaudiaActivationScreen({
                 <li
                   key={label}
                   aria-current={active ? "step" : undefined}
-                  className="flex min-h-14 items-center gap-3 py-2"
+                  className="flex min-h-16 items-center gap-4 py-3"
                 >
                   <span
-                    className={`grid size-6 shrink-0 place-items-center rounded-full ${
+                    className={`relative grid size-7 shrink-0 place-items-center rounded-full ${
                       done
-                        ? "bg-success-soft text-success"
+                        ? "bg-success/10 text-success"
                         : active
-                          ? "bg-accent-soft text-accent-soft-foreground"
+                          ? "bg-accent/10 text-accent"
                           : "bg-surface-secondary text-muted"
                     }`}
                     aria-hidden
@@ -73,7 +86,12 @@ export function ClaudiaActivationScreen({
                     {done ? (
                       <CheckIcon className="size-3.5" />
                     ) : (
-                      <span className="size-1.5 rounded-full bg-current" />
+                      <>
+                        {active ? (
+                          <span className="absolute size-3 animate-ping rounded-full bg-accent/30 motion-reduce:animate-none" />
+                        ) : null}
+                        <span className="size-1.5 rounded-full bg-current" />
+                      </>
                     )}
                   </span>
                   <span className="text-sm font-medium text-foreground">{label}</span>
@@ -105,6 +123,6 @@ export function ClaudiaActivationScreen({
           </Button>
         </Card.Footer>
       </Card>
-    </div>
+    </main>
   );
 }

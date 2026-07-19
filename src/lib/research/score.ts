@@ -3,6 +3,7 @@ import { generateJson } from "@/lib/llm/client";
 import { getLlmConfig } from "@/lib/llm/client";
 import { addTokenUsage, emptyTokenUsage } from "@/lib/llm/usage";
 import type { TokenUsageSummary } from "@/lib/llm/usage";
+import { logWarn } from "@/lib/logging/logger";
 import type {
   IntentTier,
   ResearchContext,
@@ -115,7 +116,11 @@ Seed keywords: ${context.brand.seedKeywords ?? "N/A"}
 Score these findings for relevance, freshness, and product-as-answer fit:
 ${JSON.stringify(findings.slice(0, 20), null, 2)}`,
     },
-  ], { schema: scoreBatchResponseSchema });
+  ], {
+    schema: scoreBatchResponseSchema,
+    promptVersion: "research-score-v1",
+    context: context.scope,
+  });
 
   const scoredTopics = Array.isArray(result.data?.topics) ? result.data.topics : [];
   const byTitle = new Map(scoredTopics.map((topic) => [topic.title.toLowerCase(), topic]));
@@ -195,9 +200,22 @@ export async function scoreFindings(
   let rawScored: ScoredTopic[];
 
   if (getLlmConfig()) {
-    const llmScored = await scoreWithLlm(unique, context);
-    rawScored = llmScored.topics;
-    tokenUsage = llmScored.tokenUsage;
+    try {
+      const llmScored = await scoreWithLlm(unique, context);
+      rawScored = llmScored.topics;
+      tokenUsage = llmScored.tokenUsage;
+    } catch (error) {
+      // Ranking is an enhancement, not a hard dependency. Deterministic
+      // scoring keeps onboarding and the standing research loop productive
+      // when a provider returns malformed JSON or is temporarily unavailable.
+      logWarn("research.scoring_fallback", {
+        workspaceId: context.scope?.workspaceId,
+        brandId: context.scope?.brandId,
+        reason: error instanceof Error ? error.message : String(error),
+        findings: unique.length,
+      });
+      rawScored = scoreHeuristically(unique, context);
+    }
   } else {
     rawScored = scoreHeuristically(unique, context);
   }

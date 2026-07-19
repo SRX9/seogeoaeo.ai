@@ -1,8 +1,9 @@
 "use client";
 
-import { Button, Card, ProgressBar, buttonVariants } from "@heroui/react";
+import { Button, ProgressBar, buttonVariants } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { ClaudiaOrb } from "@/components/claudia/claudia-orb";
 import { CheckIcon } from "@/components/icons";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { apiPost } from "@/lib/api/fetcher";
@@ -36,36 +37,6 @@ function stepSettled(step: SetupStep) {
   return step.status === "done" || step.status === "skipped";
 }
 
-/**
- * Claudia's portrait: her animation while she is actively working, the still
- * logo when she is resting (not started, settled, or stopped by a failure).
- */
-function ClaudiaPortrait({ working }: { working: boolean }) {
-  return (
-    <div className="grid min-h-40 place-items-center bg-surface-secondary p-6 md:min-h-[28rem]">
-      {working ? (
-        <video
-          src="/claudua_animated.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          aria-hidden
-          className="size-28 rounded-2xl object-cover md:size-32"
-        />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- small static asset, no next/image sizing needed
-        <img
-          src="/claudia-bg-free-logo.png"
-          alt=""
-          aria-hidden
-          className="size-28 rounded-2xl object-contain md:size-32"
-        />
-      )}
-    </div>
-  );
-}
-
 function StepRow({ step, label, active }: { step: SetupStep; label: string; active: boolean }) {
   const settled = stepSettled(step);
   const failed = step.status === "failed";
@@ -82,11 +53,11 @@ function StepRow({ step, label, active }: { step: SetupStep; label: string; acti
           <CheckIcon className="size-4" />
         ) : active ? (
           <span className="relative grid size-4 place-items-center">
-            <span className="absolute size-2.5 animate-ping rounded-lg bg-accent/40" />
-            <span className="size-1.5 rounded-lg bg-accent" />
+            <span className="absolute size-2.5 animate-ping rounded-full bg-accent/40 motion-reduce:animate-none" />
+            <span className="size-1.5 rounded-full bg-accent" />
           </span>
         ) : (
-          <span className={cn("size-1.5 rounded-lg", failed ? "bg-danger" : "bg-border")} />
+          <span className={cn("size-1.5 rounded-full", failed ? "bg-danger" : "bg-border")} />
         )}
       </span>
       <span
@@ -126,11 +97,18 @@ function SetupWorkspace({
     setup.labels?.[step.key] ?? FALLBACK_LABELS[step.key] ?? "Working on your setup";
 
   return (
-    <section className="mx-auto flex min-h-[68dvh] max-w-3xl items-center" aria-labelledby="setup-title">
-      <Card className="w-full overflow-hidden rounded-3xl p-0">
-        <Card.Content className="grid p-0 md:grid-cols-[11rem_minmax(0,1fr)]">
-          <ClaudiaPortrait working={working} />
-          <div className="flex flex-col justify-center p-6 sm:p-8 md:p-10">
+    <section
+      className="relative grid min-h-[calc(100dvh-7rem)] items-center gap-8 overflow-hidden px-5 py-10 md:grid-cols-[minmax(19rem,0.9fr)_minmax(24rem,1.1fr)] md:px-10 lg:gap-16 lg:px-16"
+      aria-labelledby="setup-title"
+    >
+      <span
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_35%_50%,oklch(86%_0.07_239/0.38),transparent_38%)]"
+        aria-hidden
+      />
+      <div className="grid place-items-center">
+        <ClaudiaOrb working={working} />
+      </div>
+      <div className="flex max-w-2xl flex-col justify-center">
             <p
               className={cn(
                 "text-sm font-medium",
@@ -196,9 +174,7 @@ function SetupWorkspace({
                 )}
               </div>
             ) : null}
-          </div>
-        </Card.Content>
-      </Card>
+      </div>
     </section>
   );
 }
