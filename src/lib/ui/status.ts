@@ -14,11 +14,17 @@ export function statusColor(status: string): StatusTone {
       return "success";
     case "failed":
     case "error":
+    case "blocked":
       return "danger";
     case "running":
     case "pending":
-    case "queued":
     case "in_progress":
+    case "working_now":
+    case "on_duty":
+      return "accent";
+    case "needs_attention":
+    case "waiting_for_you":
+    case "incomplete":
       return "warning";
     default:
       return "default";
@@ -27,10 +33,10 @@ export function statusColor(status: string): StatusTone {
 
 const STATUS_TEXT: Record<StatusTone, string> = {
   default: "text-muted",
-  success: "text-success",
-  danger: "text-danger",
-  warning: "text-warning",
-  accent: "text-accent",
+  success: "text-[color:var(--status-success)]",
+  danger: "text-[color:var(--status-danger)]",
+  warning: "text-[color:var(--status-warning)]",
+  accent: "text-[color:var(--status-claudia)]",
 };
 
 /**

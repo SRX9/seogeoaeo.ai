@@ -30,7 +30,7 @@ export function DashboardPageClient() {
   const dashboard = useDashboard();
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-5 pb-12 pt-5 lg:pb-14 lg:pt-6">
+    <main className="mx-auto w-full max-w-[100rem] px-0 pb-12 lg:pb-14">
       <Section
         query={dashboard}
         skeleton={<DashboardLoadingState />}

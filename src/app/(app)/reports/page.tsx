@@ -4,19 +4,17 @@ import { Card, Label, ListBox, Select, Skeleton } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import { EmptyState } from "@heroui-pro/react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   ArrowRightIcon,
   CalendarIcon,
   ChartBarIcon,
-  GaugeIcon,
-  SearchIcon,
-  InsightIcon,
 } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
 import { Section } from "@/components/feedback/section";
 import { PageHeader } from "@/components/layout/page-header";
-import { MetricCardIcon } from "@/components/ui/metric-card-icon";
+import { MetricStrip } from "@/components/ui/metric-strip";
+import { SectionHeader } from "@/components/ui/section-header";
 import { type WeeklyReportRow, useReports } from "@/lib/api/queries";
 
 type ReportPeriod = "month" | "quarter" | "half-year" | "year" | "all";
@@ -80,30 +78,6 @@ function reportThemes(report: WeeklyReportRow) {
   return themes.slice(0, 3);
 }
 
-function ReportMetric({
-  icon,
-  value,
-  label,
-  positive,
-}: {
-  icon: ReactNode;
-  value: string;
-  label: string;
-  positive?: boolean;
-}) {
-  return (
-    <div className="relative min-h-28 min-w-0 overflow-hidden rounded-xl bg-surface-secondary p-4">
-      <div className="relative z-10 min-w-0 pr-10">
-        <p className={positive ? "text-success" : "text-foreground"}>
-          <span className="text-xl font-semibold leading-none tracking-tight tabular-nums">{value}</span>
-        </p>
-        <p className="font-title mt-1 text-pretty text-xs leading-5 text-muted">{label}</p>
-      </div>
-      <MetricCardIcon>{icon}</MetricCardIcon>
-    </div>
-  );
-}
-
 function FeaturedReport({ report }: { report: WeeklyReportRow }) {
   const visibilityValue = report.summary.visibilityChangePercent;
   const hasVisibilityChange = visibilityValue !== null;
@@ -128,28 +102,32 @@ function FeaturedReport({ report }: { report: WeeklyReportRow }) {
           ))}
         </div>
       </Card.Header>
-      <Card.Content className="grid gap-3 px-5 sm:grid-cols-3 sm:px-6">
-        <ReportMetric
-          icon={<GaugeIcon />}
-          value={signedValue(report.summary.completedWork)}
-          label="Priority work closed"
-          positive={report.summary.completedWork > 0}
-        />
-        <ReportMetric
-          icon={<SearchIcon />}
-          value={
-            hasVisibilityChange
-              ? signedValue(visibilityValue, "%")
-              : String(report.summary.visibilityScore ?? "—")
-          }
-          label={hasVisibilityChange ? "Visibility increase" : "Visibility score"}
-          positive={hasVisibilityChange ? visibilityValue > 0 : false}
-        />
-        <ReportMetric
-          icon={<InsightIcon />}
-          value={signedValue(report.summary.answerMentions)}
-          label="AI mentions"
-          positive={report.summary.answerMentions > 0}
+      <Card.Content className="px-5 sm:px-6">
+        <MetricStrip
+          label="Latest report metrics"
+          className="shadow-none"
+          items={[
+            {
+              id: "completed-work",
+              label: "Priority work closed",
+              value: signedValue(report.summary.completedWork),
+              tone: report.summary.completedWork > 0 ? "success" : undefined,
+            },
+            {
+              id: "visibility",
+              label: hasVisibilityChange ? "Visibility increase" : "Visibility score",
+              value: hasVisibilityChange
+                ? signedValue(visibilityValue, "%")
+                : String(report.summary.visibilityScore ?? "—"),
+              tone: hasVisibilityChange && visibilityValue > 0 ? "success" : undefined,
+            },
+            {
+              id: "answer-mentions",
+              label: "AI mentions",
+              value: signedValue(report.summary.answerMentions),
+              tone: report.summary.answerMentions > 0 ? "success" : undefined,
+            },
+          ]}
         />
       </Card.Content>
       <Card.Footer className="justify-end p-5 sm:p-6">
@@ -273,8 +251,11 @@ export default function ReportsPage() {
               {archive.length > 0 ? (
                 <Card className="overflow-hidden p-0">
                   <Card.Header className="p-5 pb-3">
-                    <Card.Title>Earlier summaries</Card.Title>
-                    <Card.Description>Browse the previous results Claudia recorded for you.</Card.Description>
+                    <SectionHeader
+                      compact
+                      title="Earlier summaries"
+                      description="Browse the previous results Claudia recorded for you."
+                    />
                   </Card.Header>
                   <Card.Content className="divide-y divide-separator p-0" aria-label="Earlier reports">
                     {archive.map((report) => (

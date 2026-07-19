@@ -108,6 +108,9 @@ const MAX_SUCCESS_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_ERROR_BODY_BYTES = 16 * 1024;
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_RETRIES = 3;
+const DEFAULT_JSON_REPAIR_ATTEMPTS = 2;
+const MAX_JSON_REPAIR_ATTEMPTS = 2;
+const MAX_JSON_VALIDATION_ISSUES = 8;
 const CIRCUIT_FAILURE_THRESHOLD = 5;
 const CIRCUIT_OPEN_MS = 30_000;
 
@@ -482,6 +485,29 @@ export function parseModelJson<T>(text: string): T {
   }
 }
 
+function formatJsonValidationIssues(error: z.ZodError): string {
+  return error.issues
+    .slice(0, MAX_JSON_VALIDATION_ISSUES)
+    .map((issue) => {
+      const path = issue.path.length > 0 ? issue.path.join(".") : "<root>";
+      return `${path}: ${issue.message}`;
+    })
+    .join("; ")
+    .slice(0, 2_000);
+}
+
+function jsonRepairPrompt(reason: "json_parse" | "schema_validation", detail: string) {
+  const heading = reason === "json_parse"
+    ? "The previous response was not valid JSON."
+    : "The previous JSON did not satisfy the required response schema.";
+  return `${heading}
+
+Problems to correct:
+${detail}
+
+Return corrected JSON only. Preserve valid facts, fix every listed problem, and do not add commentary or markdown fences.`;
+}
+
 export async function generateJson<T>(
   tier: ModelTier,
   messages: LlmMessage[],
@@ -496,22 +522,42 @@ export async function generateJson<T>(
     );
   }
   const schema = options.schema;
-  const maxRepairAttempts = Math.min(1, Math.max(0, options.maxRepairAttempts ?? 1));
+  const maxRepairAttempts = Math.min(
+    MAX_JSON_REPAIR_ATTEMPTS,
+    Math.max(0, options.maxRepairAttempts ?? DEFAULT_JSON_REPAIR_ATTEMPTS),
+  );
   let result = await postChat(config, tier, messages, { ...options, json: true });
   for (let repairAttempt = 0; repairAttempt <= maxRepairAttempts; repairAttempt += 1) {
+    let repairReason: "json_parse" | "schema_validation";
+    let repairDetail: string;
     try {
       const parsed = parseModelJson<unknown>(result.text);
       const validated = schema.safeParse(parsed);
       if (validated.success) return { ...result, data: validated.data };
+      repairReason = "schema_validation";
+      repairDetail = formatJsonValidationIssues(validated.error);
     } catch (error) {
       if (repairAttempt >= maxRepairAttempts) throw error;
+      repairReason = "json_parse";
+      repairDetail = error instanceof Error ? error.message.slice(0, 2_000) : String(error).slice(0, 2_000);
     }
-    if (repairAttempt >= maxRepairAttempts) break;
+    if (repairAttempt >= maxRepairAttempts) {
+      throw new LlmError(
+        `LLM JSON failed runtime schema validation: ${repairDetail}`,
+        "invalid_response",
+        false,
+      );
+    }
     logWarn("llm.json_repair", {
       tier,
       model: result.model,
       promptVersion: options.promptVersion ?? "legacy",
       repairAttempt: repairAttempt + 1,
+      reason: repairReason,
+      validationIssues: repairDetail,
+      workspaceId: options.context?.workspaceId,
+      brandId: options.context?.brandId,
+      stepExecutionId: options.context?.stepExecutionId,
     });
     result = await postChat(
       config,
@@ -521,7 +567,7 @@ export async function generateJson<T>(
         { role: "assistant", content: result.text.slice(0, 50_000) },
         {
           role: "user",
-          content: "Return corrected JSON only. Preserve the requested facts and satisfy the response schema.",
+          content: jsonRepairPrompt(repairReason, repairDetail),
         },
       ],
       { ...options, json: true },

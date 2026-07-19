@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 type Theme = "light" | "dark";
 const THEME_CHANGE_EVENT = "sga-theme-change";
 
-function apply(theme: Theme) {
+function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.remove("light", "dark", "glass-light", "glass-dark");
   root.classList.add(theme, theme === "dark" ? "glass-dark" : "glass-light");
@@ -32,10 +32,6 @@ function getServerThemeSnapshot(): Theme {
   return "light";
 }
 
-/**
- * Toggles the HeroUI Glass theme between light and dark and persists it.
- * The pre-paint script in app/layout.tsx applies the saved value on load.
- */
 export function ThemeToggle({ className }: { className?: string }) {
   const theme = useSyncExternalStore(
     subscribeToTheme,
@@ -45,11 +41,11 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   function toggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
-    apply(next);
+    applyTheme(next);
     try {
       localStorage.setItem("theme", next);
     } catch {
-      // Ignore storage errors (private mode, blocked cookies, etc.).
+      // The active theme still changes when storage is unavailable.
     }
   }
 
@@ -61,14 +57,10 @@ export function ThemeToggle({ className }: { className?: string }) {
       size="sm"
       isIconOnly
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className={cn("rounded-full", className)}
+      className={cn("size-10 min-w-10 rounded-full", className)}
       onPress={toggle}
     >
-      {isDark ? (
-        <SunIcon className="size-4" />
-      ) : (
-        <MoonIcon className="size-4" />
-      )}
+      {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
     </Button>
   );
 }

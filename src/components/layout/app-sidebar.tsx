@@ -188,7 +188,7 @@ function SidebarContents({
               {user.email}
             </span>
           </div>
-          <ThemeToggle className="size-9 shrink-0" />
+          <ThemeToggle className="shrink-0" />
         </div>
       </Sidebar.Footer>
     </>

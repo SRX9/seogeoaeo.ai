@@ -51,8 +51,7 @@ export const metadata: Metadata = {
   },
 };
 
-// Apply the base HeroUI mode and its matching Glass theme before first paint.
-// Glass refines the surfaces while the base mode supplies the full text palette.
+// Apply the saved theme, or the OS preference, before the first paint.
 const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var e=document.documentElement;e.classList.remove("light","dark","glass-light","glass-dark");e.classList.add(t,t==="dark"?"glass-dark":"glass-light");}catch(e){}})();`;
 
 export default function RootLayout({

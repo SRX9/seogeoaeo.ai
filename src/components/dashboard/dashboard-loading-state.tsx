@@ -1,4 +1,4 @@
-import { Card, Skeleton } from "@heroui/react";
+import { Skeleton } from "@heroui/react";
 
 function Line({ className }: { className: string }) {
   return <Skeleton animationType="shimmer" className={className} />;
@@ -6,39 +6,29 @@ function Line({ className }: { className: string }) {
 
 export function DashboardLoadingState() {
   return (
-    <div className="flex flex-col gap-6 lg:gap-7" aria-busy="true" aria-label="Loading Claudia">
-      <Card className="overflow-hidden rounded-3xl p-2">
-        <div className="grid min-h-[34rem] gap-0 xl:grid-cols-[minmax(24rem,0.95fr)_minmax(0,1.05fr)]">
-          <div className="relative min-h-80 overflow-hidden rounded-2xl xl:min-h-full">
-            <Line className="absolute inset-0 rounded-2xl" />
-            <Line className="absolute left-5 top-5 h-5 w-20 rounded-lg" />
-            <div className="absolute bottom-4 left-4 right-4 flex justify-between gap-3">
-              <Line className="h-10 w-32 rounded-3xl" />
-              <Line className="h-10 w-28 rounded-3xl" />
-            </div>
+    <div
+      className="grid min-h-[calc(100dvh-7rem)] items-center gap-10 px-6 py-10 lg:grid-cols-[minmax(16rem,0.9fr)_minmax(22rem,1.2fr)_minmax(15rem,0.9fr)] lg:px-16"
+      aria-busy="true"
+      aria-label="Loading Claudia"
+    >
+      <div>
+        <Line className="h-4 w-24 rounded-lg" />
+        <Line className="mt-12 h-12 w-full max-w-md rounded-xl" />
+        <Line className="mt-3 h-5 w-full max-w-sm rounded-lg" />
+        <Line className="mt-2 h-5 w-3/4 max-w-xs rounded-lg" />
+      </div>
+      <div className="grid place-items-center">
+        <Line className="aspect-square w-full max-w-[28rem] rounded-full" />
+      </div>
+      <div className="space-y-1">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="border-t border-separator py-5">
+            <Line className="h-3 w-24 rounded-lg" />
+            <Line className="mt-3 h-7 w-32 rounded-lg" />
+            <Line className="mt-3 h-3 w-full rounded-lg" />
           </div>
-          <div className="p-5 sm:p-7 xl:p-8">
-            <Line className="h-10 w-full max-w-xl rounded-lg" />
-            <Line className="mt-3 h-5 w-full max-w-lg rounded-lg" />
-            <Line className="mt-5 h-36 w-full rounded-2xl" />
-            <div className="mt-7 flex items-center justify-between gap-3">
-              <Line className="h-8 w-32 rounded-lg" />
-              <Line className="h-4 w-16 rounded-lg" />
-            </div>
-            <div className="mt-5 space-y-5">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="flex items-start gap-3">
-                  <Line className="size-6 shrink-0 rounded-full" />
-                  <div className="min-w-0 flex-1">
-                    <Line className="h-4 w-full max-w-xs rounded-lg" />
-                    <Line className="mt-2 h-3 w-full max-w-sm rounded-lg" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
+        ))}
+      </div>
     </div>
   );
 }

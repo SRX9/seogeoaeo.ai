@@ -1,5 +1,5 @@
 ---
-name: "Glass"
+name: "Quiet Operator"
 colors:
   dark:
     backdrop: "rgba(0, 0, 0, 0.3)"
@@ -157,67 +157,69 @@ colors:
     warning-soft-hover: "rgba(245, 165, 36, 0.2)"
 typography:
   xs:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "12px"
     lineHeight: "16px"
   sm:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "14px"
     lineHeight: "20px"
   base:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "16px"
     lineHeight: "24px"
   lg:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "18px"
     lineHeight: "28px"
   xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "20px"
     lineHeight: "28px"
   2xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "24px"
     lineHeight: "32px"
   3xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "30px"
     lineHeight: "36px"
   4xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "36px"
     lineHeight: "40px"
   5xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "48px"
     lineHeight: "48px"
   6xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "60px"
     lineHeight: "60px"
   7xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "72px"
     lineHeight: "72px"
   8xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "96px"
     lineHeight: "96px"
   9xl:
-    fontFamily: "Inter"
+    fontFamily: "Geist"
     fontSize: "128px"
     lineHeight: "128px"
 spacing:
   base: "4px"
   fieldBorderWidth: "1px"
 rounded:
-  field: "12px"
-  radius: "8px"
+  small: "6px"
+  field: "10px"
+  card: "14px"
+  overlay: "18px"
 elevation:
   field: "0 0px 0px 0 rgba(0, 0, 0, 0)"
   overlay: "0 2px 8px 0 rgba(0, 0, 0, 0.06), 0 -6px 12px 0 rgba(0, 0, 0, 0.03), 0 14px 28px 0 rgba(0, 0, 0, 0.08)"
-  surface: "0 0px 0px 0 rgba(0, 0, 0, 0)"
+  surface: "0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.06), 0 2px 4px oklch(0 0 0 / 0.04)"
 components:
   button-danger:
     backgroundColor: "#FF383C"
@@ -230,7 +232,7 @@ components:
   card:
     backgroundColor: "#FFFFFF"
     component: "Card"
-    shadow: "0 0px 0px 0 rgba(0, 0, 0, 0)"
+    shadow: "0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.06), 0 2px 4px oklch(0 0 0 / 0.04)"
   chart:
     series1: "#6E95B0"
     series2: "#57768C"
@@ -239,9 +241,9 @@ components:
     series5: "#8CB4D1"
   field:
     backgroundColor: "#FFFFFF"
-    borderColor: "rgba(0, 0, 0, 0.04)"
+    borderColor: "oklch(0.62 0.004 250)"
     borderWidth: "1px"
-    radius: "12px"
+    radius: "10px"
     shadow: "0 0px 0px 0 rgba(0, 0, 0, 0)"
     textColor: "#18181B"
   overlay:
@@ -250,12 +252,22 @@ components:
     shadow: "0 2px 8px 0 rgba(0, 0, 0, 0.06), 0 -6px 12px 0 rgba(0, 0, 0, 0.03), 0 14px 28px 0 rgba(0, 0, 0, 0.08)"
     textColor: "#18181B"
   backgroundGradient:
-    --background-gradient-end: "#408CF0"
-    --background-gradient-start: "#3040C8"
-    raw: "linear-gradient(rgba(48, 64, 200, 0.2) 0%, rgba(64, 140, 240, 0.1) 50%, rgba(124, 210, 228, 0) 100%)"
+    raw: "none"
 ---
 
-# Glass
+# Quiet Operator
+
+Quiet Operator is the product design source of truth. `docs/design-feel.md`
+contains the full rationale and rollout plan; this file records the tokens and
+component rules used in implementation.
+
+Non-negotiable rules:
+
+- Never render pills, chips, badges, or pill-shaped text containers.
+- Use Hugeicons for interface icons; do not add inline SVGs, emoji, or AI-cliché decoration.
+- Never use a HeroUI Button variant containing `soft`.
+- Keep product chrome neutral. Claudia blue, cyan, and lilac are reserved for identity and live agent state.
+- Use Geist for the application UI. Cal Sans is limited to onboarding and rare focal moments.
 
 ## Colors
 
@@ -280,7 +292,7 @@ Use semantic HeroUI tokens and Tailwind utilities in product code. The raw value
 | `success` | `#17C964` | `#17C964` | `oklch(73.29% 0.1935 150.81)` | `--success` | `text-success` or HeroUI success status components | Communicates positive outcomes, confirmations, and completion states. |
 | `warning` | `#F5A524` | `#F7B750` | `Light: oklch(78.19% 0.1585 72.33); Dark: oklch(82.03% 0.1388 76.34)` | `--warning` | `text-warning` for caution states | Indicates caution or actions that require attention but are not destructive. |
 | `border` | `#DDDEE0` | `#28292A` | `Light: oklch(90.00% 0.0030 253.83); Dark: oklch(28.00% 0.0030 253.83)` | `--border` | `border-border` | Default border color for containers and interactive elements. |
-| `default` | `rgba(0, 0, 0, 0.07)` | `rgba(255, 255, 255, 0.08)` | `Light: oklch(0 0 0 / 7%); Dark: oklch(1 0 0 / 8%)` | `--default` | `bg-default text-default-foreground` for neutral controls | Neutral interactive background. Used for chips, tags, and secondary controls. |
+| `default` | `rgba(0, 0, 0, 0.07)` | `rgba(255, 255, 255, 0.08)` | `Light: oklch(0 0 0 / 7%); Dark: oklch(1 0 0 / 8%)` | `--default` | `bg-default text-default-foreground` for neutral controls | Neutral interactive background for secondary controls and selected rectangular rows. |
 | `focus` | `#2B2E31` | `#F8F8F9` | `= accent` | `--focus` | Keyboard focus rings | Focus ring color for keyboard navigation indicators. |
 | `link` | `#18181B` | `#FCFCFC` | `= foreground` | `--link` | Link text color | Text color for interactive links. |
 | `scrollbar` | `#D3D5D6` | `#9FA0A2` | `Light: oklch(87.10% 0.0030 253.83); Dark: oklch(70.50% 0.0030 253.83)` | `--scrollbar` | Scrollbar thumb color | Scrollbar thumb color. |
@@ -310,9 +322,9 @@ Use semantic HeroUI tokens and Tailwind utilities in product code. The raw value
 | `border-tertiary` | `#A8A8A9` | `#FEFEFE` | `surface / 66% + surface-foreground / 34%` | `--border-tertiary` | Prefer the HeroUI token for border-tertiary. | High-contrast border for maximum definition. |
 | `danger-foreground` | `#FCFCFC` | `#FCFCFC` | `= snow` | `--danger-foreground` | Prefer the HeroUI token for danger-foreground. | Text/icon color on danger backgrounds. |
 | `danger-hover` | `#FF5551` | `#E15451` | `danger / 90% + danger-foreground / 10%` | `--danger-hover` | Prefer the HeroUI token for danger-hover. | Hover state for danger backgrounds. |
-| `danger-soft` | `rgba(255, 56, 60, 0.15)` | `rgba(219, 59, 62, 0.15)` | `danger / 15% + transparent` | `--danger-soft` | Prefer the HeroUI token for danger-soft. | Subtle danger background for soft emphasis. |
-| `danger-soft-foreground` | `#A43433` | `#EB7872` | `Light: danger / 70% + foreground / 40%; Dark: danger / 80% + foreground / 30%` | `--danger-soft-foreground` | Prefer the HeroUI token for danger-soft-foreground. | Text color on danger-soft backgrounds. |
-| `danger-soft-hover` | `rgba(255, 56, 60, 0.2)` | `rgba(219, 59, 62, 0.2)` | `danger / 20% + transparent` | `--danger-soft-hover` | Prefer the HeroUI token for danger-soft-hover. | Hover state for danger-soft backgrounds. |
+| `danger-soft` | `rgba(255, 56, 60, 0.15)` | `rgba(219, 59, 62, 0.15)` | `danger / 15% + transparent` | `--danger-soft` | Library compatibility only; do not select a soft Button variant. | Retained because HeroUI defines the token, not as an approved product treatment. |
+| `danger-soft-foreground` | `#A43433` | `#EB7872` | `Light: danger / 70% + foreground / 40%; Dark: danger / 80% + foreground / 30%` | `--danger-soft-foreground` | Library compatibility only. | Retained because HeroUI defines the token. |
+| `danger-soft-hover` | `rgba(255, 56, 60, 0.2)` | `rgba(219, 59, 62, 0.2)` | `danger / 20% + transparent` | `--danger-soft-hover` | Library compatibility only. | Retained because HeroUI defines the token. |
 | `default-foreground` | `#18181B` | `#FCFCFC` | `Light: = eclipse; Dark: = snow` | `--default-foreground` | Prefer the HeroUI token for default-foreground. | Text/icon color on default backgrounds. |
 | `default-hover` | `#000000` | `#FFFFFF` | `default / 96% + default-foreground / 4%` | `--default-hover` | Prefer the HeroUI token for default-hover. | Hover state for default backgrounds. |
 | `default-soft` | `rgba(0, 0, 0, 0.07)` | `rgba(255, 255, 255, 0.08)` | `default / 50% + transparent` | `--default-soft` | Prefer the HeroUI token for default-soft. | Subtle default background for neutral soft emphasis. |
@@ -346,29 +358,29 @@ Use the generated font and text scale through HeroUI components and Tailwind tex
 
 | Token | Font family | Font size | Line height | HeroUI variable | Tailwind equivalent |
 | --- | --- | --- | --- | --- | --- |
-| `xs` | Inter | `12px` | `16px` | `--text-xs` | `text-xs` |
-| `sm` | Inter | `14px` | `20px` | `--text-sm` | `text-sm` |
-| `base` | Inter | `16px` | `24px` | `--text-base` | `text-base` |
-| `lg` | Inter | `18px` | `28px` | `--text-lg` | `text-lg` |
-| `xl` | Inter | `20px` | `28px` | `--text-xl` | `text-xl` |
-| `2xl` | Inter | `24px` | `32px` | `--text-2xl` | `text-2xl` |
-| `3xl` | Inter | `30px` | `36px` | `--text-3xl` | `text-3xl` |
-| `4xl` | Inter | `36px` | `40px` | `--text-4xl` | `text-4xl` |
-| `5xl` | Inter | `48px` | `48px` | `--text-5xl` | `text-5xl` |
-| `6xl` | Inter | `60px` | `60px` | `--text-6xl` | `text-6xl` |
-| `7xl` | Inter | `72px` | `72px` | `--text-7xl` | `text-7xl` |
-| `8xl` | Inter | `96px` | `96px` | `--text-8xl` | `text-8xl` |
-| `9xl` | Inter | `128px` | `128px` | `--text-9xl` | `text-9xl` |
+| `xs` | Geist | `12px` | `16px` | `--text-xs` | `text-xs` |
+| `sm` | Geist | `14px` | `20px` | `--text-sm` | `text-sm` |
+| `base` | Geist | `16px` | `24px` | `--text-base` | `text-base` |
+| `lg` | Geist | `18px` | `28px` | `--text-lg` | `text-lg` |
+| `xl` | Geist | `20px` | `28px` | `--text-xl` | `text-xl` |
+| `2xl` | Geist | `24px` | `32px` | `--text-2xl` | `text-2xl` |
+| `3xl` | Geist | `30px` | `36px` | `--text-3xl` | `text-3xl` |
+| `4xl` | Geist | `36px` | `40px` | `--text-4xl` | `text-4xl` |
+| `5xl` | Geist | `48px` | `48px` | `--text-5xl` | `text-5xl` |
+| `6xl` | Geist | `60px` | `60px` | `--text-6xl` | `text-6xl` |
+| `7xl` | Geist | `72px` | `72px` | `--text-7xl` | `text-7xl` |
+| `8xl` | Geist | `96px` | `96px` | `--text-8xl` | `text-8xl` |
+| `9xl` | Geist | `128px` | `128px` | `--text-9xl` | `text-9xl` |
 
 ### Font and Letter Spacing
 
 | Token | Raw value | Formula / source | HeroUI variable | Tailwind / component equivalent | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| `font sans` | `var(--font-inter)` |  | `--font-sans` | Prefer inherited typography from HeroUI components and Tailwind font utilities. | Primary sans font family used by HeroUI components. |
+| `font sans` | `var(--font-geist)` |  | `--font-sans` | Prefer inherited typography from HeroUI components and Tailwind font utilities. | Primary sans font family used by HeroUI components. |
 | `tracking tighter` | `-0.05em` |  | `--tracking-tighter` | Use `tracking-tighter` for compact display text. | Tailwind tighter tracking token derived from the normal tracking base. |
 | `tracking tight` | `-0.025em` |  | `--tracking-tight` | Use `tracking-tight` when headings need slightly denser letter spacing. | Tailwind tight tracking token derived from the normal tracking base. |
 | `tracking normal` | `0em` |  | `--tracking-normal` | Default inherited tracking for generated theme previews and app typography. | Editable base tracking token for the generated Tailwind tracking scale. |
-| `tracking wide` | `0.025em` |  | `--tracking-wide` | Use `tracking-wide` for labels, badges, and small uppercase text. | Tailwind wide tracking token derived from the normal tracking base. |
+| `tracking wide` | `0.025em` |  | `--tracking-wide` | Use sparingly for compact sentence-case labels. | Tailwind wide tracking token derived from the normal tracking base. |
 | `tracking wider` | `0.05em` |  | `--tracking-wider` | Use `tracking-wider` for stronger label emphasis. | Tailwind wider tracking token derived from the normal tracking base. |
 | `tracking widest` | `0.1em` |  | `--tracking-widest` | Use `tracking-widest` sparingly for highly stylized display text. | Tailwind widest tracking token derived from the normal tracking base. |
 
@@ -392,24 +404,26 @@ Depth comes from HeroUI surface and overlay tokens. Prefer built-in component sh
 
 | Token | Raw value | Formula / source | HeroUI variable | Tailwind / component equivalent | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| `surface shadow` | `Light: 0 0px 0px 0 rgba(0, 0, 0, 0); Dark: 0 0 0 0 transparent inset` |  | `--surface-shadow` | Prefer HeroUI surfaces and `shadow-surface`; avoid stacking extra custom shadows. | Elevation shadow for cards and resting surfaces. |
+| `surface shadow` | `Light: 0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.06), 0 2px 4px oklch(0 0 0 / 0.04); Dark: 0 0 0 1px oklch(1 0 0 / 0.08)` |  | `--surface-shadow` | Prefer HeroUI surfaces and `shadow-surface`; avoid stacking extra custom shadows. | Shadow-ring for cards and resting surfaces. |
 | `overlay shadow` | `Light: 0 2px 8px 0 rgba(0, 0, 0, 0.06), 0 -6px 12px 0 rgba(0, 0, 0, 0.03), 0 14px 28px 0 rgba(0, 0, 0, 0.08); Dark: 0 0 1px 0 rgba(255, 255, 255, 0.3) inset` |  | `--overlay-shadow` | Prefer HeroUI overlay components and `shadow-overlay`. | Elevation shadow for floating layers such as popovers, menus, modals, and sheets. |
 | `field shadow` | `Light: 0 0px 0px 0 rgba(0, 0, 0, 0); Dark: 0 0 0 0 transparent inset` |  | `--field-shadow` | Prefer HeroUI field components. | Subtle elevation treatment for inputs and field-like controls. |
 
 ## Shapes
 
-Use HeroUI's default rounded shape language and Tailwind radius utilities. Custom components should match the same radius scale rather than introducing unrelated corner values.
+Use the Quiet Operator radius scale. Custom components should use the semantic tokens rather than introducing unrelated corner values.
 
 ### Radius
 
 | Token | Raw value | Formula / source | HeroUI variable | Tailwind / component equivalent | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| `radius` | `8px` |  | `--radius` | Prefer Tailwind radius utilities like `rounded-lg`, `rounded-xl`, and `rounded-2xl`. | Global corner radius basis for surfaces, buttons, and container shapes. |
-| `field radius` | `12px` |  | `--field-radius` | Prefer HeroUI field components so this radius is applied automatically. | Corner radius basis for inputs, selects, text areas, and other form controls. |
+| `radius-sm` | `6px` |  | `--radius-sm` | Small icon wells and compact controls. | Small corner radius. |
+| `radius-md` | `10px` |  | `--radius-md` | Buttons, fields, rows, and selected navigation. | Control radius. |
+| `radius-lg` | `14px` |  | `--radius-lg` | Cards and grouped panels. | Resting surface radius. |
+| `radius-xl` | `18px` |  | `--radius-xl` | Dialogs, sheets, and rare focal frames. | Overlay radius. |
 
 ## Components
 
-- **Buttons:** Use HeroUI Button semantic variants. Primary actions use `variant="primary"`; alternatives use `secondary`, `tertiary`, `outline`, or `ghost`; destructive actions use `danger` or `danger-soft`.
+- **Buttons:** Use HeroUI Button semantic variants. Primary actions use `variant="primary"`; alternatives use `secondary`, `tertiary`, `outline`, or `ghost`; destructive actions use `danger`. Never use a variant containing `soft`.
 - **Cards and surfaces:** Use HeroUI Card, Surface, overlays, and `bg-surface` tokens. Do not add extra custom shadows to components that already include surface elevation.
 - **Forms:** Use HeroUI field components so `--field-background`, `--field-border`, `--field-foreground`, `--field-radius`, and field widths resolve consistently.
 - **Status:** Use semantic status tokens for actual meaning: success for positive outcomes, warning for caution, danger for destructive or critical states.
@@ -420,11 +434,9 @@ Use HeroUI's default rounded shape language and Tailwind radius utilities. Custo
 | Token | Raw value | Formula / source | HeroUI variable | Tailwind / component equivalent | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | `glass blur` | `Light: 20px; Dark: 36px` |  | `--glass-blur` | Use the glass theme components; avoid custom `backdrop-blur-*` overrides. | Backdrop blur amount for translucent glass surfaces. Glass theme only. |
-| `background gradient` | `Light: linear-gradient(rgba(48, 64, 200, 0.2) 0%, rgba(64, 140, 240, 0.1) 50%, rgba(124, 210, 228, 0) 100%); Dark: linear-gradient(rgba(25, 94, 180, 0.16) 0%, rgba(0, 94, 80, 0.04) 50%, rgba(0, 120, 110, 0) 100%)` |  | `--background-gradient` | Apply through the exported theme CSS, not per component. | Ambient page gradient layered with the background color. Glass theme only. |
+| `background gradient` | `none` |  | `--background-gradient` | Do not apply to routine product chrome. | Atmospheric color belongs only in an explicit Claudia focal component. |
 | `glass pinned surface` | `Light: oklch(0.9911 0 0); Dark: oklch(0.2925 0.0023 247.9)` |  | `--glass-pinned-surface` | Use Pro table/data-grid components so pinned regions inherit this token. | Pinned cell surface color for fixed table and data-grid regions. Glass theme only. |
 | `glass pinned surface secondary` | `Light: oklch(0.9577 0.0017 247.84); Dark: oklch(0.2555 0.0024 247.92)` |  | `--glass-pinned-surface-secondary` | Use Pro table/data-grid components so pinned regions inherit this token. | Secondary pinned cell surface color for grouped table and data-grid regions. Glass theme only. |
-| `background gradient start` | `#3040C8` |  | `--background-gradient-start` | Use when a design tool or agent needs the gradient as separate color stops. | Start color for the ambient background gradient. Derived from the first stop in --background-gradient. |
-| `background gradient end` | `#408CF0` |  | `--background-gradient-end` | Use when a design tool or agent needs the gradient as separate color stops. | End color for the ambient background gradient. Derived from the second stop in --background-gradient. |
 
 ## Do's and Don'ts
 
@@ -435,7 +447,7 @@ Use HeroUI's default rounded shape language and Tailwind radius utilities. Custo
 - Do keep page and section spacing on a consistent 4px/8px rhythm; avoid doubling parent and child padding in the same direction.
 - Do size containers to their content; avoid excess fixed heights, oversized sections, and layouts that stretch wider than their content warrants.
 - Do align sibling items consistently so cards, sections, names, prices, metrics, and controls start from the same visual anchors.
-- Do use neutral surface tokens for containers, cards, stat pills, and nested panels; reserve accent and status colors for real meaning.
+- Do use neutral surface tokens for containers, cards, metric strips, and nested panels; reserve accent and status colors for real meaning.
 - Do create hierarchy with surface levels, spacing, typography, and content order before adding more borders or decoration.
 - Do use accent for primary emphasis and success, warning, and danger only for their semantic meanings.
 - Do keep typography concise and scannable with short Title Case headings, muted secondary text, and tabular numbers for metrics.
@@ -457,9 +469,9 @@ Use HeroUI's default rounded shape language and Tailwind radius utilities. Custo
 - Don't use color alone to create hierarchy when spacing, type scale, surface level, or content order would communicate it more clearly.
 - Don't place progress bars, meters, or decorative strips on card edges; keep status indicators inside the content flow.
 - Don't nest visually heavy surfaces inside other heavy surfaces; avoid card-on-card depth unless hierarchy truly needs it.
-- Don't let badges, chips, tags, or compact indicators stretch full width; they should remain content-sized.
-- Don't add redundant icons, logos, badges, wrappers, or trust signals that do not introduce new information.
+- Don't use badges, chips, tags, pills, or pill-shaped text containers. Render status and metadata as plain text.
+- Don't add redundant icons, logos, wrappers, or trust signals that do not introduce new information.
 - Don't use ALL CAPS labels or verbose headings when short Title Case labels communicate the section clearly.
 - Don't misuse warning for neutral emphasis or decoration; reserve it for genuine caution.
-- Don't allow floating controls to overlap content; add enough spacing or padding for close buttons, badges, and overlay actions.
+- Don't allow floating controls to overlap content; add enough spacing or padding for close buttons, labels, and overlay actions.
 - Don't add hover or transition behavior to non-interactive content; reserve feedback for actual interactions.
