@@ -1218,7 +1218,9 @@ export async function claimConnectorMutationForWrite(
       .set({
         status: "writing",
         attemptCount: sql`${connectorMutations.attemptCount} + 1`,
-        startedAt: sql`coalesce(${connectorMutations.startedAt}, ${now})`,
+        // Raw sql`` params bypass drizzle's column mapping, and postgres.js cannot
+        // serialize a JS Date it receives unmapped — pass the ISO string instead.
+        startedAt: sql`coalesce(${connectorMutations.startedAt}, ${now.toISOString()})`,
         updatedAt: now,
       })
       .where(

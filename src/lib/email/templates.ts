@@ -160,3 +160,33 @@ export function outOfCreditsEmail(input: OutOfCreditsEmailInput): EmailContent {
 
   return { subject, html, text };
 }
+
+export type SetupRunStalledEmailInput = {
+  brandName: string;
+  dashboardUrl: string;
+};
+
+/**
+ * Setup Run hit a terminal technical failure. Honest, calm, no jargon: the
+ * owner's saved work is safe, the team is alerted, and there is one clear
+ * action (open the dashboard, where a retry is offered).
+ */
+export function setupRunStalledEmail(input: SetupRunStalledEmailInput): EmailContent {
+  const subject = `Claudia hit a snag setting up ${input.brandName}`;
+  const text = [
+    `While setting up ${input.brandName}, I ran into a technical problem I couldn't work around.`,
+    "",
+    "Everything I finished is saved, and the team has been alerted automatically.",
+    "You can retry from your dashboard, or just wait — I'll pick the work back up as soon as it's resolved.",
+    "",
+    `Open your dashboard: ${input.dashboardUrl}`,
+  ].join("\n");
+  const body =
+    `<p style="margin:12px 0;">While setting up <strong style="color:#eef1f7;">${escapeHtml(input.brandName)}</strong>, I ran into a technical problem I couldn't work around.</p>` +
+    `<p style="margin:12px 0;">Everything I finished is saved, and the team has been alerted automatically. You can retry from your dashboard, or just wait — I'll pick the work back up as soon as it's resolved.</p>`;
+  const html = claudiaEmailHtml("Claudia · setup paused", "I hit a snag — your work is safe", body, {
+    href: input.dashboardUrl,
+    label: "Open your dashboard",
+  });
+  return { subject, html, text };
+}

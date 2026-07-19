@@ -50,12 +50,15 @@ type StepResult = { status: string; note?: string | null };
 export class SetupRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const p = event.payload;
-    const log = createLogger({
-      workflow: "setup-run",
-      instanceId: event.instanceId,
-      workspaceId: p.workspaceId,
-      brandId: p.brandId,
-    });
+    const log = createLogger(
+      {
+        workflow: "setup-run",
+        instanceId: event.instanceId,
+        workspaceId: p.workspaceId,
+        brandId: p.brandId,
+      },
+      this.env,
+    );
     log.info("workflow.setup.started");
     const post = appCaller<StepResult>(this.env, "/api/agent/setup-step", event.instanceId);
     const call = (stepKey: string) =>
@@ -86,7 +89,21 @@ export class SetupRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
       }
     }
 
-    const settled = await step.do("finalize", { retries: RETRIES }, () => call("finalize"));
+    let settled: StepResult;
+    try {
+      settled = await step.do("finalize", { retries: RETRIES }, () => call("finalize"));
+    } catch (error) {
+      // Finalize exhausting its retries means the app can't settle the run at
+      // all. Log loudly (this ships to PostHog) and rethrow so the instance
+      // shows as Errored in Cloudflare; the app-side stale-run sweep (reconcile
+      // cron + status poller) will resume or terminally fail the run and
+      // notify the owner + operator.
+      log.error("workflow.setup.finalize_exhausted", {
+        error_message:
+          error instanceof Error ? error.message.slice(0, 500) : "Unknown failure",
+      });
+      throw error;
+    }
     const failedSteps = Object.values(outcomes).filter((status) => status === "failed").length;
     log.info("workflow.setup.completed", {
       status: settled.status,

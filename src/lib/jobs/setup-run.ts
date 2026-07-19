@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/lib/brand/repository";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
-import { auditFindings, audits, setupRuns, trackedPrompts } from "@/lib/db/schema";
+import { auditFindings, audits, setupRuns, subscriptions, trackedPrompts } from "@/lib/db/schema";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { createWorkflowInstance } from "@/lib/jobs/workflow";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
@@ -68,15 +68,21 @@ export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outc
  * pipeline falls back to running inline in the request's `waitUntil`.
  */
 
+/**
+ * Owner-facing step labels. Deliberately warm-but-vague: they describe what
+ * Claudia is doing for the owner without documenting the pipeline itself
+ * (these labels are served to the browser, so precise names would hand the
+ * workflow to anyone who opens devtools).
+ */
 export const SETUP_STEPS = [
-  { key: "first_audit", label: "Auditing your site" },
-  { key: "seed_prompts", label: "Writing the questions buyers ask AI" },
-  { key: "answer_check", label: "Asking ChatGPT, Perplexity, and Gemini about your category" },
-  { key: "competitor_baseline", label: "Sizing up your competitor" },
-  { key: "topic_research", label: "Researching what to write first" },
-  { key: "quick_win_fixes", label: "Preparing quick-win fixes" },
-  { key: "first_article", label: "Writing your first article" },
-  { key: "day0_brief", label: "Writing your Day-0 brief" },
+  { key: "first_audit", label: "Getting to know your site" },
+  { key: "seed_prompts", label: "Learning how your buyers ask" },
+  { key: "answer_check", label: "Checking your AI presence" },
+  { key: "competitor_baseline", label: "Sizing up the landscape" },
+  { key: "topic_research", label: "Picking the first opportunities" },
+  { key: "quick_win_fixes", label: "Lining up quick wins" },
+  { key: "first_article", label: "Creating your first piece" },
+  { key: "day0_brief", label: "Writing up her notes" },
 ] as const satisfies ReadonlyArray<{ key: SetupStepKey; label: string }>;
 
 const setupPromptsResponseSchema = z.object({
@@ -151,12 +157,50 @@ export async function startSetupRun(scope: BrandScope) {
 async function saveRun(
   runId: string,
   steps: SetupStep[],
-  patch: { status?: string; briefText?: string; recoveryOwner?: string | null } = {},
+  patch: {
+    status?: string;
+    briefText?: string;
+    recoveryOwner?: string | null;
+    recoveryAttempts?: number;
+  } = {},
 ) {
   await getDb()
     .update(setupRuns)
     .set({ stepsJson: JSON.stringify(steps), updatedAt: new Date(), ...patch })
     .where(eq(setupRuns.id, runId));
+}
+
+/**
+ * A run that failed terminally must never be silent: the owner gets a calm
+ * Claudia email (work is safe, team alerted, retry available) and the operator
+ * gets paged with enough context to debug without touching the customer.
+ * Best-effort by design: notification failure must not break run settlement.
+ */
+async function notifySetupRunFailure(
+  scope: BrandScope,
+  run: { id: string; status: string; steps: SetupStep[] },
+  reason: string,
+) {
+  const [{ sendToWorkspaceOwner, sendOperatorAlert }, { setupRunStalledEmail }] =
+    await Promise.all([import("@/lib/email/notify"), import("@/lib/email/templates")]);
+  const brand = await getBrand(scope.workspaceId, scope.brandId).catch(() => null);
+  const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "https://seogeoaeo.ai";
+  await sendToWorkspaceOwner(
+    scope.workspaceId,
+    setupRunStalledEmail({
+      brandName: brand?.name ?? "your brand",
+      dashboardUrl: `${origin}/dashboard`,
+    }),
+  );
+  await sendOperatorAlert(`Setup Run ${run.status} for ${brand?.name ?? scope.brandId}`, [
+    `reason: ${reason}`,
+    `workspaceId: ${scope.workspaceId}`,
+    `brandId: ${scope.brandId}`,
+    `setupRunId: ${run.id}`,
+    `status: ${run.status}`,
+    "steps:",
+    ...run.steps.map((s) => `  - ${s.key}: ${s.status}${s.note ? ` (${s.note.slice(0, 200)})` : ""}`),
+  ]);
 }
 
 /** Latest completed audit for the workspace's own site: feeds the fix step. */
@@ -696,6 +740,19 @@ export async function finalizeSetupRun(scope: BrandScope) {
     status,
     recoveryOwner: status === "blocked" ? "owner" : status === "failed" ? "operator" : null,
   });
+  // Notify only on the transition into a terminal failure (run.status still
+  // holds the pre-settlement value), so a retried finalize never double-sends.
+  if (!materialDone && run.status === "running") {
+    try {
+      await notifySetupRunFailure(scope, { id: run.id, status, steps }, "Setup Run settled without a material step completing");
+    } catch (error) {
+      logError("setup_run.failure_notify_failed", {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   return getSetupRun(scope.brandId);
 }
 
@@ -735,7 +792,8 @@ export async function triggerSetupRun(
       const reset = current.steps.map((step) =>
         step.status === "skipped" ? { ...step, status: "pending" as const, note: undefined } : step,
       );
-      await saveRun(current.id, reset, { status: "running", recoveryOwner: null });
+      // A deliberate resume re-arms the automatic-recovery budget.
+      await saveRun(current.id, reset, { status: "running", recoveryOwner: null, recoveryAttempts: 0 });
     }
   }
   try {
@@ -773,10 +831,20 @@ export async function triggerSetupRun(
 }
 
 /**
- * Self-heal for the status poller: when GET finds a run stranded in `running`
- * (executor killed without reaching any persistence), resume it. The
+ * Automatic resumes allowed before a stranded run is declared terminally
+ * failed. Each resume launches a fresh Workflow instance, so an environment
+ * that keeps breaking would otherwise re-trigger (and stay "running" in the
+ * UI) forever, invisibly.
+ */
+const MAX_SETUP_RECOVERY_ATTEMPTS = 3;
+
+/**
+ * Self-heal for the status poller and the reconcile cron: when a run is found
+ * stranded in `running` (executor killed without reaching any persistence),
+ * resume it — up to MAX_SETUP_RECOVERY_ATTEMPTS times, after which the run is
+ * settled as `failed` and the owner + operator are notified. The
  * compare-and-swap on `updatedAt` makes concurrent pollers race safely: only
- * the claimant triggers, everyone else sees a freshly-touched row.
+ * the claimant acts, everyone else sees a freshly-touched row.
  */
 export async function resumeStaleSetupRun(
   scope: BrandScope,
@@ -786,13 +854,83 @@ export async function resumeStaleSetupRun(
   if (!isSetupRunStale(run)) return false;
   const claimed = await getDb()
     .update(setupRuns)
-    .set({ updatedAt: new Date() })
+    .set({ updatedAt: new Date(), recoveryAttempts: run.recoveryAttempts + 1 })
     .where(and(eq(setupRuns.id, run.id), eq(setupRuns.updatedAt, run.updatedAt)))
     .returning({ id: setupRuns.id });
   if (claimed.length === 0) return false;
-  logInfo("setup_run.stale_resumed", { workspaceId: scope.workspaceId, brandId: scope.brandId });
+
+  if (run.recoveryAttempts >= MAX_SETUP_RECOVERY_ATTEMPTS) {
+    await saveRun(run.id, run.steps, { status: "failed", recoveryOwner: "operator" });
+    logError("setup_run.recovery_exhausted", {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      setupRunId: run.id,
+      attempts: run.recoveryAttempts,
+    });
+    try {
+      await notifySetupRunFailure(
+        scope,
+        { id: run.id, status: "failed", steps: run.steps },
+        `Setup Run stayed stranded through ${run.recoveryAttempts} automatic resumes`,
+      );
+    } catch (error) {
+      logError("setup_run.failure_notify_failed", {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return false;
+  }
+
+  logInfo("setup_run.stale_resumed", {
+    workspaceId: scope.workspaceId,
+    brandId: scope.brandId,
+    attempt: run.recoveryAttempts + 1,
+  });
   await triggerSetupRun(scope, planId, run, { resume: true });
   return true;
+}
+
+/**
+ * Reconcile-cron sweep: recover (or terminally settle) runs stranded in
+ * `running` even when nobody is watching the dashboard. Without this, a user
+ * who closes the tab after onboarding depends entirely on their own polling to
+ * un-wedge the run.
+ */
+export async function sweepStaleSetupRuns(limit = 20): Promise<{ scanned: number; acted: number }> {
+  const staleBefore = new Date(Date.now() - STALE_RUNNING_MS);
+  const rows = await getDb()
+    .select()
+    .from(setupRuns)
+    .where(and(eq(setupRuns.status, "running"), lte(setupRuns.updatedAt, staleBefore)))
+    .limit(limit);
+  let acted = 0;
+  for (const row of rows) {
+    const scope: BrandScope = { workspaceId: row.workspaceId, brandId: row.brandId };
+    try {
+      const subRows = await getDb()
+        .select({ planId: subscriptions.planId, status: subscriptions.status })
+        .from(subscriptions)
+        .where(eq(subscriptions.workspaceId, row.workspaceId));
+      const planId =
+        subRows.find((sub) => isActiveSubscription(sub.status))?.planId ??
+        subRows[0]?.planId ??
+        null;
+      const resumed = await resumeStaleSetupRun(scope, planId, {
+        ...row,
+        steps: parseSteps(row.stepsJson),
+      });
+      if (resumed) acted += 1;
+    } catch (error) {
+      logError("setup_run.sweep_failed", {
+        workspaceId: row.workspaceId,
+        brandId: row.brandId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return { scanned: rows.length, acted };
 }
 
 /**

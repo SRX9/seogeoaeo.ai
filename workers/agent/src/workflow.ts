@@ -57,26 +57,44 @@ const STEP_TIMEOUT = "5 minutes";
 export class DailyBrandWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const p = event.payload;
-    const log = createLogger({
-      workflow: "daily-content-agent",
-      instanceId: event.instanceId,
-      workspaceId: p.workspaceId,
-      brandId: p.brandId,
-      runDate: p.runDate,
-    });
+    const log = createLogger(
+      {
+        workflow: "daily-content-agent",
+        instanceId: event.instanceId,
+        workspaceId: p.workspaceId,
+        brandId: p.brandId,
+        runDate: p.runDate,
+      },
+      this.env,
+    );
     log.info("workflow.daily.started");
 
     const call = <T>(path: string, body: Record<string, unknown>) =>
       appCaller<T>(this.env, path, event.instanceId)(body);
 
+    // A step in here that exhausts its retries kills the whole instance; log it
+    // first so the failure reaches PostHog with step context instead of only
+    // the Cloudflare dashboard. The scheduled-work reconciler owns the replay.
+    const fatal = <T>(stepName: string, run: () => Promise<T>): Promise<T> =>
+      run().catch((error: unknown) => {
+        log.error("workflow.daily.step.exhausted", {
+          step: stepName,
+          error_message:
+            error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+        });
+        throw error;
+      });
+
     // 1. Plan: budget + initial write targets.
-    const plan = await step.do("plan", { retries: RETRIES }, () =>
-      call<PlanResult>("/api/agent/plan", {
-        workspaceId: p.workspaceId,
-        brandId: p.brandId,
-        planId: p.planId,
-        runDate: p.runDate,
-      }),
+    const plan = await fatal("plan", () =>
+      step.do("plan", { retries: RETRIES }, () =>
+        call<PlanResult>("/api/agent/plan", {
+          workspaceId: p.workspaceId,
+          brandId: p.brandId,
+          planId: p.planId,
+          runDate: p.runDate,
+        }),
+      ),
     );
 
     if (plan.skip) {
@@ -90,13 +108,15 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
     let targets = plan.topicIds;
     let researchTopics = 0;
     if (plan.needsResearch) {
-      const research = await step.do("research", { retries: RETRIES, timeout: STEP_TIMEOUT }, () =>
-        call<ResearchResult>("/api/agent/research", {
-          workspaceId: p.workspaceId,
-          brandId: p.brandId,
-          budget: plan.budget,
-          idempotencyKey: `daily-${p.brandId}-${p.runDate}`,
-        }),
+      const research = await fatal("research", () =>
+        step.do("research", { retries: RETRIES, timeout: STEP_TIMEOUT }, () =>
+          call<ResearchResult>("/api/agent/research", {
+            workspaceId: p.workspaceId,
+            brandId: p.brandId,
+            budget: plan.budget,
+            idempotencyKey: `daily-${p.brandId}-${p.runDate}`,
+          }),
+        ),
       );
       researchTopics = research.researchTopics;
       targets = research.topicIds;
@@ -190,8 +210,10 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
     ] as const;
     let settledStatus = "completed";
     for (const operation of requiredSettlement) {
-      const result = await step.do(`settle:${operation}`, { retries: RETRIES }, () =>
-        call<{ status: string }>("/api/agent/settle", { ...settleBody, operation }),
+      const result = await fatal(`settle:${operation}`, () =>
+        step.do(`settle:${operation}`, { retries: RETRIES }, () =>
+          call<{ status: string }>("/api/agent/settle", { ...settleBody, operation }),
+        ),
       );
       settledStatus = result.status;
     }

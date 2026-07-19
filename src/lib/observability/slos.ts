@@ -5,6 +5,7 @@ import {
   gte,
   inArray,
   lt,
+  or,
   sql,
 } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -20,6 +21,7 @@ import {
   creditLedger,
   publicationGateRuns,
 } from "@/lib/db/schema";
+import { sendOperatorAlert } from "@/lib/email/notify";
 import { logError, logInfo } from "@/lib/logging/logger";
 
 export const SLO_KEYS = [
@@ -341,7 +343,13 @@ export async function gatherOperationalSloSnapshot(
       .where(
         and(
           gte(agentActionLedger.createdAt, hourAgo),
-          sql`(${agentActionLedger.verificationStatus} = 'failed' or (${agentActionLedger.verificationStatus} = 'pending' and ${agentActionLedger.createdAt} < ${thirtyMinutesAgo}))`,
+          or(
+            eq(agentActionLedger.verificationStatus, "failed"),
+            and(
+              eq(agentActionLedger.verificationStatus, "pending"),
+              lt(agentActionLedger.createdAt, thirtyMinutesAgo),
+            ),
+          ),
         ),
       ),
     db
@@ -471,6 +479,19 @@ async function upsertIncident(observation: SloObservation, now: Date) {
     runbookPath: definition.runbookPath,
     replayPath: definition.replayPath ?? null,
   });
+  // occurrenceCount is 1 only on the insert path, so this pages the operator
+  // exactly once per incident lifetime; a still-breached SLO bumps the count
+  // without re-mailing, and a resolve + re-breach opens (and pages) afresh.
+  if (incident.occurrenceCount === 1) {
+    await sendOperatorAlert(`SLO breached: ${definition.title}`, [
+      `slo: ${observation.key}`,
+      `severity: ${definition.severity}`,
+      `value: ${observation.value} (threshold ${observation.threshold})`,
+      `detail: ${observation.detail}`,
+      `runbook: ${definition.runbookPath}`,
+      `incident: ${incident.id}`,
+    ]);
+  }
   return incident;
 }
 

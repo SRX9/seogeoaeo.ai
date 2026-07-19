@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getAgentControlState } from "@/lib/agent/memory";
 import { getAgentSafetyDecision } from "@/lib/agent/safety";
@@ -418,7 +418,7 @@ export async function recordPerformanceCheckpointAttribution(
         inArray(agentActionLedger.actionType, publicationActionTypes),
         eq(agentActionLedger.verificationStatus, "verified"),
         sql`${agentActionLedger.verifiedAt} is not null`,
-        sql`${agentActionLedger.verifiedAt} > ${prior.createdAt}`,
+        gt(agentActionLedger.verifiedAt, prior.createdAt),
         lt(agentActionLedger.verifiedAt, checkpoint.createdAt),
         sql`${agentActionLedger.resourceRef} like ${`%:article:${checkpoint.articleId}`}`,
       ),

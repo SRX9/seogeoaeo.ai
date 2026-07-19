@@ -42,6 +42,12 @@ const serverSchema = z.object({
   AGENT_GLOBAL_KILL_SWITCH: z.string().optional(),
   AGENT_GROUNDED_CONTENT_GATE_ENABLED: z.string().optional(),
   AGENT_GOAL_KERNEL_ENABLED: z.string().optional(),
+  /**
+   * Where operator (developer) alert emails go when a customer-facing pipeline
+   * fails terminally (e.g. a Setup Run exhausts recovery). Unset disables the
+   * email; the failure is still logged and recorded as an operational signal.
+   */
+  OPERATOR_ALERT_EMAIL: z.string().email().optional(),
   /** PostHog project token (phc_...). Used for local/direct OTLP log shipping. */
   POSTHOG_PROJECT_TOKEN: z.string().optional(),
   /** PostHog ingest host. Defaults to https://us.i.posthog.com */

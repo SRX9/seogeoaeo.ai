@@ -62,7 +62,8 @@ export function createDb(connectionString?: string) {
 
 export function getDb(connectionString?: string) {
   const context = connectionString ? undefined : getCloudflareRequestContext();
-  const requestKey = context?.env?.HYPERDRIVE?.connectionString ? context.ctx : undefined;
+  const hyperdriveUrl = context?.env?.HYPERDRIVE?.connectionString;
+  const requestKey = hyperdriveUrl ? context.ctx : undefined;
 
   if (requestKey) {
     const requestDb = requestDbs.get(requestKey);
@@ -77,6 +78,16 @@ export function getDb(connectionString?: string) {
 
   if (connectionString) {
     return createDb(connectionString);
+  }
+
+  // Hyperdrive is present but no request ctx to scope a client to (code running
+  // outside the request's async context). A Hyperdrive-backed client must NOT
+  // be process-cached: Hyperdrive reaps idle client connections between
+  // requests, and postgres.js queries on the reaped socket fail ("Idle
+  // connection closed by Hyperdrive") or hang. A fresh client per call is the
+  // safe trade.
+  if (hyperdriveUrl) {
+    return createDb(hyperdriveUrl);
   }
 
   processDbCache[PROCESS_DB_KEY] ??= createDb();

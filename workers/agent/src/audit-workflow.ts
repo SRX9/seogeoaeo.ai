@@ -35,23 +35,40 @@ type StepResponse = { ok?: boolean; auditId?: string; alerted?: boolean };
 export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const p = event.payload;
-    const log = createLogger({
-      workflow: "audit-run",
-      instanceId: event.instanceId,
-      workspaceId: p.workspaceId,
-      mode: p.mode,
-      siteUrl: p.siteUrl,
-    });
+    const log = createLogger(
+      {
+        workflow: "audit-run",
+        instanceId: event.instanceId,
+        workspaceId: p.workspaceId,
+        mode: p.mode,
+        siteUrl: p.siteUrl,
+      },
+      this.env,
+    );
     log.info("workflow.audit.started");
     const post = appCaller<StepResponse>(this.env, "/api/agent/audit-step", event.instanceId);
     const call = (body: Record<string, unknown>) =>
       post({ workspaceId: p.workspaceId, siteUrl: p.siteUrl, ...body });
 
+    // A step here that exhausts its retries kills the instance; log it first so
+    // the failure reaches PostHog with step context instead of only the
+    // Cloudflare dashboard. Stranded audit rows are settled by the app's
+    // GET-poll self-heal and the daily settleStaleAudits sweep.
+    const fatal = <T>(stepName: string, run: () => Promise<T>): Promise<T> =>
+      run().catch((error: unknown) => {
+        log.error("workflow.audit.step.exhausted", {
+          step: stepName,
+          error_message:
+            error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+        });
+        throw error;
+      });
+
     if (p.mode === "manual") {
-      const result = await step.do(
-        "execute",
-        { retries: RETRIES, timeout: EXECUTE_TIMEOUT },
-        () => call({ step: "manual", auditId: p.auditId }),
+      const result = await fatal("execute", () =>
+        step.do("execute", { retries: RETRIES, timeout: EXECUTE_TIMEOUT }, () =>
+          call({ step: "manual", auditId: p.auditId }),
+        ),
       );
       const ok = result.ok === true;
       log.info("workflow.audit.completed", { mode: p.mode, auditId: p.auditId, ok });
@@ -60,16 +77,18 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
 
     // monitor: create the new audit row (checkpointed, so a retry of a later
     // step never creates a second row), run it, then fixes + delta + alert.
-    const created = await step.do("create", { retries: RETRIES, timeout: "2 minutes" }, () =>
-      call({ step: "create" }),
+    const created = await fatal("create", () =>
+      step.do("create", { retries: RETRIES, timeout: "2 minutes" }, () =>
+        call({ step: "create" }),
+      ),
     );
     const auditId = created.auditId;
     if (!auditId) throw new Error("audit-step create returned no auditId");
 
-    const executed = await step.do(
-      "execute",
-      { retries: RETRIES, timeout: EXECUTE_TIMEOUT },
-      () => call({ step: "execute", auditId }),
+    const executed = await fatal("execute", () =>
+      step.do("execute", { retries: RETRIES, timeout: EXECUTE_TIMEOUT }, () =>
+        call({ step: "execute", auditId }),
+      ),
     );
     if (executed.ok !== true) {
       // The audit row is already `failed` app-side; nothing to compare or fix.
@@ -77,13 +96,15 @@ export class AuditRunWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
       return { mode: p.mode, auditId, ok: false };
     }
 
-    const finished = await step.do("finish", { retries: RETRIES, timeout: "10 minutes" }, () =>
-      call({
-        step: "finish",
-        auditId,
-        baselineAuditId: p.baselineAuditId,
-        planId: p.planId ?? null,
-      }),
+    const finished = await fatal("finish", () =>
+      step.do("finish", { retries: RETRIES, timeout: "10 minutes" }, () =>
+        call({
+          step: "finish",
+          auditId,
+          baselineAuditId: p.baselineAuditId,
+          planId: p.planId ?? null,
+        }),
+      ),
     );
 
     // AP4: the cadence answer check. Non-fatal: the audit, fixes, and delta

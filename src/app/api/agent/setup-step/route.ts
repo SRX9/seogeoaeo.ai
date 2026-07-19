@@ -20,6 +20,7 @@ import {
   SETUP_STEPS,
   type SetupStepKey,
 } from "@/lib/jobs/setup-run";
+import { logError } from "@/lib/logging/logger";
 
 const setupStepBodySchema = z.object({
   workspaceId: z.string().uuid(),
@@ -46,20 +47,36 @@ export async function POST(request: Request) {
     return agentCallbackErrorResponse(error);
   }
   const scope = { workspaceId: body.workspaceId, brandId: body.brandId };
-  const setupRun = await getSetupRun(body.brandId);
-  const logicalWorkflowId = setupRun
-    ? `setup-${setupRun.id}`
-    : authorization.claims.workflowInstanceId;
   const executorId = authorization.claims.requestId;
-  const claimed = await claimStepExecution(
-    {
+  // Infra failures before the work starts (DB down, driver bug) must return a
+  // structured, logged 500 — an unhandled throw here is invisible in our own
+  // telemetry and shows up only as a bare "-> 500" in the Workflow's history.
+  let claimed: Awaited<ReturnType<typeof claimStepExecution>>;
+  let logicalWorkflowId: string;
+  try {
+    const setupRun = await getSetupRun(body.brandId);
+    logicalWorkflowId = setupRun
+      ? `setup-${setupRun.id}`
+      : authorization.claims.workflowInstanceId;
+    claimed = await claimStepExecution(
+      {
+        ...scope,
+        workflowInstanceId: logicalWorkflowId,
+        stepKey: `setup:${body.step}`,
+        input: { planId: body.planId ?? null },
+      },
+      executorId,
+    );
+  } catch (error) {
+    const classified = classifyExecutionError(error);
+    logError("setup_step.claim_failed", {
       ...scope,
-      workflowInstanceId: logicalWorkflowId,
-      stepKey: `setup:${body.step}`,
-      input: { planId: body.planId ?? null },
-    },
-    executorId,
-  );
+      step: body.step,
+      errorClass: classified.errorClass,
+      error: classified.message.slice(0, 500),
+    });
+    return NextResponse.json({ error: classified.message }, { status: 500 });
+  }
   if (!claimed.claimed) {
     if (claimed.reason === "settled") {
       return NextResponse.json(claimed.execution.output ?? { status: claimed.execution.outcome });

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { agentScheduledWork } from "@/lib/db/schema";
 import type { InstanceOptions } from "@/lib/jobs/workflow";
@@ -11,6 +11,17 @@ export type ScheduledWorkExpectation = {
   scheduleKey: string;
   instance: InstanceOptions;
 };
+
+/**
+ * Total executor attempts (initial enqueue + automatic replays) before a
+ * logical work item is parked `dead_letter`. Applies to both enqueue failures
+ * and instances that keep dying after a successful enqueue; an explicit
+ * operator replay bypasses the cap and revives the row.
+ */
+const MAX_SCHEDULED_ATTEMPTS = 5;
+
+/** An enqueued/running row untouched this long is presumed dead, not slow. */
+const STALE_REPLAY_MS = 2 * 60 * 60_000;
 
 /** Persist the full expected fan-out before attempting any Workflow creates. */
 export async function recordExpectedScheduledWork(items: ScheduledWorkExpectation[]) {
@@ -72,11 +83,13 @@ export async function recordScheduledEnqueueOutcome(
   await getDb()
     .update(agentScheduledWork)
     .set({
-      status: sql`case when ${agentScheduledWork.attemptCount} + 1 >= 5 then 'dead_letter' else 'enqueue_failed' end`,
+      status: sql`case when ${agentScheduledWork.attemptCount} + 1 >= ${MAX_SCHEDULED_ATTEMPTS} then 'dead_letter' else 'enqueue_failed' end`,
       attemptCount: sql`${agentScheduledWork.attemptCount} + 1`,
       lastError: (error instanceof Error ? error.message : String(error)).slice(0, 2_000),
       retryAfter: new Date(now.getTime() + 5 * 60_000),
-      deadLetteredAt: sql`case when ${agentScheduledWork.attemptCount} + 1 >= 5 then ${now} else ${agentScheduledWork.deadLetteredAt} end`,
+      // Raw sql`` params bypass drizzle's column mapping, and postgres.js cannot
+      // serialize a JS Date it receives unmapped — pass the ISO string instead.
+      deadLetteredAt: sql`case when ${agentScheduledWork.attemptCount} + 1 >= ${MAX_SCHEDULED_ATTEMPTS} then ${now.toISOString()} else ${agentScheduledWork.deadLetteredAt} end`,
       updatedAt: now,
     })
     .where(eq(agentScheduledWork.workflowInstanceId, workflowInstanceId));
@@ -85,7 +98,7 @@ export async function recordScheduledEnqueueOutcome(
 /** Prior dropped work and explicit operator replays join the next enumeration. */
 export async function listReplayableScheduledWork(scheduleKind: string, limit = 500) {
   const now = new Date();
-  const staleBefore = new Date(now.getTime() - 2 * 60 * 60_000);
+  const staleBefore = new Date(now.getTime() - STALE_REPLAY_MS);
   return getDb()
     .select()
     .from(agentScheduledWork)
@@ -101,12 +114,50 @@ export async function listReplayableScheduledWork(scheduleKind: string, limit = 
           and(
             inArray(agentScheduledWork.status, ["enqueued", "running"]),
             lt(agentScheduledWork.updatedAt, staleBefore),
+            // Exhausted rows belong to deadLetterExhaustedScheduledWork, not
+            // another automatic replay: without this bound a workflow that dies
+            // every time would be re-enqueued every stale window forever.
+            lt(agentScheduledWork.attemptCount, MAX_SCHEDULED_ATTEMPTS),
           ),
         ),
       ),
     )
     .orderBy(asc(agentScheduledWork.createdAt))
     .limit(limit);
+}
+
+/**
+ * Stale enqueued/running work that burned through its automatic replay budget
+ * is settled `dead_letter` instead of cycling through the reconciler forever.
+ * Returns the settled rows so the cron can page the operator once, at the
+ * transition; `requestScheduledWorkReplay` still revives a dead-lettered row.
+ */
+export async function deadLetterExhaustedScheduledWork(scheduleKind: string, now = new Date()) {
+  const staleBefore = new Date(now.getTime() - STALE_REPLAY_MS);
+  return getDb()
+    .update(agentScheduledWork)
+    .set({
+      status: "dead_letter",
+      deadLetteredAt: now,
+      settledAt: now,
+      lastError: "Automatic replays exhausted while the work stayed unsettled.",
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(agentScheduledWork.scheduleKind, scheduleKind),
+        eq(agentScheduledWork.operatorReplayRequested, false),
+        inArray(agentScheduledWork.status, ["enqueued", "running"]),
+        lt(agentScheduledWork.updatedAt, staleBefore),
+        gte(agentScheduledWork.attemptCount, MAX_SCHEDULED_ATTEMPTS),
+      ),
+    )
+    .returning({
+      id: agentScheduledWork.id,
+      workflowInstanceId: agentScheduledWork.workflowInstanceId,
+      brandId: agentScheduledWork.brandId,
+      scheduleKey: agentScheduledWork.scheduleKey,
+    });
 }
 
 /** Move one logical scheduled item to a fresh physical Workflow executor. */
