@@ -48,6 +48,12 @@ export const setupRuns = pgTable(
     /** running | completed | completed_degraded | blocked | failed */
     status: text("status").notNull().default("running"),
     recoveryOwner: text("recovery_owner"),
+    /**
+     * Automatic resumes attempted on a run stranded in `running`. Capped so a
+     * persistently-broken run settles as `failed` (and notifies) instead of
+     * re-triggering workflows forever. Reset by a manual resume.
+     */
+    recoveryAttempts: integer("recovery_attempts").notNull().default(0),
     /** Ordered array of { key, status: "pending"|"running"|"done"|"failed"|"skipped", note? }. */
     stepsJson: text("steps_json").notNull(),
     /** Day-0 brief in Claudia's voice, written by the final step. */

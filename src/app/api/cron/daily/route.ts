@@ -7,12 +7,16 @@ import { enqueueWorkflowInstances, type InstanceOptions } from "@/lib/jobs/workf
 import {
   countScheduledWorkPastSlo,
   assignScheduledReplayInstance,
+  deadLetterExhaustedScheduledWork,
   listReplayableScheduledWork,
+  getScheduledReplayInstanceId,
   recordExpectedScheduledWork,
   recordScheduledEnqueueOutcome,
   requestScheduledWorkReplay,
   type ScheduledWorkExpectation,
 } from "@/lib/jobs/scheduled-work";
+import { sendOperatorAlert } from "@/lib/email/notify";
+import { sweepStaleSetupRuns } from "@/lib/jobs/setup-run";
 import { deleteExpiredRateLimitBuckets } from "@/lib/security/rate-limit";
 import { logError, logInfo, logWarn } from "@/lib/logging/logger";
 import { getUtcDayKey } from "@/lib/workspace/settings";
@@ -79,6 +83,20 @@ export async function GET(request: Request) {
     connectorHealth = await scanConnectorHealthSignals(100);
   } catch (error) {
     logError("cron.daily.connector_health_scan_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  // Setup Runs stranded in `running` (workflow died before persisting) are
+  // resumed or terminally settled here, so recovery never depends on the
+  // owner keeping the dashboard open. Best-effort like the other sweeps.
+  let setupRunSweep: Awaited<ReturnType<typeof sweepStaleSetupRuns>> | null = null;
+  try {
+    setupRunSweep = await sweepStaleSetupRuns();
+    if (setupRunSweep.scanned > 0) {
+      logInfo("cron.daily.setup_runs_swept", setupRunSweep);
+    }
+  } catch (error) {
+    logError("cron.daily.setup_run_sweep_failed", {
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -205,6 +223,31 @@ export async function GET(request: Request) {
   }
 
   const runDate = getUtcDayKey();
+  // Work that kept dying through its replay budget is parked dead_letter (an
+  // operator replay revives it); page once at the status transition so it
+  // can't rot silently the way a forever-retrying row would. Best-effort.
+  try {
+    const deadLettered = await deadLetterExhaustedScheduledWork("daily_brand");
+    if (deadLettered.length > 0) {
+      logError("cron.daily.scheduled_work_dead_lettered", {
+        count: deadLettered.length,
+        instanceIds: deadLettered.slice(0, 20).map((row) => row.workflowInstanceId),
+      });
+      await sendOperatorAlert(`Daily agent work dead-lettered (${deadLettered.length})`, [
+        ...deadLettered
+          .slice(0, 20)
+          .map(
+            (row) =>
+              `${row.scheduleKey} brand=${row.brandId} instance=${row.workflowInstanceId} id=${row.id}`,
+          ),
+        "replay: GET /api/cron/daily?replay=<id> (cron-authorized)",
+      ]);
+    }
+  } catch (error) {
+    logError("cron.daily.dead_letter_sweep_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   const replayable = await listReplayableScheduledWork("daily_brand");
   let workspaceCount = 0;
   let expected: ScheduledWorkExpectation[] = [];
@@ -249,8 +292,12 @@ export async function GET(request: Request) {
   for (const row of replayable) {
     const replayRunDate = String(row.payload.runDate);
     const logicalId = `daily-${row.brandId}-${replayRunDate}`;
-    const replayInstanceId = `${logicalId}-replay-${row.attemptCount + 1}`;
-    await assignScheduledReplayInstance(row.id, replayInstanceId);
+    const replayInstanceId = getScheduledReplayInstanceId(logicalId, row);
+    await assignScheduledReplayInstance(
+      row.id,
+      replayInstanceId,
+      row.operatorReplayRequested,
+    );
     replayedLogicalWork.add(`${row.brandId}:${replayRunDate}`);
     byInstanceId.set(replayInstanceId, { id: replayInstanceId, params: row.payload });
   }

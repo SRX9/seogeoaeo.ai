@@ -26,6 +26,29 @@ export async function sendToWorkspaceOwner(workspaceId: string, content: EmailCo
   }
 }
 
+/**
+ * Alert the operator (developer) about a failure the customer cannot fix
+ * themselves. Best-effort and plain-text-first: this is an ops pager, not a
+ * customer email. Requires OPERATOR_ALERT_EMAIL to be configured.
+ */
+export async function sendOperatorAlert(subject: string, lines: string[]): Promise<boolean> {
+  try {
+    if (!isEmailConfigured()) return false;
+    const to = getServerEnv().OPERATOR_ALERT_EMAIL;
+    if (!to) return false;
+    const text = lines.join("\n");
+    const html = `<pre style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.6;">${text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")}</pre>`;
+    return await sendEmail({ to, subject: `[seogeoaeo ops] ${subject}`, html, text });
+  } catch (error) {
+    logWarn("email.operator_alert_skipped", {
+      reason: error instanceof Error ? error.message : "Unknown error",
+    });
+    return false;
+  }
+}
+
 /** Don't re-nag about low credits more than once per week. */
 const LOW_CREDIT_EMAIL_THROTTLE_MS = 7 * 24 * 60 * 60 * 1000;
 

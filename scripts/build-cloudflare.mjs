@@ -54,7 +54,7 @@ if (!worker.includes("defaultServerHandler")) {
 if (!worker.includes("async scheduled(")) {
   const fetchEnd = "    },\n};";
   const scheduledHandler = `    },
-    async scheduled(event, env, _ctx) {
+    async scheduled(event, env, ctx) {
         const secret = env.CRON_SECRET;
         const origin = env.BETTER_AUTH_URL;
         if (!secret || !origin) {
@@ -79,10 +79,15 @@ if (!worker.includes("async scheduled(")) {
             return;
         }
 
-        const response = await fetch(new URL(path, origin), {
+        // Dispatch to this Worker's own fetch handler in-process. A network
+        // fetch of our own custom domain is refused by Cloudflare (the request
+        // routes straight back to this Worker) and surfaces as a 522, which
+        // silently broke every cron until this ran in-process.
+        const request = new Request(new URL(path, origin), {
             method: "POST",
             headers: { Authorization: \`Bearer \${secret}\` },
         });
+        const response = await this.fetch(request, env, ctx);
 
         if (!response.ok) {
             const body = await response.text();

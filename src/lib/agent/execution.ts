@@ -166,7 +166,9 @@ export async function claimStepExecution(
       leaseOwner: executorId,
       leaseExpiresAt,
       heartbeatAt: now,
-      startedAt: sql`coalesce(${agentStepExecutions.startedAt}, ${now})`,
+      // Raw sql`` params bypass drizzle's column mapping, and postgres.js cannot
+      // serialize a JS Date it receives unmapped — pass the ISO string instead.
+      startedAt: sql`coalesce(${agentStepExecutions.startedAt}, ${now.toISOString()})`,
       originalExecutorId: sql`coalesce(${agentStepExecutions.originalExecutorId}, ${executorId})`,
       takeoverExecutorId: sql`case when ${agentStepExecutions.originalExecutorId} is not null and ${agentStepExecutions.originalExecutorId} <> ${executorId} then ${executorId} else ${agentStepExecutions.takeoverExecutorId} end`,
       attemptCount: sql`${agentStepExecutions.attemptCount} + 1`,

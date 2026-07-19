@@ -161,12 +161,30 @@ for (const key of secretNames) {
 console.log("Worker secrets updated for seo-ai.");
 
 // The agent-workflow Worker calls back into the app's /api/agent/* routes with
-// the same CRON_SECRET bearer token, so it needs the secret too.
-const agentResult = runWrangler(
-  ["secret", "put", "CRON_SECRET", "--config", "workers/agent/wrangler.jsonc"],
-  { input: values.CRON_SECRET },
-);
-if (agentResult.status !== 0) {
-  process.exit(agentResult.status ?? 1);
+// the same CRON_SECRET bearer token, so it needs the secret too. The POSTHOG_*
+// values let its logger ship workflow logs directly to PostHog (logger.ts).
+const agentSecretNames = [
+  "CRON_SECRET",
+  "POSTHOG_PROJECT_TOKEN",
+  "POSTHOG_HOST",
+  "POSTHOG_ENVIRONMENT",
+];
+for (const key of agentSecretNames) {
+  const value = values[key];
+  if (!value) {
+    if (key === "CRON_SECRET") {
+      console.error("CRON_SECRET is required for agent-workflow.");
+      process.exit(1);
+    }
+    console.log(`skip ${key} for agent-workflow (empty)`);
+    continue;
+  }
+  const agentResult = runWrangler(
+    ["secret", "put", key, "--config", "workers/agent/wrangler.jsonc"],
+    { input: value },
+  );
+  if (agentResult.status !== 0) {
+    process.exit(agentResult.status ?? 1);
+  }
+  console.log(`set ${key} for agent-workflow.`);
 }
-console.log("set CRON_SECRET for agent-workflow.");

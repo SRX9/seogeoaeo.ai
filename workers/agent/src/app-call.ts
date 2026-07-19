@@ -12,6 +12,10 @@ export type AppEnv = Omit<AgentEnv, "APP"> & {
   CRON_SECRET: string;
   /** Optional during the public-fallback migration; generated from the service binding. */
   APP?: AgentEnv["APP"];
+  /** Optional direct PostHog log shipping (see logger.ts shipOtlp). */
+  POSTHOG_PROJECT_TOKEN?: string;
+  POSTHOG_HOST?: string;
+  POSTHOG_ENVIRONMENT?: string;
 };
 
 // Per-step retry/backoff. Steps are HTTP calls into the app; transient failures

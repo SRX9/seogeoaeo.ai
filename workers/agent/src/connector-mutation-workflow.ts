@@ -48,13 +48,16 @@ function serializableResult(result: CallbackResult, fallbackMutationId: string):
 export class ConnectorMutationWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     const payload = event.payload;
-    const log = createLogger({
-      workflow: "connector-mutation",
-      instanceId: event.instanceId,
-      workspaceId: payload.workspaceId,
-      brandId: payload.brandId,
-      mutationId: payload.mutationId,
-    });
+    const log = createLogger(
+      {
+        workflow: "connector-mutation",
+        instanceId: event.instanceId,
+        workspaceId: payload.workspaceId,
+        brandId: payload.brandId,
+        mutationId: payload.mutationId,
+      },
+      this.env,
+    );
     log.info("workflow.mutation.started");
     // Sign callbacks with the deterministic saga id the trigger created this
     // instance under; the app route verifies the claim against the same value.

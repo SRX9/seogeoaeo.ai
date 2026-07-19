@@ -9,7 +9,10 @@ import { Section } from "@/components/feedback/section";
 import { useDashboard, type DashboardData } from "@/lib/api/queries";
 
 function ClaudiaWorkspace({ data }: { data: DashboardData }) {
-  if (data.setup.run?.status !== "completed") {
+  const status = data.setup.run?.status;
+  // completed_degraded is a finished setup with a recoverable gap — the
+  // workspace must open, not sit on the onboarding hero forever.
+  if (status !== "completed" && status !== "completed_degraded") {
     return <ClaudiaHero setup={data.setup} />;
   }
 
