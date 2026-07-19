@@ -9,6 +9,7 @@ import {
   assignScheduledReplayInstance,
   deadLetterExhaustedScheduledWork,
   listReplayableScheduledWork,
+  getScheduledReplayInstanceId,
   recordExpectedScheduledWork,
   recordScheduledEnqueueOutcome,
   requestScheduledWorkReplay,
@@ -291,8 +292,12 @@ export async function GET(request: Request) {
   for (const row of replayable) {
     const replayRunDate = String(row.payload.runDate);
     const logicalId = `daily-${row.brandId}-${replayRunDate}`;
-    const replayInstanceId = `${logicalId}-replay-${row.attemptCount + 1}`;
-    await assignScheduledReplayInstance(row.id, replayInstanceId);
+    const replayInstanceId = getScheduledReplayInstanceId(logicalId, row);
+    await assignScheduledReplayInstance(
+      row.id,
+      replayInstanceId,
+      row.operatorReplayRequested,
+    );
     replayedLogicalWork.add(`${row.brandId}:${replayRunDate}`);
     byInstanceId.set(replayInstanceId, { id: replayInstanceId, params: row.payload });
   }

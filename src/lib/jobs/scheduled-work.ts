@@ -23,6 +23,30 @@ const MAX_SCHEDULED_ATTEMPTS = 5;
 /** An enqueued/running row untouched this long is presumed dead, not slow. */
 const STALE_REPLAY_MS = 2 * 60 * 60_000;
 
+/**
+ * Keep physical replay IDs monotonic across operator budget resets. If a
+ * previous request assigned an expected replay but died before enqueueing,
+ * reuse that ID so reconciliation remains idempotent.
+ */
+export function getScheduledReplayInstanceId(
+  logicalId: string,
+  row: {
+    workflowInstanceId: string;
+    attemptCount: number;
+    status: string;
+    operatorReplayRequested: boolean;
+  },
+) {
+  const replayMatch = /-replay-(\d+)$/.exec(row.workflowInstanceId);
+  if (row.status === "expected" && !row.operatorReplayRequested && replayMatch) {
+    return row.workflowInstanceId;
+  }
+
+  const priorReplayNumber = Number(replayMatch?.[1] ?? 0);
+  const replayNumber = Math.max(priorReplayNumber + 1, row.attemptCount + 1);
+  return `${logicalId}-replay-${replayNumber}`;
+}
+
 /** Persist the full expected fan-out before attempting any Workflow creates. */
 export async function recordExpectedScheduledWork(items: ScheduledWorkExpectation[]) {
   if (items.length === 0) return;
@@ -65,7 +89,9 @@ export async function recordScheduledEnqueueOutcome(
       .update(agentScheduledWork)
       .set({
         status: outcome === "created" ? "enqueued" : "running",
-        attemptCount: sql`${agentScheduledWork.attemptCount} + 1`,
+        ...(outcome === "created"
+          ? { attemptCount: sql`${agentScheduledWork.attemptCount} + 1` }
+          : {}),
         lastError: null,
         retryAfter: null,
         operatorReplayRequested: false,
@@ -161,12 +187,17 @@ export async function deadLetterExhaustedScheduledWork(scheduleKind: string, now
 }
 
 /** Move one logical scheduled item to a fresh physical Workflow executor. */
-export async function assignScheduledReplayInstance(id: string, workflowInstanceId: string) {
+export async function assignScheduledReplayInstance(
+  id: string,
+  workflowInstanceId: string,
+  resetAttemptCount = false,
+) {
   const [row] = await getDb()
     .update(agentScheduledWork)
     .set({
       workflowInstanceId,
       status: "expected",
+      ...(resetAttemptCount ? { attemptCount: 0 } : {}),
       operatorReplayRequested: false,
       retryAfter: null,
       lastError: null,
