@@ -39,25 +39,33 @@ describe("trendQueryProvider", () => {
     mocks.logWarn.mockReset();
   });
 
-  it("returns deterministic questions when structured LLM output cannot be repaired", async () => {
+  it("returns no findings when structured LLM output cannot be repaired", async () => {
     mocks.generateJson.mockRejectedValue(
       new Error("LLM JSON failed runtime schema validation: queries.0.intent"),
     );
 
     const findings = await trendQueryProvider.discover(context);
 
-    expect(findings).toHaveLength(6);
-    expect(findings.every((finding) => finding.sourceType === "trend_query")).toBe(true);
-    expect(findings[0]).toMatchObject({
-      query: "What is invoice automation and how does it work?",
-      title: "What is invoice automation and how does it work?",
-    });
+    expect(findings).toEqual([]);
     expect(mocks.logWarn).toHaveBeenCalledWith(
-      "research.trend_query_fallback",
+      "research.trend_query_failed",
       expect.objectContaining({
         workspaceId: context.scope?.workspaceId,
         brandId: context.scope?.brandId,
+        reason: "LLM JSON failed runtime schema validation: queries.0.intent",
       }),
+    );
+  });
+
+  it("returns no findings when the LLM returns an empty query list", async () => {
+    mocks.generateJson.mockResolvedValue({ data: { queries: [] } });
+
+    const findings = await trendQueryProvider.discover(context);
+
+    expect(findings).toEqual([]);
+    expect(mocks.logWarn).toHaveBeenCalledWith(
+      "research.trend_query_failed",
+      expect.objectContaining({ reason: "LLM returned an empty query list" }),
     );
   });
 });

@@ -17,6 +17,7 @@ export function statusColor(status: string): StatusTone {
     case "blocked":
       return "danger";
     case "running":
+    case "pending":
     case "in_progress":
     case "working_now":
     case "on_duty":

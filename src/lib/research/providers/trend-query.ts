@@ -20,27 +20,6 @@ const queryResponseSchema: z.ZodType<QueryResponse> = z.object({
   })).max(12),
 });
 
-function fallbackQueries(context: ResearchContext): QueryResponse["queries"] {
-  const seed = context.seedQueries[0]
-    ?? context.brand.seedKeywords?.split(",")[0]?.trim()
-    ?? context.brand.name?.trim()
-    ?? "content marketing";
-  const audience = context.brand.audience?.trim();
-  const candidates = [
-    `What is ${seed} and how does it work?`,
-    `How do you get started with ${seed}?`,
-    `What are the best ${seed} strategies?`,
-    `What mistakes should you avoid with ${seed}?`,
-    `How do you choose the right ${seed} solution?`,
-    audience ? `How can ${audience} use ${seed}?` : `How do you measure ${seed} results?`,
-  ];
-  return [...new Set(candidates.map((query) => query.slice(0, 500)))].map((query) => ({
-    query,
-    title: query.slice(0, 300),
-    intent: "Deterministic question fallback generated from the brand's seed topic.",
-  }));
-}
-
 export const trendQueryProvider: ResearchProvider = {
   id: "trend_query",
   isAvailable() {
@@ -73,20 +52,20 @@ Each query should look like autocomplete or People Also Ask phrasing.`,
       });
       queries = result.data.queries;
       if (queries.length === 0) {
-        logWarn("research.trend_query_fallback", {
+        logWarn("research.trend_query_failed", {
           workspaceId: context.scope?.workspaceId,
           brandId: context.scope?.brandId,
           reason: "LLM returned an empty query list",
         });
-        queries = fallbackQueries(context);
+        return [];
       }
     } catch (error) {
-      logWarn("research.trend_query_fallback", {
+      logWarn("research.trend_query_failed", {
         workspaceId: context.scope?.workspaceId,
         brandId: context.scope?.brandId,
         reason: error instanceof Error ? error.message : String(error),
       });
-      queries = fallbackQueries(context);
+      return [];
     }
 
     return queries

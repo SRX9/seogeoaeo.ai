@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { statusColor } from "@/lib/ui/status";
+import { statusColor, statusTextClass } from "@/lib/ui/status";
 
 describe("statusColor", () => {
   it("separates agent activity from success and owner attention", () => {
@@ -12,5 +12,10 @@ describe("statusColor", () => {
   it("keeps scheduled and queued work neutral", () => {
     expect(statusColor("scheduled")).toBe("default");
     expect(statusColor("queued")).toBe("default");
+  });
+
+  it("renders pending work with the active accent tone", () => {
+    expect(statusColor("pending")).toBe("accent");
+    expect(statusTextClass("pending")).toBe("text-[color:var(--status-claudia)]");
   });
 });
