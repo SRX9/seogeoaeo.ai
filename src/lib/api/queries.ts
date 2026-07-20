@@ -1092,7 +1092,7 @@ export type SetupRunResponse = {
     status: string;
     steps: SetupStep[];
     briefText?: string | null;
-    recovery: {
+    recovery?: {
       state: SetupRecoveryState;
       attempts: number;
       maxAttempts: number;
@@ -1115,7 +1115,10 @@ export function useSetupRun() {
     enabled: useHasBrand(),
     refetchInterval: (q) => {
       const run = q.state.data?.run;
-      return run?.status === "running" || run?.recovery.state === "scheduled" ? 10_000 : false;
+      const legacyCacheEntry = Boolean(run && !run.recovery);
+      return run?.status === "running" || run?.recovery?.state === "scheduled" || legacyCacheEntry
+        ? 10_000
+        : false;
     },
   });
 }

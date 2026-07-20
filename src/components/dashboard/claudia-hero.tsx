@@ -86,7 +86,7 @@ function SetupWorkspace({
 }) {
   const run = setup.run;
   const steps = run?.steps ?? [];
-  const recoveryState = run?.recovery.state ?? null;
+  const recoveryState = run?.recovery?.state ?? null;
   const recovering = recoveryState === "scheduled" || recoveryState === "retrying";
   const needsHelp = recoveryState === "needs_help";
   const stopped = run?.status === "blocked" || needsHelp;
@@ -146,7 +146,7 @@ function SetupWorkspace({
               {stopped
                 ? "Everything finished so far is saved. Claudia has asked the team for help, and you can start another attempt whenever you’re ready."
                 : recovering && run
-                  ? `Everything finished so far is saved. She’ll retry the unfinished work up to ${run.recovery.maxAttempts} times before asking the team for help.`
+                  ? `Everything finished so far is saved. She’ll retry the unfinished work up to ${run.recovery?.maxAttempts ?? 3} times before asking the team for help.`
                   : run
                     ? "She’s learning your brand and preparing her first actions. Each step checks off as she finishes it."
                     : "She will learn the brand, find the strongest opportunities, and prepare useful first actions."}

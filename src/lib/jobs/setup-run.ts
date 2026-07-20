@@ -47,6 +47,7 @@ import {
   MAX_SETUP_RECOVERY_ATTEMPTS,
   SETUP_FAILED_RETRY_DELAY_MS,
   SETUP_STALE_RUNNING_MS,
+  shouldRearmSetupFinalization,
   shouldRecoverSetupRun,
 } from "@/lib/jobs/setup-run-recovery";
 import type { SetupStep, SetupStepKey } from "@/lib/jobs/setup-run-types";
@@ -805,6 +806,7 @@ async function rearmSetupRunExecutions(
   runId: string,
   failedKeys: SetupStepKey[],
   skippedKeys: SetupStepKey[],
+  rearmFinalize: boolean,
 ) {
   const retryConditions = failedKeys.map((key) =>
     and(
@@ -815,6 +817,11 @@ async function rearmSetupRunExecutions(
   const reopenedConditions = skippedKeys.map(
     (key) => sql`${agentStepExecutions.stepKey} like ${`setup:${key}%`}`,
   );
+  const rearmConditions = [...retryConditions, ...reopenedConditions];
+  if (rearmFinalize) {
+    rearmConditions.unshift(eq(agentStepExecutions.stepKey, "setup:finalize"));
+  }
+  if (rearmConditions.length === 0) return;
 
   await getDb()
     .update(agentStepExecutions)
@@ -835,11 +842,7 @@ async function rearmSetupRunExecutions(
     .where(
       and(
         eq(agentStepExecutions.workflowInstanceId, `setup-${runId}`),
-        or(
-          eq(agentStepExecutions.stepKey, "setup:finalize"),
-          ...retryConditions,
-          ...reopenedConditions,
-        ),
+        or(...rearmConditions),
       ),
     );
 }
@@ -879,7 +882,16 @@ export async function triggerSetupRun(
           recoveryAttempts: 0,
         });
       }
-      await rearmSetupRunExecutions(current.id, failedKeys, skippedKeys);
+      await rearmSetupRunExecutions(
+        current.id,
+        failedKeys,
+        skippedKeys,
+        shouldRearmSetupFinalization(
+          current.status,
+          failedKeys.length,
+          skippedKeys.length,
+        ),
+      );
     }
   }
   try {

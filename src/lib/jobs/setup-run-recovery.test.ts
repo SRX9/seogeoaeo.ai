@@ -6,6 +6,7 @@ import {
   MAX_SETUP_RECOVERY_ATTEMPTS,
   SETUP_FAILED_RETRY_DELAY_MS,
   SETUP_STALE_RUNNING_MS,
+  shouldRearmSetupFinalization,
   shouldRecoverSetupRun,
 } from "./setup-run-recovery";
 
@@ -65,5 +66,11 @@ describe("setup run recovery policy", () => {
         candidate({ status: "running", recoveryAttempts: MAX_SETUP_RECOVERY_ATTEMPTS }),
       ),
     ).toBe("retrying");
+  });
+
+  it("does not replay finalization for a stale takeover with no reopened work", () => {
+    expect(shouldRearmSetupFinalization("running", 0, 0)).toBe(false);
+    expect(shouldRearmSetupFinalization("running", 1, 0)).toBe(true);
+    expect(shouldRearmSetupFinalization("failed", 0, 0)).toBe(true);
   });
 });

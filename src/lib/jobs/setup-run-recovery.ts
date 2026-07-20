@@ -40,6 +40,20 @@ export function shouldRecoverSetupRun(
   return isSetupRunStale(run, now) || isSetupRunFailedRecoveryDue(run, now);
 }
 
+/** Finalization is replayed only when recovery has reopened setup work. */
+export function shouldRearmSetupFinalization(
+  runStatus: string,
+  failedStepCount: number,
+  skippedStepCount: number,
+): boolean {
+  return (
+    runStatus === "failed" ||
+    runStatus === "blocked" ||
+    failedStepCount > 0 ||
+    skippedStepCount > 0
+  );
+}
+
 /** Owner-facing recovery state; infrastructure details stay on the server. */
 export function getSetupRunRecoveryState(
   run: SetupRunRecoveryCandidate,
