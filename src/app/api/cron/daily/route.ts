@@ -86,9 +86,9 @@ export async function GET(request: Request) {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-  // Setup Runs stranded in `running` (workflow died before persisting) are
-  // resumed or terminally settled here, so recovery never depends on the
-  // owner keeping the dashboard open. Best-effort like the other sweeps.
+  // Silent or failed Setup Runs are resumed or terminally escalated here, so
+  // bounded recovery never depends on the owner keeping the dashboard open.
+  // Best-effort like the other sweeps.
   let setupRunSweep: Awaited<ReturnType<typeof sweepStaleSetupRuns>> | null = null;
   try {
     setupRunSweep = await sweepStaleSetupRuns();

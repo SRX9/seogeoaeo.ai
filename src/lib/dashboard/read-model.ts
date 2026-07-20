@@ -25,7 +25,8 @@ import { getDailyRun } from "@/lib/jobs/daily-repository";
 import { getUsageTotals, getWeeklyPipelineStats } from "@/lib/jobs/repository";
 import {
   getSetupRun,
-  isSetupRunStale,
+  getSetupRunRecoveryState,
+  MAX_SETUP_RECOVERY_ATTEMPTS,
   resumeStaleSetupRun,
   SETUP_STEPS,
 } from "@/lib/jobs/setup-run";
@@ -259,13 +260,25 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const identityPromise = getBrandIdentitySummary(brand.id);
   const approvalsPromise = listPendingAgentApprovals(brand.id);
 
-  const setupDataPromise = setupPromise.then(async (run) => {
-    if (run && isActiveSubscription(subscription?.status) && isSetupRunStale(run)) {
-      await resumeStaleSetupRun(scope, subscription?.planId, run);
+  const setupDataPromise = setupPromise.then(async (initialRun) => {
+    let run = initialRun;
+    if (run && isActiveSubscription(subscription?.status)) {
+      const acted = await resumeStaleSetupRun(scope, subscription?.planId, run);
+      if (acted) run = await getSetupRun(brand.id);
     }
     return {
       run: run
-        ? { id: run.id, status: run.status, steps: run.steps, briefText: run.briefText }
+        ? {
+            id: run.id,
+            status: run.status,
+            steps: run.steps,
+            briefText: run.briefText,
+            recovery: {
+              state: getSetupRunRecoveryState(run),
+              attempts: run.recoveryAttempts,
+              maxAttempts: MAX_SETUP_RECOVERY_ATTEMPTS,
+            },
+          }
         : null,
       labels: Object.fromEntries(SETUP_STEPS.map((step) => [step.key, step.label])),
     };

@@ -2,12 +2,28 @@ import { handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server"
 import { isActiveSubscription } from "@/lib/billing/plans";
 import {
   getSetupRun,
+  getSetupRunRecoveryState,
   isSetupRunStale,
+  MAX_SETUP_RECOVERY_ATTEMPTS,
   resumeStaleSetupRun,
   startSetupRun,
   triggerSetupRun,
   SETUP_STEPS,
 } from "@/lib/jobs/setup-run";
+
+function publicRun(run: NonNullable<Awaited<ReturnType<typeof getSetupRun>>>) {
+  return {
+    id: run.id,
+    status: run.status,
+    steps: run.steps,
+    briefText: run.briefText,
+    recovery: {
+      state: getSetupRunRecoveryState(run),
+      attempts: run.recoveryAttempts,
+      maxAttempts: MAX_SETUP_RECOVERY_ATTEMPTS,
+    },
+  };
+}
 
 /**
  * Ignition (AP2): start Claudia's one-time Setup Run for the active brand.
@@ -29,7 +45,9 @@ export async function POST() {
       await triggerSetupRun(scope, subscription?.planId, run, { resume: !created });
     }
 
-    return jsonOk({ run: { id: run.id, status: run.status, steps: run.steps } }, { status: 202 });
+    const current = (await getSetupRun(scope.brandId)) ?? run;
+
+    return jsonOk({ run: publicRun(current) }, { status: 202 });
   });
 }
 
@@ -42,14 +60,13 @@ export async function POST() {
 export async function GET() {
   return handleApi(async () => {
     const { scope, subscription } = await requireApiBrand();
-    const run = await getSetupRun(scope.brandId);
+    let run = await getSetupRun(scope.brandId);
     if (run && isActiveSubscription(subscription?.status)) {
-      await resumeStaleSetupRun(scope, subscription?.planId, run);
+      const acted = await resumeStaleSetupRun(scope, subscription?.planId, run);
+      if (acted) run = await getSetupRun(scope.brandId);
     }
     return jsonOk({
-      run: run
-        ? { id: run.id, status: run.status, steps: run.steps, briefText: run.briefText }
-        : null,
+      run: run ? publicRun(run) : null,
       labels: Object.fromEntries(SETUP_STEPS.map((s) => [s.key, s.label])),
     });
   });

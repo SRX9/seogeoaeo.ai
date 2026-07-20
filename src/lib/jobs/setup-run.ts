@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateArticleFromTopic } from "@/lib/articles/generate";
 import {
@@ -20,7 +20,14 @@ import {
 } from "@/lib/brand/repository";
 import { getCloudflareRequestContext } from "@/lib/cloudflare/context";
 import { getDb } from "@/lib/db";
-import { auditFindings, audits, setupRuns, subscriptions, trackedPrompts } from "@/lib/db/schema";
+import {
+  agentStepExecutions,
+  auditFindings,
+  audits,
+  setupRuns,
+  subscriptions,
+  trackedPrompts,
+} from "@/lib/db/schema";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { createWorkflowInstance } from "@/lib/jobs/workflow";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
@@ -35,6 +42,14 @@ import { CREDIT_COSTS, type BillableAction } from "@/lib/billing/credits";
 import { runResearch } from "@/lib/research/run";
 import { recentAnswerExcerpts, runAnswerCheck } from "@/lib/visibility/answers";
 import { setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
+import {
+  isSetupRunStale,
+  MAX_SETUP_RECOVERY_ATTEMPTS,
+  SETUP_FAILED_RETRY_DELAY_MS,
+  SETUP_STALE_RUNNING_MS,
+  shouldRearmSetupFinalization,
+  shouldRecoverSetupRun,
+} from "@/lib/jobs/setup-run-recovery";
 import type { SetupStep, SetupStepKey } from "@/lib/jobs/setup-run-types";
 import { monthlyFixBudgetUsed, stampProposedFindings } from "@/lib/visibility/fix-dispatch";
 import { isInstallReady } from "@/lib/visibility/fix-policy";
@@ -42,6 +57,12 @@ import { createAudit, executeAudit } from "@/server/visibility/run-audit";
 
 export type { SetupStep, SetupStepKey, SetupStepStatus } from "@/lib/jobs/setup-run-types";
 export { MATERIAL_SETUP_STEPS, setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
+export {
+  getSetupRunRecoveryState,
+  isSetupRunStale,
+  MAX_SETUP_RECOVERY_ATTEMPTS,
+  shouldRecoverSetupRun,
+} from "@/lib/jobs/setup-run-recovery";
 
 /**
  * AP2: Claudia's Setup Run: the one-time ignition pipeline that onboards a new
@@ -106,21 +127,6 @@ function parseSteps(json: string): SetupStep[] {
   } catch {
     return initialSteps();
   }
-}
-
-/**
- * A `running` run whose row hasn't been touched in this long is presumed dead.
- * Steps persist as they settle and the heaviest single step (a full audit) fits
- * well inside this window, so silence this long means the executor was killed.
- */
-const STALE_RUNNING_MS = 15 * 60 * 1000;
-
-/** Should a trigger take over a run that claims to still be running? */
-export function isSetupRunStale(
-  run: { status: string; updatedAt: Date },
-  now: number = Date.now(),
-): boolean {
-  return run.status === "running" && now - run.updatedAt.getTime() >= STALE_RUNNING_MS;
 }
 
 export async function getSetupRun(brandId: string) {
@@ -713,6 +719,8 @@ export async function finalizeSetupRun(scope: BrandScope) {
   const steps = run.steps;
   const status = setupRunOutcome(steps);
   const materialDone = status === "completed" || status === "completed_degraded";
+  const recoveryExhausted =
+    status === "failed" && run.recoveryAttempts >= MAX_SETUP_RECOVERY_ATTEMPTS;
   // Settle side effects before the terminal run status. A retry can safely
   // repeat both operations, while a terminal row must mean finalization landed.
   await completeSetupAgentTask(scope, materialDone ? "completed" : "failed");
@@ -730,21 +738,36 @@ export async function finalizeSetupRun(scope: BrandScope) {
     );
     logInfo("setup_run.completed", { workspaceId: scope.workspaceId, brandId: scope.brandId });
   } else {
-    logError("setup_run.failed", {
+    logError(recoveryExhausted ? "setup_run.recovery_exhausted" : "setup_run.recovery_scheduled", {
       workspaceId: scope.workspaceId,
       brandId: scope.brandId,
-      error: "No material setup steps completed",
+      setupRunId: run.id,
+      attempts: run.recoveryAttempts,
+      error: recoveryExhausted
+        ? "Setup Run exhausted automatic recovery"
+        : "Setup Run will retry automatically",
     });
   }
   await saveRun(run.id, steps, {
     status,
-    recoveryOwner: status === "blocked" ? "owner" : status === "failed" ? "operator" : null,
+    recoveryOwner:
+      status === "blocked" ? "owner" : recoveryExhausted ? "operator" : null,
   });
-  // Notify only on the transition into a terminal failure (run.status still
-  // holds the pre-settlement value), so a retried finalize never double-sends.
-  if (!materialDone && run.status === "running") {
+  // Failed execution stays quiet while bounded self-recovery remains. Ask the
+  // owner and operator for help only when input is blocked or retries end.
+  const shouldNotify =
+    !materialDone &&
+    run.status === "running" &&
+    (status === "blocked" || recoveryExhausted);
+  if (shouldNotify) {
     try {
-      await notifySetupRunFailure(scope, { id: run.id, status, steps }, "Setup Run settled without a material step completing");
+      await notifySetupRunFailure(
+        scope,
+        { id: run.id, status, steps },
+        status === "blocked"
+          ? "Setup Run needs owner input before it can continue"
+          : `Setup Run exhausted ${run.recoveryAttempts} automatic recovery attempts`,
+      );
     } catch (error) {
       logError("setup_run.failure_notify_failed", {
         workspaceId: scope.workspaceId,
@@ -775,6 +798,56 @@ export async function executeSetupRun(scope: BrandScope, planId: string | null |
 }
 
 /**
+ * Re-arm only the retryable surface of a stable setup identity. Failed rows
+ * keep their billing/output identifiers, completed children stay settled, and
+ * skipped work is reopened only on an explicit owner retry.
+ */
+async function rearmSetupRunExecutions(
+  runId: string,
+  failedKeys: SetupStepKey[],
+  skippedKeys: SetupStepKey[],
+  rearmFinalize: boolean,
+) {
+  const retryConditions = failedKeys.map((key) =>
+    and(
+      sql`${agentStepExecutions.stepKey} like ${`setup:${key}%`}`,
+      eq(agentStepExecutions.status, "permanent_failure"),
+    ),
+  );
+  const reopenedConditions = skippedKeys.map(
+    (key) => sql`${agentStepExecutions.stepKey} like ${`setup:${key}%`}`,
+  );
+  const rearmConditions = [...retryConditions, ...reopenedConditions];
+  if (rearmFinalize) {
+    rearmConditions.unshift(eq(agentStepExecutions.stepKey, "setup:finalize"));
+  }
+  if (rearmConditions.length === 0) return;
+
+  await getDb()
+    .update(agentStepExecutions)
+    .set({
+      status: "pending",
+      outcome: null,
+      output: null,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      heartbeatAt: null,
+      lastErrorCode: null,
+      lastErrorClass: null,
+      lastError: null,
+      retryAfter: null,
+      settledAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(agentStepExecutions.workflowInstanceId, `setup-${runId}`),
+        or(...rearmConditions),
+      ),
+    );
+}
+
+/**
  * Kick off (or resume) execution for an existing run row. On Cloudflare this
  * creates a durable `SetupRunWorkflow` instance: checkpointed per step,
  * retried on transient failures, immune to isolate eviction. Elsewhere it falls
@@ -788,12 +861,37 @@ export async function triggerSetupRun(
 ): Promise<"workflow" | "inline"> {
   if (opts.resume) {
     const current = await getSetupRun(scope.brandId);
-    if (current && (current.status === "blocked" || current.status === "failed")) {
+    if (current) {
+      const terminalResume = current.status === "blocked" || current.status === "failed";
+      const failedKeys: SetupStepKey[] = [];
+      const skippedKeys: SetupStepKey[] = [];
+      for (const step of current.steps) {
+        if (step.status === "failed") failedKeys.push(step.key);
+        if (terminalResume && step.status === "skipped") skippedKeys.push(step.key);
+      }
       const reset = current.steps.map((step) =>
-        step.status === "skipped" ? { ...step, status: "pending" as const, note: undefined } : step,
+        terminalResume && step.status === "skipped"
+          ? { ...step, status: "pending" as const, note: undefined }
+          : step,
       );
-      // A deliberate resume re-arms the automatic-recovery budget.
-      await saveRun(current.id, reset, { status: "running", recoveryOwner: null, recoveryAttempts: 0 });
+      if (terminalResume) {
+        // A deliberate owner resume re-arms the automatic-recovery budget.
+        await saveRun(current.id, reset, {
+          status: "running",
+          recoveryOwner: null,
+          recoveryAttempts: 0,
+        });
+      }
+      await rearmSetupRunExecutions(
+        current.id,
+        failedKeys,
+        skippedKeys,
+        shouldRearmSetupFinalization(
+          current.status,
+          failedKeys.length,
+          skippedKeys.length,
+        ),
+      );
     }
   }
   try {
@@ -831,36 +929,25 @@ export async function triggerSetupRun(
 }
 
 /**
- * Automatic resumes allowed before a stranded run is declared terminally
- * failed. Each resume launches a fresh Workflow instance, so an environment
- * that keeps breaking would otherwise re-trigger (and stay "running" in the
- * UI) forever, invisibly.
- */
-const MAX_SETUP_RECOVERY_ATTEMPTS = 3;
-
-/**
- * Self-heal for the status poller and the reconcile cron: when a run is found
- * stranded in `running` (executor killed without reaching any persistence),
- * resume it — up to MAX_SETUP_RECOVERY_ATTEMPTS times, after which the run is
- * settled as `failed` and the owner + operator are notified. The
- * compare-and-swap on `updatedAt` makes concurrent pollers race safely: only
- * the claimant acts, everyone else sees a freshly-touched row.
+ * Self-heal for the status poller and reconcile cron. It resumes either a
+ * silent executor or failed work after a short cooling-off period. The
+ * compare-and-swap makes concurrent pollers race safely; after the bounded
+ * attempts, the owner and operator receive the existing help notification.
  */
 export async function resumeStaleSetupRun(
   scope: BrandScope,
   planId: string | null | undefined,
   run: NonNullable<Awaited<ReturnType<typeof getSetupRun>>>,
 ): Promise<boolean> {
-  if (!isSetupRunStale(run)) return false;
-  const claimed = await getDb()
-    .update(setupRuns)
-    .set({ updatedAt: new Date(), recoveryAttempts: run.recoveryAttempts + 1 })
-    .where(and(eq(setupRuns.id, run.id), eq(setupRuns.updatedAt, run.updatedAt)))
-    .returning({ id: setupRuns.id });
-  if (claimed.length === 0) return false;
-
+  if (!shouldRecoverSetupRun(run)) return false;
   if (run.recoveryAttempts >= MAX_SETUP_RECOVERY_ATTEMPTS) {
-    await saveRun(run.id, run.steps, { status: "failed", recoveryOwner: "operator" });
+    const [settled] = await getDb()
+      .update(setupRuns)
+      .set({ status: "failed", recoveryOwner: "operator", updatedAt: new Date() })
+      .where(and(eq(setupRuns.id, run.id), eq(setupRuns.updatedAt, run.updatedAt)))
+      .returning({ id: setupRuns.id });
+    if (!settled) return false;
+
     logError("setup_run.recovery_exhausted", {
       workspaceId: scope.workspaceId,
       brandId: scope.brandId,
@@ -871,7 +958,7 @@ export async function resumeStaleSetupRun(
       await notifySetupRunFailure(
         scope,
         { id: run.id, status: "failed", steps: run.steps },
-        `Setup Run stayed stranded through ${run.recoveryAttempts} automatic resumes`,
+        `Setup Run exhausted ${run.recoveryAttempts} automatic recovery attempts`,
       );
     } catch (error) {
       logError("setup_run.failure_notify_failed", {
@@ -880,30 +967,58 @@ export async function resumeStaleSetupRun(
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    return false;
+    return true;
   }
 
-  logInfo("setup_run.stale_resumed", {
+  const attempt = run.recoveryAttempts + 1;
+  const claimed = await getDb()
+    .update(setupRuns)
+    .set({
+      status: "running",
+      recoveryOwner: null,
+      updatedAt: new Date(),
+      recoveryAttempts: attempt,
+    })
+    .where(and(eq(setupRuns.id, run.id), eq(setupRuns.updatedAt, run.updatedAt)))
+    .returning({ id: setupRuns.id });
+  if (claimed.length === 0) return false;
+
+  logInfo(run.status === "failed" ? "setup_run.failed_resumed" : "setup_run.stale_resumed", {
     workspaceId: scope.workspaceId,
     brandId: scope.brandId,
-    attempt: run.recoveryAttempts + 1,
+    setupRunId: run.id,
+    attempt,
+    maxAttempts: MAX_SETUP_RECOVERY_ATTEMPTS,
   });
   await triggerSetupRun(scope, planId, run, { resume: true });
   return true;
 }
 
 /**
- * Reconcile-cron sweep: recover (or terminally settle) runs stranded in
- * `running` even when nobody is watching the dashboard. Without this, a user
- * who closes the tab after onboarding depends entirely on their own polling to
- * un-wedge the run.
+ * Recover silent and failed setup runs even when nobody is watching the
+ * dashboard. Dashboard polling makes recovery feel immediate; this sweep
+ * guarantees the same outcome after the owner leaves.
  */
 export async function sweepStaleSetupRuns(limit = 20): Promise<{ scanned: number; acted: number }> {
-  const staleBefore = new Date(Date.now() - STALE_RUNNING_MS);
+  const now = Date.now();
+  const staleBefore = new Date(now - SETUP_STALE_RUNNING_MS);
+  const failedBefore = new Date(now - SETUP_FAILED_RETRY_DELAY_MS);
   const rows = await getDb()
     .select()
     .from(setupRuns)
-    .where(and(eq(setupRuns.status, "running"), lte(setupRuns.updatedAt, staleBefore)))
+    .where(
+      or(
+        and(eq(setupRuns.status, "running"), lte(setupRuns.updatedAt, staleBefore)),
+        and(
+          eq(setupRuns.status, "failed"),
+          lte(setupRuns.updatedAt, failedBefore),
+          or(
+            lt(setupRuns.recoveryAttempts, MAX_SETUP_RECOVERY_ATTEMPTS),
+            isNull(setupRuns.recoveryOwner),
+          ),
+        ),
+      ),
+    )
     .limit(limit);
   let acted = 0;
   for (const row of rows) {
