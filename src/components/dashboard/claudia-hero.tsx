@@ -45,7 +45,7 @@ function StepRow({ step, label, active }: { step: SetupStep; label: string; acti
       <span
         className={cn(
           "grid size-5 shrink-0 place-items-center",
-          settled ? "text-success" : failed ? "text-danger" : "text-muted",
+          settled ? "text-success" : active ? "text-accent" : failed ? "text-danger" : "text-muted",
         )}
         aria-hidden
       >
@@ -64,7 +64,7 @@ function StepRow({ step, label, active }: { step: SetupStep; label: string; acti
         className={cn(
           "text-sm",
           settled ? "text-muted" : active ? "font-medium text-foreground" : "text-muted",
-          failed && "text-danger",
+          failed && !active && "text-danger",
         )}
       >
         {label}
@@ -86,10 +86,15 @@ function SetupWorkspace({
 }) {
   const run = setup.run;
   const steps = run?.steps ?? [];
-  const stopped = run?.status === "failed" || run?.status === "blocked";
-  const working = Boolean(run) && run?.status === "running";
+  const recoveryState = run?.recovery.state ?? null;
+  const recovering = recoveryState === "scheduled" || recoveryState === "retrying";
+  const needsHelp = recoveryState === "needs_help";
+  const stopped = run?.status === "blocked" || needsHelp;
+  const working = Boolean(run) && (run?.status === "running" || recovering || isPending);
   const settledCount = steps.filter(stepSettled).length;
-  const activeKey = steps.find((step) => !stepSettled(step) && step.status !== "failed")?.key;
+  const activeKey = recovering
+    ? steps.find((step) => step.status === "failed")?.key
+    : steps.find((step) => !stepSettled(step) && step.status !== "failed")?.key;
   const progress = run
     ? Math.max(6, Math.round((settledCount / Math.max(steps.length, 1)) * 100))
     : 0;
@@ -115,21 +120,36 @@ function SetupWorkspace({
                 stopped ? "text-danger" : run ? "text-accent" : "text-muted",
               )}
             >
-              {stopped ? "Setup paused" : run ? "Claudia is getting ready" : "Ready to start"}
-            </p>
-            <h1 id="setup-title" className="type-display mt-3 text-3xl text-foreground sm:text-4xl">
               {stopped
-                ? "Claudia hit a snag — your work is safe"
-                : run
-                  ? "Setting up your first week"
-                  : "Let Claudia prepare your first week"}
+                ? "Setup needs a hand"
+                : recoveryState === "scheduled"
+                  ? "Claudia will try again shortly"
+                  : recoveryState === "retrying"
+                    ? "Claudia is trying again"
+                    : run
+                      ? "Claudia is getting ready"
+                      : "Ready to start"}
+            </p>
+            <h1
+              id="setup-title"
+              className="type-display mt-3 text-balance text-3xl text-foreground sm:text-4xl"
+            >
+              {stopped
+                ? "Claudia needs a hand—your work is safe"
+                : recovering
+                  ? "Claudia hit a snag and is taking another pass"
+                  : run
+                    ? "Setting up your first week"
+                    : "Let Claudia prepare your first week"}
             </h1>
             <p className="mt-3 max-w-xl text-base leading-7 text-muted text-pretty">
               {stopped
-                ? "Everything finished so far is saved, and the team has been alerted automatically. You can retry now, or Claudia will pick the work back up on her own."
-                : run
-                  ? "She's learning your brand and preparing her first actions. Each step checks off as she finishes it."
-                  : "She will learn the brand, find the strongest opportunities, and prepare useful first actions."}
+                ? "Everything finished so far is saved. Claudia has asked the team for help, and you can start another attempt whenever you’re ready."
+                : recovering && run
+                  ? `Everything finished so far is saved. She’ll retry the unfinished work up to ${run.recovery.maxAttempts} times before asking the team for help.`
+                  : run
+                    ? "She’s learning your brand and preparing her first actions. Each step checks off as she finishes it."
+                    : "She will learn the brand, find the strongest opportunities, and prepare useful first actions."}
             </p>
 
             {run ? (
@@ -153,7 +173,12 @@ function SetupWorkspace({
                   </ProgressBar.Track>
                 </ProgressBar>
                 <p className="text-sm text-muted">
-                  {settledCount} of {steps.length} steps done · You can leave—Claudia will continue.
+                  {settledCount} of {steps.length} steps done ·{" "}
+                  {recoveryState === "scheduled"
+                    ? "She’ll try the unfinished work again shortly."
+                    : recoveryState === "retrying"
+                      ? "She’s retrying the unfinished work now."
+                      : "You can leave—Claudia will continue."}
                 </p>
               </div>
             ) : null}
@@ -161,8 +186,16 @@ function SetupWorkspace({
             {!run || stopped ? (
               <div className="mt-7">
                 {subscribed ? (
-                  <Button className="min-h-11" isPending={isPending} onPress={onStart}>
-                    {stopped ? "Try again" : "Start Claudia"}
+                  <Button
+                    className="min-h-11 transition-transform active:scale-[0.96]"
+                    isPending={isPending}
+                    onPress={onStart}
+                  >
+                    {isPending
+                      ? "Starting another attempt…"
+                      : stopped
+                        ? "Give it another try"
+                        : "Start Claudia"}
                   </Button>
                 ) : (
                   <Link

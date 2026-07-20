@@ -1085,8 +1085,19 @@ export function useToolLatestRuns() {
 
 export type SetupStepStatus = "pending" | "running" | "done" | "skipped" | "failed";
 export type SetupStep = { key: string; status: SetupStepStatus; note?: string };
+export type SetupRecoveryState = "scheduled" | "retrying" | "needs_help" | null;
 export type SetupRunResponse = {
-  run: { id: string; status: string; steps: SetupStep[]; briefText?: string | null } | null;
+  run: {
+    id: string;
+    status: string;
+    steps: SetupStep[];
+    briefText?: string | null;
+    recovery: {
+      state: SetupRecoveryState;
+      attempts: number;
+      maxAttempts: number;
+    };
+  } | null;
   labels: Record<string, string>;
 };
 
@@ -1102,7 +1113,10 @@ export function useSetupRun() {
   return useQuery({
     ...setupRunQueryOptions(),
     enabled: useHasBrand(),
-    refetchInterval: (q) => (q.state.data?.run?.status === "running" ? 10_000 : false),
+    refetchInterval: (q) => {
+      const run = q.state.data?.run;
+      return run?.status === "running" || run?.recovery.state === "scheduled" ? 10_000 : false;
+    },
   });
 }
 

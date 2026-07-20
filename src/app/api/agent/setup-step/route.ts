@@ -55,6 +55,9 @@ export async function POST(request: Request) {
   let logicalWorkflowId: string;
   try {
     const setupRun = await getSetupRun(body.brandId);
+    // Deliberate resumes re-arm failed execution rows before launching. Keeping
+    // this stable identity preserves billing/output IDs for completed children,
+    // so recovery cannot replay an already-settled side effect.
     logicalWorkflowId = setupRun
       ? `setup-${setupRun.id}`
       : authorization.claims.workflowInstanceId;
