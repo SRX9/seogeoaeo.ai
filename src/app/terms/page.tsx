@@ -3,7 +3,7 @@ import { LegalShell, type LegalSection } from "@/components/marketing/legal-shel
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Terms of Service: seogeoaeo.ai",
+  title: "Terms of Service",
   description:
     "The terms that govern your use of seogeoaeo.ai and its SEO and AI visibility tools.",
   alternates: { canonical: `${SITE_URL}/terms` },
@@ -26,7 +26,8 @@ const sections: LegalSection[] = [
     heading: "Plans, credits & billing",
     body: [
       "Paid plans include a monthly allowance of credits that resets each billing cycle and does not roll over. One-time credit packs you purchase do not expire and stack on top of your plan.",
-      "Subscriptions renew automatically until cancelled. You can cancel at any time and will retain access through the end of the period you have paid for. Except where required by law, payments are non-refundable.",
+      "Subscriptions renew automatically until cancelled. You can cancel at any time and will retain access through the end of the period you have paid for.",
+      "All fees, subscription payments, and credit purchases are final and non-refundable, except where a refund is required by applicable law. We do not provide refunds for unused time, unused credits, dissatisfaction with output, or results that do not meet your expectations.",
     ],
   },
   {
@@ -37,9 +38,11 @@ const sections: LegalSection[] = [
     ],
   },
   {
-    heading: "AI-generated content",
+    heading: "AI output is assistive, not a guarantee",
     body: [
-      "The service uses AI to research and generate content. Output may contain inaccuracies and should be reviewed before publishing. You are responsible for verifying and editing content to meet your standards.",
+      "The service uses AI to research, analyze, and generate content and recommendations. It is a helper for your work, not a replacement for your judgment or professional advice.",
+      "AI output can be incomplete, inaccurate, outdated, offensive, or otherwise unsuitable. You must independently review, verify, edit, and approve every recommendation, generated asset, and proposed or published change before relying on it or making it available to others.",
+      "Do not rely on the service as legal, financial, medical, tax, security, or other professional advice. Consult a qualified professional where appropriate.",
     ],
   },
   {
@@ -49,10 +52,17 @@ const sections: LegalSection[] = [
     ],
   },
   {
-    heading: "Disclaimers & limitation of liability",
+    heading: "No promised results",
     body: [
-      'The service is provided "as is" without warranties of any kind. We do not guarantee specific search rankings, AI citations, or traffic outcomes.',
-      "To the maximum extent permitted by law, seogeoaeo.ai will not be liable for indirect, incidental, or consequential damages arising from your use of the service.",
+      'The service is provided "as is" and "as available" without warranties of any kind. We do not guarantee web traffic, search rankings, AI citations, leads, revenue, conversions, a specific business outcome, uninterrupted availability, or 100% accurate results.',
+      "Search engines, AI platforms, publishers, and other third parties control their own systems and policies. Their decisions and changes are outside our control, so past or suggested performance is not a promise of future results.",
+    ],
+  },
+  {
+    heading: "Your responsibility & limitation of liability",
+    body: [
+      "You are responsible for deciding whether to use the service, approving all content and changes, maintaining backups, and checking that anything you publish or implement is appropriate for your products, business, audience, and legal obligations.",
+      "To the maximum extent permitted by law, seogeoaeo.ai is not liable for losses or damages arising from your use of, reliance on, or inability to use the service or its AI output, including damage to products, websites, content, data, reputation, revenue, traffic, rankings, or business operations. This includes indirect, incidental, special, consequential, and lost-profit damages.",
     ],
   },
   {
@@ -67,7 +77,7 @@ export default function TermsPage() {
   return (
     <LegalShell
       title="Terms of Service"
-      lastUpdated="June 28, 2026"
+      lastUpdated="July 21, 2026"
       intro="These terms govern your access to and use of seogeoaeo.ai. Please read them carefully: they form a binding agreement between you and seogeoaeo.ai."
       sections={sections}
     />

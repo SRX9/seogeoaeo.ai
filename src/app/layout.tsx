@@ -5,6 +5,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/feedback/toaster";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -21,17 +22,32 @@ const calSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "seogeoaeo.ai | SEO and AI visibility with Claudia",
-  description:
-    "Claudia audits your search and AI visibility, prepares site fixes, researches useful topics, and writes content in your brand voice.",
-  metadataBase: new URL("https://seogeoaeo.ai"),
+  title: {
+    default: "Claudia: Your Organic Growth Operator | seogeoaeo.ai",
+    template: "%s | seogeoaeo.ai",
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  category: "technology",
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  keywords: [
+    "SEO automation",
+    "GEO optimization",
+    "AEO optimization",
+    "AI search visibility",
+    "organic growth",
+    "content automation",
+  ],
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: SITE_URL },
   // Favicon / app icons are generated from the file-based conventions in
   // src/app (favicon.ico, icon0.svg, icon1.png, apple-icon.png).
   openGraph: {
-    title: "seogeoaeo.ai | SEO and AI visibility with Claudia",
-    description: "Claudia audits your search and AI visibility, prepares fixes, and writes content in your brand voice.",
-    url: "https://seogeoaeo.ai",
-    siteName: "seogeoaeo.ai",
+    title: "Claudia: Your Organic Growth Operator",
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     images: [
       {
         url: "/og-image.png",
@@ -45,8 +61,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "seogeoaeo.ai | SEO and AI visibility with Claudia",
-    description: "Claudia audits your search and AI visibility, prepares fixes, and writes content in your brand voice.",
+    title: "Claudia: Your Organic Growth Operator",
+    description: SITE_DESCRIPTION,
     images: ["/og-image.png"],
   },
 };

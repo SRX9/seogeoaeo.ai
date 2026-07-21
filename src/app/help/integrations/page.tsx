@@ -6,7 +6,7 @@ import { SITE_URL } from "@/lib/site";
 import styles from "./publishing-guide-page.module.css";
 
 export const metadata: Metadata = {
-  title: "Publishing integration setup guide - seogeoaeo.ai",
+  title: "Publishing Integration Setup Guide",
   description:
     "Connect your preferred publishing platform in a few simple, secure steps.",
   alternates: { canonical: `${SITE_URL}/help/integrations` },
@@ -158,7 +158,7 @@ export default function IntegrationsHelpPage() {
                 Open settings
                 <ArrowRightIcon className={styles.actionIcon} />
               </Link>
-              <Link className={styles.secondaryAction} href="mailto:hello@seogeoaeo.ai">
+              <Link className={styles.secondaryAction} href="/contact">
                 <MessageIcon className={styles.messageIcon} />
                 Contact support
               </Link>

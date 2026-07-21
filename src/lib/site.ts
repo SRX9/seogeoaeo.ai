@@ -44,6 +44,7 @@ export const FOOTER_LINKS = [
     links: [
       { label: "Sign in", href: "/login" },
       { label: "Hire Claudia", href: "/login" },
+      { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
     ],

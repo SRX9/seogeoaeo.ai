@@ -1,0 +1,24 @@
+# seogeoaeo.ai
+
+> Claudia is an organic growth operator for SaaS companies and digital brands. She audits visibility across traditional search and AI answer engines, prepares technical and content fixes, researches useful topics, and writes in the customer's brand voice.
+
+## Primary pages
+
+- [Home](https://seogeoaeo.ai/): Product overview, capabilities, workflow, and common questions.
+- [Pricing](https://seogeoaeo.ai/pricing): Plans and included work capacity.
+- [Publishing integrations](https://seogeoaeo.ai/help/integrations): Supported publishing setup guidance.
+- [Contact](https://seogeoaeo.ai/contact): Product, billing, privacy, and support requests.
+
+## Core capabilities
+
+- SEO: technical visibility audits, content opportunities, and prepared fixes.
+- GEO: visibility and citation improvement for generative AI answer engines.
+- AEO: clearer, answer-ready content for question and answer surfaces.
+- Content operations: research, drafting, review, publishing, and outcome follow-up.
+
+## Brand
+
+- Product: Claudia
+- Website: seogeoaeo.ai
+- Canonical URL: https://seogeoaeo.ai/
+- Logo: https://seogeoaeo.ai/claudia-bg-free-logo.png

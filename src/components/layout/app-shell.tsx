@@ -5,7 +5,6 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import type { SessionUser } from "@/lib/auth/session";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { AgentCommandMenu } from "@/components/layout/agent-command-menu";
-import { AppNavbar } from "@/components/layout/app-navbar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 
 type BrandOption = {
@@ -44,9 +43,6 @@ export function AppShell({
   return (
     <AppLayout
       className="app-shell"
-      navbar={
-        <AppNavbar firstName={user.name.trim().split(/\s+/)[0] || "there"} />
-      }
       navigate={navigate}
       sidebar={
         <AppSidebar

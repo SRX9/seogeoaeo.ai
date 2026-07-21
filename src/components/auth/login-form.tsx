@@ -42,7 +42,7 @@ function signInErrorMessage(
   return "Sign in failed. Please try again.";
 }
 
-export function LoginForm() {
+export function LoginForm({ callbackURL = "/dashboard" }: { callbackURL?: "/contact" | "/dashboard" }) {
   const [loading, setLoading] = useState<"google" | "github" | null>(null);
 
   async function signIn(provider: "google" | "github") {
@@ -50,8 +50,8 @@ export function LoginForm() {
     try {
       const { error } = await authClient.signIn.social({
         provider,
-        // Land in the app. The dashboard sends brand-less new users to onboarding.
-        callbackURL: "/dashboard",
+        // Return to a pre-approved local page. The dashboard sends brand-less new users to onboarding.
+        callbackURL,
       });
       // better-auth resolves with an `error` object rather than throwing, so a
       // failed request would otherwise leave the spinner running forever. On
