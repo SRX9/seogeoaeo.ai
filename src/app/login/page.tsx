@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Sign in: seogeoaeo.ai",
+  title: "Sign in",
   description:
     "Sign in to seogeoaeo.ai to set up your brand, audit your visibility across search " +
     "and AI, and publish optimized content automatically.",
@@ -13,7 +13,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackURL?: string }>;
+}) {
   // Already signed in: there's nothing to do here; the app layout routes
   // brand-less users on to onboarding from the dashboard.
   const session = await getSession();
@@ -21,5 +25,8 @@ export default async function LoginPage() {
     redirect("/dashboard");
   }
 
-  return <LoginForm />;
+  const { callbackURL } = await searchParams;
+  const safeCallbackURL = callbackURL === "/contact" ? "/contact" : "/dashboard";
+
+  return <LoginForm callbackURL={safeCallbackURL} />;
 }

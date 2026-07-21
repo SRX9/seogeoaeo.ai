@@ -2,7 +2,7 @@
 
 import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
@@ -13,25 +13,22 @@ type SiteHeaderProps = {
   className?: string;
 };
 
-function subscribeToScroll(onStoreChange: () => void) {
-  window.addEventListener("scroll", onStoreChange, { passive: true });
-  return () => window.removeEventListener("scroll", onStoreChange);
-}
-
-function getScrolledSnapshot() {
-  return window.scrollY > 8;
-}
-
-function getServerScrolledSnapshot() {
-  return false;
-}
-
 export function SiteHeader({ className }: SiteHeaderProps) {
-  const scrolled = useSyncExternalStore(
-    subscribeToScroll,
-    getScrolledSnapshot,
-    getServerScrolledSnapshot,
-  );
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const updateScrollState = () => {
+      const nextScrolled = window.scrollY > 8;
+      setScrolled((currentScrolled) =>
+        currentScrolled === nextScrolled ? currentScrolled : nextScrolled,
+      );
+    };
+
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+
+    return () => window.removeEventListener("scroll", updateScrollState);
+  }, []);
   // Logged-in visitors get a single "Open dashboard" CTA instead of the
   // sign-in/sign-up pair. While the session is resolving we keep the logged-out
   // CTAs (the common case for a marketing page) to avoid a layout jump.

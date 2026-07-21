@@ -4,6 +4,7 @@ export * from "./app";
 export * from "./brand";
 export * from "./content";
 export * from "./connectors";
+export * from "./contact";
 export * from "./credits";
 export * from "./grounding";
 export * from "./jobs";

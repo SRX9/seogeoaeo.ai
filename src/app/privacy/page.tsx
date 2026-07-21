@@ -3,7 +3,7 @@ import { LegalShell, type LegalSection } from "@/components/marketing/legal-shel
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy: seogeoaeo.ai",
+  title: "Privacy Policy",
   description:
     "How seogeoaeo.ai collects, uses, and protects your data when you use the SEO·AEO·GEO suite.",
   alternates: { canonical: `${SITE_URL}/privacy` },
@@ -13,17 +13,18 @@ const sections: LegalSection[] = [
   {
     heading: "Information we collect",
     body: [
-      "Account information you provide when you sign in with Google or GitHub, such as your name and email address.",
-      "Workspace content you create or connect, including the brands, sites, topics, and articles you set up, and the credentials you supply for publishing integrations.",
-      "Usage data such as the actions you take in the app and basic technical information (browser, device, and log data) needed to operate and secure the service.",
+      "We collect only the information needed to provide, secure, and support the service: account details you provide when signing in, such as your name and email address.",
+      "We also process the workspace content you choose to create or connect, such as brands, sites, topics, articles, and publishing-integration credentials, plus limited usage and technical data needed to operate and secure the service.",
+      "When you submit our contact form, we use your account email address and collect the request category and message you provide so our support team can respond.",
     ],
   },
   {
     heading: "How we use your information",
     body: [
       "To provide the service: authenticating you, running audits, generating and publishing content, and processing billing.",
-      "To improve reliability, performance, and the quality of our features.",
+      "To improve reliability, performance, security, and the quality of our features.",
       "To communicate with you about your account, security, and important product changes.",
+      "To respond to questions and requests you submit through our contact form.",
     ],
   },
   {
@@ -34,10 +35,10 @@ const sections: LegalSection[] = [
     ],
   },
   {
-    heading: "Third-party services",
+    heading: "No sale of personal data",
     body: [
-      "We rely on trusted providers to operate the product, including authentication providers, a payments processor (Stripe), cloud hosting, and AI model providers used to research and generate content. These providers process data only as needed to deliver their part of the service.",
-      "We do not sell your personal information.",
+      "We do not sell or rent your personal information. We do not share your personal information or workspace content with third parties for their independent advertising or marketing purposes.",
+      "We may use carefully selected service providers, such as authentication providers, Stripe for payments, cloud-hosting providers, and AI model providers. They process information only as needed to provide their service to us and to you, subject to their applicable terms and privacy practices.",
     ],
   },
   {
@@ -49,7 +50,7 @@ const sections: LegalSection[] = [
   {
     heading: "Your rights",
     body: [
-      "You may access, correct, export, or delete your personal information. To exercise these rights, contact us using the email below and we will respond within a reasonable timeframe.",
+      "You may access, correct, export, or delete your personal information. To exercise these rights, submit a Privacy & data request through our Contact page and we will respond within a reasonable timeframe.",
     ],
   },
   {
@@ -64,7 +65,7 @@ export default function PrivacyPage() {
   return (
     <LegalShell
       title="Privacy Policy"
-      lastUpdated="June 28, 2026"
+      lastUpdated="July 21, 2026"
       intro="This Privacy Policy explains what information seogeoaeo.ai collects, how we use it, and the choices you have. By using the service you agree to the practices described here."
       sections={sections}
     />

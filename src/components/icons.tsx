@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { SVGProps } from "react";
 import {
   Activity01Icon,
@@ -127,17 +128,19 @@ export const AlertTriangleIcon = iconComponent(Alert02Icon);
 export function SgaLogo({ className, iconClassName }: { className?: string; iconClassName?: string }) {
   return (
     <div className={className ?? "flex items-center gap-2.5"}>
-      <span
-        aria-hidden
+      <Image
+        alt=""
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-xl bg-foreground text-background",
+          "size-10 shrink-0 object-contain",
           iconClassName,
         )}
-      >
-        <HugeiconsIcon icon={ChartUpIcon} strokeWidth={1.7} className="size-5" />
-      </span>
+        height={40}
+        sizes="40px"
+        src="/claudia-bg-free-logo.png"
+        width={40}
+      />
       <div className="font-title text-xl tracking-tight text-foreground">
-        SeoGeoAeo<span className="font-normal text-muted">.ai</span>
+        Claudia<span className="font-sans text-sm font-normal text-muted"> by seogeoaeo.ai</span>
       </div>
     </div>
   );

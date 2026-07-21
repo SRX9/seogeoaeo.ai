@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import styles from "@/app/help/integrations/publishing-guide-page.module.css";
 
 function ListIcon() {
@@ -65,10 +66,10 @@ export function PublishingGuideContents() {
               </a>
             ))}
           </nav>
-          <a className={styles.stillNeedHelp} href="mailto:hello@seogeoaeo.ai">
+          <Link className={styles.stillNeedHelp} href="/contact">
             <HelpIcon />
             Still need help?
-          </a>
+          </Link>
         </aside>
       ) : null}
     </div>

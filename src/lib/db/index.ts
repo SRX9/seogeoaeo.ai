@@ -10,6 +10,7 @@ import * as creditsSchema from "./schema/credits";
 import * as groundingSchema from "./schema/grounding";
 import * as autonomySchema from "./schema/autonomy";
 import * as connectorsSchema from "./schema/connectors";
+import * as contactSchema from "./schema/contact";
 import * as jobsSchema from "./schema/jobs";
 import * as observabilitySchema from "./schema/observability";
 import * as publicationsSchema from "./schema/publications";
@@ -22,6 +23,7 @@ const schema = {
   ...appSchema,
   ...brandSchema,
   ...connectorsSchema,
+  ...contactSchema,
   ...contentSchema,
   ...creditsSchema,
   ...groundingSchema,

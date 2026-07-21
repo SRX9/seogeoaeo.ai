@@ -1,5 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppLayoutClient } from "@/components/layout/app-layout-client";
 import { getMeData } from "@/lib/account/read-model";
@@ -7,6 +8,10 @@ import { queryKeys } from "@/lib/api/query-keys";
 import { queryPolicy } from "@/lib/api/query-policy";
 import { createServerQueryClient } from "@/lib/api/server-query-client";
 import { getActiveBrandContext } from "@/lib/brand/context";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 /**
  * Resolve the authenticated workspace during the RSC request and hydrate it

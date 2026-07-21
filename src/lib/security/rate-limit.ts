@@ -31,6 +31,11 @@ async function assertRateLimit(bucketKey: string, limit: number, windowMs: numbe
   return { remaining: limit - row.count, resetAt: row.resetAt };
 }
 
+async function hashIdentifier(identifier: string) {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identifier)));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function buildRateLimitUpsertQuery(
   db: RateLimitDb,
   bucketKey: string,
@@ -87,4 +92,17 @@ export async function assertIpRateLimit(
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     "unknown";
   return assertRateLimit(`ip:${ip}:${action}`, limit, windowMs);
+}
+
+/**
+ * Limits a public action by an opaque identifier without retaining the raw value
+ * in the rate-limit table (for example, a normalized email address).
+ */
+export async function assertOpaqueIdentifierRateLimit(
+  identifier: string,
+  action: string,
+  limit: number,
+  windowMs: number,
+) {
+  return assertRateLimit(`identifier:${await hashIdentifier(identifier)}:${action}`, limit, windowMs);
 }
