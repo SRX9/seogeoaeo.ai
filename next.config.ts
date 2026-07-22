@@ -17,6 +17,25 @@ const nextConfig: NextConfig = {
       { source: "/ingest/:path*", destination: `${posthogHost}/:path*` },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/visibility", destination: "/checklist", permanent: false },
+      // Retired sub-pages fold into the checklist, but the audit report detail
+      // route (/visibility/[auditId]) stays live for per-audit history + exports.
+      { source: "/visibility/:page(health|answers|fixes)", destination: "/checklist", permanent: false },
+      { source: "/reports", destination: "/checklist", permanent: false },
+      { source: "/reports/:path*", destination: "/checklist", permanent: false },
+      { source: "/tools", destination: "/checklist", permanent: false },
+      { source: "/tools/:path*", destination: "/checklist", permanent: false },
+      { source: "/activity", destination: "/dashboard", permanent: false },
+      { source: "/activity/:path*", destination: "/dashboard", permanent: false },
+      { source: "/work", destination: "/dashboard", permanent: false },
+      { source: "/work/:path*", destination: "/dashboard", permanent: false },
+      { source: "/topics", destination: "/articles?view=ideas", permanent: false },
+      { source: "/topics/:path*", destination: "/articles?view=ideas", permanent: false },
+      { source: "/inbox", destination: "/dashboard#needs-input", permanent: false },
+    ];
+  },
   skipTrailingSlashRedirect: true,
   images: {
     remotePatterns: [

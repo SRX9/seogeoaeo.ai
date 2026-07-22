@@ -51,4 +51,16 @@ describe("brandOnboardingSchema", () => {
       "Increase trusted mentions and citations for Acme in relevant AI answers.",
     );
   });
+
+  it("accepts an explicitly acknowledged fast auto-publish selection", () => {
+    const parsed = brandOnboardingSchema.parse({
+      name: "Acme",
+      website: "https://example.com",
+      autonomyMode: "AUTO_PUBLISH_FAST",
+      fastAutoPublishAcknowledged: true,
+    });
+
+    expect(parsed.autonomyMode).toBe("AUTO_PUBLISH_FAST");
+    expect(parsed.fastAutoPublishAcknowledged).toBe(true);
+  });
 });

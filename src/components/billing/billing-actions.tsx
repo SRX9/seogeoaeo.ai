@@ -17,6 +17,7 @@ type BillingActionsProps = {
 };
 
 const POPULAR_PLAN: PlanId = "startup";
+const SELF_SERVE_PLANS: PlanId[] = ["indie", "startup", "scale"];
 
 export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsProps) {
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
@@ -84,11 +85,12 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
         <div>
           <h3 className="text-sm font-semibold tracking-tight text-foreground">Monthly plans</h3>
           <p className="text-xs leading-relaxed text-muted">
-            Credits refresh each billing cycle. Unused monthly credits don&apos;t roll over.
+            Every plan includes the same capabilities. Choose how much work Claudia should handle.
           </p>
         </div>
-        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.values(plans).map((plan) => {
+        <div className="grid gap-3.5 sm:grid-cols-3">
+          {SELF_SERVE_PLANS.map((planId) => {
+            const plan = plans[planId];
             const isCurrent = currentPlanId === plan.id;
             // A user with a plan changes it through the Stripe portal so proration
             // and cancellations are handled correctly; new users go to checkout.
@@ -128,9 +130,6 @@ export function BillingActions({ currentPlanId, hasCustomer }: BillingActionsPro
                   <p className="text-xl font-semibold tracking-tight text-foreground tabular-nums">
                     ${plan.price}
                     <span className="text-sm font-normal text-muted">/mo</span>
-                  </p>
-                  <p className="mt-1 text-xs tracking-[0.01em] text-muted tabular-nums">
-                    {plan.monthlyCredits.toLocaleString()} credits/mo
                   </p>
                   <ul className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
                     {planFeatureList(plan.id).map((feature) => (

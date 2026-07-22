@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AlertTriangleIcon, CheckIcon, LayersIcon, XIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import type {
   MemoryContradictionView,
   MemoryPropagationIssueView,
@@ -177,7 +178,7 @@ function ResolutionForm({
           <XIcon className="size-4" />
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           className="min-h-10 active:scale-[0.96] transition-transform"
           isDisabled={!canSubmit}
           isPending={isPending}
@@ -185,7 +186,7 @@ function ResolutionForm({
         >
           <CheckIcon className="size-4" />
           {isPending ? "Saving…" : "Use correction"}
-        </Button>
+        </LoadingButton>
       </div>
     </div>
   );
@@ -231,7 +232,7 @@ export function MemoryConflictResolver() {
           <Card.Description>Try the request again before approving dependent work.</Card.Description>
         </Card.Header>
         <Card.Footer>
-          <Button variant="outline" onPress={() => inbox.refetch()}>Try Again</Button>
+          <LoadingButton variant="outline" isPending={inbox.isFetching} onPress={() => inbox.refetch()}>Try Again</LoadingButton>
         </Card.Footer>
       </Card>
     );

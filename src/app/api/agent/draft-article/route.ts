@@ -112,6 +112,7 @@ export async function POST(request: Request) {
       generateArticleFromTopic(scope, body.topicId, {
         actor: "agent",
         billingWorkId: claimed.execution.billingWorkId,
+        stepExecutionId: claimed.execution.id,
         forceDraft: true,
         autoPublish: false,
       }),

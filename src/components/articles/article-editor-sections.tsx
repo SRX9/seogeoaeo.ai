@@ -16,6 +16,7 @@ import { EmptyState, Segment } from "@heroui-pro/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
+import { LoadingButton } from "@/components/ui/loading-button";
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -134,7 +135,7 @@ export function ArticleEditorTopbar({
             {isPreview ? "Edit" : "Preview"}
           </Button>
           {canPublish ? (
-            <Button
+            <LoadingButton
               size="sm"
               isDisabled={pending}
               isPending={intent === "publish"}
@@ -142,7 +143,7 @@ export function ArticleEditorTopbar({
             >
               <LaunchIcon className="size-4" />
               {intent === "publish" ? "Publishing" : "Approve & Publish"}
-            </Button>
+            </LoadingButton>
           ) : (
             <Link href="/settings?tab=billing&upgrade=1" className={buttonVariants({ variant: "primary", size: "sm" })}>
               Upgrade to Publish
@@ -294,7 +295,7 @@ function EditorPanel({
 
       {!isPreview ? (
         <div className="flex justify-end">
-          <Button
+          <LoadingButton
             variant="outline"
             isDisabled={pending}
             isPending={intent === "draft"}
@@ -302,7 +303,7 @@ function EditorPanel({
           >
             <SaveIcon className="size-4" />
             {intent === "draft" ? "Saving" : "Save Draft"}
-          </Button>
+          </LoadingButton>
         </div>
       ) : null}
     </section>
@@ -332,7 +333,7 @@ function HistoryPanel({
           <p className="mt-1 text-sm text-muted">Destination attempts, retries, and failures for this article.</p>
         </div>
         {canPublish ? (
-          <Button
+          <LoadingButton
             size="sm"
             variant="outline"
             isDisabled={!isApproved || pending}
@@ -341,7 +342,7 @@ function HistoryPanel({
           >
             <LaunchIcon className="size-4" />
             {intent === "republish" ? "Publishing" : "Republish"}
-          </Button>
+          </LoadingButton>
         ) : null}
       </div>
 

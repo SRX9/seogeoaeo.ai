@@ -6,6 +6,7 @@ import {
 import { evaluateOriginality } from "@/lib/grounding/originality";
 import {
   aggregatePublicationGate,
+  passesFastAutoPublishGate,
   publicationGateCheck,
   REQUIRED_PUBLICATION_GATES,
 } from "@/lib/grounding/publication-gate";
@@ -146,5 +147,39 @@ describe("Phase 3 content gates", () => {
     expect(failed.gates.citation_validity_coverage.status).toBe("error");
     expect(failed.gates.metadata_validity.status).toBe("error");
     expect(failed.gates.owner_policy.status).toBe("missing");
+  });
+
+  it("lets fast mode tolerate editorial gates but never factual or safety gates", async () => {
+    const gates = Object.fromEntries(
+      REQUIRED_PUBLICATION_GATES.map((gate) => [gate, publicationGateCheck(true, `${gate}.v1`)]),
+    );
+    const finalContent = {
+      title: "Fast publishing guide",
+      slug: "fast-publishing-guide",
+      metaDescription: "A guide.",
+      tags: [],
+      bodyMarkdown: "Grounded content.",
+    };
+    const editorialFailure = await aggregatePublicationGate({
+      finalContent,
+      gates: {
+        ...gates,
+        style_structure: publicationGateCheck(false, "style.v1", ["Minor style issue"]),
+        metadata_validity: publicationGateCheck(false, "metadata.v1", ["Weak metadata"]),
+      },
+    });
+    expect(editorialFailure.passed).toBe(false);
+    expect(passesFastAutoPublishGate(editorialFailure)).toBe(true);
+
+    const factualFailure = await aggregatePublicationGate({
+      finalContent,
+      gates: {
+        ...gates,
+        grounded_material_claims: publicationGateCheck(false, "grounding.v1", [
+          "Unsupported material claim",
+        ]),
+      },
+    });
+    expect(passesFastAutoPublishGate(factualFailure)).toBe(false);
   });
 });

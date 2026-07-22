@@ -1,7 +1,8 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
-import { Component, type ReactNode } from "react";
+import { Card } from "@heroui/react";
+import { Component, useState, type ReactNode } from "react";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, getErrorMessage } from "@/lib/api/fetcher";
 import type { QueryLike } from "@/lib/api/queries";
 
@@ -35,9 +36,18 @@ function SectionError({
 }: {
   error?: unknown;
   label?: string;
-  onRetry?: () => void;
+  onRetry?: () => unknown;
 }) {
   const message = getErrorMessage(error, label ?? "Couldn't load this section.");
+  const [isRetrying, setIsRetrying] = useState(false);
+  const retry = async () => {
+    setIsRetrying(true);
+    try {
+      await onRetry?.();
+    } finally {
+      setIsRetrying(false);
+    }
+  };
   return (
     <Card>
       <Card.Header>
@@ -46,7 +56,7 @@ function SectionError({
       </Card.Header>
       {onRetry ? (
         <Card.Footer>
-          <Button variant="secondary" size="sm" onPress={onRetry}>Try Again</Button>
+          <LoadingButton variant="secondary" size="sm" isPending={isRetrying} onPress={() => void retry()}>Try Again</LoadingButton>
         </Card.Footer>
       ) : null}
     </Card>

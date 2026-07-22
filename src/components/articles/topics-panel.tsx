@@ -1,14 +1,16 @@
 "use client";
 
-import { Button, Card, Form, Input, Label, Spinner, TextArea, Tooltip, toast } from "@heroui/react";
+import { Card, Form, Input, Label, TextArea, Tooltip, toast } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
 import { EmptyState, Segment } from "@heroui-pro/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
+import { InlineLoader } from "@/components/feedback/inline-loader";
 import { PenIcon, PlusIcon, ResearchIcon, TopicsIcon } from "@/components/icons";
 import { StatusText, ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { useOptimisticMutation } from "@/lib/api/optimistic";
 import { queryKeys, useSetupInProgress, useTopics, type Topic } from "@/lib/api/queries";
@@ -152,10 +154,10 @@ export function ManualTopicForm() {
           </div>
         </Card.Content>
         <Card.Footer className="mt-5 justify-end">
-          <Button type="submit" isPending={createTopic.isPending} isDisabled={!fields.title.trim()}>
+          <LoadingButton type="submit" isPending={createTopic.isPending} isDisabled={!fields.title.trim()}>
             <PlusIcon className="size-4" />
             {createTopic.isPending ? "Adding" : "Add to Queue"}
-          </Button>
+          </LoadingButton>
         </Card.Footer>
       </Form>
     </Card>
@@ -185,7 +187,7 @@ export function TopicQueue({ canGenerate, articleCost }: TopicQueueProps) {
       </div>
 
       {isLoading ? (
-        <Card className="items-center py-10"><Spinner /><p className="text-sm text-muted">Loading topics</p></Card>
+        <Card className="items-center py-4"><InlineLoader label="Loading topics" /></Card>
       ) : visibleTopics.length === 0 ? (
         <Card>
           <EmptyState size="sm">
@@ -265,7 +267,7 @@ function TopicList({ topics, canGenerate, articleCost }: { topics: Topic[]; canG
             <div className="shrink-0">
               {canGenerate ? (
                 <Tooltip delay={300}>
-                  <Button
+                  <LoadingButton
                     size="sm"
                     isIconOnly
                     aria-label={`Generate article, ${articleCost} credits`}
@@ -273,8 +275,8 @@ function TopicList({ topics, canGenerate, articleCost }: { topics: Topic[]; canG
                     isDisabled={generate.isPending || settingUp}
                     onPress={() => generate.mutate(topic.id)}
                   >
-                    {isGenerating ? <Spinner color="current" size="sm" /> : <ResearchIcon className="size-4" />}
-                  </Button>
+                    <ResearchIcon className="size-4" />
+                  </LoadingButton>
                   <Tooltip.Content>{settingUp ? "Available after brand setup" : `Generate Article · ${articleCost} credits`}</Tooltip.Content>
                 </Tooltip>
               ) : (

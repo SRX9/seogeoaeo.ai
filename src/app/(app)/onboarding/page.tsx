@@ -1,6 +1,6 @@
 "use client";
 
-import { BrandOnboardingForm } from "@/components/brand/brand-onboarding-form";
+import { BrandOnboardingSimple } from "@/components/brand/brand-onboarding-simple";
 import { PageError, PageLoader } from "@/components/feedback/states";
 import { useMe } from "@/lib/api/queries";
 
@@ -24,7 +24,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="relative min-h-dvh">
-      <BrandOnboardingForm showDashboardEscape={!isFirst} />
+      <BrandOnboardingSimple showDashboardEscape={!isFirst} />
     </div>
   );
 }

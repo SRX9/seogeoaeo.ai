@@ -90,6 +90,7 @@ export async function POST(request: Request) {
         actor: "agent",
         origin: body.origin ?? process.env.BETTER_AUTH_URL,
         billingWorkId: claimed.execution.billingWorkId,
+        stepExecutionId: claimed.execution.id,
       }),
     );
     if (body.runDate) {

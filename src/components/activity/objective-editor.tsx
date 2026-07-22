@@ -15,6 +15,7 @@ import {
   toast,
 } from "@heroui/react";
 import { Sheet } from "@heroui-pro/react";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { GaugeIcon, SaveIcon } from "@/components/icons";
@@ -356,7 +357,7 @@ export function ObjectiveEditor() {
           <Card.Description>Claudia could not load the current measurable objective.</Card.Description>
         </Card.Header>
         <Card.Footer>
-          <Button variant="outline" onPress={() => objectiveQuery.refetch()}>Try Again</Button>
+          <LoadingButton variant="outline" isPending={objectiveQuery.isFetching} onPress={() => objectiveQuery.refetch()}>Try Again</LoadingButton>
         </Card.Footer>
       </Card>
     );
@@ -585,10 +586,10 @@ export function ObjectiveEditor() {
               </Sheet.Body>
               <Sheet.Footer>
                 <Button variant="ghost" onPress={() => setIsOpen(false)}>Cancel</Button>
-                <Button isDisabled={!form} isPending={updateObjective.isPending} onPress={submit}>
+                <LoadingButton isDisabled={!form} isPending={updateObjective.isPending} onPress={submit}>
                   <SaveIcon className="size-4" />
                   {updateObjective.isPending ? "Saving…" : "Save objective"}
-                </Button>
+                </LoadingButton>
               </Sheet.Footer>
             </Sheet.Dialog>
           </Sheet.Content>

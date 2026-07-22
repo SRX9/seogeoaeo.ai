@@ -390,8 +390,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
           intent,
           answer: `I'm working toward ${objective?.objective ?? "helping more people discover your brand"}. The first reliable measurement is still being prepared, so I will keep researching, monitoring, and following your current permissions.`,
           sources: [
-            { label: "Goal", href: "/settings?tab=goals" },
-            { label: "Work preferences", href: "/settings?tab=preferences" },
+            { label: "Settings", href: "/settings" },
           ],
         };
       }
@@ -411,8 +410,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
           .filter((line): line is string => Boolean(line))
           .join("\n\n"),
         sources: [
-          { label: "Goal", href: "/settings?tab=goals" },
-          { label: "Work preferences", href: "/settings?tab=preferences" },
+          { label: "Settings", href: "/settings" },
         ],
       };
     }
@@ -422,7 +420,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
           intent,
           answer:
             "I haven't chosen the next set of work yet. I will keep monitoring your brand and use the latest evidence to choose the most useful next step.",
-          sources: [{ label: "Work direction", href: "/work" }],
+          sources: [{ label: "Claudia", href: "/dashboard" }],
         };
       }
       const tasks = ctx.planTasks
@@ -441,8 +439,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
           "If your priorities change, tell me what matters most and I will prepare the safest next step.",
         ].join("\n\n"),
         sources: [
-          { label: "Work direction", href: "/work" },
-          { label: "Activity", href: "/activity" },
+          { label: "Claudia", href: "/dashboard" },
         ],
       };
     }
@@ -453,8 +450,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
           answer:
             "I haven't made a live change outside the app yet. Research, drafts, and website checks may still be underway.",
           sources: [
-            { label: "Work history", href: "/activity" },
-            { label: "Inbox", href: "/inbox" },
+            { label: "Claudia", href: "/dashboard" },
+            { label: "Claudia", href: "/dashboard#needs-input" },
           ],
         };
       }
@@ -466,8 +463,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         intent,
         answer: `Recent live changes:\n\n${actions.join("\n")}`,
         sources: [
-          { label: "Work history", href: "/activity" },
-          { label: "Inbox", href: "/inbox" },
+          { label: "Claudia", href: "/dashboard" },
+          { label: "Claudia", href: "/dashboard#needs-input" },
         ],
       };
     }
@@ -486,8 +483,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         }),
         sources: [
           { label: "Home", href: "/dashboard" },
-          { label: "Work log", href: "/activity" },
-          { label: "Weekly reports", href: "/reports" },
+          { label: "Claudia", href: "/dashboard" },
+          { label: "Checklist", href: "/checklist" },
         ],
       };
     }
@@ -497,11 +494,11 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
           intent,
           answer:
             ctx.score != null
-              ? `Your score is ${ctx.score} and I don't have open fixes queued right now. I'll re-audit on schedule and put anything new in your inbox.`
-              : "I haven't finished a full audit yet. Once I do, blockers land in your inbox ranked by impact.",
+              ? `Your score is ${ctx.score} and I don't have open fixes queued right now. I'll recheck on schedule and add any new work to Checklist.`
+              : "I haven't finished the first website check yet. Once I do, the highest-impact work will appear in Checklist.",
           sources: [
-            { label: "Visibility scorecard", href: "/visibility" },
-            { label: "Inbox", href: "/inbox" },
+            { label: "Checklist", href: "/checklist" },
+            { label: "Claudia", href: "/dashboard#needs-input" },
           ],
         };
       }
@@ -514,8 +511,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         intent,
         answer: `Here are the highest-impact open issues on my list:\n\n${list}\n\n${
           readyCount > 0
-            ? `${readyCount} of these have a ready-to-install fix (copy from Inbox or the fix queue, install on your site, mark done).`
-            : "Most of these need a guided step: open Inbox or the fix queue for details."
+            ? `${readyCount} of these have a prepared fix. Open Checklist to copy it, install it, and mark the work complete.`
+            : "Most of these need a guided step. Open Checklist for the exact fix."
         }${
           ctx.score != null
             ? `\n\nCurrent visibility score: ${ctx.score}${
@@ -524,9 +521,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
             : ""
         }`,
         sources: [
-          { label: "Inbox", href: "/inbox" },
-          { label: "Fix queue", href: "/visibility/fixes" },
-          { label: "Scorecard", href: "/visibility" },
+          { label: "Claudia", href: "/dashboard#needs-input" },
+          { label: "Checklist", href: "/checklist" },
         ],
       };
     }
@@ -535,9 +531,9 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         return {
           intent,
           answer:
-            "I don't have another content idea queued right now. I'll research fresh opportunities automatically, or you can review Content ideas if you want to suggest one.",
+            "I don't have another content idea queued right now. I'll research fresh opportunities automatically, or you can open Content to review the current ideas.",
           sources: [
-            { label: "Content ideas", href: "/topics" },
+            { label: "Content", href: "/articles?view=ideas" },
             { label: "Content", href: "/articles" },
           ],
         };
@@ -550,7 +546,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         intent,
         answer: `Here's what I'm lined up to create next:\n\n${lines.join("\n")}\n\nI work on ${ctx.schedule.toLowerCase()} within your publishing preferences and available work capacity.`,
         sources: [
-          { label: "Content ideas", href: "/topics" },
+          { label: "Content", href: "/articles?view=ideas" },
           { label: "Content", href: "/articles" },
         ],
       };
@@ -560,18 +556,18 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         return {
           intent,
           answer:
-            "I haven't checked AI answers for this brand yet. After the next discovery check, I'll show where the brand appears across ChatGPT, Perplexity, and Gemini.",
+            "I haven't checked AI answers for this brand yet. After the next discovery check, related work will appear in the AEO section of Checklist.",
           sources: [
-            { label: "AI answers", href: "/visibility/answers" },
+            { label: "Checklist", href: "/checklist?view=aeo" },
             { label: "Home", href: "/dashboard" },
           ],
         };
       }
       return {
         intent,
-        answer: `In the latest checks I ran, you appeared in ${ctx.answersAppeared} of ${ctx.answersTotal} tracked AI answers. Open AI answers for the per-engine grid and which prompts still miss you.`,
+        answer: `In the latest checks I ran, you appeared in ${ctx.answersAppeared} of ${ctx.answersTotal} tracked AI answers. Open the AEO section of Checklist for the work that follows from those checks.`,
         sources: [
-          { label: "AI answers", href: "/visibility/answers" },
+          { label: "Checklist", href: "/checklist?view=aeo" },
           { label: "Home proof", href: "/dashboard" },
         ],
       };
@@ -583,8 +579,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         return {
           intent,
           answer:
-            "Nothing needs your attention right now. New drafts and fixes will appear in the Inbox.",
-          sources: [{ label: "Inbox", href: "/inbox" }],
+            "Nothing needs your attention right now. New drafts appear in Content, and new fixes appear in Checklist.",
+          sources: [{ label: "Claudia", href: "/dashboard#needs-input" }],
         };
       }
 
@@ -599,7 +595,7 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
       return {
         intent,
         answer: `${bits.join("; ")}. Open Needs your input to handle the next request.`,
-        sources: [{ label: "Needs your input", href: "/inbox" }],
+        sources: [{ label: "Needs your input", href: "/dashboard#needs-input" }],
       };
     }
     case "status": {
@@ -639,8 +635,8 @@ function answerFor(intent: AskIntentId, ctx: AskContext): Omit<AskAnswer, "recor
         answer,
         sources: [
           { label: "Home", href: "/dashboard" },
-          { label: "Activity", href: "/activity" },
-          { label: "Work preferences", href: "/settings?tab=preferences" },
+          { label: "Claudia", href: "/dashboard" },
+          { label: "Settings", href: "/settings" },
         ],
       };
     }
@@ -671,7 +667,7 @@ function objectivePlanRefs(ctx: AskContext): AskRecordRef[] {
             kind: "objective" as const,
             id: ctx.objective.id,
             label: "Current goal",
-            href: "/work",
+            href: "/dashboard",
           },
         ]
       : []),
@@ -681,7 +677,7 @@ function objectivePlanRefs(ctx: AskContext): AskRecordRef[] {
             kind: "plan" as const,
             id: ctx.plan.id,
             label: "Current work direction",
-            href: "/work",
+            href: "/dashboard",
           },
         ]
       : []),
@@ -693,9 +689,9 @@ function objectiveMeasurementRefs(ctx: AskContext): AskRecordRef[] {
     string,
     { kind: AskRecordRef["kind"]; href: string }
   > = {
-    answer_run: { kind: "answer_run", href: "/visibility/answers" },
-    audit: { kind: "audit", href: "/visibility" },
-    audit_finding: { kind: "finding", href: "/visibility/fixes" },
+    answer_run: { kind: "answer_run", href: "/checklist?view=aeo" },
+    audit: { kind: "audit", href: "/checklist" },
+    audit_finding: { kind: "finding", href: "/checklist" },
     article_publication: { kind: "publication", href: "/articles" },
     publication_gate_run: { kind: "publication_gate", href: "/articles" },
   };
@@ -723,43 +719,43 @@ function recordRefsFor(intent: AskIntentId, ctx: AskContext): AskRecordRef[] {
     kind: "task" as const,
     id: task.id,
     label: task.title,
-    href: "/work",
+    href: "/dashboard",
   }));
   const events = ctx.recentEvents.map((event) => ({
     kind: "event" as const,
     id: event.id,
     label: event.summary,
-    href: "/activity",
+    href: "/dashboard",
   }));
   const actions = ctx.recentActions.map((action) => ({
     kind: "action" as const,
     id: action.id,
     label: `${action.actionType}: ${action.resourceRef}`,
-    href: "/activity",
+    href: "/dashboard",
   }));
   const findings = ctx.openFindings.map((finding) => ({
     kind: "finding" as const,
     id: finding.id,
     label: finding.title,
-    href: "/visibility/fixes",
+    href: "/checklist",
   }));
   const audits = ctx.auditIds.map((id, index) => ({
     kind: "audit" as const,
     id,
     label: index === 0 ? "Latest completed audit" : "Previous completed audit",
-    href: `/visibility/${id}`,
+    href: "/checklist",
   }));
   const topics = ctx.pendingTopics.map((topic) => ({
     kind: "topic" as const,
     id: topic.id,
     label: topic.title,
-    href: "/topics",
+    href: "/articles?view=ideas",
   }));
   const answerRuns = ctx.answerRunIds.map((id, index) => ({
     kind: "answer_run" as const,
     id,
     label: `AI answer check ${index + 1}`,
-    href: "/visibility/answers",
+    href: "/checklist?view=aeo",
   }));
   const weeklyUsage = ctx.weeklyUsage
     ? [
@@ -767,7 +763,7 @@ function recordRefsFor(intent: AskIntentId, ctx: AskContext): AskRecordRef[] {
           kind: "usage_counter" as const,
           id: ctx.weeklyUsage.id,
           label: `Content output for week of ${ctx.weeklyUsage.weekStart}`,
-          href: "/activity",
+          href: "/dashboard",
         },
       ]
     : [];
@@ -826,7 +822,7 @@ export async function answerAsk(
         kind: "task" as const,
         id: task.id,
         label: task.title,
-        href: "/activity",
+        href: "/dashboard",
       })),
     ]);
     if (actionRequest === "plan_change") {
@@ -839,9 +835,9 @@ export async function answerAsk(
         route: {
           kind: "plan_review",
           label: "Review proposed change",
-          href: "/settings?tab=advanced",
+          href: "/dashboard#needs-input",
         },
-        sources: [{ label: "Advanced settings", href: "/settings?tab=advanced" }],
+        sources: [{ label: "Claudia", href: "/dashboard#needs-input" }],
         recordRefs,
       };
     }
@@ -857,12 +853,12 @@ export async function answerAsk(
         ? {
             kind: "policy",
             label: "Review permissions",
-            href: "/settings?tab=advanced",
+            href: "/dashboard#needs-input",
           }
-        : { kind: "steering", label: "Open work preferences", href: "/settings?tab=preferences" },
+        : { kind: "steering", label: "Open settings", href: "/settings" },
       sources: [
-        { label: "Permissions", href: "/settings?tab=advanced" },
-        { label: "Work preferences", href: "/settings?tab=preferences" },
+        { label: "Claudia", href: "/dashboard#needs-input" },
+        { label: "Settings", href: "/settings" },
       ],
       recordRefs,
     };

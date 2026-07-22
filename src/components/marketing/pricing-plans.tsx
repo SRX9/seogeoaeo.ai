@@ -3,21 +3,20 @@ import { Card } from "@heroui/react/card";
 import Link from "next/link";
 import { CircleCheckIcon } from "@/components/icons";
 import {
-  articleDraftEquivalent,
   planFeatureList,
   plans,
   planTaglines,
   type PlanId,
 } from "@/lib/billing/plans";
-import { creditPacks } from "@/lib/billing/credits";
 
 const POPULAR_PLAN: PlanId = "startup";
+const SELF_SERVE_PLANS: PlanId[] = ["indie", "startup", "scale"];
 
 const freeFeatures = [
   "Set up your first brand",
-  "Review the voice, audience, and competitors Claudia finds",
-  "Run a quick site and visibility snapshot",
-  "See the first evidence-backed opportunities",
+  "Review the product, audience, and competitors Claudia finds",
+  "See the first content opportunity",
+  "Get an initial SEO, AEO, and GEO checklist",
 ];
 
 function FeatureItem({ children }: { children: React.ReactNode }) {
@@ -58,8 +57,8 @@ export function PricingPlans() {
         </div>
       </Card>
 
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-        {(Object.keys(plans) as PlanId[]).map((id) => {
+      <div className="grid gap-5 md:grid-cols-3">
+        {SELF_SERVE_PLANS.map((id) => {
           const plan = plans[id];
           const isPopular = id === POPULAR_PLAN;
           return (
@@ -87,12 +86,6 @@ export function PricingPlans() {
                   ${plan.price}
                   <span className="text-base font-normal text-muted">/mo</span>
                 </p>
-                <p className="mt-3 text-sm font-medium tracking-[0.01em] text-foreground tabular-nums">
-                  {plan.monthlyCredits.toLocaleString()} work credits/month
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted text-pretty">
-                  Up to {articleDraftEquivalent(plan).toLocaleString()} article-draft equivalents if every credit is used for writing.
-                </p>
                 <ul className="mt-5 space-y-2.5 border-t border-border/40 pt-5">
                   {planFeatureList(id).map((feature) => (
                     <FeatureItem key={feature}>{feature}</FeatureItem>
@@ -106,7 +99,7 @@ export function PricingPlans() {
                     variant: isPopular ? "primary" : "secondary",
                   })} w-full`}
                 >
-                  Choose {plan.name} capacity
+                  Choose {plan.name}
                 </Link>
               </Card.Footer>
             </Card>
@@ -115,8 +108,8 @@ export function PricingPlans() {
       </div>
 
       <p className="mt-6 text-center text-sm leading-relaxed text-muted">
-        Claudia&apos;s capabilities do not change between paid plans. More credits mean more
-        research, writing, audits, and answer checks. One-time capacity starts at ${creditPacks.small.price}.
+        Claudia&apos;s capabilities do not change between plans. Choose a lighter monthly workload,
+        consistent weekly work, or continuous higher-volume work.
       </p>
     </div>
   );

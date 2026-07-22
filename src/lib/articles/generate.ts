@@ -43,6 +43,8 @@ import {
   prepareArticleGroundingEvaluation,
   recordArticleGroundingEvaluation,
 } from "@/lib/grounding/service";
+import { passesFastAutoPublishGate } from "@/lib/grounding/publication-gate";
+import { isAutomaticPublishingMode, isFastAutoPublish } from "@/lib/workspace/settings";
 
 export type GenerationTrace = {
   summaryModel: string;
@@ -128,6 +130,8 @@ type GenerateOptions = {
   creditCost?: number;
   /** Retry-stable ledger identity allocated before generation starts. */
   billingWorkId?: string;
+  /** Durable step identity attached to every LLM trace for production diagnosis. */
+  stepExecutionId?: string;
   /** Skip the credit assert/spend entirely (e.g. internal/admin reruns). */
   skipCreditCheck?: boolean;
   origin?: string;
@@ -143,6 +147,27 @@ type GenerateOptions = {
    */
   autoPublish?: boolean;
 };
+
+/**
+ * Workflow retries own article recovery. Keeping provider retries at zero
+ * prevents nested retries from outliving the durable step lease.
+ */
+function articleLlmOptions(
+  scope: BrandScope,
+  options: GenerateOptions,
+  promptVersion: string,
+) {
+  return {
+    timeoutMs: 60_000,
+    maxRetries: 0,
+    promptVersion,
+    context: {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      stepExecutionId: options.stepExecutionId,
+    },
+  };
+}
 
 /** The originating search query, when the topic came from research. */
 function readTopicQuery(evidenceJson: string | null | undefined): string | null {
@@ -328,7 +353,7 @@ export async function generateArticleFromTopic(
     let summary = await generateText("light", [
       { role: "system", content: summaryMessages.system },
       { role: "user", content: summaryMessages.user },
-    ]);
+    ], articleLlmOptions(scope, options, "article-summary-v1"));
     tokenUsage = addTokenUsage(tokenUsage, summary);
     let summaryIssue = planningEvidenceIssue(summary.text, allowedEvidenceIds, "summary");
     if (summaryIssue) {
@@ -340,7 +365,7 @@ export async function generateArticleFromTopic(
           role: "user",
           content: planningEvidenceRepairMessage("summary", allowedEvidenceIds, summaryIssue),
         },
-      ]);
+      ], articleLlmOptions(scope, options, "article-summary-repair-v1"));
       tokenUsage = addTokenUsage(tokenUsage, summary);
       summaryIssue = planningEvidenceIssue(summary.text, allowedEvidenceIds, "summary");
     }
@@ -358,7 +383,7 @@ export async function generateArticleFromTopic(
     let outline = await generateText("heavy", [
       { role: "system", content: outlineMessages.system },
       { role: "user", content: outlineMessages.user },
-    ]);
+    ], articleLlmOptions(scope, options, "article-outline-v1"));
     tokenUsage = addTokenUsage(tokenUsage, outline);
     let outlineIssue = planningEvidenceIssue(outline.text, allowedEvidenceIds, "outline");
     if (outlineIssue) {
@@ -370,7 +395,7 @@ export async function generateArticleFromTopic(
           role: "user",
           content: planningEvidenceRepairMessage("outline", allowedEvidenceIds, outlineIssue),
         },
-      ]);
+      ], articleLlmOptions(scope, options, "article-outline-repair-v1"));
       tokenUsage = addTokenUsage(tokenUsage, outline);
       outlineIssue = planningEvidenceIssue(outline.text, allowedEvidenceIds, "outline");
     }
@@ -389,14 +414,14 @@ export async function generateArticleFromTopic(
     const draft = await generateText("heavy", [
       { role: "system", content: draftMessages.system },
       { role: "user", content: draftMessages.user },
-    ]);
+    ], articleLlmOptions(scope, options, "article-draft-v1"));
     tokenUsage = addTokenUsage(tokenUsage, draft);
 
     const seoMessages = seoEditPrompt(draft.text, topic.keywords, grounding.promptPacket);
     const seoEdited = await generateText("heavy", [
       { role: "system", content: seoMessages.system },
       { role: "user", content: seoMessages.user },
-    ]);
+    ], articleLlmOptions(scope, options, "article-seo-edit-v1"));
     tokenUsage = addTokenUsage(tokenUsage, seoEdited);
 
     // C3 gate loop: the slop lint must pass before the draft can publish.
@@ -410,7 +435,7 @@ export async function generateArticleFromTopic(
       const rewritten = await generateText("heavy", [
         { role: "system", content: rewriteMessages.system },
         { role: "user", content: rewriteMessages.user },
-      ]);
+      ], articleLlmOptions(scope, options, "article-style-rewrite-v1"));
       tokenUsage = addTokenUsage(tokenUsage, rewritten);
       body = rewritten.text;
       lint = lintArticle(body, shape);
@@ -421,7 +446,11 @@ export async function generateArticleFromTopic(
     const metadata = await generateJson("light", [
       { role: "system", content: metadataMessages.system },
       { role: "user", content: metadataMessages.user },
-    ], { schema: articleMetadataSchema });
+    ], {
+      ...articleLlmOptions(scope, options, "article-metadata-v1"),
+      schema: articleMetadataSchema,
+      maxRepairAttempts: 1,
+    });
     tokenUsage = addTokenUsage(tokenUsage, metadata);
 
     const finalTitle = metadata.data.title || topic.title;
@@ -498,10 +527,16 @@ export async function generateArticleFromTopic(
         ];
       }
       const authorityAllowsApproval =
-        brand.autonomyMode === "FULL_AUTO" ||
+        isAutomaticPublishingMode(brand.autonomyMode) ||
         controls.grantedCapabilities.includes("article.create");
+      const fastAutoPublish = isFastAutoPublish(brand.autonomyMode);
+      const publicationGatePassed = fastAutoPublish
+        ? groundingPersisted && passesFastAutoPublishGate(preparedGrounding.aggregate)
+        : groundingPassed;
       const finalStatus =
-        !options.forceDraft && groundingPassed && authorityAllowsApproval ? "approved" : "draft";
+        !options.forceDraft && publicationGatePassed && authorityAllowsApproval
+          ? "approved"
+          : "draft";
       article =
         (await setGeneratedArticleStatus(
           brandId,
@@ -512,7 +547,13 @@ export async function generateArticleFromTopic(
     } else {
       groundingPassed = article.status === "approved";
     }
-    const flaggedForReview = options.forceDraft === true || !lint.passed || !groundingPassed;
+    const fastAutoPublish = isFastAutoPublish(brand.autonomyMode);
+    const reviewBypassed =
+      fastAutoPublish && article.status === "approved" && (!lint.passed || !groundingPassed);
+    const flaggedForReview =
+      options.forceDraft === true ||
+      article.status !== "approved" ||
+      (!fastAutoPublish && (!lint.passed || !groundingPassed));
 
     // Charge only after the article exists, so a failed generation never burns
     // credits. Drains the monthly bucket before purchased credits. The balance
@@ -568,6 +609,8 @@ export async function generateArticleFromTopic(
       "completed",
       flaggedForReview
         ? `Article generated and held for review: ${article.title}`
+        : reviewBypassed
+          ? `Article generated with editorial holds bypassed: ${article.title}`
         : `Article generated: ${article.title}`,
       {
         articleId: article.id,
@@ -577,6 +620,7 @@ export async function generateArticleFromTopic(
         shape,
         rewritePasses,
         flaggedForReview,
+        reviewBypassed,
         groundingPersisted,
         groundingPassed,
         evidenceBundleId: grounding.bundleId,
@@ -595,14 +639,14 @@ export async function generateArticleFromTopic(
       shape,
       rewritePasses,
       flaggedForReview,
+      reviewBypassed,
       groundingPersisted,
       groundingPassed,
       evidenceBundleId: grounding.bundleId,
       totalTokens: tokenUsage.totalTokens,
     });
 
-    // FULL_AUTO produces approved articles; publish them to enabled destinations now.
-    // REVIEW leaves drafts that publish on manual approval.
+    // Automatic modes produce approved articles; REVIEW leaves manual drafts.
     if (article.status === "approved" && options.autoPublish !== false) {
       try {
         await publishArticleToDestinations(scope, article.id, options.origin, {

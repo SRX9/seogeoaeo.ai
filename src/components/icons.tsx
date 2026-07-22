@@ -33,6 +33,7 @@ import {
   LeftToRightListNumberIcon,
   Link01Icon,
   MinusSignIcon,
+  Menu01Icon,
   Moon02Icon,
   PencilEdit01Icon,
   Plug01Icon,
@@ -120,6 +121,7 @@ export const ChartBarIcon = iconComponent(ChartBarLineIcon);
 export const CheckIcon = iconComponent(Tick02Icon);
 export const XIcon = iconComponent(Cancel01Icon);
 export const MinusIcon = iconComponent(MinusSignIcon);
+export const MenuIcon = iconComponent(Menu01Icon);
 export const ArrowUpIcon = iconComponent(ArrowUp01Icon);
 export const ArrowDownIcon = iconComponent(ArrowDown01Icon);
 export const ArrowLeftIcon = iconComponent(ArrowLeft01Icon);
@@ -139,8 +141,8 @@ export function SgaLogo({ className, iconClassName }: { className?: string; icon
         src="/claudia-bg-free-logo.png"
         width={40}
       />
-      <div className="font-title text-xl tracking-tight text-foreground">
-        Claudia<span className="font-sans text-sm font-normal text-muted"> by seogeoaeo.ai</span>
+      <div className="font-title text-xl tracking-[-0.025em] text-foreground">
+        SeoGeoAeo <span className="font-sans text-[0.72em] font-medium tracking-[-0.01em] text-muted">AI</span>
       </div>
     </div>
   );

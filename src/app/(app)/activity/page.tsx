@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, ListBox, Select, Skeleton } from "@heroui/react";
+import { Card, ListBox, Select, Skeleton } from "@heroui/react";
 import { EmptyState } from "@heroui-pro/react";
 import { useMemo, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { SectionHeader } from "@/components/ui/section-header";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { ToneText } from "@/components/ui/status-text";
 import { WorkspaceRow } from "@/components/ui/workspace-row";
 import {
@@ -241,7 +242,7 @@ export default function WorkPage() {
             <Card.Title>Couldn&apos;t Load the Work Log</Card.Title>
             <Card.Description>Try the request again.</Card.Description>
           </Card.Header>
-          <Card.Footer><Button variant="outline" onPress={() => activity.refetch()}>Try Again</Button></Card.Footer>
+          <Card.Footer><LoadingButton variant="outline" isPending={activity.isFetching} onPress={() => activity.refetch()}>Try Again</LoadingButton></Card.Footer>
         </Card>
       ) : null}
       {!activity.isLoading && !activity.error ? <WorkLogTimeline items={visibleItems} /> : null}

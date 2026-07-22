@@ -57,7 +57,6 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(initialProvider);
   const selected = integrations.find((item) => item.provider === selectedProvider) ?? null;
   const available = integrations.filter((item) => item.status === "available");
-  const planned = integrations.filter((item) => item.status !== "available");
 
   function changeSelection(keys: Selection) {
     if (keys === "all") return;
@@ -99,27 +98,6 @@ export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
             </ListBox>
           </Card.Content>
         </Card>
-
-        {planned.length ? (
-          <Card variant="secondary">
-            <Card.Header>
-              <Card.Title>Planned Destinations</Card.Title>
-              <Card.Description>Additional publishing paths on the roadmap.</Card.Description>
-            </Card.Header>
-            <Card.Content className="space-y-3">
-              {planned.slice(0, 4).map((integration) => (
-                <div key={integration.provider} className="flex items-center gap-3 rounded-xl bg-background p-3">
-                  <ProviderMark provider={integration.provider} name={integration.name} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{integration.name}</p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{capabilityLabel(integration)}</p>
-                  </div>
-                  <ToneText className="text-xs">Coming Soon</ToneText>
-                </div>
-              ))}
-            </Card.Content>
-          </Card>
-        ) : null}
 
         <Alert>
           <Alert.Indicator><ShieldIcon className="size-4" /></Alert.Indicator>

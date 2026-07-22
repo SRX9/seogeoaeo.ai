@@ -37,11 +37,19 @@ function presence(id: AgentPresenceId, reason: string): AgentPresenceView {
 
 export function getAgentPresence(input: AgentPresenceInput): AgentPresenceView | null {
   const setup = input.setupStatus;
-  if (setup && setup !== "completed" && setup !== "failed") {
+  if (setup === "running") {
     return presence("working_now", "Claudia is actively setting up this brand.");
   }
-  if (setup === "failed") {
-    return presence("needs_attention", "Setup stopped and needs a recovery action.");
+  if (setup === "blocked" || setup === "failed" || setup === "completed_degraded") {
+    return presence(
+      "needs_attention",
+      setup === "completed_degraded"
+        ? "Setup finished with recoverable gaps that still need attention."
+        : "Setup stopped and needs a recovery action.",
+    );
+  }
+  if (setup && setup !== "completed") {
+    return presence("needs_attention", "Setup is in an unexpected state and needs attention.");
   }
 
   if ((input.staleInFlightTaskCount ?? 0) > 0 || (input.failedTaskCount ?? 0) > 0) {

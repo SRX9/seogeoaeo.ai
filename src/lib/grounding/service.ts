@@ -16,6 +16,7 @@ import { listIntegrations } from "@/lib/integrations/repository";
 import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { listPublishedDestinationsForBrand } from "@/lib/publishing/repository";
 import type { ScoredTopic } from "@/lib/research/types";
+import { isAutomaticPublishingMode } from "@/lib/workspace/settings";
 import {
   CITATION_VERIFIER_VERSION,
   verifyCitations,
@@ -57,6 +58,8 @@ import {
   REQUIRED_PUBLICATION_GATES,
   aggregatePublicationGate,
   hashFinalPublicationContent,
+  isFastAutoEditorialGate,
+  passesFastAutoPublishGate,
   publicationGateCheck,
   type AggregatedPublicationGate,
   type FinalPublicationContent,
@@ -878,7 +881,8 @@ export async function prepareArticleGroundingEvaluation(
         !controls.paused &&
         !controls.publishingPaused &&
         !blockedByOwnerConstraint &&
-        (brand.autonomyMode === "FULL_AUTO" || controls.grantedCapabilities.includes("article.create")),
+        (isAutomaticPublishingMode(brand.autonomyMode) ||
+          controls.grantedCapabilities.includes("article.create")),
     );
   const destinationCapabilityPassed = destinations.length > 0;
   const rollbackPassed =
@@ -1138,6 +1142,7 @@ export async function recordArticleGroundingEvaluation(
 function gateIsFreshForAgent(
   gate: NonNullable<Awaited<ReturnType<typeof getLatestPublicationGateForContent>>>,
   destinationKey: string,
+  allowEditorialHolds: boolean,
 ) {
   const requiredKeys = gate.run.requiredGateKeys;
   const evaluatorVersions = gate.run.evaluatorVersions;
@@ -1148,14 +1153,18 @@ function gateIsFreshForAgent(
     gate.checks.length === REQUIRED_PUBLICATION_GATES.length &&
     REQUIRED_PUBLICATION_GATES.every((key) => {
       const matches = gate.checks.filter((entry) => entry.gateKey === key);
-      return matches.length === 1 &&
-        matches[0]?.status === "passed" &&
-        matches[0]?.passed === true &&
-        matches[0]?.evaluatorVersion === evaluatorVersions[key];
+      const match = matches[0];
+      if (matches.length !== 1 || !match || match.evaluatorVersion !== evaluatorVersions[key]) {
+        return false;
+      }
+      if (allowEditorialHolds && isFastAutoEditorialGate(key)) {
+        return ["passed", "failed", "error"].includes(match.status);
+      }
+      return match.status === "passed" && match.passed === true;
     });
   return (
-    gate.run.status === "passed" &&
-    gate.run.automaticPublicationAllowed === true &&
+    (allowEditorialHolds ||
+      (gate.run.status === "passed" && gate.run.automaticPublicationAllowed === true)) &&
     gate.run.ownerPolicyVersion === "agent-owner-policy.v1" &&
     gate.run.destination === destinationKey &&
     gate.run.recheckAfter instanceof Date &&
@@ -1182,7 +1191,7 @@ export async function assertFreshAutomaticPublicationGate(
     bodyMarkdown: string;
     shape: string | null;
   },
-  options: { origin?: string | null } = {},
+  options: { origin?: string | null; allowEditorialHolds?: boolean } = {},
 ) {
   const finalContent: FinalPublicationContent = {
     title: article.title,
@@ -1199,7 +1208,8 @@ export async function assertFreshAutomaticPublicationGate(
     .map((destination) => destination.provider)
     .join(",");
   const stored = await getLatestPublicationGateForContent(scope, article.id, article.version, hash);
-  if (stored && gateIsFreshForAgent(stored, destinationKey)) return stored;
+  const allowEditorialHolds = options.allowEditorialHolds === true;
+  if (stored && gateIsFreshForAgent(stored, destinationKey, allowEditorialHolds)) return stored;
   if (!article.topicId) {
     throw new Error("Automatic publication blocked: article has no evidence-bearing topic.");
   }
@@ -1221,13 +1231,16 @@ export async function assertFreshAutomaticPublicationGate(
     delayedRecheck: true,
     evaluationKey: `grounding-recheck:${article.id}:v${article.version}:${hash}:window:${Math.floor(Date.now() / INITIAL_RECHECK_INTERVAL_MS)}`,
   });
-  if (!recorded.passed) {
+  const passedForMode = allowEditorialHolds
+    ? recorded.persisted && passesFastAutoPublishGate(prepared.aggregate)
+    : recorded.passed;
+  if (!passedForMode) {
     throw new Error(
       `Automatic publication blocked by grounded-content gates: ${prepared.blockingReasons.join("; ") || "gate persistence failed"}`,
     );
   }
   const refreshed = await getLatestPublicationGateForContent(scope, article.id, article.version, hash);
-  if (!refreshed || !gateIsFreshForAgent(refreshed, destinationKey)) {
+  if (!refreshed || !gateIsFreshForAgent(refreshed, destinationKey, allowEditorialHolds)) {
     throw new Error("Automatic publication blocked: no fresh exact-content gate decision exists.");
   }
   return refreshed;

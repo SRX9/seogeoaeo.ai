@@ -42,7 +42,7 @@ export async function getInboxSummaryCount(context: InboxSummaryContext): Promis
   return countOwnerRequestsFromParts({
     approvalCount: Number(approvalRow[0]?.n ?? 0),
     draftCount,
-    reviewBeforePublishing: brand.autonomyMode !== "FULL_AUTO",
+    reviewBeforePublishing: brand.autonomyMode === "REVIEW",
     publishingConnected: integrations.some(isIntegrationOperational),
     billingPaused:
       !isActiveSubscription(subscription?.status) ||

@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowRightIcon,
-  ChartBarIcon,
+  ArticlesIcon,
+  CheckIcon,
   ClaudiaIcon,
-  UserInputIcon,
   XIcon,
 } from "@/components/icons";
 import { useMe } from "@/lib/api/queries";
@@ -17,22 +17,25 @@ const TOUR_KEY_PREFIX = "claudia:product-tour";
 
 const TOUR_STEPS = [
   {
-    title: "Claudia works on your growth every day",
+    title: "Claudia chooses what matters next",
+    summary: "Your home shows her best content opportunity and the most important website fix.",
     description:
-      "She researches demand, watches competitors, creates useful content, and improves what is underperforming.",
+      "Your home shows her best content opportunity and the most important website fix.",
     Icon: ClaudiaIcon,
   },
   {
-    title: "You do not need to manage her work",
+    title: "Content follows one clear path",
+    summary: "Move from a researched idea to a draft and then completed content without changing tools.",
     description:
-      "If Claudia needs a decision, connection, or permission, it appears on Claudia with her recommendation.",
-    Icon: UserInputIcon,
+      "Move from a researched idea to a draft and then completed content without changing tools.",
+    Icon: ArticlesIcon,
   },
   {
-    title: "Results explain what changed",
+    title: "Checklist tells you what to fix",
+    summary: "See the highest-priority SEO, AEO, and GEO work with exact implementation help.",
     description:
       "See how search discovery, AI answers, content, and website health are changing—and what Claudia will do next.",
-    Icon: ChartBarIcon,
+    Icon: CheckIcon,
   },
 ] as const;
 
@@ -127,7 +130,7 @@ export function ProductTour() {
           <h2 id="product-tour-title" className="mt-5 text-xl font-semibold tracking-tight text-foreground">
             {step.title}
           </h2>
-          <p className="mt-2 text-sm leading-6 text-muted">{step.description}</p>
+          <p className="mt-2 text-sm leading-6 text-muted">{step.summary}</p>
         </Card.Content>
         <Card.Footer className="flex-row items-center justify-between gap-3 border-t border-separator px-6 py-5">
           <Button variant="ghost" onPress={() => finish("skipped")}>

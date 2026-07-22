@@ -18,7 +18,7 @@ function ClaudiaWorkspace({ data }: { data: DashboardData }) {
 
   return (
     <>
-      <ClaudiaWorkPanel home={data.home} />
+      <ClaudiaWorkPanel home={data.home} ownerRequests={data.ownerRequests} />
       <Suspense fallback={null}>
         <ProductTour />
       </Suspense>

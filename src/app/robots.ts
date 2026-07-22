@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
           "/settings",
           "/account",
           "/articles",
+          "/checklist",
           "/topics",
           "/activity",
           "/inbox",

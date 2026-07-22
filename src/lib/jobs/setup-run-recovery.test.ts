@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   getSetupRunRecoveryState,
+  isSetupRunDegradedRecoveryDue,
   isSetupRunFailedRecoveryDue,
   isSetupRunStale,
   MAX_SETUP_RECOVERY_ATTEMPTS,
   SETUP_FAILED_RETRY_DELAY_MS,
+  SETUP_DEGRADED_RETRY_DELAY_MS,
   SETUP_STALE_RUNNING_MS,
   shouldRearmSetupFinalization,
   shouldRecoverSetupRun,
@@ -68,9 +70,29 @@ describe("setup run recovery policy", () => {
     ).toBe("retrying");
   });
 
+  it("retries degraded setup gaps without discarding the usable baseline", () => {
+    const degraded = candidate({
+      status: "completed_degraded",
+      updatedAt: new Date(NOW - SETUP_DEGRADED_RETRY_DELAY_MS),
+    });
+    expect(isSetupRunDegradedRecoveryDue(degraded, NOW)).toBe(true);
+    expect(shouldRecoverSetupRun(degraded, NOW)).toBe(true);
+    expect(getSetupRunRecoveryState(degraded)).toBe("scheduled");
+
+    const escalated = candidate({
+      status: "completed_degraded",
+      updatedAt: new Date(NOW - SETUP_DEGRADED_RETRY_DELAY_MS),
+      recoveryAttempts: MAX_SETUP_RECOVERY_ATTEMPTS,
+      recoveryOwner: "operator",
+    });
+    expect(shouldRecoverSetupRun(escalated, NOW)).toBe(false);
+    expect(getSetupRunRecoveryState(escalated)).toBe("needs_help");
+  });
+
   it("does not replay finalization for a stale takeover with no reopened work", () => {
     expect(shouldRearmSetupFinalization("running", 0, 0)).toBe(false);
     expect(shouldRearmSetupFinalization("running", 1, 0)).toBe(true);
     expect(shouldRearmSetupFinalization("failed", 0, 0)).toBe(true);
+    expect(shouldRearmSetupFinalization("completed_degraded", 0, 0)).toBe(true);
   });
 });

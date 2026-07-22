@@ -16,7 +16,7 @@ import type {
 } from "@/lib/api/queries";
 import { getDb } from "@/lib/db";
 import { answerRuns, audits, trafficSnapshots } from "@/lib/db/schema/visibility";
-import { buildClaudiaHomeView } from "@/lib/dashboard/home-view";
+import { buildClaudiaHomeView } from "@/lib/dashboard/claudia-home-view";
 import { buildOwnerRequests } from "@/lib/inbox/owner-request";
 import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { isIntegrationOperational } from "@/lib/integrations/providers";
@@ -38,6 +38,7 @@ import {
   DAILY_RUN_SCHEDULE_LABEL,
   getNextDailyRun,
   getUtcDayKey,
+  isAutomaticPublishingMode,
 } from "@/lib/workspace/settings";
 
 type DashboardContext = Awaited<ReturnType<typeof requireApiBrand>>;
@@ -78,14 +79,24 @@ export async function getDashboardAutomation(
 
   return {
     enabled: active,
-    autoPublish: brand.autonomyMode === "FULL_AUTO",
+    autoPublish: isAutomaticPublishingMode(brand.autonomyMode),
     schedule: DAILY_RUN_SCHEDULE_LABEL,
     nextRunAt: active ? getNextDailyRun().toISOString() : null,
     agentState,
     dailyCap,
     writtenToday: todayRun?.articlesWritten ?? 0,
     pendingTopics,
-    nextTopic: nextUp ? { title: nextUp.title, thesis: nextUp.thesis ?? null } : null,
+    nextTopic: nextUp
+      ? {
+          id: nextUp.id,
+          title: nextUp.title,
+          angle: nextUp.angle ?? null,
+          rationale: nextUp.rationale ?? null,
+          answerFit: nextUp.answerFit ?? null,
+          intentTier: nextUp.intentTier ?? null,
+          thesis: nextUp.thesis ?? null,
+        }
+      : null,
     workingSince: workspace.createdAt.toISOString(),
     totalRuns: weeklyStats.totalRuns,
     articlesWritten: usageTotals.articlesWritten,
@@ -362,11 +373,8 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const home = buildClaudiaHomeView({
     agent,
     ownerRequests,
-    articles,
     automation,
-    answers,
-    summary,
-    traffic,
+    findings,
   });
 
   return {

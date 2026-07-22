@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { CircleCheckIcon, RefreshIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Section } from "@/components/feedback/section";
 import { apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useBrandProfile, useVisibilityFindings, type VisibilityFinding } from "@/lib/api/queries";
@@ -139,9 +140,9 @@ function FixDetail({ finding, website }: { finding: VisibilityFinding; website: 
           <Button size="sm" variant="secondary" onPress={() => void copyText(manualGuide)}>Copy manual steps</Button>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          {isInstallReady(finding.fixCapability) ? <Button size="sm" isPending={markInstalled.isPending} onPress={() => markInstalled.mutate()}>I Installed This</Button> : null}
-          <Button size="sm" variant="ghost" isDisabled={resolve.isPending} onPress={() => resolve.mutate("complete")}>Mark Done</Button>
-          <Button size="sm" variant="danger" isDisabled={resolve.isPending} onPress={() => resolve.mutate("dismiss")}>Dismiss</Button>
+          {isInstallReady(finding.fixCapability) ? <LoadingButton size="sm" isPending={markInstalled.isPending} onPress={() => markInstalled.mutate()}>I Installed This</LoadingButton> : null}
+          <LoadingButton size="sm" variant="ghost" isPending={resolve.isPending && resolve.variables === "complete"} isDisabled={resolve.isPending} onPress={() => resolve.mutate("complete")}>Mark Done</LoadingButton>
+          <LoadingButton size="sm" variant="danger" isPending={resolve.isPending && resolve.variables === "dismiss"} isDisabled={resolve.isPending} onPress={() => resolve.mutate("dismiss")}>Dismiss</LoadingButton>
         </div>
       </section>
     </div>
@@ -191,7 +192,7 @@ function ClearQueue({ onRecheck, isPending }: { onRecheck: () => void; isPending
           <EmptyState.Description>All detected issues have been resolved or dismissed.</EmptyState.Description>
         </EmptyState.Header>
         <EmptyState.Content>
-          <Button variant="secondary" isPending={isPending} onPress={onRecheck}>Recheck With Claudia</Button>
+          <LoadingButton variant="secondary" isPending={isPending} onPress={onRecheck}>Recheck With Claudia</LoadingButton>
         </EmptyState.Content>
       </EmptyState>
     </Card>
@@ -228,7 +229,7 @@ export default function FixQueuePage() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="sr-only">Fix Queue</h1><p className="text-sm text-muted">{websiteLabel(website)} · {findings.length} open fixes</p><div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">{SEVERITIES.map((item)=><ToneText key={item} tone={severityColor(item)}>{titleCase(item)} <span className="tabular-nums">{counts[item]}</span></ToneText>)}</div></div>
-        <div className="flex gap-2"><Button isPending={recheck.isPending} onPress={() => recheck.mutate()}><RefreshIcon className="size-4" aria-hidden />Recheck</Button><Tooltip delay={300}><Button isIconOnly variant="secondary" aria-label="Refresh fix queue" isDisabled={findingsQuery.isFetching} onPress={() => void findingsQuery.refetch()}><RefreshIcon className="size-4" /></Button><Tooltip.Content>Refresh fix queue</Tooltip.Content></Tooltip></div>
+        <div className="flex gap-2"><LoadingButton isPending={recheck.isPending} onPress={() => recheck.mutate()}><RefreshIcon className="size-4" aria-hidden />Recheck</LoadingButton><Tooltip delay={300}><LoadingButton isIconOnly variant="secondary" aria-label="Refresh fix queue" isPending={findingsQuery.isFetching} onPress={() => void findingsQuery.refetch()}><RefreshIcon className="size-4" /></LoadingButton><Tooltip.Content>Refresh fix queue</Tooltip.Content></Tooltip></div>
       </header>
 
       <Card variant="secondary">

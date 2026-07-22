@@ -241,7 +241,7 @@ export default function IntegrationsHelpPage() {
         <span className={styles.dockDivider} aria-hidden="true" />
         <Link className={styles.hireButton} href="/login">
           <InsightIcon className={styles.insightIcon} />
-          Hire Claudia
+          Put Claudia to work
         </Link>
       </nav>
     </div>

@@ -1,9 +1,10 @@
 "use client";
 
-import { Button, Card, toast } from "@heroui/react";
+import { Card, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPatch, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useBrandAutonomy, type AutonomyCategoryState } from "@/lib/api/queries";
 import type { AutonomyLevel } from "@/lib/jobs/visibility-agent";
@@ -68,15 +69,16 @@ function CategoryRow({
       </div>
       <div className="flex shrink-0 gap-1">
         {levels.map((level) => (
-          <Button
+          <LoadingButton
             key={level}
             size="sm"
             variant={shown === level ? "primary" : "tertiary"}
             isDisabled={update.isPending}
+            isPending={update.isPending && update.variables === level}
             onPress={() => update.mutate(level)}
           >
             {LEVEL_LABELS[level]}
-          </Button>
+          </LoadingButton>
         ))}
       </div>
     </div>

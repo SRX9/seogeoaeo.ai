@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { queryKeys } from "@/lib/api/queries";
 import type { SteeringResult } from "@/lib/agent/types";
 
@@ -144,9 +145,9 @@ export function SteerClaudia({
               <Sheet.Close>
                 <Button variant="ghost">Cancel</Button>
               </Sheet.Close>
-              <Button isPending={steer.isPending} isDisabled={!message.trim()} onPress={submit}>
+              <LoadingButton isPending={steer.isPending} isDisabled={!message.trim()} onPress={submit}>
                 {steer.isPending ? "Applying…" : "Apply direction"}
-              </Button>
+              </LoadingButton>
             </Sheet.Footer>
           </Sheet.Dialog>
         </Sheet.Content>

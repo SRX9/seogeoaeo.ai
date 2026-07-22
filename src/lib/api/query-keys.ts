@@ -34,6 +34,7 @@ export const queryKeys = {
   credits: ["credits"] as const,
   visibilitySummary: ["visibility", "summary"] as const,
   visibilityFindings: ["visibility", "findings"] as const,
+  checklist: ["checklist"] as const,
   siteHealth: ["visibility", "site-health"] as const,
   visibilityAnswers: ["visibility", "answers"] as const,
   visibilityTraffic: ["visibility", "traffic"] as const,

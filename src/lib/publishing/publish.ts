@@ -24,6 +24,7 @@ import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { getPublishingAdapter } from "@/lib/publishing/adapters";
 import { getPublication, upsertPublication } from "@/lib/publishing/repository";
 import type { PublishArticle, PublishResult } from "@/lib/publishing/types";
+import { isFastAutoPublish } from "@/lib/workspace/settings";
 
 export type DestinationPublishResult = {
   provider: IntegrationProviderId;
@@ -381,7 +382,18 @@ export async function publishArticleToDestinations(
   const resolvedOrigin = origin ?? (await getRequestOrigin());
   const fingerprint = await hashFinalPublicationContent(publishArticle);
   if ((options.actor ?? "owner") === "agent") {
-    await assertFreshAutomaticPublicationGate(scope, article, { origin: resolvedOrigin });
+    const allowEditorialHolds = isFastAutoPublish(brand.autonomyMode);
+    if (allowEditorialHolds) {
+      logWarn("publish.editorial_holds_bypassed", {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        articleId,
+      });
+    }
+    await assertFreshAutomaticPublicationGate(scope, article, {
+      origin: resolvedOrigin,
+      allowEditorialHolds,
+    });
   }
   const results: DestinationPublishResult[] = await Promise.all(
     enabledProviders.map((provider) =>

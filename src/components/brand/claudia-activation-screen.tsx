@@ -3,6 +3,7 @@
 import { Alert, Button, Card, ProgressBar } from "@heroui/react";
 import { ClaudiaOrb } from "@/components/claudia/claudia-orb";
 import { CheckIcon } from "@/components/icons";
+import { LoadingButton } from "@/components/ui/loading-button";
 
 const ACTIVATION_STEPS = [
   "Learning your brand",
@@ -106,9 +107,9 @@ export function ClaudiaActivationScreen({
               <Alert.Content>
                 <Alert.Title>Setup needs another try</Alert.Title>
                 <Alert.Description>{errorMessage}</Alert.Description>
-                <Button className="mt-4" isPending={isCreating} onPress={onRetry}>
+                <LoadingButton className="mt-4" isPending={isCreating} onPress={onRetry}>
                   Try again
-                </Button>
+                </LoadingButton>
               </Alert.Content>
             </Alert>
           ) : (

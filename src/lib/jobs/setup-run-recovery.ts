@@ -1,5 +1,6 @@
 export const SETUP_STALE_RUNNING_MS = 15 * 60 * 1000;
 export const SETUP_FAILED_RETRY_DELAY_MS = 5 * 60 * 1000;
+export const SETUP_DEGRADED_RETRY_DELAY_MS = 5 * 60 * 1000;
 export const MAX_SETUP_RECOVERY_ATTEMPTS = 3;
 
 type SetupRunRecoveryCandidate = {
@@ -33,11 +34,29 @@ export function isSetupRunFailedRecoveryDue(
   );
 }
 
+/** A degraded baseline is usable, but its missing evidence is retried in the background. */
+export function isSetupRunDegradedRecoveryDue(
+  run: SetupRunRecoveryCandidate,
+  now: number = Date.now(),
+): boolean {
+  if (run.status !== "completed_degraded") return false;
+  const exhaustedAndEscalated =
+    run.recoveryAttempts >= MAX_SETUP_RECOVERY_ATTEMPTS && run.recoveryOwner === "operator";
+  return (
+    !exhaustedAndEscalated &&
+    now - run.updatedAt.getTime() >= SETUP_DEGRADED_RETRY_DELAY_MS
+  );
+}
+
 export function shouldRecoverSetupRun(
   run: SetupRunRecoveryCandidate,
   now: number = Date.now(),
 ): boolean {
-  return isSetupRunStale(run, now) || isSetupRunFailedRecoveryDue(run, now);
+  return (
+    isSetupRunStale(run, now) ||
+    isSetupRunFailedRecoveryDue(run, now) ||
+    isSetupRunDegradedRecoveryDue(run, now)
+  );
 }
 
 /** Finalization is replayed only when recovery has reopened setup work. */
@@ -49,6 +68,7 @@ export function shouldRearmSetupFinalization(
   return (
     runStatus === "failed" ||
     runStatus === "blocked" ||
+    runStatus === "completed_degraded" ||
     failedStepCount > 0 ||
     skippedStepCount > 0
   );
@@ -59,7 +79,7 @@ export function getSetupRunRecoveryState(
   run: SetupRunRecoveryCandidate,
 ): SetupRunRecoveryState {
   if (run.status === "running" && run.recoveryAttempts > 0) return "retrying";
-  if (run.status !== "failed") return null;
+  if (run.status !== "failed" && run.status !== "completed_degraded") return null;
   if (
     run.recoveryAttempts >= MAX_SETUP_RECOVERY_ATTEMPTS &&
     run.recoveryOwner === "operator"

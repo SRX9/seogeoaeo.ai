@@ -3,9 +3,9 @@ import { PricingWorkload } from "@/components/marketing/pricing-workload";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Plans for Claudia | seogeoaeo.ai",
+  title: "Pricing",
   description:
-    "Every paid plan includes the same Claudia. Choose monthly work capacity for research, writing, audits, prepared fixes, and follow-up.",
+    "Put Claudia, your AI employee for organic growth, to work. Choose monthly capacity for research, writing, audits, fixes, and follow-up.",
   alternates: { canonical: `${SITE_URL}/pricing` },
 };
 

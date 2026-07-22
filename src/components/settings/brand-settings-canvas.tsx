@@ -121,10 +121,10 @@ function BrandIdentity({
           </div>
         </Card.Header>
         <Card.Footer className="justify-end">
-          <Button variant="ghost" isPending={refresh.isPending} onPress={() => refresh.mutate()}>
+          <LoadingButton variant="ghost" isPending={refresh.isPending} onPress={() => refresh.mutate()}>
             <RefreshIcon className="size-4" />
             {refresh.isPending ? "Refreshing" : "Refresh identity"}
-          </Button>
+          </LoadingButton>
         </Card.Footer>
       </Card>
 

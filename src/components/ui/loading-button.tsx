@@ -1,10 +1,11 @@
 "use client";
 
-import { Button, Spinner } from "@heroui/react";
+import { Button } from "@heroui/react";
+import { ThinkingOrb } from "thinking-orbs";
 import type { ComponentProps, ReactNode } from "react";
 
 type LoadingButtonProps = Omit<ComponentProps<typeof Button>, "children"> & {
-  /** Shows a circular spinner and blocks interaction while true. */
+  /** Shows a thinking orb and blocks interaction while true. */
   isPending?: boolean;
   /** Optional label swapped in while pending (defaults to children). */
   pendingLabel?: ReactNode;
@@ -12,22 +13,23 @@ type LoadingButtonProps = Omit<ComponentProps<typeof Button>, "children"> & {
 };
 
 /**
- * Button with a built-in circular loading spinner. Use anywhere a press kicks
+ * Button with a built-in thinking-orb loader. Use anywhere a press kicks
  * off async work so the user gets immediate feedback. Pass `isPending` from the
  * relevant React Query mutation / local loading flag.
  */
 export function LoadingButton({
   isPending = false,
   isDisabled,
+  isIconOnly,
   pendingLabel,
   children,
   ...props
 }: LoadingButtonProps) {
   return (
-    <Button isPending={isPending} isDisabled={isDisabled || isPending} {...props}>
+    <Button isPending={isPending} isDisabled={isDisabled || isPending} isIconOnly={isIconOnly} {...props}>
       <span className="inline-flex items-center gap-2">
-        {isPending ? <Spinner color="current" size="sm" /> : null}
-        {isPending ? (pendingLabel ?? children) : children}
+        {isPending ? <ThinkingOrb state="working" size={20} aria-hidden /> : null}
+        {isPending ? (isIconOnly ? null : (pendingLabel ?? children)) : children}
       </span>
     </Button>
   );

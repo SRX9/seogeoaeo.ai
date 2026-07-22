@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getApiContext, handleApi, HttpError, jsonOk, parseBody, readJson } from "@/lib/api/server";
 import { getBrand, updateBrandAutonomy, updateBrandBadgePublic } from "@/lib/brand/repository";
 import type { AutonomyMode } from "@/lib/workspace/settings";
-import { canEnrollNewFullAuto } from "@/lib/agent/safety";
+import { canEnrollFastAutoPublish, canEnrollNewFullAuto } from "@/lib/agent/safety";
 
 /**
  * Update a brand's settings (autonomy mode and/or the public-badge opt-in).
@@ -14,11 +14,12 @@ import { canEnrollNewFullAuto } from "@/lib/agent/safety";
 export async function PATCH(request: Request) {
   return handleApi(async () => {
     const { workspace } = await getApiContext();
-    const { brandId, autonomyMode, badgePublic } = parseBody(
+    const { brandId, autonomyMode, badgePublic, fastAutoPublishAcknowledged } = parseBody(
       z
         .object({
           brandId: z.string().uuid(),
-          autonomyMode: z.enum(["FULL_AUTO", "REVIEW"]).optional(),
+          autonomyMode: z.enum(["FULL_AUTO", "REVIEW", "AUTO_PUBLISH_FAST"]).optional(),
+          fastAutoPublishAcknowledged: z.boolean().optional(),
           badgePublic: z.boolean().optional(),
         })
         .refine((body) => body.autonomyMode !== undefined || body.badgePublic !== undefined, {
@@ -36,6 +37,17 @@ export async function PATCH(request: Request) {
             409,
             "Autopilot enrollment is frozen until grounded publishing is enabled.",
           );
+        }
+      }
+      if (autonomyMode === "AUTO_PUBLISH_FAST") {
+        if (fastAutoPublishAcknowledged !== true) {
+          throw new HttpError(
+            400,
+            "Confirm that fast auto-publish may publish with minor editorial issues.",
+          );
+        }
+        if (!canEnrollFastAutoPublish()) {
+          throw new HttpError(409, "Automatic publishing is currently disabled by system policy.");
         }
       }
       const updated = await updateBrandAutonomy(workspace.id, brandId, autonomyMode as AutonomyMode);

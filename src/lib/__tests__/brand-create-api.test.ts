@@ -160,7 +160,11 @@ describe("/api/brands", () => {
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.brand).toEqual({ id: brand.id, name: brand.name });
+    expect(body.brand).toEqual({
+      id: brand.id,
+      name: brand.name,
+      autonomyMode: brand.autonomyMode,
+    });
     expect(getBrandByName).toHaveBeenCalledWith(workspaceId, "Acme");
     expect(upsertBrandProfile).toHaveBeenCalledWith(scope, expect.objectContaining({
       website: "https://acme.test",

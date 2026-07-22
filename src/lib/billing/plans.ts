@@ -160,10 +160,10 @@ export function planFeatureList(planId: PlanId): string[] {
   const plan = plans[planId];
   const caps = plan.visibility;
   return [
-    `${plan.monthlyCredits.toLocaleString()} work credits each month`,
-    `Up to ${articleDraftEquivalent(plan).toLocaleString()} article-draft equivalents if all capacity goes to writing`,
-    `Up to ${plan.dailyArticleCap} article draft${plan.dailyArticleCap === 1 ? "" : "s"} per day`,
-    `${CADENCE_LABELS[caps.monitoringCadence]} monitoring for ${caps.trackedPrompts} buyer questions and ${caps.competitors} competitor${caps.competitors === 1 ? "" : "s"}`,
+    `Up to ${articleDraftEquivalent(plan).toLocaleString()} prepared articles each month`,
+    `${CADENCE_LABELS[caps.monitoringCadence]} site and answer monitoring`,
+    "Prioritized SEO, AEO, and GEO checklist",
+    "Research, writing, prepared fixes, and reporting",
   ];
 }
 

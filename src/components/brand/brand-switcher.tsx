@@ -1,6 +1,7 @@
 "use client";
 
-import { Avatar, Button, Dropdown, Label, Spinner } from "@heroui/react";
+import { Avatar, Button, Dropdown, Label } from "@heroui/react";
+import { ThinkingOrb } from "thinking-orbs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@heroui/react";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
@@ -116,7 +117,7 @@ export function BrandSwitcher({
           {active.name}
         </span>
         {switchBrand.isPending ? (
-          <Spinner size="sm" color="current" className="shrink-0" />
+          <ThinkingOrb state="working" size={20} className="shrink-0" aria-hidden />
         ) : (
           <ChevronUpDownIcon className="size-4 shrink-0 text-muted" />
         )}

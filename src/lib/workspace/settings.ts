@@ -1,9 +1,11 @@
-export type AutonomyMode = "FULL_AUTO" | "REVIEW";
+export const AUTONOMY_MODES = ["FULL_AUTO", "REVIEW", "AUTO_PUBLISH_FAST"] as const;
+export type AutonomyMode = (typeof AUTONOMY_MODES)[number];
 
 /** Human-readable labels for autonomy modes: never show the raw enum in the UI. */
 const AUTONOMY_LABELS: Record<AutonomyMode, string> = {
   REVIEW: "Review mode",
   FULL_AUTO: "Auto-publish",
+  AUTO_PUBLISH_FAST: "Fast auto-publish",
 };
 
 export function autonomyLabel(mode: string): string {
@@ -24,7 +26,15 @@ export function getUtcDayKey(date = new Date()) {
 }
 
 export function articleStatusForAutonomy(mode: string) {
-  return mode === "FULL_AUTO" ? "approved" : "draft";
+  return isAutomaticPublishingMode(mode) ? "approved" : "draft";
+}
+
+export function isAutomaticPublishingMode(mode: string): boolean {
+  return mode === "FULL_AUTO" || mode === "AUTO_PUBLISH_FAST";
+}
+
+export function isFastAutoPublish(mode: string): boolean {
+  return mode === "AUTO_PUBLISH_FAST";
 }
 
 /**
