@@ -1,8 +1,9 @@
 "use client";
 
-import { Avatar, Button, Card, ColorSwatch, toast } from "@heroui/react";
+import { Avatar, Card, ColorSwatch, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
+import { LoadingButton } from "@/components/ui/loading-button";
 import {
   queryKeys,
   type BrandIntelligenceResponse,
@@ -55,14 +56,14 @@ export function BrandIntelligenceCard({
             {identity?.slogan || "Logo, palette, and public brand facts from your website."}
           </Card.Description>
         </div>
-        <Button
+        <LoadingButton
           size="sm"
           variant="secondary"
           isPending={refresh.isPending}
           onPress={() => refresh.mutate()}
         >
           Refresh details
-        </Button>
+        </LoadingButton>
       </Card.Header>
       <Card.Content className="space-y-5">
         {identity ? (

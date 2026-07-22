@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/server";
 import { z } from "zod";
 import { ensurePrimaryObjective } from "@/lib/agent/objectives";
+import { canEnrollFastAutoPublish } from "@/lib/agent/safety";
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { setActiveBrandCookie } from "@/lib/brand/context";
 import {
@@ -187,7 +188,13 @@ async function igniteSetupRunForBrand(
   planId: string | null | undefined,
 ) {
   const { run, created } = await startSetupRun(scope);
-  if (created || run.status === "failed" || isSetupRunStale(run)) {
+  if (
+    created ||
+    run.status === "failed" ||
+    run.status === "blocked" ||
+    run.status === "completed_degraded" ||
+    isSetupRunStale(run)
+  ) {
     await triggerSetupRun(scope, planId, run, { resume: !created });
   }
   return { id: run.id, status: run.status };
@@ -228,6 +235,15 @@ export async function POST(request: Request) {
   return handleApi(async () => {
     const ctx = await getApiContext();
     const data = parseBody(createBrandSchema, await readJson(request));
+    if (data.autonomyMode === "AUTO_PUBLISH_FAST" && data.fastAutoPublishAcknowledged !== true) {
+      throw new HttpError(
+        400,
+        "Confirm that fast auto-publish may publish with minor editorial issues.",
+      );
+    }
+    if (data.autonomyMode === "AUTO_PUBLISH_FAST" && !canEnrollFastAutoPublish()) {
+      throw new HttpError(409, "Automatic publishing is currently disabled by system policy.");
+    }
     const integrationSetup = prepareOnboardingIntegration(
       data.integrationProvider,
       data.integrationConfig,
@@ -360,7 +376,7 @@ export async function POST(request: Request) {
     }
     return jsonOk(
       {
-        brand: { id: brand.id, name: brand.name },
+        brand: { id: brand.id, name: brand.name, autonomyMode: brand.autonomyMode },
         canIgnite,
         setupRun,
       },

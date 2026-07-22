@@ -27,7 +27,7 @@ export function AppNavbar({ firstName }: { firstName: string }) {
         </h1>
         {needsInputCount > 0 ? (
           <Link
-            href="/inbox"
+            href="/dashboard#needs-input"
             className="flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium text-warning no-underline transition-transform active:scale-[0.96] sm:min-h-10"
           >
             <UserInputIcon className="size-4" />

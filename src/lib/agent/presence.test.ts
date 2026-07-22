@@ -20,6 +20,20 @@ describe("getAgentPresence", () => {
     expect(state).toMatchObject({ id: "needs_attention", isWorking: false });
   });
 
+  it("does not present blocked or degraded setup as live work", () => {
+    expect(getAgentPresence({ setupStatus: "blocked", automation: enabled })).toMatchObject({
+      id: "needs_attention",
+      isWorking: false,
+    });
+    expect(
+      getAgentPresence({ setupStatus: "completed_degraded", automation: enabled }),
+    ).toMatchObject({ id: "needs_attention", isWorking: false });
+    expect(getAgentPresence({ setupStatus: "running", automation: enabled })).toMatchObject({
+      id: "working_now",
+      isWorking: true,
+    });
+  });
+
   it("prioritizes a real owner dependency over the schedule", () => {
     expect(
       getAgentPresence({

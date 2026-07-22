@@ -45,7 +45,8 @@ type WriteFailure = {
 // Per-step retry/backoff. Steps are HTTP calls into the app; transient failures
 // (LLM hiccup, brief 5xx) retry, exhaustion surfaces as a thrown step.
 const RETRIES = { limit: 3, delay: "10 seconds", backoff: "exponential" } as const;
-const STEP_TIMEOUT = "5 minutes";
+const RESEARCH_STEP_TIMEOUT = "5 minutes";
+const ARTICLE_STEP_TIMEOUT = "20 minutes";
 
 /**
  * One UTC day of the content agent for a single brand. Durable + checkpointed:
@@ -109,7 +110,7 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
     let researchTopics = 0;
     if (plan.needsResearch) {
       const research = await fatal("research", () =>
-        step.do("research", { retries: RETRIES, timeout: STEP_TIMEOUT }, () =>
+        step.do("research", { retries: RETRIES, timeout: RESEARCH_STEP_TIMEOUT }, () =>
           call<ResearchResult>("/api/agent/research", {
             workspaceId: p.workspaceId,
             brandId: p.brandId,
@@ -142,7 +143,7 @@ export class DailyBrandWorkflow extends WorkflowEntrypoint<AppEnv, Params> {
         try {
           result = await step.do(
             `write:${topicId}`,
-            { retries: RETRIES, timeout: STEP_TIMEOUT },
+            { retries: RETRIES, timeout: ARTICLE_STEP_TIMEOUT },
             () =>
               call<WriteResult>("/api/agent/write-article", {
                 workspaceId: p.workspaceId,

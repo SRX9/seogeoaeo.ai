@@ -19,6 +19,17 @@ export const REQUIRED_PUBLICATION_GATES = [
 export type RequiredPublicationGate = (typeof REQUIRED_PUBLICATION_GATES)[number];
 export type PublicationGateStatus = "passed" | "failed" | "error";
 
+/** Presentation/discovery gates that the explicitly acknowledged fast mode may tolerate. */
+export const FAST_AUTO_EDITORIAL_GATES = [
+  "style_structure",
+  "originality_information_gain",
+  "duplication_cannibalization",
+  "link_validity",
+  "metadata_validity",
+] as const satisfies readonly RequiredPublicationGate[];
+
+const FAST_AUTO_EDITORIAL_GATE_SET = new Set<RequiredPublicationGate>(FAST_AUTO_EDITORIAL_GATES);
+
 export type PublicationGateCheck = {
   status: PublicationGateStatus;
   evaluatorVersion: string;
@@ -52,6 +63,19 @@ export type AggregatedPublicationGate = {
   >;
   blockingReasons: string[];
 };
+
+export function isFastAutoEditorialGate(gate: RequiredPublicationGate): boolean {
+  return FAST_AUTO_EDITORIAL_GATE_SET.has(gate);
+}
+
+export function passesFastAutoPublishGate(aggregate: AggregatedPublicationGate): boolean {
+  return (
+    aggregate.finalContentHash !== null &&
+    REQUIRED_PUBLICATION_GATES.every(
+      (gate) => isFastAutoEditorialGate(gate) || aggregate.gates[gate].status === "passed",
+    )
+  );
+}
 
 function canonicalFinalContent(content: FinalPublicationContent): string {
   return JSON.stringify([

@@ -5,8 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
-import { BillingActions } from "@/components/billing/billing-actions";
+import { BillingPlanActions } from "@/components/billing/billing-plan-actions";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
 import { ChevronRightIcon } from "@/components/icons";
@@ -95,7 +96,7 @@ export function BillingSection() {
                 <Alert.Indicator />
                 <Alert.Content>
                   <Alert.Title>Plan Required</Alert.Title>
-                  <Alert.Description>You need a plan or more credits to continue.</Alert.Description>
+                  <Alert.Description>Choose a plan to give Claudia more monthly work capacity.</Alert.Description>
                 </Alert.Content>
               </Alert>
             ) : null}
@@ -121,7 +122,7 @@ export function BillingSection() {
                   <Card.Description>
                     {active && subscription?.currentPeriodEnd
                       ? `Renews ${formatDate(subscription.currentPeriodEnd, true)}`
-                      : "Upgrade when you are ready for more automation."}
+                      : "Upgrade when you are ready for Claudia to take on recurring work."}
                   </Card.Description>
                 </div>
                 <Button
@@ -142,13 +143,13 @@ export function BillingSection() {
                   </p>
                 </div>
                 <div className="rounded-xl bg-surface-secondary p-4">
-                  <p className="text-xs text-muted">Credits Included</p>
-                  <p className="mt-2 text-2xl font-semibold tabular-nums">
-                    {grant.toLocaleString()}<span className="text-sm font-normal text-muted"> / mo</span>
+                  <p className="text-xs text-muted">Monthly Workload</p>
+                  <p className="mt-2 text-base font-semibold leading-6">
+                    {plan ? plan.name : "Preview only"}
                   </p>
                 </div>
                 <div className="rounded-xl bg-surface-secondary p-4">
-                  <p className="text-xs text-muted">Credits Reset</p>
+                  <p className="text-xs text-muted">Next Cycle</p>
                   <p className="mt-2 text-2xl font-semibold tabular-nums">
                     {resetDays === null ? "—" : resetDays}
                     <span className="text-sm font-normal text-muted"> {resetDays === 1 ? "day" : "days"}</span>
@@ -160,14 +161,14 @@ export function BillingSection() {
             <Card>
               <Card.Header className="flex-row items-start justify-between gap-4">
                 <div>
-                  <Card.Title>Usage This Month</Card.Title>
-                  <Card.Description>{monthlyLeft.toLocaleString()} credits left</Card.Description>
+                  <Card.Title>Monthly Workload</Card.Title>
+                  <Card.Description>{100 - usedPercent}% of this month&apos;s capacity remains</Card.Description>
                 </div>
                 <strong className="text-xl font-semibold tabular-nums">{usedPercent}%</strong>
               </Card.Header>
               <Card.Content>
                 <Meter
-                  aria-label="Monthly credits used"
+                  aria-label="Monthly workload used"
                   color={usedPercent >= 90 ? "danger" : usedPercent >= 80 ? "warning" : "accent"}
                   size="sm"
                   value={usedCredits}
@@ -176,9 +177,8 @@ export function BillingSection() {
                   <Meter.Track><Meter.Fill /></Meter.Track>
                 </Meter>
                 <p className="mt-3 text-sm text-muted">
-                  <span className="font-medium text-foreground tabular-nums">{usedCredits.toLocaleString()}</span>
-                  {` of ${grant.toLocaleString()} credits used`}
-                  {balance.purchased > 0 ? ` · ${balance.purchased.toLocaleString()} top-up credits available` : ""}
+                  Claudia has used <span className="font-medium text-foreground tabular-nums">{usedPercent}%</span> of the included monthly workload.
+                  {balance.purchased > 0 ? " Additional capacity is available if the monthly workload runs out." : ""}
                 </p>
               </Card.Content>
             </Card>
@@ -186,22 +186,22 @@ export function BillingSection() {
             <Card>
               <Card.Header>
                 <Card.Title>Latest Invoices</Card.Title>
-                <Card.Description>Recent plan grants and credit purchases.</Card.Description>
+                <Card.Description>Recent subscription and capacity activity.</Card.Description>
               </Card.Header>
               <Card.Content className="divide-y divide-separator">
                 {billingEntries.length ? billingEntries.map((entry) => (
                   <div key={entry.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground">
-                        {entry.reason === "monthly_grant" ? `${plan?.name ?? "Plan"} Renewal` : "Credit Top-Up"}
+                        {entry.reason === "monthly_grant" ? `${plan?.name ?? "Plan"} renewal` : "Additional capacity"}
                       </p>
                       <p className="mt-1 text-xs text-muted">{formatDate(entry.createdAt, true)}</p>
                     </div>
                     <span className="text-sm font-medium tabular-nums">
-                      {entry.reason === "monthly_grant" && plan ? `$${plan.price.toFixed(2)}` : `${entry.delta.toLocaleString()} credits`}
+                      {entry.reason === "monthly_grant" && plan ? `$${plan.price.toFixed(2)}` : "Added"}
                     </span>
                     {subscription?.hasStripeCustomer ? (
-                      <Button size="sm" variant="secondary" isPending={portalLoading} onPress={openPortal}>Open</Button>
+                      <LoadingButton size="sm" variant="secondary" isPending={portalLoading} onPress={openPortal}>Open</LoadingButton>
                     ) : null}
                   </div>
                 )) : <p className="py-8 text-center text-sm text-muted">No invoices yet.</p>}
@@ -215,13 +215,13 @@ export function BillingSection() {
               <Accordion.Item id="plans">
                 <Accordion.Heading>
                   <Accordion.Trigger>
-                    {active ? "Plan Details" : "Plans and Credit Packs"}
+                    {active ? "Plan Details" : "Choose a Plan"}
                     <Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator>
                   </Accordion.Trigger>
                 </Accordion.Heading>
                 <Accordion.Panel>
                   <Accordion.Body>
-                    <BillingActions currentPlanId={plan?.id ?? null} hasCustomer={Boolean(subscription?.hasStripeCustomer)} />
+                    <BillingPlanActions currentPlanId={plan?.id ?? null} hasCustomer={Boolean(subscription?.hasStripeCustomer)} />
                   </Accordion.Body>
                 </Accordion.Panel>
               </Accordion.Item>

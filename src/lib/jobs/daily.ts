@@ -458,9 +458,9 @@ export async function executeDailySettlementOperation(
   input: SettleInput,
   operation: DailySettlementOperation,
 ): Promise<DailyRunStatus> {
-  const existing = await getDailyRun(scope.brandId, runDate);
-  const status =
-    (existing?.status as DailyRunStatus | undefined) ?? await deriveDailyRunStatus(scope, input);
+  // A replay must be allowed to heal a previously blocked/degraded run. The
+  // old persisted status describes the prior executor, not this settlement.
+  const status = await deriveDailyRunStatus(scope, input);
   const finalWritten = input.writtenToday + input.generated;
 
   switch (operation) {

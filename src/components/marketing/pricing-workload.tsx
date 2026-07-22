@@ -1,14 +1,8 @@
 import { Card } from "@heroui/react/card";
-import {
-  ChartBarIcon,
-  CircleCheckIcon,
-  PenIcon,
-  SearchIcon,
-} from "@/components/icons";
+import { CircleCheckIcon } from "@/components/icons";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { PricingPlans } from "@/components/marketing/pricing-plans";
-import { CREDIT_COSTS } from "@/lib/billing/credits";
 
 const INCLUDED_WORK = [
   "Brand, audience, competitor, and buyer context",
@@ -17,27 +11,6 @@ const INCLUDED_WORK = [
   "Copy-ready coding-agent prompts or step-by-step manual fixes",
   "Search Console evidence and a weekly outcome report",
 ];
-
-const CAPACITY_EXAMPLES = [
-  {
-    icon: PenIcon,
-    title: "Article draft",
-    value: CREDIT_COSTS.article_generation,
-    description: "Research-backed long-form draft in your brand voice.",
-  },
-  {
-    icon: SearchIcon,
-    title: "Research run",
-    value: CREDIT_COSTS.research_run,
-    description: "New opportunities ranked from demand and competitive gaps.",
-  },
-  {
-    icon: ChartBarIcon,
-    title: "Visibility audit",
-    value: CREDIT_COSTS.visibility_audit,
-    description: "A fresh evidence pass across the site, search, and AI readiness.",
-  },
-] as const;
 
 export function PricingWorkload() {
   return (
@@ -55,8 +28,7 @@ export function PricingWorkload() {
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-8 text-muted">
                 Every paid plan includes the same research, judgment, content, prepared fixes,
-                and reporting. Higher tiers add credits, so Claudia can complete more work and
-                monitor a wider surface each month.
+                and reporting. Higher tiers give Claudia a larger monthly workload.
               </p>
             </div>
 
@@ -83,36 +55,6 @@ export function PricingWorkload() {
               <PricingPlans />
             </div>
 
-            <section className="mx-auto mt-20 max-w-5xl" aria-labelledby="capacity-heading">
-              <div className="max-w-2xl">
-                <h2 id="capacity-heading" className="type-title text-2xl text-foreground sm:text-3xl">
-                  How work credits translate into output
-                </h2>
-                <p className="mt-3 text-pretty leading-7 text-muted">
-                  Claudia spends capacity only when she performs heavier work. The article number
-                  on each plan is a maximum comparison; a real month normally mixes several kinds
-                  of work.
-                </p>
-              </div>
-              <div className="mt-8 grid gap-5 md:grid-cols-3">
-                {CAPACITY_EXAMPLES.map((example) => (
-                  <Card key={example.title} variant="transparent" className="rounded-none border-t border-border/60 px-0 py-6">
-                    <example.icon className="size-5 text-accent" />
-                    <Card.Title className="mt-4">{example.title}</Card.Title>
-                    <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                      {example.value} credits
-                    </p>
-                    <Card.Description className="mt-2 leading-6 text-pretty">
-                      {example.description}
-                    </Card.Description>
-                  </Card>
-                ))}
-              </div>
-              <p className="mt-6 max-w-3xl text-sm leading-6 text-muted text-pretty">
-                Prepared site-fix instructions are included within each plan&apos;s workload limits.
-                Purchased top-up credits do not expire.
-              </p>
-            </section>
           </div>
         </section>
       </main>

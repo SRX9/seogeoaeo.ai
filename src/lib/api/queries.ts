@@ -15,7 +15,7 @@ import { apiGet } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/query-keys";
 import { queryPolicy } from "@/lib/api/query-policy";
 import type { BrandIdentitySummary, BrandIntelligenceData } from "@/lib/brand/intelligence-types";
-import type { ClaudiaHomeView } from "@/lib/dashboard/home-view";
+import type { ClaudiaHomeView } from "@/lib/dashboard/claudia-home-view";
 import type { OwnerRequestView } from "@/lib/inbox/owner-request";
 import type { ConnectorCapability } from "@/lib/integrations/capabilities";
 import type {
@@ -137,8 +137,16 @@ export type AutomationStats = {
   writtenToday: number;
   /** Scored topics queued and waiting to be written. */
   pendingTopics: number;
-  /** C4: the next topic she'll write and its traffic thesis. */
-  nextTopic: { title: string; thesis: string | null } | null;
+  /** The highest-priority researched opportunity Claudia can turn into content. */
+  nextTopic: {
+    id: string;
+    title: string;
+    angle: string | null;
+    rationale: string | null;
+    answerFit: string | null;
+    intentTier: string | null;
+    thesis: string | null;
+  } | null;
   /** When the workspace (its content agent) was created. */
   workingSince: string;
   totalRuns: number;
@@ -369,6 +377,11 @@ const visibilityFindingsQueryOptions = () => queryOptions({
   ...queryPolicy.working,
   queryKey: queryKeys.visibilityFindings,
   queryFn: apiQuery<{ findings: VisibilityFinding[] }>("/api/visibility/findings"),
+});
+const checklistQueryOptions = () => queryOptions({
+  ...queryPolicy.working,
+  queryKey: queryKeys.checklist,
+  queryFn: apiQuery<ChecklistFindingsResponse>("/api/visibility/findings?state=all"),
 });
 const siteHealthQueryOptions = () => queryOptions({
   ...queryPolicy.snapshot,
@@ -946,8 +959,23 @@ export type VisibilityFinding = {
   proposedAt?: string | null;
 };
 
+export type CompletedVisibilityFinding = VisibilityFinding & {
+  resolution: "auto_applied" | "user_applied" | "completed" | null;
+  resolvedAt: string | null;
+  verifiedAt: string | null;
+};
+
+export type ChecklistFindingsResponse = {
+  open: VisibilityFinding[];
+  completed: CompletedVisibilityFinding[];
+};
+
 export function useVisibilityFindings() {
   return useQuery({ ...visibilityFindingsQueryOptions(), enabled: useHasBrand() });
+}
+
+export function useChecklist() {
+  return useQuery({ ...checklistQueryOptions(), enabled: useHasBrand() });
 }
 
 /** Site Health checklist (V9): freshest of last audit's snapshot vs a manual refresh. */
@@ -1170,6 +1198,12 @@ export async function prefetchRouteQueries(
         queryClient.prefetchQuery(visibilitySummaryQueryOptions()),
         queryClient.prefetchQuery(visibilityTrafficQueryOptions()),
         queryClient.prefetchQuery(setupRunQueryOptions()),
+      ]);
+      break;
+    case "/checklist":
+      await Promise.all([
+        queryClient.prefetchQuery(checklistQueryOptions()),
+        queryClient.prefetchQuery(brandProfileQueryOptions()),
       ]);
       break;
     case "/reports":

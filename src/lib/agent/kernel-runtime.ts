@@ -11,6 +11,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { authorizeAgentAutonomyAction } from "@/lib/agent/autonomy-rollout";
+import { isAutomaticPublishingMode } from "@/lib/workspace/settings";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import {
@@ -531,7 +532,9 @@ export async function resolveKernelExecutionBoundary(
     };
   }
 
-  const mode: AuthorityMode = brand.autonomyMode === "FULL_AUTO" ? "FULL_AUTO" : "REVIEW";
+  const mode: AuthorityMode = isAutomaticPublishingMode(brand.autonomyMode)
+    ? "FULL_AUTO"
+    : "REVIEW";
   const currentPolicyRevision = getKernelPolicyRevision(
     currentPolicyMaterial(mode, controls),
   );

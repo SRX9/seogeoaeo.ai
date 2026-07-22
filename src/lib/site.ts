@@ -6,15 +6,15 @@
 
 export const SITE_URL = "https://seogeoaeo.ai";
 
-export const SITE_NAME = "seogeoaeo.ai";
+export const SITE_NAME = "SeoGeoAeo AI";
 
 export const SITE_DESCRIPTION =
-  "Claudia is an organic growth operator for SaaS companies and digital brands. She finds the next SEO, AEO, or GEO opportunity, prepares the work, and follows up on results.";
+  "SeoGeoAeo AI gives your business Claudia, an AI employee for organic growth. She finds and prepares SEO, AEO, and GEO work, asks before sensitive changes, and checks the results.";
 
 /** Primary marketing nav, used by the public site header. */
 export const NAV_LINKS = [
   { label: "How she works", href: "/#how-it-works" },
-  { label: "What she does", href: "/#features" },
+  { label: "What you get", href: "/#features" },
   { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "/#faq" },
 ] as const;
@@ -25,7 +25,7 @@ export const FOOTER_LINKS = [
     title: "Product",
     links: [
       { label: "How she works", href: "/#how-it-works" },
-      { label: "What she does", href: "/#features" },
+      { label: "What you get", href: "/#features" },
       { label: "Pricing", href: "/pricing" },
       { label: "Integration guide", href: "/help/integrations" },
     ],
@@ -43,7 +43,7 @@ export const FOOTER_LINKS = [
     title: "Company",
     links: [
       { label: "Sign in", href: "/login" },
-      { label: "Hire Claudia", href: "/login" },
+      { label: "Put Claudia to work", href: "/login" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },

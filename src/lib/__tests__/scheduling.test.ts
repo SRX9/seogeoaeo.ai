@@ -12,6 +12,7 @@ describe("workspace settings", () => {
 
   it("maps autonomy mode to article status", () => {
     expect(articleStatusForAutonomy("FULL_AUTO")).toBe("approved");
+    expect(articleStatusForAutonomy("AUTO_PUBLISH_FAST")).toBe("approved");
     expect(articleStatusForAutonomy("REVIEW")).toBe("draft");
   });
 });

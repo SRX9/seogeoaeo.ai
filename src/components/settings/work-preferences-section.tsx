@@ -4,6 +4,7 @@ import { AlertDialog, Button, Card, Skeleton, toast, useOverlayState } from "@he
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { NotificationsSection } from "@/components/settings/notifications-section";
 import { CalendarIcon, ClaudiaIcon } from "@/components/icons";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { combineQueries, queryKeys, useAgentState, useAutomation } from "@/lib/api/queries";
 import type { SteeringResult } from "@/lib/agent/types";
@@ -93,7 +94,7 @@ export function WorkPreferencesSection() {
                   </div>
                 </Card.Header>
                 <Card.Footer className="p-5 pt-2 sm:p-6 sm:pt-2">
-                  <Button
+                  <LoadingButton
                     fullWidth
                     variant="outline"
                     className="min-h-11 transition-transform active:scale-[0.96]"
@@ -105,7 +106,7 @@ export function WorkPreferencesSection() {
                     }}
                   >
                     {systemPaused ? "Needs account attention" : ownerPaused ? "Resume Claudia" : "Pause Claudia"}
-                  </Button>
+                  </LoadingButton>
                 </Card.Footer>
               </Card>
             </div>
@@ -128,7 +129,7 @@ export function WorkPreferencesSection() {
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">Cancel</Button>
-              <Button slot="close" variant="secondary" onPress={() => steer.mutate("Pause all automation for 7 days.")}>Pause Claudia</Button>
+              <LoadingButton slot="close" variant="secondary" isPending={steer.isPending} onPress={() => steer.mutate("Pause all automation for 7 days.")}>Pause Claudia</LoadingButton>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>
         </AlertDialog.Container>

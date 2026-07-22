@@ -6,9 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { PageHeader } from "@/components/layout/page-header";
-import { GoalsSection } from "@/components/settings/goals-section";
-import { PublishingSection } from "@/components/settings/publishing-section";
-import { WorkPreferencesSection } from "@/components/settings/work-preferences-section";
 
 const BrandSection = dynamic(
   () => import("@/components/settings/brand-section").then((module) => module.BrandSection),
@@ -22,27 +19,27 @@ const BillingSection = dynamic(
   () => import("@/components/settings/billing-section").then((module) => module.BillingSection),
   { loading: () => <SettingsPanelSkeleton /> },
 );
-const AdvancedSettingsSection = dynamic(
-  () => import("@/components/settings/automation-section").then((module) => module.AdvancedSettingsSection),
+const AccountSection = dynamic(
+  () => import("@/components/settings/account-section").then((module) => module.AccountSection),
   { loading: () => <SettingsPanelSkeleton /> },
 );
 
 const tabs = [
   { id: "brand", label: "Brand" },
-  { id: "goals", label: "Goals" },
-  { id: "publishing", label: "Publishing" },
-  { id: "preferences", label: "Work preferences" },
   { id: "integrations", label: "Connections" },
   { id: "billing", label: "Billing" },
-  { id: "advanced", label: "Advanced" },
+  { id: "account", label: "Account" },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
 const TAB_ALIASES: Record<string, TabId> = {
-  automation: "publishing",
+  automation: "brand",
   connections: "integrations",
-  account: "billing",
+  goals: "brand",
+  publishing: "brand",
+  preferences: "brand",
+  advanced: "brand",
 };
 
 function SettingsPanelSkeleton() {
@@ -64,12 +61,9 @@ function selectedTab(requested: string | null): TabId {
 
 function panelFor(tab: TabId) {
   if (tab === "brand") return <BrandSection />;
-  if (tab === "goals") return <GoalsSection />;
-  if (tab === "publishing") return <PublishingSection />;
-  if (tab === "preferences") return <WorkPreferencesSection />;
   if (tab === "integrations") return <IntegrationsSection />;
   if (tab === "billing") return <BillingSection />;
-  return <AdvancedSettingsSection />;
+  return <AccountSection />;
 }
 
 function SettingsContent() {
@@ -81,7 +75,7 @@ function SettingsContent() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <PageHeader
         title="Settings"
-        description="Manage what Claudia knows, what she should prioritize, where she may publish, and how she works."
+        description="Manage your brand, operational connections, plan, and account."
       />
 
       <Tabs

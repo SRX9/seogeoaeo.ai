@@ -45,6 +45,7 @@ import { setupRunOutcome } from "@/lib/jobs/setup-run-outcome";
 import {
   isSetupRunStale,
   MAX_SETUP_RECOVERY_ATTEMPTS,
+  SETUP_DEGRADED_RETRY_DELAY_MS,
   SETUP_FAILED_RETRY_DELAY_MS,
   SETUP_STALE_RUNNING_MS,
   shouldRearmSetupFinalization,
@@ -805,7 +806,7 @@ export async function executeSetupRun(scope: BrandScope, planId: string | null |
 async function rearmSetupRunExecutions(
   runId: string,
   failedKeys: SetupStepKey[],
-  skippedKeys: SetupStepKey[],
+  reopenedKeys: SetupStepKey[],
   rearmFinalize: boolean,
 ) {
   const retryConditions = failedKeys.map((key) =>
@@ -814,7 +815,7 @@ async function rearmSetupRunExecutions(
       eq(agentStepExecutions.status, "permanent_failure"),
     ),
   );
-  const reopenedConditions = skippedKeys.map(
+  const reopenedConditions = reopenedKeys.map(
     (key) => sql`${agentStepExecutions.stepKey} like ${`setup:${key}%`}`,
   );
   const rearmConditions = [...retryConditions, ...reopenedConditions];
@@ -857,39 +858,53 @@ export async function triggerSetupRun(
   scope: BrandScope,
   planId: string | null | undefined,
   run: { id: string },
-  opts: { resume?: boolean } = {},
+  opts: {
+    resume?: boolean;
+    /** Terminal state captured before an automatic compare-and-swap claim. */
+    resumeSnapshot?: NonNullable<Awaited<ReturnType<typeof getSetupRun>>>;
+  } = {},
 ): Promise<"workflow" | "inline"> {
   if (opts.resume) {
     const current = await getSetupRun(scope.brandId);
     if (current) {
-      const terminalResume = current.status === "blocked" || current.status === "failed";
+      const source = opts.resumeSnapshot ?? current;
+      const terminalResume =
+        source.status === "blocked" ||
+        source.status === "failed" ||
+        source.status === "completed_degraded";
       const failedKeys: SetupStepKey[] = [];
-      const skippedKeys: SetupStepKey[] = [];
-      for (const step of current.steps) {
+      const reopenedKeys: SetupStepKey[] = [];
+      for (const step of source.steps) {
         if (step.status === "failed") failedKeys.push(step.key);
-        if (terminalResume && step.status === "skipped") skippedKeys.push(step.key);
+        if (
+          terminalResume &&
+          (step.status === "skipped" || step.status === "pending" || step.degraded === true)
+        ) {
+          reopenedKeys.push(step.key);
+        }
       }
-      const reset = current.steps.map((step) =>
-        terminalResume && step.status === "skipped"
-          ? { ...step, status: "pending" as const, note: undefined }
+      const reset = source.steps.map((step) =>
+        reopenedKeys.includes(step.key)
+          ? { ...step, status: "pending" as const, note: undefined, degraded: false }
           : step,
       );
       if (terminalResume) {
-        // A deliberate owner resume re-arms the automatic-recovery budget.
+        // A deliberate owner resume re-arms the recovery budget. Automatic
+        // recovery already incremented it in the compare-and-swap claim.
         await saveRun(current.id, reset, {
           status: "running",
           recoveryOwner: null,
-          recoveryAttempts: 0,
+          ...(opts.resumeSnapshot ? {} : { recoveryAttempts: 0 }),
         });
       }
       await rearmSetupRunExecutions(
         current.id,
         failedKeys,
-        skippedKeys,
+        reopenedKeys,
         shouldRearmSetupFinalization(
-          current.status,
+          source.status,
           failedKeys.length,
-          skippedKeys.length,
+          reopenedKeys.length,
         ),
       );
     }
@@ -941,9 +956,10 @@ export async function resumeStaleSetupRun(
 ): Promise<boolean> {
   if (!shouldRecoverSetupRun(run)) return false;
   if (run.recoveryAttempts >= MAX_SETUP_RECOVERY_ATTEMPTS) {
+    const terminalStatus = run.status === "completed_degraded" ? "completed_degraded" : "failed";
     const [settled] = await getDb()
       .update(setupRuns)
-      .set({ status: "failed", recoveryOwner: "operator", updatedAt: new Date() })
+      .set({ status: terminalStatus, recoveryOwner: "operator", updatedAt: new Date() })
       .where(and(eq(setupRuns.id, run.id), eq(setupRuns.updatedAt, run.updatedAt)))
       .returning({ id: setupRuns.id });
     if (!settled) return false;
@@ -957,7 +973,7 @@ export async function resumeStaleSetupRun(
     try {
       await notifySetupRunFailure(
         scope,
-        { id: run.id, status: "failed", steps: run.steps },
+        { id: run.id, status: terminalStatus, steps: run.steps },
         `Setup Run exhausted ${run.recoveryAttempts} automatic recovery attempts`,
       );
     } catch (error) {
@@ -983,14 +999,20 @@ export async function resumeStaleSetupRun(
     .returning({ id: setupRuns.id });
   if (claimed.length === 0) return false;
 
-  logInfo(run.status === "failed" ? "setup_run.failed_resumed" : "setup_run.stale_resumed", {
+  const recoveryEvent =
+    run.status === "failed"
+      ? "setup_run.failed_resumed"
+      : run.status === "completed_degraded"
+        ? "setup_run.degraded_resumed"
+        : "setup_run.stale_resumed";
+  logInfo(recoveryEvent, {
     workspaceId: scope.workspaceId,
     brandId: scope.brandId,
     setupRunId: run.id,
     attempt,
     maxAttempts: MAX_SETUP_RECOVERY_ATTEMPTS,
   });
-  await triggerSetupRun(scope, planId, run, { resume: true });
+  await triggerSetupRun(scope, planId, run, { resume: true, resumeSnapshot: run });
   return true;
 }
 
@@ -1003,6 +1025,7 @@ export async function sweepStaleSetupRuns(limit = 20): Promise<{ scanned: number
   const now = Date.now();
   const staleBefore = new Date(now - SETUP_STALE_RUNNING_MS);
   const failedBefore = new Date(now - SETUP_FAILED_RETRY_DELAY_MS);
+  const degradedBefore = new Date(now - SETUP_DEGRADED_RETRY_DELAY_MS);
   const rows = await getDb()
     .select()
     .from(setupRuns)
@@ -1012,6 +1035,14 @@ export async function sweepStaleSetupRuns(limit = 20): Promise<{ scanned: number
         and(
           eq(setupRuns.status, "failed"),
           lte(setupRuns.updatedAt, failedBefore),
+          or(
+            lt(setupRuns.recoveryAttempts, MAX_SETUP_RECOVERY_ATTEMPTS),
+            isNull(setupRuns.recoveryOwner),
+          ),
+        ),
+        and(
+          eq(setupRuns.status, "completed_degraded"),
+          lte(setupRuns.updatedAt, degradedBefore),
           or(
             lt(setupRuns.recoveryAttempts, MAX_SETUP_RECOVERY_ATTEMPTS),
             isNull(setupRuns.recoveryOwner),
@@ -1072,7 +1103,13 @@ export async function igniteWorkspaceSetupRuns(workspaceId: string): Promise<voi
     const scope: BrandScope = { workspaceId, brandId: brand.id };
     try {
       const { run, created } = await startSetupRun(scope);
-      if (created || run.status === "failed" || run.status === "blocked" || isSetupRunStale(run)) {
+      if (
+        created ||
+        run.status === "failed" ||
+        run.status === "blocked" ||
+        run.status === "completed_degraded" ||
+        isSetupRunStale(run)
+      ) {
         await triggerSetupRun(scope, planId, run, { resume: !created });
       }
     } catch (error) {

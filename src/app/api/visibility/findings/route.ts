@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { getApiContext, handleApi, jsonOk, parseBody, readJson } from "@/lib/api/server";
-import { getOpenFindings, setFindingResolved } from "@/lib/visibility/findings-repository";
+import {
+  getCompletedFindings,
+  getOpenFindings,
+  setFindingResolved,
+} from "@/lib/visibility/findings-repository";
 import type { FixCapability, Pillar, Severity } from "@/lib/visibility/types";
 
 /** V8.2: open findings for the fix queue + dismiss/complete. */
@@ -8,6 +12,13 @@ export async function GET(request: Request) {
   return handleApi(async () => {
     const { workspace, brand } = await getApiContext();
     const p = new URL(request.url).searchParams;
+    if (p.get("state") === "all") {
+      const [open, completed] = await Promise.all([
+        getOpenFindings(workspace.id, { brandId: brand?.id }),
+        getCompletedFindings(workspace.id, { brandId: brand?.id }),
+      ]);
+      return jsonOk({ open, completed });
+    }
     const findings = await getOpenFindings(workspace.id, {
       pillar: (p.get("pillar") as Pillar) ?? undefined,
       severity: (p.get("severity") as Severity) ?? undefined,

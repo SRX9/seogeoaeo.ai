@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { CheckIcon, CircleCheckIcon, RefreshIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Section } from "@/components/feedback/section";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useBrandProfile, useSiteHealth, type SiteHealthResponse } from "@/lib/api/queries";
@@ -152,9 +153,9 @@ function RefreshButton({ data }: { data: SiteHealthResponse }) {
   const disabledReason = coolingDown ? "Recently checked. Try again in a few minutes." : outOfRefreshes ? "This week's manual rechecks are used." : undefined;
   return (
     <div>
-      <Button isPending={refresh.isPending} isDisabled={coolingDown || outOfRefreshes} onPress={() => refresh.mutate()}>
+      <LoadingButton isPending={refresh.isPending} isDisabled={coolingDown || outOfRefreshes} onPress={() => refresh.mutate()}>
         <RefreshIcon className="size-4" aria-hidden />Refresh · 5 cr
-      </Button>
+      </LoadingButton>
       {disabledReason ? <p className="mt-2 max-w-xs text-pretty text-xs text-muted">{disabledReason}</p> : null}
       {refresh.isError ? <p className="mt-2 text-sm text-danger" role="alert">{getErrorMessage(refresh.error, "Couldn't refresh the checks.")}</p> : null}
     </div>

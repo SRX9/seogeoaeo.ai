@@ -1,6 +1,7 @@
 "use client";
 
-import { Avatar, Card, Checkbox, Skeleton, Spinner } from "@heroui/react";
+import { Avatar, Card, Checkbox, Skeleton } from "@heroui/react";
+import { ThinkingOrb } from "thinking-orbs";
 import { cn } from "@/lib/cn";
 
 export type CompetitorVisual = {
@@ -65,7 +66,7 @@ export function CompetitorRadar({
       <Card.Content className="flex flex-col gap-4 p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
-            {scanning ? <Spinner size="sm" /> : <span className="size-2 rounded-full bg-accent" />}
+            {scanning ? <ThinkingOrb state="searching" size={20} aria-hidden /> : <span className="size-2 rounded-full bg-accent" />}
           </span>
           <div className="min-w-0">
           <p className="text-sm font-semibold tracking-tight text-foreground">{title}</p>

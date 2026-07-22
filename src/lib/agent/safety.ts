@@ -166,6 +166,14 @@ export function canEnrollNewFullAuto(
   );
 }
 
+/** Fast mode may skip editorial holds, never platform or owner safety controls. */
+export function canEnrollFastAutoPublish(
+  env: SafetyEnvironment = process.env as SafetyEnvironment,
+): boolean {
+  const config = getAgentSafetyConfig(env);
+  return !config.globalKillSwitch && config.publishingEnabled;
+}
+
 /** Fixed workflows remain the default until the goal-kernel rollout gate opens. */
 export function canRunGoalKernel(
   env: SafetyEnvironment = process.env as SafetyEnvironment,

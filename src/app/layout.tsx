@@ -23,8 +23,8 @@ const calSans = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "Claudia: Your Organic Growth Operator | seogeoaeo.ai",
-    template: "%s | seogeoaeo.ai",
+    default: "SeoGeoAeo AI: Your AI Employee for Organic Growth",
+    template: "%s | SeoGeoAeo AI",
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   // Favicon / app icons are generated from the file-based conventions in
   // src/app (favicon.ico, icon0.svg, icon1.png, apple-icon.png).
   openGraph: {
-    title: "Claudia: Your Organic Growth Operator",
+    title: "SeoGeoAeo AI: Your AI Employee for Organic Growth",
     description: SITE_DESCRIPTION,
     url: SITE_URL,
     siteName: SITE_NAME,
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Claudia's SEO and AI visibility workspace on seogeoaeo.ai",
+        alt: "SeoGeoAeo AI organic growth workspace",
       },
     ],
     locale: "en_US",
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Claudia: Your Organic Growth Operator",
+    title: "SeoGeoAeo AI: Your AI Employee for Organic Growth",
     description: SITE_DESCRIPTION,
     images: ["/og-image.png"],
   },

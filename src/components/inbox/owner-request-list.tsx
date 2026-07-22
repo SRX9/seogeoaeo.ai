@@ -15,6 +15,7 @@ import {
   UserInputIcon,
 } from "@/components/icons";
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { queryKeys, type Article } from "@/lib/api/queries";
 import { parseTags } from "@/lib/articles/format";
 import { notifyPublishError, notifyPublishResult } from "@/lib/articles/notify-publish";
@@ -114,7 +115,7 @@ function ActionControl({
   }
 
   return (
-    <Button
+    <LoadingButton
       variant={primary ? "primary" : "secondary"}
       isPending={pending}
       isDisabled={pending}
@@ -122,7 +123,7 @@ function ActionControl({
       onPress={() => onExecute(action)}
     >
       {action.label}
-    </Button>
+    </LoadingButton>
   );
 }
 

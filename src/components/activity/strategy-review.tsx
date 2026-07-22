@@ -16,6 +16,7 @@ import { useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon, XIcon } from "@/components/icons";
 import { SteerClaudia } from "@/components/dashboard/steer-claudia";
 import { StatusText, ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiGet, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys } from "@/lib/api/queries";
 
@@ -182,7 +183,7 @@ export function StrategyReview() {
           <Card.Description>Claudia could not load the current strategy for review.</Card.Description>
         </Card.Header>
         <Card.Footer>
-          <Button variant="outline" onPress={() => strategy.refetch()}>Try Again</Button>
+          <LoadingButton variant="outline" isPending={strategy.isFetching} onPress={() => strategy.refetch()}>Try Again</LoadingButton>
         </Card.Footer>
       </Card>
     );
@@ -382,7 +383,7 @@ export function StrategyReview() {
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <SteerClaudia label="Constrain or pause" size="sm" variant="outline" />
-            <Button
+            <LoadingButton
               size="sm"
               className="min-h-10 active:scale-[0.96] transition-transform"
               isDisabled={Boolean(data.plan.approvedAt) || review.isPending || !canRecordDecision}
@@ -391,7 +392,7 @@ export function StrategyReview() {
             >
               <CheckIcon className="size-4" />
               {data.plan.approvedAt ? "Plan approved" : "Approve plan"}
-            </Button>
+            </LoadingButton>
           </div>
         </div>
       </Card.Footer>

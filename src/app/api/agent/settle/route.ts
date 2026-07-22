@@ -70,7 +70,10 @@ export async function POST(request: Request) {
     {
       workspaceId: body.workspaceId,
       brandId: body.brandId,
-      workflowInstanceId: `daily-${body.brandId}-${body.runDate}`,
+      // Settlement side effects are idempotent, but each physical replay must
+      // execute them with its new result instead of returning the prior
+      // logical run's cached blocked/degraded output.
+      workflowInstanceId: authorization.claims.workflowInstanceId,
       stepKey: `daily-settle:${operation}`,
       workKey: body.runDate,
       input: {

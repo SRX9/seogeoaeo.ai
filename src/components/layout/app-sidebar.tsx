@@ -1,13 +1,20 @@
 "use client";
 
-import { Avatar, Button } from "@heroui/react";
+import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { Sidebar } from "@heroui-pro/react";
 import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { BrandSwitcher } from "@/components/brand/brand-switcher";
-import { SearchIcon } from "@/components/icons";
+import {
+  ChevronUpDownIcon,
+  CreditCardIcon,
+  PlugIcon,
+  SearchIcon,
+  SettingsIcon,
+} from "@/components/icons";
+import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import {
   APP_FOOTER_ITEMS,
   APP_NAV_ITEMS,
@@ -37,6 +44,53 @@ function initials(name: string) {
       .slice(0, 2)
       .join("")
       .toUpperCase() || "U"
+  );
+}
+
+function AccountMenu({ user }: { user: SessionUser }) {
+  const router = useProgressRouter();
+
+  return (
+    <Dropdown>
+      <Button
+        aria-label="Open account and settings"
+        className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-3 px-1 py-1 transition-transform active:scale-[0.96]"
+        variant="ghost"
+      >
+        <Avatar className="size-9 shrink-0">
+          {user.image ? <Avatar.Image alt={user.name} src={user.image} /> : null}
+          <Avatar.Fallback>{initials(user.name)}</Avatar.Fallback>
+        </Avatar>
+        <span className="flex min-w-0 flex-1 flex-col text-left" data-sidebar="label">
+          <span className="truncate text-sm font-medium leading-tight text-foreground">
+            {user.name}
+          </span>
+          <span className="truncate text-xs font-medium leading-tight text-muted">
+            {user.email}
+          </span>
+        </span>
+        <ChevronUpDownIcon className="size-4 shrink-0 text-muted" data-sidebar="label" />
+      </Button>
+      <Dropdown.Popover className="min-w-[240px]" placement="top start">
+        <div className="px-3 pb-1 pt-2 text-xs font-medium text-muted">
+          Account and settings
+        </div>
+        <Dropdown.Menu onAction={(key) => router.push(String(key))}>
+          <Dropdown.Item id="/settings" textValue="Brand settings">
+            <SettingsIcon className="size-4" />
+            <Label>Brand settings</Label>
+          </Dropdown.Item>
+          <Dropdown.Item id="/settings?tab=integrations" textValue="Connections">
+            <PlugIcon className="size-4" />
+            <Label>Connections</Label>
+          </Dropdown.Item>
+          <Dropdown.Item id="/settings?tab=billing" textValue="Billing">
+            <CreditCardIcon className="size-4" />
+            <Label>Billing</Label>
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
   );
 }
 
@@ -175,19 +229,8 @@ function SidebarContents({
             />
           ))}
         </Sidebar.Menu>
-        <div className="mt-2 flex items-center gap-3 px-1 py-1">
-          <Avatar className="size-9 shrink-0">
-            {user.image ? <Avatar.Image alt={user.name} src={user.image} /> : null}
-            <Avatar.Fallback>{initials(user.name)}</Avatar.Fallback>
-          </Avatar>
-          <div className="flex min-w-0 flex-1 flex-col" data-sidebar="label">
-            <span className="truncate text-sm font-medium leading-tight text-foreground">
-              {user.name}
-            </span>
-            <span className="truncate text-xs font-medium leading-tight text-muted">
-              {user.email}
-            </span>
-          </div>
+        <div className="mt-2 flex items-center gap-2 px-1 py-1">
+          <AccountMenu user={user} />
           <ThemeToggle className="shrink-0" />
         </div>
       </Sidebar.Footer>

@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { PenIcon, RefreshIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { Section } from "@/components/feedback/section";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
@@ -110,14 +111,14 @@ function AnswersContent({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" isDisabled={isDisabled} isPending={busy === "seed"} onPress={onEdit}>
+          <LoadingButton variant="secondary" isDisabled={isDisabled} isPending={busy === "seed"} onPress={onEdit}>
             <PenIcon className="size-4" aria-hidden />
             Edit Prompts
-          </Button>
-          <Button isDisabled={isDisabled} isPending={busy === "run"} onPress={onRun}>
+          </LoadingButton>
+          <LoadingButton isDisabled={isDisabled} isPending={busy === "run"} onPress={onRun}>
             <RefreshIcon className="size-4" aria-hidden />
             Run Check
-          </Button>
+          </LoadingButton>
         </div>
       </header>
 
@@ -142,9 +143,9 @@ function AnswersContent({
                 </EmptyState.Description>
               </EmptyState.Header>
               <EmptyState.Content>
-                <Button variant="secondary" isDisabled={isDisabled} isPending={busy === "seed"} onPress={onEdit}>
+                <LoadingButton variant="secondary" isDisabled={isDisabled} isPending={busy === "seed"} onPress={onEdit}>
                   Add Starter Prompts
-                </Button>
+                </LoadingButton>
               </EmptyState.Content>
             </EmptyState>
           ) : (

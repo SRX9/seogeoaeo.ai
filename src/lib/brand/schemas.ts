@@ -81,10 +81,13 @@ export const brandOnboardingSchema = z.object({
   integrationProvider: z.enum(INTEGRATION_PROVIDER_IDS).optional().or(z.literal("")),
   integrationConfig: z.record(z.string().max(500)).optional().default({}),
   integrationSecrets: z.record(z.string().max(1000)).optional().default({}),
-  // The one autonomy question: Autopilot publishes approved articles and prepares site fixes;
-  // Copilot prepares the same work and asks before publishing. Live site changes remain
-  // gated by exact connector capabilities and deterministic authority policy.
-  autonomyMode: z.enum(["FULL_AUTO", "REVIEW"]).optional().default("FULL_AUTO"),
+  // Fast auto-publish may skip editorial holds. Factual grounding, permissions,
+  // destinations, and platform safety controls remain mandatory.
+  autonomyMode: z
+    .enum(["FULL_AUTO", "REVIEW", "AUTO_PUBLISH_FAST"])
+    .optional()
+    .default("REVIEW"),
+  fastAutoPublishAcknowledged: z.boolean().optional().default(false),
   firstOutcome: z.enum(FIRST_OUTCOME_IDS).optional().default(DEFAULT_FIRST_OUTCOME),
 });
 

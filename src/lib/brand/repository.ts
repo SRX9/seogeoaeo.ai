@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { MAX_COMPETITORS, type BrandProfileInput, type CompetitorInput } from "@/lib/brand/schemas";
 import type { AutonomyMode } from "@/lib/workspace/settings";
-import { canEnrollNewFullAuto } from "@/lib/agent/safety";
+import { canEnrollFastAutoPublish, canEnrollNewFullAuto } from "@/lib/agent/safety";
 
 /** A brand always lives inside a workspace; writes need both ids. */
 export type BrandScope = { workspaceId: string; brandId: string };
@@ -94,7 +94,10 @@ export async function createBrand(workspaceId: string, name: string, autonomyMod
   try {
     const requestedMode = autonomyMode ?? sibling?.autonomyMode ?? "REVIEW";
     const effectiveMode =
-      requestedMode === "FULL_AUTO" && !canEnrollNewFullAuto() ? "REVIEW" : requestedMode;
+      (requestedMode === "FULL_AUTO" && !canEnrollNewFullAuto()) ||
+      (requestedMode === "AUTO_PUBLISH_FAST" && !canEnrollFastAutoPublish())
+        ? "REVIEW"
+        : requestedMode;
     const [brand] = await getDb()
       .insert(brands)
       .values({

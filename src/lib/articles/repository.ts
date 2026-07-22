@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, notExists, sql } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
-import { articles, topics } from "@/lib/db/schema";
+import { agentJobs, articles, topics } from "@/lib/db/schema";
 import { slugify } from "@/lib/articles/format";
 import type { ScoredTopic } from "@/lib/research/types";
 
@@ -185,6 +185,54 @@ export async function listArticles(brandId: string) {
     .from(articles)
     .where(eq(articles.brandId, brandId))
     .orderBy(desc(articles.updatedAt));
+}
+
+const STALE_ARTICLE_GENERATION_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Release work abandoned by an evicted or timed-out executor. Topics that
+ * already own an article are intentionally untouched because the normal
+ * idempotent completion path can settle them on replay.
+ */
+export async function sweepStaleArticleGenerations(
+  now: Date = new Date(),
+): Promise<{ topicsReleased: number; jobsFailed: number }> {
+  const staleBefore = new Date(now.getTime() - STALE_ARTICLE_GENERATION_MS);
+  const db = getDb();
+  const releasedTopics = await db
+    .update(topics)
+    .set({ status: "failed", updatedAt: now })
+    .where(
+      and(
+        eq(topics.status, "generating"),
+        lt(topics.updatedAt, staleBefore),
+        notExists(
+          db
+            .select({ id: articles.id })
+            .from(articles)
+            .where(eq(articles.topicId, topics.id)),
+        ),
+      ),
+    )
+    .returning({ id: topics.id });
+
+  const failedJobs = await db
+    .update(agentJobs)
+    .set({
+      status: "failed",
+      message: "Article generation executor stopped before completion; work was released for retry.",
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(agentJobs.kind, "writing"),
+        eq(agentJobs.status, "running"),
+        lt(agentJobs.updatedAt, staleBefore),
+      ),
+    )
+    .returning({ id: agentJobs.id });
+
+  return { topicsReleased: releasedTopics.length, jobsFailed: failedJobs.length };
 }
 
 /** Atomically refuse stale, invalidated, completed, or concurrently claimed work. */

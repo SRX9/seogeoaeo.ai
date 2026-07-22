@@ -1,9 +1,10 @@
 "use client";
 
-import { Button, Card, Input, ListBox, Select, toast } from "@heroui/react";
+import { Card, Input, ListBox, Select, toast } from "@heroui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ShieldIcon } from "@/components/icons";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 
 const POLICY_QUERY_KEY = ["agent", "policies"] as const;
@@ -107,7 +108,7 @@ export function PolicySimulator() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button
+          <LoadingButton
             variant="outline"
             isPending={simulate.isPending}
             isDisabled={!resourceRef.trim()}
@@ -115,7 +116,7 @@ export function PolicySimulator() {
             onPress={() => simulate.mutate()}
           >
             Test action
-          </Button>
+          </LoadingButton>
           {simulate.data ? (
             <p className={simulate.data.decision === "deny" ? "text-sm text-danger" : "text-sm text-muted"}>
               {simulate.data.decision === "no_match" ? "No matching delegation" : simulate.data.decision}. {simulate.data.reason}
@@ -140,15 +141,16 @@ export function PolicySimulator() {
                     {JSON.stringify({ capabilities: policy.capabilities, resources: policy.resources, conditions: policy.conditions })}
                   </p>
                 </div>
-                <Button
+                <LoadingButton
                   variant="ghost"
                   size="sm"
                   isDisabled={revoke.isPending}
+                  isPending={revoke.isPending && revoke.variables === policy.id}
                   className="min-h-10 shrink-0 active:scale-[0.96] transition-transform"
                   onPress={() => revoke.mutate(policy.id)}
                 >
                   Revoke
-                </Button>
+                </LoadingButton>
               </div>
             </div>
           ))}

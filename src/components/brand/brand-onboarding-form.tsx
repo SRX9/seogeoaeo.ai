@@ -1,6 +1,15 @@
 "use client";
 
-import { Alert, Button, Card, Input, Label, TextArea } from "@heroui/react";
+import {
+  Alert,
+  AlertDialog,
+  Button,
+  Card,
+  Input,
+  Label,
+  TextArea,
+  useOverlayState,
+} from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
@@ -23,6 +32,7 @@ import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
+  AlertTriangleIcon,
   ArticlesIcon,
   ChartBarIcon,
   CheckIcon,
@@ -31,6 +41,7 @@ import {
   GlobeIcon,
   LayersIcon,
   SearchIcon,
+  UserInputIcon,
   UsersIcon,
   XIcon,
 } from "@/components/icons";
@@ -52,6 +63,7 @@ import {
   FIRST_OUTCOME_IDS,
   type FirstOutcomeId,
 } from "@/lib/onboarding/first-outcome";
+import type { AutonomyMode } from "@/lib/workspace/settings";
 import styles from "./brand-onboarding-form.module.css";
 
 type Competitor = { name: string; url: string; reason?: string };
@@ -67,6 +79,8 @@ type Fields = {
   seedKeywords: string;
   competitors: Competitor[];
   firstOutcome: FirstOutcomeId;
+  autonomyMode: AutonomyMode;
+  fastAutoPublishAcknowledged: boolean;
 };
 
 type BrandCreatePayload = {
@@ -78,7 +92,8 @@ type BrandCreatePayload = {
   seedKeywords: string;
   competitors: Array<{ name: string; url: string }>;
   useCases: Array<{ job: string; persona: string; industry: string }>;
-  autonomyMode: "FULL_AUTO";
+  autonomyMode: AutonomyMode;
+  fastAutoPublishAcknowledged: boolean;
   firstOutcome: FirstOutcomeId;
   resumeExisting?: boolean;
   checkoutSessionId?: string;
@@ -94,6 +109,8 @@ const INITIAL_FIELDS: Fields = {
   seedKeywords: "",
   competitors: [],
   firstOutcome: DEFAULT_FIRST_OUTCOME,
+  autonomyMode: "FULL_AUTO",
+  fastAutoPublishAcknowledged: false,
 };
 
 const STEPS = [
@@ -108,6 +125,10 @@ const STEPS = [
   {
     title: "What should Claudia improve first?",
     description: "Choose the first priority. Claudia will still support the other outcomes as she works.",
+  },
+  {
+    title: "How should Claudia publish?",
+    description: "Choose the balance between oversight and publishing speed. You can change it later.",
   },
 ] as const;
 
@@ -151,8 +172,37 @@ const OUTCOMES: ReadonlyArray<{
   },
 ];
 
-const DRAFT_KEY = "claudia:onboarding-v3-draft";
-const LEGACY_DRAFT_KEY = "claudia:onboarding-v2-draft";
+const PUBLISHING_MODE_CHOICES: ReadonlyArray<{
+  mode: AutonomyMode;
+  title: string;
+  description: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  recommended?: boolean;
+}> = [
+  {
+    mode: "REVIEW",
+    title: "Review before publishing",
+    description: "Claudia prepares each article and waits for your approval before it goes live.",
+    Icon: UserInputIcon,
+  },
+  {
+    mode: "FULL_AUTO",
+    title: "Publish after quality checks",
+    description: "Claudia publishes automatically only when every content and safety check passes.",
+    Icon: CheckIcon,
+    recommended: true,
+  },
+  {
+    mode: "AUTO_PUBLISH_FAST",
+    title: "Publish fast, skip editorial holds",
+    description:
+      "Highest throughput. Minor style, metadata, originality, duplication, or link issues may go live.",
+    Icon: AlertTriangleIcon,
+  },
+];
+
+const DRAFT_KEY = "claudia:onboarding-v4-draft";
+const LEGACY_DRAFT_KEYS = ["claudia:onboarding-v3-draft", "claudia:onboarding-v2-draft"];
 const POPULAR_PLAN: PlanId = "startup";
 const BRAND_CREATE_TIMEOUT_MS = 30_000;
 
@@ -188,6 +238,12 @@ function normalizeFields(value: unknown): Fields {
   const firstOutcome = FIRST_OUTCOME_IDS.includes(storedOutcome as FirstOutcomeId)
     ? (storedOutcome as FirstOutcomeId)
     : DEFAULT_FIRST_OUTCOME;
+  const storedAutonomyMode = stringValue(candidate.autonomyMode);
+  const autonomyMode: AutonomyMode = ["FULL_AUTO", "REVIEW", "AUTO_PUBLISH_FAST"].includes(
+    storedAutonomyMode,
+  )
+    ? (storedAutonomyMode as AutonomyMode)
+    : "FULL_AUTO";
   const legacyOutcomes = legacyUseCases
     .flatMap((item) =>
       item && typeof item === "object" ? [stringValue((item as Record<string, unknown>).job)] : [],
@@ -206,12 +262,17 @@ function normalizeFields(value: unknown): Fields {
     seedKeywords: stringValue(candidate.seedKeywords),
     competitors: competitors.slice(0, MAX_COMPETITORS),
     firstOutcome,
+    autonomyMode,
+    fastAutoPublishAcknowledged:
+      autonomyMode === "AUTO_PUBLISH_FAST" && candidate.fastAutoPublishAcknowledged === true,
   };
 }
 
 function loadDraft(): Draft | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY) ?? localStorage.getItem(LEGACY_DRAFT_KEY);
+    const raw =
+      localStorage.getItem(DRAFT_KEY) ??
+      LEGACY_DRAFT_KEYS.map((key) => localStorage.getItem(key)).find(Boolean);
     if (!raw) return null;
     const draft = JSON.parse(raw) as Record<string, unknown>;
     return {
@@ -236,7 +297,7 @@ function saveDraft(draft: Draft) {
 function clearDraft() {
   try {
     localStorage.removeItem(DRAFT_KEY);
-    localStorage.removeItem(LEGACY_DRAFT_KEY);
+    for (const key of LEGACY_DRAFT_KEYS) localStorage.removeItem(key);
   } catch {
     // No-op.
   }
@@ -253,7 +314,7 @@ function readBootstrap(): Bootstrap {
 
   return {
     fields: draft?.fields ?? INITIAL_FIELDS,
-    moment: canceled ? 2 : Math.min(2, Math.max(0, draft?.moment ?? 0)),
+    moment: canceled ? 3 : Math.min(3, Math.max(0, draft?.moment ?? 0)),
     phase: finalizing ? "finalizing" : "form",
     checkoutSessionId,
     error: canceled ? "Checkout was canceled. Your setup is still saved." : null,
@@ -299,7 +360,8 @@ function buildPayload(fields: Fields): BrandCreatePayload {
       .filter(Boolean)
       .slice(0, 24)
       .map((job) => ({ job, persona, industry: "" })),
-    autonomyMode: "FULL_AUTO",
+    autonomyMode: fields.autonomyMode,
+    fastAutoPublishAcknowledged: fields.fastAutoPublishAcknowledged,
     firstOutcome: fields.firstOutcome,
   };
 }
@@ -414,7 +476,7 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
 
   const create = useMutation({
     mutationFn: (payload: BrandCreatePayload) =>
-      apiPost<{ brand: { id: string; name: string }; canIgnite: boolean }>(
+      apiPost<{ brand: { id: string; name: string; autonomyMode: AutonomyMode }; canIgnite: boolean }>(
         "/api/brands",
         payload,
         { signal: AbortSignal.timeout(BRAND_CREATE_TIMEOUT_MS) },
@@ -432,7 +494,7 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
                     {
                       id: brand.id,
                       name: brand.name,
-                      autonomyMode: "FULL_AUTO",
+                      autonomyMode: brand.autonomyMode,
                       badgePublic: false,
                       identity: null,
                     },
@@ -467,6 +529,7 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
     setError(null);
     posthog.capture("brand_activation_started", {
       first_outcome: fields.firstOutcome,
+      autonomy_mode: fields.autonomyMode,
       is_checkout_finalization: phase === "finalizing",
     });
     disarmExitGuard();
@@ -535,7 +598,7 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
     setError(null);
     setCheckoutLoading(planId);
     disarmExitGuard();
-    saveDraft({ fields, moment: 2, checkoutSessionId: null });
+    saveDraft({ fields, moment: 3, checkoutSessionId: null });
     try {
       const result = await apiPost<{ url: string }>("/api/billing/checkout", {
         planId,
@@ -643,6 +706,10 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
         setError(null);
         setMoment(2);
       }}
+      onOutcomeConfirm={() => {
+        setError(null);
+        setMoment(3);
+      }}
       onSubmit={submitCreate}
       onCheckout={() => void startCheckout(selectedPlanId)}
     />
@@ -671,6 +738,7 @@ function OnboardingFormShell({
   onAddCompetitor,
   onBack,
   onConfirm,
+  onOutcomeConfirm,
   onSubmit,
   onCheckout,
 }: {
@@ -695,17 +763,19 @@ function OnboardingFormShell({
   onAddCompetitor: () => void;
   onBack: () => void;
   onConfirm: () => void;
+  onOutcomeConfirm: () => void;
   onSubmit: () => void;
   onCheckout: () => void;
 }) {
   const current = STEPS[moment];
+  const confirmFastAutoPublish = useOverlayState();
   return (
     <div className={cn("min-h-dvh bg-background", styles.shell)}>
       <main className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 py-7 sm:px-8 sm:py-10">
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium text-muted tabular-nums">
-              Step {moment + 1} of 3
+              Step {moment + 1} of {STEPS.length}
             </span>
             <span className="hidden items-center gap-1.5 sm:flex" aria-hidden>
               {STEPS.map((step, index) => (
@@ -771,6 +841,13 @@ function OnboardingFormShell({
               setSelectedPlanId={setSelectedPlanId}
             />
           ) : null}
+          {moment === 3 ? (
+            <PublishingModeStep
+              fields={fields}
+              setFields={setFields}
+              onSelectFast={confirmFastAutoPublish.open}
+            />
+          ) : null}
 
           {moment > 0 ? (
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -781,6 +858,11 @@ function OnboardingFormShell({
               {moment === 1 ? (
                 <Button className="min-h-11" isDisabled={busy} onPress={onConfirm}>
                   Yes, this is right
+                  <ArrowRightIcon className="size-4" />
+                </Button>
+              ) : moment === 2 ? (
+                <Button className="min-h-11" isDisabled={busy} onPress={onOutcomeConfirm}>
+                  Continue
                   <ArrowRightIcon className="size-4" />
                 </Button>
               ) : subscribed ? (
@@ -816,6 +898,42 @@ function OnboardingFormShell({
         onStay={onStay}
         onLeave={onLeave}
       />
+
+      <AlertDialog.Backdrop
+        isOpen={confirmFastAutoPublish.isOpen}
+        onOpenChange={confirmFastAutoPublish.setOpen}
+      >
+        <AlertDialog.Container>
+          <AlertDialog.Dialog className="sm:max-w-[480px]">
+            <AlertDialog.CloseTrigger />
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="danger" />
+              <AlertDialog.Heading>Skip editorial publishing holds?</AlertDialog.Heading>
+            </AlertDialog.Header>
+            <AlertDialog.Body>
+              Claudia may publish when style, metadata, originality, duplication, or link checks
+              report issues. Factual grounding, citations, risk controls, permissions, pauses, and
+              destination checks will still block publishing.
+            </AlertDialog.Body>
+            <AlertDialog.Footer>
+              <Button slot="close" variant="tertiary">Keep quality checks</Button>
+              <Button
+                slot="close"
+                variant="danger"
+                onPress={() =>
+                  setFields((value) => ({
+                    ...value,
+                    autonomyMode: "AUTO_PUBLISH_FAST",
+                    fastAutoPublishAcknowledged: true,
+                  }))
+                }
+              >
+                Enable fast auto-publish
+              </Button>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
     </div>
   );
 }
@@ -1193,6 +1311,59 @@ function OutcomeStep({
           <CheckIcon className="size-4" /> Your current plan is ready.
         </p>
       )}
+    </div>
+  );
+}
+
+function PublishingModeStep({
+  fields,
+  setFields,
+  onSelectFast,
+}: {
+  fields: Fields;
+  setFields: React.Dispatch<React.SetStateAction<Fields>>;
+  onSelectFast: () => void;
+}) {
+  return (
+    <div className="mt-8 grid gap-3 lg:grid-cols-3" role="group" aria-label="Publishing mode">
+      {PUBLISHING_MODE_CHOICES.map(({ mode, title, description, Icon, recommended }) => {
+        const selected = fields.autonomyMode === mode;
+        return (
+          <Button
+            key={mode}
+            aria-pressed={selected}
+            variant={selected ? "secondary" : "outline"}
+            className="h-auto min-h-44 justify-start gap-4 whitespace-normal p-5 text-left transition-transform active:scale-[0.96]"
+            onPress={() => {
+              if (mode === "AUTO_PUBLISH_FAST") {
+                if (!selected) onSelectFast();
+                return;
+              }
+              setFields((value) => ({
+                ...value,
+                autonomyMode: mode,
+                fastAutoPublishAcknowledged: false,
+              }));
+            }}
+          >
+            <span
+              className="grid size-11 shrink-0 place-items-center rounded-xl bg-background text-muted"
+              aria-hidden
+            >
+              <Icon className="size-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <strong className="text-sm font-semibold text-foreground">{title}</strong>
+                {recommended ? (
+                  <span className="text-xs font-medium text-success">Recommended</span>
+                ) : null}
+              </span>
+              <span className="mt-2 block text-sm leading-6 text-muted">{description}</span>
+            </span>
+          </Button>
+        );
+      })}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { use } from "react";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { ArrowRightIcon, InsightIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useSetupInProgress, useVisibilityReport, useVisibilitySummary, type VisibilityReport } from "@/lib/api/queries";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
@@ -154,7 +155,7 @@ function ReportCanvas({ model, auditId, previousOverall }: { model: ReportModel;
     <article className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4" aria-labelledby="visibility-report-title">
       <header className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div><h1 id="visibility-report-title" className="type-display text-3xl text-foreground">Visibility Report</h1><p className="mt-2 text-sm text-muted"><a href={model.site} target="_blank" rel="noreferrer" className="font-medium text-link no-underline">{hostLabel(model.site)}</a> · {formatDate(model.generatedAt)} · {auditId.slice(0,8)}</p></div>
-        <div className="flex flex-wrap gap-2"><a className={buttonVariants({ variant: "secondary" })} href={`/api/visibility/${auditId}/pdf`} target="_blank" rel="noreferrer">PDF</a><Button variant="secondary" onPress={() => downloadCsv(model,auditId)}>CSV</Button><Button isPending={runAudit.isPending} isDisabled={setupInProgress} onPress={()=>runAudit.mutate()}><InsightIcon className="size-4" />Run Audit · {CREDIT_COSTS.visibility_audit} cr</Button></div>
+        <div className="flex flex-wrap gap-2"><a className={buttonVariants({ variant: "secondary" })} href={`/api/visibility/${auditId}/pdf`} target="_blank" rel="noreferrer">PDF</a><Button variant="secondary" onPress={() => downloadCsv(model,auditId)}>CSV</Button><LoadingButton isPending={runAudit.isPending} isDisabled={setupInProgress} onPress={()=>runAudit.mutate()}><InsightIcon className="size-4" />Run Audit · {CREDIT_COSTS.visibility_audit} cr</LoadingButton></div>
       </header>
       <OverviewCard model={model} delta={delta} />
       <QuickWins model={model} />

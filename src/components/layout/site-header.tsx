@@ -1,96 +1,133 @@
 "use client";
 
-import { buttonVariants } from "@heroui/react/button";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { ArrowRightIcon, MenuIcon, SgaLogo, XIcon } from "@/components/icons";
 import { authClient } from "@/lib/auth/client";
 import { cn } from "@/lib/cn";
-import { SgaLogo } from "@/components/icons";
 import { NAV_LINKS } from "@/lib/site";
 
 type SiteHeaderProps = {
   className?: string;
+  variant?: "default" | "overlay";
 };
 
-export function SiteHeader({ className }: SiteHeaderProps) {
+export function SiteHeader({ className, variant = "default" }: SiteHeaderProps) {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
-    const updateScrollState = () => {
-      const nextScrolled = window.scrollY > 8;
-      setScrolled((currentScrolled) =>
-        currentScrolled === nextScrolled ? currentScrolled : nextScrolled,
-      );
-    };
-
+    const updateScrollState = () => setScrolled(window.scrollY > 24);
     updateScrollState();
     window.addEventListener("scroll", updateScrollState, { passive: true });
-
     return () => window.removeEventListener("scroll", updateScrollState);
   }, []);
-  // Logged-in visitors get a single "Open dashboard" CTA instead of the
-  // sign-in/sign-up pair. While the session is resolving we keep the logged-out
-  // CTAs (the common case for a marketing page) to avoid a layout jump.
-  const { data: session } = authClient.useSession();
+
+  const overHero = variant === "overlay" && !scrolled && !menuOpen;
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-[background-color,border-color,box-shadow,backdrop-filter,height] duration-ui ease-out-strong",
-        scrolled
-          ? "material-chrome scroll-edge relative border-transparent"
-          : "border-b border-transparent bg-transparent",
+        "fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow,backdrop-filter] duration-300",
+        overHero
+          ? "bg-transparent text-white"
+          : "bg-background/92 text-foreground shadow-[0_1px_0_color-mix(in_oklab,var(--border)_65%,transparent)] backdrop-blur-xl",
         className,
       )}
     >
-      <div
-        className={cn(
-          "mx-auto flex max-w-6xl items-center justify-between px-4 transition-[height] duration-ui ease-out-strong",
-          scrolled ? "h-14" : "h-20",
-        )}
-      >
+      <div className="mx-auto flex h-[4.75rem] max-w-[90rem] items-center justify-between px-5 sm:px-8 lg:px-12">
         <Link
           href="/"
-          aria-label="seogeoaeo.ai home"
+          aria-label="SeoGeoAeo AI home"
           className={cn(
-            "origin-left rounded-lg transition-transform duration-ui ease-out-strong motion-reduce:transition-none",
-            scrolled ? "scale-[0.88]" : "scale-100",
+            "rounded-md outline-none transition-[opacity,transform] hover:opacity-80 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-current",
+            overHero && "[&_div]:text-white [&_span]:text-white/55",
           )}
         >
-          <SgaLogo />
+          <SgaLogo iconClassName="size-8" />
         </Link>
-        <nav className="flex items-center gap-1 sm:gap-2">
-          <div className="mr-2 hidden items-center gap-0.5 lg:flex">
+
+        <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current",
+                overHero ? "text-white/68 hover:text-white" : "text-muted hover:text-foreground",
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href={session ? "/dashboard" : "/login"}
+            className={cn(
+              "hidden min-h-11 items-center px-3 text-sm font-medium transition-colors sm:inline-flex",
+              overHero ? "text-white/72 hover:text-white" : "text-muted hover:text-foreground",
+            )}
+          >
+            {session ? "Dashboard" : "Sign in"}
+          </Link>
+          <Link
+            href={session ? "/dashboard" : "/login"}
+            className={cn(
+              "hidden min-h-11 items-center gap-2 rounded-md px-4 text-sm font-semibold transition-[background-color,color,transform] active:scale-[0.96] sm:inline-flex",
+              overHero ? "bg-white text-zinc-950 hover:bg-white/88" : "bg-foreground text-background hover:opacity-88",
+            )}
+          >
+            {session ? "Open workspace" : "Start free"}
+            <ArrowRightIcon className="size-4" />
+          </Link>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+            onClick={() => setMenuOpen((open) => !open)}
+            className={cn(
+              "relative grid size-11 place-items-center rounded-md transition-[background-color,transform] active:scale-[0.96] lg:hidden",
+              overHero ? "bg-white/10 text-white backdrop-blur-md" : "bg-default text-foreground",
+            )}
+          >
+            <MenuIcon className={cn("size-5 transition-[opacity,scale,filter]", menuOpen && "scale-25 opacity-0 blur-sm")} />
+            <XIcon className={cn("absolute size-5 scale-25 opacity-0 blur-sm transition-[opacity,scale,filter]", menuOpen && "scale-100 opacity-100 blur-none")} />
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "grid overflow-hidden bg-background transition-[grid-template-rows,opacity] duration-300 lg:hidden",
+          menuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
+        )}
+      >
+        <div className="min-h-0">
+          <nav aria-label="Mobile navigation" className="mx-5 border-t border-border py-4 sm:mx-8">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="pressable rounded-full px-3 py-2 text-sm font-medium tracking-[0.01em] text-muted hover-fine:bg-default/50 hover-fine:text-foreground"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-12 items-center justify-between border-b border-border/60 text-base font-medium text-foreground"
               >
                 {link.label}
+                <ArrowRightIcon className="size-4 text-muted" />
               </Link>
             ))}
-          </div>
-          <ThemeToggle />
-          {session ? (
-            <Link href="/dashboard" className={buttonVariants()}>
-              Open Claudia
-            </Link>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
-              >
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Link href="/login" className="grid min-h-11 place-items-center rounded-md border border-border text-sm font-semibold text-foreground">
                 Sign in
               </Link>
-              <Link href="/login" className={buttonVariants()}>
-                Hire Claudia
+              <Link href="/login" className="grid min-h-11 place-items-center rounded-md bg-foreground text-sm font-semibold text-background">
+                Start free
               </Link>
-            </>
-          )}
-        </nav>
+            </div>
+          </nav>
+        </div>
       </div>
     </header>
   );

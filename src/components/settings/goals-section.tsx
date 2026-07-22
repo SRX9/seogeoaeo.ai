@@ -1,10 +1,11 @@
 "use client";
 
-import { Button, Card, Skeleton, toast } from "@heroui/react";
+import { Card, Skeleton, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Section } from "@/components/feedback/section";
 import { CheckIcon, GaugeIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPatch, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useGoal } from "@/lib/api/queries";
 import type { FirstOutcomeId } from "@/lib/onboarding/first-outcome";
@@ -75,7 +76,7 @@ export function GoalsSection() {
               const selected = data.goal.selectedGoal === option.id;
               const busy = update.isPending && update.variables === option.id;
               return (
-                <Button
+                <LoadingButton
                   key={option.id}
                   variant={selected ? "secondary" : "outline"}
                   className="h-auto min-h-28 justify-start gap-4 whitespace-normal p-5 text-left transition-transform active:scale-[0.96]"
@@ -93,7 +94,7 @@ export function GoalsSection() {
                     <strong className="block text-sm font-semibold text-foreground">{option.label}</strong>
                     <span className="mt-1 block text-xs leading-5 text-muted">{option.description}</span>
                   </span>
-                </Button>
+                </LoadingButton>
               );
             })}
           </div>

@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { ClaudiaIcon } from "@/components/icons";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import {
   isAskProposal,
@@ -76,15 +77,17 @@ export function AskClaudia({ className }: AskClaudiaProps) {
             <Sheet.Body className="space-y-5">
               <div className="space-y-1" aria-label="Suggested questions">
                 {SUGGESTED_INTENTS.map((intent) => (
-                  <Button
+                  <LoadingButton
                     key={intent.id}
                     className="min-h-11 w-full justify-start px-2 text-left transition-transform active:scale-[0.96]"
                     size="sm"
                     variant="ghost"
+                    isPending={ask.isPending && ask.variables?.intent === intent.id}
+                    isDisabled={ask.isPending}
                     onPress={() => ask.mutate({ intent: intent.id })}
                   >
                     {intent.label}
-                  </Button>
+                  </LoadingButton>
                 ))}
               </div>
 
@@ -164,9 +167,9 @@ export function AskClaudia({ className }: AskClaudiaProps) {
               <Sheet.Close>
                 <Button variant="ghost">Close</Button>
               </Sheet.Close>
-              <Button isDisabled={!message.trim()} isPending={ask.isPending} onPress={submit}>
+              <LoadingButton isDisabled={!message.trim()} isPending={ask.isPending} onPress={submit}>
                 {ask.isPending ? "Checking…" : "Ask"}
-              </Button>
+              </LoadingButton>
             </Sheet.Footer>
           </Sheet.Dialog>
         </Sheet.Content>

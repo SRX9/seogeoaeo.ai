@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with the seogeoaeo.ai team for account, billing, privacy, or product questions.",
+    "Get in touch with the SeoGeoAeo AI team for account, billing, privacy, or product questions.",
   alternates: { canonical: `${SITE_URL}/contact` },
 };
 
@@ -35,7 +35,7 @@ export default async function ContactPage() {
     <LegalShell
       title="Contact"
       lastUpdated="July 21, 2026"
-      intro="Need help with seogeoaeo.ai? We are happy to point you in the right direction."
+      intro="Need help with SeoGeoAeo AI? We are happy to point you in the right direction."
       sections={sections}
       category="Support"
     >

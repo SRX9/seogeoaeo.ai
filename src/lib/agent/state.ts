@@ -220,7 +220,7 @@ export async function getAgentState(
         title: `Approve ${approval.actionType}`,
         blockedValue: approval.expectedBenefit,
         actionLabel: "Review decision",
-        href: "/inbox",
+        href: "/dashboard#needs-input",
         kind: "approval" as const,
       }
       : recoveryTasks[0]
@@ -228,8 +228,8 @@ export async function getAgentState(
           id: recoveryTasks[0].id,
           title: "Recover a stalled task",
           blockedValue: recoveryTasks[0].expectedImpact ?? recoveryTasks[0].reason,
-          actionLabel: "Open work log",
-          href: "/activity",
+          actionLabel: "Open Claudia",
+          href: "/dashboard",
           kind: "recovery" as const,
         }
       : draftRows[0]
@@ -246,8 +246,8 @@ export async function getAgentState(
               id: installReady[0].id,
               title: installReady.length === 1 ? installReady[0].title : `Install ${installReady.length} prepared fixes`,
               blockedValue: installReady[0].recommendation,
-              actionLabel: "Review fixes",
-              href: "/visibility/fixes",
+              actionLabel: "Review checklist",
+              href: "/checklist",
               kind: "decision" as const,
             }
           : missingGsc

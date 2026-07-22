@@ -17,6 +17,23 @@ const nextConfig: NextConfig = {
       { source: "/ingest/:path*", destination: `${posthogHost}/:path*` },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/visibility", destination: "/checklist", permanent: false },
+      { source: "/visibility/:path*", destination: "/checklist", permanent: false },
+      { source: "/reports", destination: "/checklist", permanent: false },
+      { source: "/reports/:path*", destination: "/checklist", permanent: false },
+      { source: "/tools", destination: "/checklist", permanent: false },
+      { source: "/tools/:path*", destination: "/checklist", permanent: false },
+      { source: "/activity", destination: "/dashboard", permanent: false },
+      { source: "/activity/:path*", destination: "/dashboard", permanent: false },
+      { source: "/work", destination: "/dashboard", permanent: false },
+      { source: "/work/:path*", destination: "/dashboard", permanent: false },
+      { source: "/topics", destination: "/articles?view=ideas", permanent: false },
+      { source: "/topics/:path*", destination: "/articles?view=ideas", permanent: false },
+      { source: "/inbox", destination: "/dashboard#needs-input", permanent: false },
+    ];
+  },
   skipTrailingSlashRedirect: true,
   images: {
     remotePatterns: [

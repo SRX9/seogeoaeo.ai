@@ -1,10 +1,9 @@
 import type { ComponentType } from "react";
 import {
   ArticlesIcon,
-  ChartBarIcon,
+  CheckIcon,
   ClaudiaIcon,
   HelpIcon,
-  SettingsIcon,
 } from "@/components/icons";
 
 export type AppNavItem = {
@@ -16,8 +15,7 @@ export type AppNavItem = {
 export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { href: "/dashboard", label: "Claudia", icon: ClaudiaIcon },
   { href: "/articles", label: "Content", icon: ArticlesIcon },
-  { href: "/visibility", label: "Results", icon: ChartBarIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
+  { href: "/checklist", label: "Checklist", icon: CheckIcon },
 ];
 
 export const APP_FOOTER_ITEMS: readonly AppNavItem[] = [
@@ -25,20 +23,15 @@ export const APP_FOOTER_ITEMS: readonly AppNavItem[] = [
 ];
 
 const ROUTE_TITLES = [
-  { prefix: "/inbox", title: "Needs your input" },
-  { prefix: "/activity", title: "Activity" },
-  { prefix: "/work", title: "Activity" },
-  { prefix: "/topics", title: "Content ideas" },
-  { prefix: "/visibility/answers", title: "AI Answers" },
-  { prefix: "/visibility/fixes", title: "Fix Queue" },
-  { prefix: "/visibility/health", title: "Site Health" },
-  { prefix: "/visibility/", title: "Visibility Report" },
-  { prefix: "/articles/", title: "Article Editor" },
-  { prefix: "/reports/", title: "Weekly Report" },
-  { prefix: "/reports", title: "Results" },
-  { prefix: "/tools/explore", title: "Explore Tools" },
-  { prefix: "/tools/", title: "Tool" },
-  { prefix: "/tools", title: "Advanced" },
+  { prefix: "/activity", title: "Claudia" },
+  { prefix: "/work", title: "Claudia" },
+  { prefix: "/topics", title: "Content" },
+  { prefix: "/articles/", title: "Content" },
+  { prefix: "/visibility", title: "Checklist" },
+  { prefix: "/reports", title: "Checklist" },
+  { prefix: "/tools", title: "Checklist" },
+  { prefix: "/settings", title: "Settings" },
+  { prefix: "/account", title: "Settings" },
 ] as const;
 
 export function appRouteTitle(pathname: string, firstName: string) {
@@ -63,8 +56,8 @@ export function isAppRouteCurrent(pathname: string, href: string) {
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
   }
-  if (href === "/visibility") {
-    return ["/visibility", "/reports"].some(
+  if (href === "/checklist") {
+    return ["/checklist", "/visibility", "/reports", "/tools"].some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
   }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import {
-  ContentEmployee,
   Faq,
   Features,
   FinalCta,
@@ -13,7 +12,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Claudia: Your Organic Growth Operator",
+  title: "Your AI Employee for Organic Growth",
   description: SITE_DESCRIPTION,
   alternates: { canonical: SITE_URL },
 };
@@ -38,8 +37,8 @@ const structuredData = {
     },
     {
       "@type": "SoftwareApplication",
-      "@id": `${SITE_URL}/#claudia`,
-      name: "Claudia",
+      "@id": `${SITE_URL}/#software`,
+      name: SITE_NAME,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       url: SITE_URL,
@@ -57,12 +56,11 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <SiteHeader />
+      <SiteHeader variant="overlay" />
       <main>
         <Hero />
         <Features />
         <HowItWorks />
-        <ContentEmployee />
         <Pricing />
         <Faq />
         <FinalCta />

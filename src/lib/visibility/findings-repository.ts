@@ -26,6 +26,12 @@ export interface OpenFinding {
   createdAt: Date;
 }
 
+export interface CompletedFinding extends OpenFinding {
+  resolution: FindingResolution | null;
+  resolvedAt: Date | null;
+  verifiedAt: Date | null;
+}
+
 const SEVERITY_RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 /** Dedupe by (category, title) keeping the most-severe (then newest) instance. */
@@ -178,6 +184,53 @@ export async function getOpenFindings(workspaceId: string, filters: FindingFilte
   if (filters.severity) findings = findings.filter((f) => f.severity === filters.severity);
   if (filters.capability) findings = findings.filter((f) => f.fixCapability === filters.capability);
   return findings;
+}
+
+/** Completed customer work, excluding dismissed findings, newest first. */
+export async function getCompletedFindings(
+  workspaceId: string,
+  filters: Pick<FindingFilters, "brandId"> = {},
+): Promise<CompletedFinding[]> {
+  const conditions = [
+    eq(auditFindings.workspaceId, workspaceId),
+    eq(auditFindings.isResolved, true),
+  ];
+  if (filters.brandId) conditions.push(eq(auditFindings.brandId, filters.brandId));
+
+  const rows = await getDb()
+    .select({
+      id: auditFindings.id,
+      auditId: auditFindings.auditId,
+      pillar: auditFindings.pillar,
+      category: auditFindings.category,
+      severity: auditFindings.severity,
+      title: auditFindings.title,
+      recommendation: auditFindings.recommendation,
+      fixCapability: auditFindings.fixCapability,
+      fixPayload: auditFindings.fixPayload,
+      proposedAt: auditFindings.proposedAt,
+      createdAt: auditFindings.createdAt,
+      resolution: auditFindings.resolution,
+      resolvedAt: auditFindings.resolvedAt,
+      verifiedAt: auditFindings.verifiedAt,
+    })
+    .from(auditFindings)
+    .where(and(...conditions))
+    .orderBy(desc(auditFindings.resolvedAt), desc(auditFindings.createdAt));
+
+  const completed: CompletedFinding[] = [];
+  for (const row of rows) {
+    if (row.resolution === "dismissed") continue;
+    completed.push({
+      ...row,
+      auditId: row.auditId ?? "",
+      pillar: row.pillar as Pillar,
+      severity: row.severity as Severity,
+      fixCapability: row.fixCapability as FixCapability | null,
+      resolution: row.resolution as FindingResolution | null,
+    });
+  }
+  return completed;
 }
 
 /** Mark a finding resolved (manual complete / won't-fix dismissal) or reopen it. */

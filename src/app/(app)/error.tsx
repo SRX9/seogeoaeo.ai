@@ -1,8 +1,9 @@
 "use client";
 
 import { Button, Card } from "@heroui/react";
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import posthog from "posthog-js";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { logError } from "@/lib/logging/logger";
 
 type ErrorPageProps = {
@@ -11,6 +12,7 @@ type ErrorPageProps = {
 };
 
 export default function AppError({ error, reset }: ErrorPageProps) {
+  const [isRetrying, startRetry] = useTransition();
   useEffect(() => {
     logError("ui.error_boundary", {
       message: error.message,
@@ -29,7 +31,7 @@ export default function AppError({ error, reset }: ErrorPageProps) {
           </Card.Description>
         </Card.Header>
         <Card.Footer className="flex-wrap justify-center gap-2">
-          <Button onPress={reset}>Try again</Button>
+          <LoadingButton isPending={isRetrying} onPress={() => startRetry(reset)}>Try again</LoadingButton>
           <Button variant="outline" onPress={() => window.location.assign("/dashboard")}>
             Go to dashboard
           </Button>

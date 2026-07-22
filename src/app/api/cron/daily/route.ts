@@ -32,6 +32,7 @@ import {
 } from "@/lib/grounding/repository";
 import { evaluateOperationalSlos } from "@/lib/observability/slos";
 import { purgeExpiredTraceSpans } from "@/lib/observability/trace";
+import { sweepStaleArticleGenerations } from "@/lib/articles/repository";
 
 /**
  * Daily enumerator. Cloudflare's scheduled handler POSTs here once a day; this
@@ -100,6 +101,22 @@ export async function GET(request: Request) {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+  let articleGenerationSweep: Awaited<
+    ReturnType<typeof sweepStaleArticleGenerations>
+  > | null = null;
+  try {
+    articleGenerationSweep = await sweepStaleArticleGenerations();
+    if (
+      articleGenerationSweep.topicsReleased > 0 ||
+      articleGenerationSweep.jobsFailed > 0
+    ) {
+      logWarn("cron.daily.stale_article_generation_swept", articleGenerationSweep);
+    }
+  } catch (error) {
+    logError("cron.daily.stale_article_generation_sweep_failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
   const connectorRecoveries = { checked: 0, restarted: 0, failed: 0 };
   try {
     const recoverable = await listRecoverableConnectorMutations(25);
@@ -141,6 +158,7 @@ export async function GET(request: Request) {
       memoryCorrections,
       connectorHealth,
       connectorRecoveries,
+      articleGenerationSweep,
       sloBreaches: sloEvaluation?.breached.map((item) => item.key) ?? null,
     });
   }
@@ -334,6 +352,7 @@ export async function GET(request: Request) {
     memoryCorrections,
     connectorHealth,
     connectorRecoveries,
+    articleGenerationSweep,
     sloBreaches: sloEvaluation?.breached.map((item) => item.key) ?? null,
   });
 
@@ -354,6 +373,7 @@ export async function GET(request: Request) {
         memoryCorrections,
         connectorHealth,
         connectorRecoveries,
+        articleGenerationSweep,
       },
       { status: 500 },
     );
@@ -369,6 +389,7 @@ export async function GET(request: Request) {
     memoryCorrections,
     connectorHealth,
     connectorRecoveries,
+    articleGenerationSweep,
   });
 }
 

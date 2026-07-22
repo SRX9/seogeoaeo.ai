@@ -6,13 +6,26 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { Section } from "@/components/feedback/section";
-import { ArrowRightIcon, CheckIcon, GlobeIcon, UserInputIcon } from "@/components/icons";
+import {
+  AlertTriangleIcon,
+  ArrowRightIcon,
+  CheckIcon,
+  GlobeIcon,
+  UserInputIcon,
+} from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { apiPatch, getErrorMessage } from "@/lib/api/fetcher";
 import { combineQueries, queryKeys, useIntegrations, useMe } from "@/lib/api/queries";
 import { cn } from "@/lib/cn";
+import type { AutonomyMode } from "@/lib/workspace/settings";
 
-type PublishingPreference = "FULL_AUTO" | "REVIEW";
+type PublishingPreference = AutonomyMode;
+type PublishingUpdate = {
+  autonomyMode: PublishingPreference;
+  previous: PublishingPreference;
+  fastAutoPublishAcknowledged?: boolean;
+};
 
 function PublishingSkeleton() {
   return (
@@ -29,6 +42,7 @@ function PreferenceChoice({
   description,
   icon,
   disabled,
+  pending,
   onPress,
 }: {
   selected: boolean;
@@ -36,14 +50,16 @@ function PreferenceChoice({
   description: string;
   icon: React.ReactNode;
   disabled: boolean;
+  pending: boolean;
   onPress: () => void;
 }) {
   return (
-    <Button
+    <LoadingButton
       variant={selected ? "secondary" : "outline"}
       className="h-auto min-h-32 justify-start gap-4 whitespace-normal p-5 text-left transition-transform active:scale-[0.96]"
       aria-pressed={selected}
       isDisabled={disabled}
+      isPending={pending}
       onPress={onPress}
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
@@ -53,7 +69,7 @@ function PreferenceChoice({
         <strong className="block text-sm font-semibold text-foreground">{title}</strong>
         <span className="mt-1 block text-xs leading-5 text-muted">{description}</span>
       </span>
-    </Button>
+    </LoadingButton>
   );
 }
 
@@ -61,6 +77,7 @@ export function PublishingSection() {
   const query = combineQueries(useMe(), useIntegrations());
   const queryClient = useQueryClient();
   const confirmAutomatic = useOverlayState();
+  const confirmFast = useOverlayState();
 
   return (
     <Section query={query} skeleton={<PublishingSkeleton />} errorLabel="Couldn't load publishing settings.">
@@ -76,6 +93,7 @@ export function PublishingSection() {
               (item) => item.enabled && item.requirementsMet,
             ).map((item) => item.name)}
             confirmAutomatic={confirmAutomatic}
+            confirmFast={confirmFast}
             queryClient={queryClient}
           />
         );
@@ -89,40 +107,51 @@ function PublishingPreferences({
   currentMode,
   connectedDestinations,
   confirmAutomatic,
+  confirmFast,
   queryClient,
 }: {
   brandId: string;
   currentMode: string;
   connectedDestinations: string[];
   confirmAutomatic: ReturnType<typeof useOverlayState>;
+  confirmFast: ReturnType<typeof useOverlayState>;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
   const [preference, setPreference] = useState<PublishingPreference>(
-    currentMode === "FULL_AUTO" ? "FULL_AUTO" : "REVIEW",
+    currentMode === "FULL_AUTO" || currentMode === "AUTO_PUBLISH_FAST"
+      ? currentMode
+      : "REVIEW",
   );
   const update = useMutation({
-    mutationFn: (autonomyMode: PublishingPreference) =>
-      apiPatch("/api/brand/settings", { brandId, autonomyMode }),
-    onSuccess: (_data, autonomyMode) => {
+    mutationFn: ({ autonomyMode, fastAutoPublishAcknowledged }: PublishingUpdate) =>
+      apiPatch("/api/brand/settings", {
+        brandId,
+        autonomyMode,
+        ...(fastAutoPublishAcknowledged ? { fastAutoPublishAcknowledged: true } : {}),
+      }),
+    onSuccess: (_data, { autonomyMode }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.me });
       void queryClient.invalidateQueries({ queryKey: queryKeys.automation });
       void queryClient.invalidateQueries({ queryKey: queryKeys.brandAutonomy });
       toast.success(
         autonomyMode === "FULL_AUTO"
           ? "Claudia will publish automatically after quality checks."
-          : "Claudia will ask you to review content before publishing.",
+          : autonomyMode === "AUTO_PUBLISH_FAST"
+            ? "Fast auto-publish is enabled. Mandatory factual and safety checks still apply."
+            : "Claudia will ask you to review content before publishing.",
       );
     },
-    onError: (error, autonomyMode) => {
-      setPreference(autonomyMode === "FULL_AUTO" ? "REVIEW" : "FULL_AUTO");
+    onError: (error, { previous }) => {
+      setPreference(previous);
       toast.danger(getErrorMessage(error, "Could not update publishing."));
     },
   });
 
-  function apply(next: PublishingPreference) {
+  function apply(next: PublishingPreference, fastAutoPublishAcknowledged = false) {
     if (next === preference || update.isPending) return;
+    const previous = preference;
     setPreference(next);
-    update.mutate(next);
+    update.mutate({ autonomyMode: next, previous, fastAutoPublishAcknowledged });
   }
 
   return (
@@ -132,13 +161,14 @@ function PublishingPreferences({
           <Card.Title>How should Claudia publish?</Card.Title>
           <Card.Description>Choose once. You can change this whenever you need.</Card.Description>
         </Card.Header>
-        <Card.Content className="grid gap-3 p-5 pt-2 sm:grid-cols-2 sm:p-6 sm:pt-2">
+        <Card.Content className="grid gap-3 p-5 pt-2 lg:grid-cols-3 sm:p-6 sm:pt-2">
           <PreferenceChoice
             selected={preference === "FULL_AUTO"}
             title="Publish automatically after quality checks"
             description="Claudia publishes approved content to connected destinations without waiting."
             icon={<CheckIcon className="size-4" />}
             disabled={update.isPending}
+            pending={update.isPending && update.variables?.autonomyMode === "FULL_AUTO"}
             onPress={() => {
               if (preference !== "FULL_AUTO") confirmAutomatic.open();
             }}
@@ -149,7 +179,19 @@ function PublishingPreferences({
             description="Claudia prepares content and asks for your decision before it goes live."
             icon={<UserInputIcon className="size-4" />}
             disabled={update.isPending}
+            pending={update.isPending && update.variables?.autonomyMode === "REVIEW"}
             onPress={() => apply("REVIEW")}
+          />
+          <PreferenceChoice
+            selected={preference === "AUTO_PUBLISH_FAST"}
+            title="Publish fast, skip editorial holds"
+            description="Minor style, metadata, originality, duplication, or link issues may go live."
+            icon={<AlertTriangleIcon className="size-4" />}
+            disabled={update.isPending}
+            pending={update.isPending && update.variables?.autonomyMode === "AUTO_PUBLISH_FAST"}
+            onPress={() => {
+              if (preference !== "AUTO_PUBLISH_FAST") confirmFast.open();
+            }}
           />
         </Card.Content>
       </Card>
@@ -199,7 +241,35 @@ function PublishingPreferences({
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">Keep review first</Button>
-              <Button slot="close" onPress={() => apply("FULL_AUTO")}>Publish automatically</Button>
+              <LoadingButton slot="close" isPending={update.isPending} onPress={() => apply("FULL_AUTO")}>Publish automatically</LoadingButton>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
+
+      <AlertDialog.Backdrop isOpen={confirmFast.isOpen} onOpenChange={confirmFast.setOpen}>
+        <AlertDialog.Container>
+          <AlertDialog.Dialog className="sm:max-w-[480px]">
+            <AlertDialog.CloseTrigger />
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="danger" />
+              <AlertDialog.Heading>Skip editorial publishing holds?</AlertDialog.Heading>
+            </AlertDialog.Header>
+            <AlertDialog.Body>
+              Claudia may publish when style, metadata, originality, duplication, or link checks
+              report issues. Factual grounding, citations, risk controls, permissions, pauses, and
+              destination checks will still block publishing.
+            </AlertDialog.Body>
+            <AlertDialog.Footer>
+              <Button slot="close" variant="tertiary">Keep current mode</Button>
+              <LoadingButton
+                slot="close"
+                variant="danger"
+                isPending={update.isPending}
+                onPress={() => apply("AUTO_PUBLISH_FAST", true)}
+              >
+                Enable fast auto-publish
+              </LoadingButton>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>
         </AlertDialog.Container>

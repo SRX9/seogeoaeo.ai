@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Link as HeroLink, Skeleton, Tabs } from "@heroui/react";
+import { Card, Link as HeroLink, Skeleton, Tabs } from "@heroui/react";
 import { EmptyState } from "@heroui-pro/react";
 import type { ComponentType, SVGProps } from "react";
 import {
@@ -16,6 +16,7 @@ import {
   InsightIcon,
   WorkshopIcon,
 } from "@/components/icons";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { ToneText } from "@/components/ui/status-text";
 import { PageHeader } from "@/components/layout/page-header";
 import { useToolLatestRuns } from "@/lib/api/queries";
@@ -130,13 +131,13 @@ export function ExtraToolsExplorer() {
               </EmptyState.Description>
             </EmptyState.Header>
             <EmptyState.Content>
-              <Button
+              <LoadingButton
                 variant="outline"
                 isPending={latestRuns.isFetching}
                 onPress={() => void latestRuns.refetch()}
               >
                 Try again
-              </Button>
+              </LoadingButton>
             </EmptyState.Content>
           </EmptyState>
         </Card>
