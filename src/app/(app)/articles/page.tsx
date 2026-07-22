@@ -37,7 +37,7 @@ function ContentPageContent() {
           Ideas become finished content here.
         </h1>
         <p className="mt-5 max-w-[62ch] text-base leading-7 text-muted text-pretty">
-          Choose a researched opportunity, review Claudia's draft, and complete or publish it without changing tools.
+          Choose a researched opportunity, review Claudia’s draft, and complete or publish it without changing tools.
         </p>
       </header>
 

@@ -171,7 +171,13 @@ export function canEnrollFastAutoPublish(
   env: SafetyEnvironment = process.env as SafetyEnvironment,
 ): boolean {
   const config = getAgentSafetyConfig(env);
-  return !config.globalKillSwitch && config.publishingEnabled;
+  // The grounded-content gate is a platform control, so it freezes new fast-mode
+  // enrollment exactly as it does FULL_AUTO — fast mode only skips editorial holds.
+  return (
+    !config.globalKillSwitch &&
+    config.publishingEnabled &&
+    config.groundedContentGateEnabled
+  );
 }
 
 /** Fixed workflows remain the default until the goal-kernel rollout gate opens. */

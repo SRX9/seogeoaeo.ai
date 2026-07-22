@@ -20,7 +20,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/visibility", destination: "/checklist", permanent: false },
-      { source: "/visibility/:path*", destination: "/checklist", permanent: false },
+      // Retired sub-pages fold into the checklist, but the audit report detail
+      // route (/visibility/[auditId]) stays live for per-audit history + exports.
+      { source: "/visibility/:page(health|answers|fixes)", destination: "/checklist", permanent: false },
       { source: "/reports", destination: "/checklist", permanent: false },
       { source: "/reports/:path*", destination: "/checklist", permanent: false },
       { source: "/tools", destination: "/checklist", permanent: false },

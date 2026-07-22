@@ -37,13 +37,14 @@ const patchSchema = z.object({
 
 export async function PATCH(request: Request) {
   return handleApi(async () => {
-    const { workspace } = await getApiContext();
+    const { workspace, brand } = await getApiContext();
     const { findingId, action } = parseBody(patchSchema, await readJson(request));
     await setFindingResolved(
       findingId,
       workspace.id,
       action !== "reopen",
       action === "dismiss" ? "dismissed" : "completed",
+      brand?.id,
     );
     return jsonOk({ findingId, resolved: action !== "reopen" });
   });

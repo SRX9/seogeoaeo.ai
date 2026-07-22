@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canRunGoalKernel, getAgentSafetyDecision } from "./safety";
+import {
+  canEnrollFastAutoPublish,
+  canEnrollNewFullAuto,
+  canRunGoalKernel,
+  getAgentSafetyDecision,
+} from "./safety";
 
 describe("agent execution safety", () => {
   it("keeps observation available when every write class is disabled", () => {
@@ -39,6 +44,21 @@ describe("agent execution safety", () => {
         AGENT_GOAL_KERNEL_ENABLED: "true",
         AGENT_GLOBAL_KILL_SWITCH: "true",
       }),
+    ).toBe(false);
+  });
+
+  it("freezes new auto-publish enrollment behind the grounded-content gate for both modes", () => {
+    const publishingOnly = { AGENT_PUBLISHING_ENABLED: "true" };
+    // Fast mode must not become a back door around the enrollment freeze.
+    expect(canEnrollNewFullAuto(publishingOnly)).toBe(false);
+    expect(canEnrollFastAutoPublish(publishingOnly)).toBe(false);
+
+    const gated = { ...publishingOnly, AGENT_GROUNDED_CONTENT_GATE_ENABLED: "true" };
+    expect(canEnrollNewFullAuto(gated)).toBe(true);
+    expect(canEnrollFastAutoPublish(gated)).toBe(true);
+
+    expect(
+      canEnrollFastAutoPublish({ ...gated, AGENT_GLOBAL_KILL_SWITCH: "true" }),
     ).toBe(false);
   });
 

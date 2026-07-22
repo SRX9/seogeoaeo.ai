@@ -239,10 +239,19 @@ export async function setFindingResolved(
   workspaceId: string,
   resolved: boolean,
   resolution: Extract<FindingResolution, "completed" | "dismissed"> = "completed",
+  brandId?: string | null,
 ): Promise<void> {
   const db = getDb();
   const finding = await db.query.auditFindings.findFirst({ where: eq(auditFindings.id, id) });
-  if (!finding || finding.workspaceId !== workspaceId) throw new Error("Finding not found");
+  // Scope the mutation to the workspace and, when a brand is active, to that
+  // brand — matching how findings are read, so one brand can't mutate another's.
+  if (
+    !finding ||
+    finding.workspaceId !== workspaceId ||
+    (brandId != null && finding.brandId !== brandId)
+  ) {
+    throw new Error("Finding not found");
+  }
   await db
     .update(auditFindings)
     .set(
