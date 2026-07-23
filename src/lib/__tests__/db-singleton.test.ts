@@ -36,6 +36,10 @@ describe("direct database singleton", () => {
 
     expect(second).toBe(first);
     expect(postgresMock).toHaveBeenCalledTimes(1);
+    expect(postgresMock).toHaveBeenCalledWith(
+      "postgres://user:password@localhost:5432/app",
+      { prepare: false, max: 5 },
+    );
     expect(drizzleMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,18 +4,18 @@ import { Avatar, Button, Dropdown, Label } from "@heroui/react";
 import { Sidebar } from "@heroui-pro/react";
 import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { BrandSwitcher } from "@/components/brand/brand-switcher";
 import {
   ChevronUpDownIcon,
+  ClaudiaIcon,
   CreditCardIcon,
-  PlugIcon,
   SearchIcon,
-  SettingsIcon,
 } from "@/components/icons";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import {
+  APP_BRAND_ITEMS,
   APP_FOOTER_ITEMS,
   APP_NAV_ITEMS,
   type AppNavItem,
@@ -73,16 +73,12 @@ function AccountMenu({ user }: { user: SessionUser }) {
       </Button>
       <Dropdown.Popover className="min-w-[240px]" placement="top start">
         <div className="px-3 pb-1 pt-2 text-xs font-medium text-muted">
-          Account and settings
+          Account
         </div>
         <Dropdown.Menu onAction={(key) => router.push(String(key))}>
-          <Dropdown.Item id="/settings" textValue="Brand settings">
-            <SettingsIcon className="size-4" />
-            <Label>Brand settings</Label>
-          </Dropdown.Item>
-          <Dropdown.Item id="/settings?tab=integrations" textValue="Connections">
-            <PlugIcon className="size-4" />
-            <Label>Connections</Label>
+          <Dropdown.Item id="/settings?tab=account" textValue="Account settings">
+            <ClaudiaIcon className="size-4" />
+            <Label>Account settings</Label>
           </Dropdown.Item>
           <Dropdown.Item id="/settings?tab=billing" textValue="Billing">
             <CreditCardIcon className="size-4" />
@@ -171,6 +167,10 @@ function SidebarContents({
   idPrefix?: string;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentHref = searchParams.size
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
 
   return (
     <>
@@ -206,8 +206,23 @@ function SidebarContents({
               <SidebarNavItem
                 key={item.href}
                 item={item}
-                pathname={pathname}
+                pathname={currentHref}
                 agentState={agentState}
+                onPrefetch={onPrefetch}
+                idPrefix={idPrefix}
+              />
+            ))}
+          </Sidebar.Menu>
+        </Sidebar.Group>
+        <Sidebar.Separator />
+        <Sidebar.Group>
+          <Sidebar.GroupLabel data-sidebar="label">Brand</Sidebar.GroupLabel>
+          <Sidebar.Menu aria-label="Brand navigation">
+            {APP_BRAND_ITEMS.map((item) => (
+              <SidebarNavItem
+                key={item.href}
+                item={item}
+                pathname={currentHref}
                 onPrefetch={onPrefetch}
                 idPrefix={idPrefix}
               />
@@ -222,7 +237,7 @@ function SidebarContents({
             <SidebarNavItem
               key={item.href}
               item={item}
-              pathname={pathname}
+              pathname={currentHref}
               agentState={agentState}
               onPrefetch={onPrefetch}
               idPrefix={idPrefix}

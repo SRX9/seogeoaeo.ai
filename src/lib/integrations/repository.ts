@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { getDb } from "@/lib/db";
@@ -62,31 +62,51 @@ function secretStatesForProvider(
 }
 
 export async function listIntegrations(brandId: string): Promise<IntegrationView[]> {
-  const rows = await getDb()
+  const db = getDb();
+  const rows = await db
     .select()
     .from(integrations)
     .where(eq(integrations.brandId, brandId));
 
   const byProvider = new Map(rows.map((row) => [row.provider, row]));
+  const secretRows =
+    rows.length === 0
+      ? []
+      : await db
+          .select({
+            integrationId: integrationSecrets.integrationId,
+            secretKey: integrationSecrets.secretKey,
+          })
+          .from(integrationSecrets)
+          .where(inArray(integrationSecrets.integrationId, rows.map((row) => row.id)));
+  const secretKeysByIntegration = new Map<string, Set<string>>();
+  for (const secret of secretRows) {
+    const keys = secretKeysByIntegration.get(secret.integrationId) ?? new Set<string>();
+    keys.add(secret.secretKey);
+    secretKeysByIntegration.set(secret.integrationId, keys);
+  }
 
-  return Promise.all(
-    INTEGRATION_PROVIDERS.map(async (provider) => {
-      const row = byProvider.get(provider.id);
-      const config = parseConfig(row?.configJson ?? null);
-      const secretStates = row ? secretStatesForProvider(provider.id, await listSecretKeys(row.id)) : emptySecretStates(provider);
-      return {
-        ...provider,
-        provider: provider.id,
-        capabilities: connectorCapabilities(provider.id),
-        enabled: row?.enabled ?? false,
-        config,
-        secretStates,
-        requirementsMet: integrationRequirementsMet(provider, config, secretStates),
-        available: provider.status === "available",
-        configurable: provider.status === "available",
-      };
-    }),
-  );
+  return INTEGRATION_PROVIDERS.map((provider) => {
+    const row = byProvider.get(provider.id);
+    const config = parseConfig(row?.configJson ?? null);
+    const secretStates = row
+      ? secretStatesForProvider(
+          provider.id,
+          secretKeysByIntegration.get(row.id) ?? new Set(),
+        )
+      : emptySecretStates(provider);
+    return {
+      ...provider,
+      provider: provider.id,
+      capabilities: connectorCapabilities(provider.id),
+      enabled: row?.enabled ?? false,
+      config,
+      secretStates,
+      requirementsMet: integrationRequirementsMet(provider, config, secretStates),
+      available: provider.status === "available",
+      configurable: provider.status === "available",
+    };
+  });
 }
 
 /** Tenant-scoped connector binding used to freeze a live mutation to one site. */

@@ -58,7 +58,11 @@ export function createDb(connectionString?: string) {
     throw new Error("DATABASE_URL is not configured");
   }
 
-  const client = postgres(url, { prepare: false, max: 1 });
+  // Dashboard/read-model queries deliberately start independent reads together.
+  // A single driver connection silently serialized every Promise.all call and
+  // turned network latency into a 10–16 second request. Five stays below the
+  // Workers socket budget while allowing Hyperdrive to multiplex those reads.
+  const client = postgres(url, { prepare: false, max: 5 });
   return drizzle(client, { schema });
 }
 

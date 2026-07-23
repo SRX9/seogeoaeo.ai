@@ -18,11 +18,13 @@ import {
   ChartUpIcon,
   CheckmarkCircle02Icon,
   CodeSquareIcon,
+  Copy01Icon,
   CreditCardIcon as HugeCreditCardIcon,
   CursorPointer01Icon,
   DashboardSpeed01Icon,
   DashboardSquare01Icon,
   File02Icon,
+  Download01Icon,
   FlashIcon,
   FloppyDiskIcon,
   Globe02Icon,
@@ -92,6 +94,16 @@ export const BulletListIcon = iconComponent(LeftToRightListBulletIcon);
 export const OrderedListIcon = iconComponent(LeftToRightListNumberIcon);
 export const QuoteIcon = iconComponent(QuoteUpIcon);
 export const CodeBlockIcon = iconComponent(CodeSquareIcon);
+const CopyIconBase = iconComponent(Copy01Icon);
+const DownloadIconBase = iconComponent(Download01Icon);
+
+export function CopyIcon(props: IconProps) {
+  return <CopyIconBase {...props} />;
+}
+
+export function DownloadIcon(props: IconProps) {
+  return <DownloadIconBase {...props} />;
+}
 export const LinkIcon = iconComponent(Link01Icon);
 export const CircleCheckIcon = iconComponent(CheckmarkCircle02Icon);
 export const SunIcon = iconComponent(Sun03Icon);

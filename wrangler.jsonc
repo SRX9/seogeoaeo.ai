@@ -22,6 +22,12 @@
   }],
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat"],
+  "placement": {
+    // This Worker performs several database reads per authenticated request.
+    // Run it near the us-east database instead of paying an inter-region round
+    // trip for every query.
+    "mode": "smart"
+  },
   "hyperdrive": [{
     "binding": "HYPERDRIVE",
     "id": "29f7a53988fc495d90086fdd4b1ee859"

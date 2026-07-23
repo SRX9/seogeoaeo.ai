@@ -17,8 +17,8 @@ function retryTransientFailure(failureCount: number, error: unknown) {
 }
 
 /**
- * Client-side data layer. The whole app fetches through React Query talking
- * directly to /api routes: there is no server-component data fetching.
+ * Persistent client-side data cache for live route data. The app shell still
+ * uses server components for authenticated workspace bootstrap data.
  */
 export function Providers({ children }: { children: ReactNode }) {
   const router = useProgressRouter();

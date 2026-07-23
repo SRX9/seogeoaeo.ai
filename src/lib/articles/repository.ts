@@ -17,6 +17,58 @@ export async function listTopics(brandId: string) {
     );
 }
 
+/**
+ * One-row queue summary for the dashboard. The full topic list is working data;
+ * the overview only needs the best pending topic and the pending count.
+ */
+export async function getAutomationTopicQueue(brandId: string) {
+  const [next] = await getDb()
+    .select({
+      id: topics.id,
+      title: topics.title,
+      angle: topics.angle,
+      rationale: topics.rationale,
+      answerFit: topics.answerFit,
+      intentTier: topics.intentTier,
+      thesis: topics.thesis,
+      pendingCount: sql<number>`count(*) over()::int`,
+    })
+    .from(topics)
+    .where(
+      and(
+        eq(topics.brandId, brandId),
+        eq(topics.status, "pending"),
+        sql`${topics.score} is not null`,
+      ),
+    )
+    .orderBy(desc(topics.score), desc(topics.createdAt))
+    .limit(1);
+
+  return {
+    pendingCount: next?.pendingCount ?? 0,
+    next: next ?? null,
+  };
+}
+
+/** Minimal draft rows used to build Overview and Inbox owner requests. */
+export async function listOwnerReviewArticles(brandId: string) {
+  return getDb()
+    .select({
+      id: articles.id,
+      title: articles.title,
+      status: articles.status,
+      metaDescription: articles.metaDescription,
+    })
+    .from(articles)
+    .where(
+      and(
+        eq(articles.brandId, brandId),
+        eq(articles.status, "draft"),
+      ),
+    )
+    .orderBy(desc(articles.updatedAt));
+}
+
 export async function listTopicTitles(brandId: string) {
   const rows = await getDb()
     .select({ title: topics.title })

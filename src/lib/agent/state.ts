@@ -5,9 +5,8 @@ import { getAgentControlState } from "@/lib/agent/memory";
 import { objectiveMetricSchema, toAgentMissionView } from "@/lib/agent/objectives";
 import { measureObjectiveMetric } from "@/lib/agent/objective-measurements";
 import {
-  ensureNextDailyTask,
   ensureWeeklyPlan,
-  setFutureAgentTasksPaused,
+  getCurrentAgentPlan,
 } from "@/lib/agent/planner";
 import { orderTasksByPlan } from "@/lib/agent/strategy";
 import type { AgentEventView, AgentState, AgentTaskView } from "@/lib/agent/types";
@@ -89,16 +88,15 @@ export async function getAgentState(
   },
 ): Promise<AgentState> {
   const active = isActiveSubscription(input.subscriptionStatus);
-  const [controls, { mission, plan }] = await Promise.all([
+  const [controls, currentPlan] = await Promise.all([
     getAgentControlState(scope.brandId),
-    ensureWeeklyPlan(scope, { brandName: input.brandName }),
+    getCurrentAgentPlan(scope),
   ]);
-  if (active && !controls.paused) {
-    await Promise.all([
-      setFutureAgentTasksPaused(scope, false),
-      ensureNextDailyTask(scope, input.brandName),
-    ]);
-  }
+  // Existing accounts take a pure read path. The fallback only initializes old
+  // or partially provisioned brands that predate the setup workflow.
+  const { mission, plan } =
+    currentPlan ??
+    (await ensureWeeklyPlan(scope, { brandName: input.brandName }));
 
   const db = getDb();
   const parsedMetric = objectiveMetricSchema.safeParse(mission.metric);

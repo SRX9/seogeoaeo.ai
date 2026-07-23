@@ -16,7 +16,7 @@ const CONTENT_VIEWS = new Set<ContentView>(["ideas", "drafts", "completed"]);
 function ContentSkeleton() {
   return (
     <div className="space-y-5" aria-label="Loading content">
-      <Skeleton className="h-12 w-full max-w-md rounded-xl" />
+      <Skeleton className="h-10 w-72 rounded-xl" />
       <Skeleton className="h-80 rounded-3xl" />
     </div>
   );
