@@ -24,6 +24,7 @@ import { parseVoiceDoc, renderVoiceBlock } from "@/lib/brand/voice";
 import { generateJson, generateText } from "@/lib/llm/client";
 import { addTokenUsage, emptyTokenUsage } from "@/lib/llm/usage";
 import { logInfo, logWarn, logError } from "@/lib/logging/logger";
+import { resolveSiteOrigin } from "@/lib/site";
 import { publishArticleToDestinations } from "@/lib/publishing/publish";
 import {
   draftPrompt,
@@ -67,7 +68,7 @@ async function notifyArticleReviewNeeded(input: {
   autonomyMode: string;
   article: { id: string; title: string };
 }) {
-  const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "https://seogeoaeo.ai";
+  const origin = resolveSiteOrigin(process.env.BETTER_AUTH_URL);
   await sendToWorkspaceOwnerWhenEnabled(
     input.scope.workspaceId,
     "reviewEmailsEnabled",

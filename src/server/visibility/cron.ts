@@ -14,7 +14,7 @@ import {
 } from "@/lib/jobs/repository";
 import { dueForReaudit, type FindingKey } from "@/lib/jobs/visibility-agent";
 import { logInfo } from "@/lib/logging/logger";
-import { SITE_URL } from "@/lib/site";
+import { resolveSiteOrigin } from "@/lib/site";
 import {
   assertVisibilityCredits,
   InsufficientCreditsError,
@@ -341,13 +341,13 @@ export async function finishReaudit(args: {
   const newCritical = await countNewCriticals(args.baselineAuditId, args.newAuditId);
   const decision = shouldAlert(delta, newCritical);
   if (decision.alert) {
-    const origin = getServerEnv().BETTER_AUTH_URL ?? SITE_URL;
+    const origin = resolveSiteOrigin(getServerEnv().BETTER_AUTH_URL);
     await sendToWorkspaceOwner(
       args.workspaceId,
       visibilityAlertEmail({
         siteUrl: args.siteUrl,
         reasons: decision.reasons,
-        dashboardUrl: `${origin}/dashboard`,
+        dashboardUrl: `${origin}/visibility/health`,
       }),
     );
     logInfo("cron.visibility.alert", {
