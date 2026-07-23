@@ -3,7 +3,6 @@ import { listPendingAgentApprovals } from "@/lib/agent/events";
 import { listArticles } from "@/lib/articles/repository";
 import type { requireApiBrand } from "@/lib/api/server";
 import type { AgentApprovalView, InboxData } from "@/lib/api/queries";
-import { getDashboardAutomation } from "@/lib/dashboard/read-model";
 import { buildOwnerRequests } from "@/lib/inbox/owner-request";
 import { listTrafficConnections } from "@/lib/integrations/google-traffic";
 import { isIntegrationOperational } from "@/lib/integrations/providers";
@@ -45,10 +44,6 @@ export async function getInboxData(context: InboxContext): Promise<InboxData> {
   const integrationsPromise = listIntegrations(brand.id);
   const approvalsPromise = listPendingAgentApprovals(brand.id);
 
-  const automationPromise = getDashboardAutomation(context, {
-    credits: creditsPromise,
-    weekly: weeklyPromise,
-  });
   const agentPromise = getAgentState(scope, {
     brandName: brand.name,
     subscriptionStatus: subscription?.status ?? null,
@@ -68,12 +63,11 @@ export async function getInboxData(context: InboxContext): Promise<InboxData> {
     },
   });
 
-  const [agent, approvalRows, articleRows, integrations, automation] = await Promise.all([
+  const [agent, approvalRows, articleRows, integrations] = await Promise.all([
     agentPromise,
     approvalsPromise,
     articlesPromise,
     integrationsPromise,
-    automationPromise,
   ]);
 
   const approvals = toApprovalViews(approvalRows);
@@ -86,7 +80,10 @@ export async function getInboxData(context: InboxContext): Promise<InboxData> {
       status: article.status,
       metaDescription: article.metaDescription,
     })),
-    reviewBeforePublishing: !automation.autoPublish,
+    autonomyMode:
+      brand.autonomyMode === "FULL_AUTO" || brand.autonomyMode === "AUTO_PUBLISH_FAST"
+        ? brand.autonomyMode
+        : "REVIEW",
     publishingConnected: integrations.some(isIntegrationOperational),
   });
 

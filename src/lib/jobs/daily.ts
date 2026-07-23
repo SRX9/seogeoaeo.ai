@@ -22,10 +22,19 @@ import { dailyArticleCapForPlan } from "@/lib/billing/plans";
 import type { BrandScope } from "@/lib/brand/repository";
 import { runDueCheckpoints } from "@/lib/articles/performance";
 import { listPendingTopicsForWriting } from "@/lib/articles/repository";
-import { sendOutOfCreditsEmail } from "@/lib/email/notify";
+import {
+  sendOutOfCreditsEmail,
+  sendToWorkspaceOwnerWhenEnabled,
+} from "@/lib/email/notify";
+import { dailyStandupEmail } from "@/lib/email/templates";
 import { syncTrafficForBrand } from "@/lib/integrations/google-traffic";
 import { maybeRediscoverCompetitors } from "@/lib/jobs/competitor-rediscovery";
-import { getDailyRun, upsertDailyRun, type DailyRunStatus } from "@/lib/jobs/daily-repository";
+import {
+  getDailyRun,
+  markDailySummaryEmailed,
+  upsertDailyRun,
+  type DailyRunStatus,
+} from "@/lib/jobs/daily-repository";
 import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { maybeRunWeeklySiteHealth } from "@/lib/jobs/site-health-weekly";
 import { runResearch } from "@/lib/research/run";
@@ -542,6 +551,28 @@ export async function executeDailySettlementOperation(
           brandName: input.brandName,
           pendingTopics: remaining.length,
         });
+      }
+      {
+        const dailyRun = await getDailyRun(scope.brandId, runDate);
+        if (!dailyRun?.summaryEmailedAt) {
+          const origin =
+            process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ||
+            "https://seogeoaeo.ai";
+          const sent = await sendToWorkspaceOwnerWhenEnabled(
+            scope.workspaceId,
+            "dailySummaryEmailsEnabled",
+            dailyStandupEmail({
+              brandName: input.brandName ?? "your brand",
+              runDate,
+              articlesWritten: finalWritten,
+              topicsResearched: input.priorResearched + input.researchTopics,
+              failures: input.writeFailures?.length ?? 0,
+              status,
+              dashboardUrl: `${origin}/dashboard`,
+            }),
+          );
+          if (sent) await markDailySummaryEmailed(scope.brandId, runDate);
+        }
       }
       break;
   }

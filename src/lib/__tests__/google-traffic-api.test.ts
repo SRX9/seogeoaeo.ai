@@ -58,32 +58,19 @@ describe("/api/integrations/google", () => {
     expect(syncTrafficForBrand).toHaveBeenCalledWith(scope);
   });
 
-  it("saves a GA4 property when provided", async () => {
+  it("ignores obsolete GA4 property payloads", async () => {
     const res = await POST(post({ propertyId: "123456789" }));
     expect(res.status).toBe(200);
-    expect(upsertTrafficConnection).toHaveBeenCalledWith("brand-1", "ga4", "user-1", {
-      propertyId: "123456789",
-    });
-  });
-
-  it("clears the GA4 connection when the property id is emptied", async () => {
-    const res = await POST(post({ propertyId: "  " }));
-    expect(res.status).toBe(200);
-    expect(deleteTrafficConnection).toHaveBeenCalledWith("brand-1", "ga4");
-    expect(upsertTrafficConnection).not.toHaveBeenCalledWith(
-      "brand-1",
-      "ga4",
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(upsertTrafficConnection).not.toHaveBeenCalled();
+    expect(deleteTrafficConnection).not.toHaveBeenCalled();
   });
 
   it("disconnects all sources by default and one source when queried", async () => {
     expect((await DELETE(new Request("https://app.test/api/integrations/google", { method: "DELETE" }))).status).toBe(200);
     expect(deleteTrafficConnection).toHaveBeenCalledWith("brand-1", undefined);
 
-    await DELETE(new Request("https://app.test/api/integrations/google?source=ga4", { method: "DELETE" }));
-    expect(deleteTrafficConnection).toHaveBeenCalledWith("brand-1", "ga4");
+    await DELETE(new Request("https://app.test/api/integrations/google?source=gsc", { method: "DELETE" }));
+    expect(deleteTrafficConnection).toHaveBeenCalledWith("brand-1", "gsc");
   });
 
   it("reports a connected GSC site without hitting Google for the site list", async () => {

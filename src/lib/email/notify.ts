@@ -4,6 +4,10 @@ import { subscriptions } from "@/lib/db/schema";
 import { getServerEnv } from "@/lib/env";
 import { logWarn } from "@/lib/logging/logger";
 import { getWorkspaceOwnerEmail } from "@/lib/workspace";
+import {
+  getClaudiaEmailPreferences,
+  type ClaudiaEmailPreferences,
+} from "@/lib/workspace";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send";
 import { outOfCreditsEmail, type EmailContent } from "@/lib/email/templates";
 
@@ -24,6 +28,19 @@ export async function sendToWorkspaceOwner(workspaceId: string, content: EmailCo
     });
     return false;
   }
+}
+
+export type ClaudiaEmailPreference = keyof ClaudiaEmailPreferences;
+
+/** Send only when the owner has left this Claudia communication enabled. */
+export async function sendToWorkspaceOwnerWhenEnabled(
+  workspaceId: string,
+  preference: ClaudiaEmailPreference,
+  content: EmailContent,
+): Promise<boolean> {
+  const preferences = await getClaudiaEmailPreferences(workspaceId);
+  if (!preferences[preference]) return false;
+  return sendToWorkspaceOwner(workspaceId, content);
 }
 
 /**

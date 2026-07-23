@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { agentDailyRuns } from "@/lib/db/schema";
@@ -56,4 +56,18 @@ export async function getDailyRun(brandId: string, runDate: string) {
     .where(and(eq(agentDailyRuns.brandId, brandId), eq(agentDailyRuns.runDate, runDate)))
     .limit(1);
   return row ?? null;
+}
+
+/** Mark a delivered daily standup without disturbing the run's settled counts. */
+export async function markDailySummaryEmailed(brandId: string, runDate: string) {
+  await getDb()
+    .update(agentDailyRuns)
+    .set({ summaryEmailedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(agentDailyRuns.brandId, brandId),
+        eq(agentDailyRuns.runDate, runDate),
+        isNull(agentDailyRuns.summaryEmailedAt),
+      ),
+    );
 }

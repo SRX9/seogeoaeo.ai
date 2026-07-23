@@ -71,6 +71,44 @@ export async function getWorkspaceById(workspaceId: string) {
   return workspace ?? null;
 }
 
+export type ClaudiaEmailPreferences = {
+  milestoneEmailsEnabled: boolean;
+  reviewEmailsEnabled: boolean;
+  dailySummaryEmailsEnabled: boolean;
+};
+
+/** Update any subset of Claudia's workspace-level email preferences. */
+export async function setClaudiaEmailPreferences(
+  workspaceId: string,
+  preferences: Partial<ClaudiaEmailPreferences>,
+) {
+  if (Object.keys(preferences).length === 0) return;
+  await getDb()
+    .update(workspaces)
+    .set({ ...preferences, updatedAt: new Date() })
+    .where(eq(workspaces.id, workspaceId));
+}
+
+/** Read Claudia's communication preferences, defaulting on for legacy rows. */
+export async function getClaudiaEmailPreferences(
+  workspaceId: string,
+): Promise<ClaudiaEmailPreferences> {
+  const [row] = await getDb()
+    .select({
+      milestoneEmailsEnabled: workspaces.milestoneEmailsEnabled,
+      reviewEmailsEnabled: workspaces.reviewEmailsEnabled,
+      dailySummaryEmailsEnabled: workspaces.dailySummaryEmailsEnabled,
+    })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  return {
+    milestoneEmailsEnabled: row?.milestoneEmailsEnabled ?? true,
+    reviewEmailsEnabled: row?.reviewEmailsEnabled ?? true,
+    dailySummaryEmailsEnabled: row?.dailySummaryEmailsEnabled ?? true,
+  };
+}
+
 /** Toggle the owner's low/out-of-credits email notifications for a workspace. */
 export async function setCreditEmailsEnabled(workspaceId: string, enabled: boolean) {
   await getDb()

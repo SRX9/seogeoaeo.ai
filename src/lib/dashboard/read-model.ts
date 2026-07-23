@@ -366,7 +366,10 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     agent,
     approvals,
     articles,
-    reviewBeforePublishing: !automation.autoPublish,
+    autonomyMode:
+      brand.autonomyMode === "FULL_AUTO" || brand.autonomyMode === "AUTO_PUBLISH_FAST"
+        ? brand.autonomyMode
+        : "REVIEW",
     publishingConnected: integrations.some(isIntegrationOperational),
   });
   const inboxCount = ownerRequests.length;
@@ -378,7 +381,15 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   });
 
   return {
-    brand: { id: brand.id, name: brand.name, identity },
+    brand: {
+      id: brand.id,
+      name: brand.name,
+      autonomyMode:
+        brand.autonomyMode === "FULL_AUTO" || brand.autonomyMode === "AUTO_PUBLISH_FAST"
+          ? brand.autonomyMode
+          : "REVIEW",
+      identity,
+    },
     setup,
     home,
     agent,

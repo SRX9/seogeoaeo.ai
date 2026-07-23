@@ -7,6 +7,11 @@ export const workspaces = pgTable("workspaces", {
   // Deprecated: autonomy moved to a per-brand setting (`brands.autonomy_mode`).
   // Kept (unused) to avoid a destructive migration; safe to drop in a later one.
   autonomyMode: text("autonomy_mode").notNull().default("FULL_AUTO"),
+  // Claudia's owner-facing communications. These are workspace preferences,
+  // rather than subscription preferences, so they survive plan changes.
+  milestoneEmailsEnabled: boolean("milestone_emails_enabled").notNull().default(true),
+  reviewEmailsEnabled: boolean("review_emails_enabled").notNull().default(true),
+  dailySummaryEmailsEnabled: boolean("daily_summary_emails_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

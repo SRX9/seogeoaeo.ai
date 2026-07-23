@@ -44,6 +44,8 @@ import {
   recordArticleGroundingEvaluation,
 } from "@/lib/grounding/service";
 import { passesFastAutoPublishGate } from "@/lib/grounding/publication-gate";
+import { sendToWorkspaceOwnerWhenEnabled } from "@/lib/email/notify";
+import { articleReviewNeededEmail } from "@/lib/email/templates";
 import { isAutomaticPublishingMode, isFastAutoPublish } from "@/lib/workspace/settings";
 
 export type GenerationTrace = {
@@ -58,6 +60,25 @@ export type GenerationTrace = {
 
 /** Stored on the article as gate_results_json; shown in the editor. */
 export type GateResult = { gate: string; passed: boolean; detail: string };
+
+async function notifyArticleReviewNeeded(input: {
+  scope: BrandScope;
+  brandName: string;
+  autonomyMode: string;
+  article: { id: string; title: string };
+}) {
+  const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "https://seogeoaeo.ai";
+  await sendToWorkspaceOwnerWhenEnabled(
+    input.scope.workspaceId,
+    "reviewEmailsEnabled",
+    articleReviewNeededEmail({
+      brandName: input.brandName,
+      articleTitle: input.article.title,
+      articleUrl: `${origin}/articles/${input.article.id}`,
+      reason: input.autonomyMode === "REVIEW" ? "review_mode" : "quality_hold",
+    }),
+  );
+}
 
 // Lint failures trigger targeted rewrites, capped: then the draft goes to
 // human review instead of publishing. Autonomy never ships slop for its quota.
@@ -645,6 +666,27 @@ export async function generateArticleFromTopic(
       evidenceBundleId: grounding.bundleId,
       totalTokens: tokenUsage.totalTokens,
     });
+
+    if (
+      actor === "agent" &&
+      article.status === "draft" &&
+      !isFastAutoPublish(brand.autonomyMode)
+    ) {
+      try {
+        await notifyArticleReviewNeeded({
+          scope,
+          brandName: brand.name,
+          autonomyMode: brand.autonomyMode,
+          article,
+        });
+      } catch (error) {
+        logWarn("email.article_review_skipped", {
+          workspaceId,
+          articleId: article.id,
+          reason: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
 
     // Automatic modes produce approved articles; REVIEW leaves manual drafts.
     if (article.status === "approved" && options.autoPublish !== false) {

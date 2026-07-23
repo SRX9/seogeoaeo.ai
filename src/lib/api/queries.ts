@@ -59,7 +59,15 @@ export type CreditsResponse = {
 export type MeResponse = {
   user: SessionUser;
   llmReady: boolean;
-  workspace: { id: string; name: string };
+  workspace: {
+    id: string;
+    name: string;
+    emailPreferences: {
+      milestoneEmailsEnabled: boolean;
+      reviewEmailsEnabled: boolean;
+      dailySummaryEmailsEnabled: boolean;
+    };
+  };
   subscription: {
     planId: string;
     status: string;
@@ -81,7 +89,12 @@ export type MeResponse = {
 
 /** All read-only data needed to render the Overview in one request. */
 export type DashboardData = {
-  brand: { id: string; name: string; identity: BrandIdentitySummary | null };
+  brand: {
+    id: string;
+    name: string;
+    autonomyMode: "FULL_AUTO" | "REVIEW" | "AUTO_PUBLISH_FAST";
+    identity: BrandIdentitySummary | null;
+  };
   setup: SetupRunResponse;
   home: ClaudiaHomeView;
   agent: AgentOperatingState;
@@ -791,12 +804,11 @@ export function useIntegrations() {
 export type GoogleTrafficSourceState = {
   connected: boolean;
   siteUrl: string | null;
-  propertyId: string | null;
   lastSyncedAt: string | null;
   lastError: string | null;
 };
 
-/** Status of the brand's Google traffic-proof connection (Search Console + GA4). */
+/** Status of the brand's Google Search Console traffic-proof connection. */
 export type GoogleTrafficStatus = {
   /** Whether the Connect button should be shown (no grant / missing scope). */
   needsConnect: boolean;
@@ -805,7 +817,6 @@ export type GoogleTrafficStatus = {
   /** GSC sites the user can pick from (only populated before GSC is connected). */
   sites: { siteUrl: string; permissionLevel: string }[];
   gsc: GoogleTrafficSourceState;
-  ga4: GoogleTrafficSourceState;
 };
 
 const googleTrafficQueryOptions = () => queryOptions({
@@ -836,7 +847,7 @@ export type AutonomyCategoryState = {
 };
 
 export type BrandAutonomyState = {
-  mode: "FULL_AUTO" | "REVIEW";
+  mode: "FULL_AUTO" | "REVIEW" | "AUTO_PUBLISH_FAST";
   categories: AutonomyCategoryState[];
   lastRun: { message: string | null; at: string } | null;
 };
@@ -1228,14 +1239,13 @@ export async function prefetchRouteQueries(
     case "/settings":
       switch (destination.searchParams.get("tab")) {
         case "goals":
-          await queryClient.prefetchQuery(agentGoalQueryOptions());
-          break;
+        case "claudia":
         case "publishing":
         case "automation":
-          await queryClient.prefetchQuery(integrationsQueryOptions());
-          break;
         case "preferences":
+        case "advanced":
           await Promise.all([
+            queryClient.prefetchQuery(integrationsQueryOptions()),
             queryClient.prefetchQuery(automationQueryOptions()),
             queryClient.prefetchQuery(agentStateQueryOptions()),
           ]);
@@ -1250,12 +1260,6 @@ export async function prefetchRouteQueries(
         case "billing":
         case "account":
           await queryClient.prefetchQuery(creditsQueryOptions());
-          break;
-        case "advanced":
-          await Promise.all([
-            queryClient.prefetchQuery(agentActionsQueryOptions()),
-            queryClient.prefetchQuery(brandAutonomyQueryOptions(activeBrandId)),
-          ]);
           break;
         default:
           await Promise.all([

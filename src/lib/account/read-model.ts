@@ -15,6 +15,11 @@ export async function getMeData(ctx: AccountContext): Promise<MeResponse> {
     workspace: {
       id: ctx.workspace.id,
       name: ctx.workspace.name,
+      emailPreferences: {
+        milestoneEmailsEnabled: ctx.workspace.milestoneEmailsEnabled ?? true,
+        reviewEmailsEnabled: ctx.workspace.reviewEmailsEnabled ?? true,
+        dailySummaryEmailsEnabled: ctx.workspace.dailySummaryEmailsEnabled ?? true,
+      },
     },
     subscription: ctx.subscription
       ? {

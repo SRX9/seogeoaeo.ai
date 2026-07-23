@@ -106,6 +106,8 @@ export const agentDailyRuns = pgTable(
     /** completed | completed_degraded | blocked | paused_* | idle | no_topics */
     status: text("status").notNull().default("active"),
     note: text("note"),
+    /** Set after Claudia's optional daily standup email is delivered. */
+    summaryEmailedAt: timestamp("summary_emailed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

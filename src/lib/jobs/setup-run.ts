@@ -210,6 +210,33 @@ async function notifySetupRunFailure(
   ]);
 }
 
+async function notifySetupRunCompletion(
+  scope: BrandScope,
+  summary: string | null,
+) {
+  const [
+    { sendToWorkspaceOwnerWhenEnabled },
+    { setupRunCompletedEmail },
+    brand,
+  ] = await Promise.all([
+    import("@/lib/email/notify"),
+    import("@/lib/email/templates"),
+    getBrand(scope.workspaceId, scope.brandId).catch(() => null),
+  ]);
+  const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "https://seogeoaeo.ai";
+  await sendToWorkspaceOwnerWhenEnabled(
+    scope.workspaceId,
+    "milestoneEmailsEnabled",
+    setupRunCompletedEmail({
+      brandName: brand?.name ?? "your brand",
+      summary:
+        summary?.trim() ||
+        "I learned the brand, checked the available signals, and prepared the first priorities.",
+      dashboardUrl: `${origin}/dashboard`,
+    }),
+  );
+}
+
 /** Latest completed audit for the workspace's own site: feeds the fix step. */
 async function latestOwnAuditId(workspaceId: string, siteUrl: string): Promise<string | null> {
   const [row] = await getDb()
@@ -754,6 +781,17 @@ export async function finalizeSetupRun(scope: BrandScope) {
     recoveryOwner:
       status === "blocked" ? "owner" : recoveryExhausted ? "operator" : null,
   });
+  if (materialDone) {
+    try {
+      await notifySetupRunCompletion(scope, run.briefText);
+    } catch (error) {
+      logWarn("setup_run.completion_notify_failed", {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   // Failed execution stays quiet while bounded self-recovery remains. Ask the
   // owner and operator for help only when input is blocked or retries end.
   const shouldNotify =

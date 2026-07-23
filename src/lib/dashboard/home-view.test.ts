@@ -192,7 +192,7 @@ describe("Claudia home view", () => {
       agent: operatingState,
       approvals: [],
       articles: [draft],
-      reviewBeforePublishing: true,
+      autonomyMode: "REVIEW",
       publishingConnected: true,
     });
     const view = buildClaudiaHomeView(
