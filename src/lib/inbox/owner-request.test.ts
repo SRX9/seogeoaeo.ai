@@ -35,7 +35,7 @@ function input(overrides: Partial<OwnerRequestInput> = {}): OwnerRequestInput {
     agent: agent(),
     approvals: [],
     articles: [],
-    reviewBeforePublishing: false,
+    autonomyMode: "AUTO_PUBLISH_FAST",
     publishingConnected: true,
     ...overrides,
   };
@@ -109,7 +109,7 @@ describe("owner request model", () => {
     const requests = buildOwnerRequests(
       input({
         articles: [{ id: "article-1", title: "Invoice reminders", status: "draft" }],
-        reviewBeforePublishing: true,
+        autonomyMode: "REVIEW",
         publishingConnected: false,
       }),
     );
@@ -121,12 +121,31 @@ describe("owner request model", () => {
     expect(requests[0]?.title).toBe("Choose where Claudia should publish");
   });
 
+  it("asks for held drafts in Auto but never requests editorial review in Auto-fast", () => {
+    const draft = [{ id: "article-1", title: "Invoice reminders", status: "draft" }];
+    const auto = buildOwnerRequests(
+      input({ articles: draft, autonomyMode: "FULL_AUTO", publishingConnected: true }),
+    );
+    const fast = buildOwnerRequests(
+      input({
+        articles: draft,
+        autonomyMode: "AUTO_PUBLISH_FAST",
+        publishingConnected: true,
+      }),
+    );
+
+    expect(auto).toHaveLength(1);
+    expect(auto[0]).toMatchObject({ type: "content_review" });
+    expect(auto[0]?.reason).toContain("needs your judgment");
+    expect(fast).toEqual([]);
+  });
+
   it("keeps the cheap badge count aligned with visible request rules", () => {
     expect(
       countOwnerRequestsFromParts({
         approvalCount: 2,
         draftCount: 3,
-        reviewBeforePublishing: true,
+        autonomyMode: "REVIEW",
         publishingConnected: false,
         billingPaused: true,
       }),

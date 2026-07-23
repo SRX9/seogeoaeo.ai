@@ -16,6 +16,10 @@ import type {
   ClaudiaHomeView,
 } from "@/lib/dashboard/claudia-home-view";
 import type { OwnerRequestView } from "@/lib/inbox/owner-request";
+import {
+  autonomyLabel,
+  type AutonomyMode,
+} from "@/lib/workspace/settings";
 import styles from "./claudia-focus.module.css";
 
 const nextUpdateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -34,6 +38,8 @@ const STATUS: Record<ClaudiaHomeStatus, { label: string; className: string }> = 
   technical_issue: { label: "Technical issue", className: "text-danger" },
 };
 
+const EMPTY_OWNER_REQUESTS: OwnerRequestView[] = [];
+
 function nextUpdateLabel(value: string | null) {
   if (!value) return null;
   const date = new Date(value);
@@ -44,10 +50,12 @@ function nextUpdateLabel(value: string | null) {
 
 export function ClaudiaFocus({
   home,
-  ownerRequests = [],
+  ownerRequests = EMPTY_OWNER_REQUESTS,
+  autonomyMode,
 }: {
   home: ClaudiaHomeView;
   ownerRequests?: OwnerRequestView[];
+  autonomyMode: AutonomyMode;
 }) {
   const router = useProgressRouter();
   const queryClient = useQueryClient();
@@ -86,6 +94,13 @@ export function ClaudiaFocus({
               {status.label}
             </p>
             {nextUpdate ? <p className="text-xs text-muted tabular-nums">{nextUpdate}</p> : null}
+            <p className="text-xs text-muted">
+              Mode: <span className="font-medium text-foreground">{autonomyLabel(autonomyMode)}</span>
+              {" · "}
+              <Link className="text-muted no-underline hover:text-foreground" href="/settings?tab=claudia">
+                Change
+              </Link>
+            </p>
           </div>
 
           <h1

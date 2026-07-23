@@ -3,23 +3,22 @@ import { getAuth } from "@/lib/auth";
 import type { BrandScope } from "@/lib/brand/repository";
 import { getDb } from "@/lib/db";
 import { trafficConnections } from "@/lib/db/schema/visibility";
-import { syncGa4 } from "@/lib/integrations/ga4";
 import { isQueryDataStale, syncGsc, syncGscQueries } from "@/lib/integrations/gsc";
 
 /**
  * V6.6 connect: the glue between better-auth's Google grant and the existing
- * GSC/GA4 sync functions. The OAuth tokens live in better-auth's `account` table;
- * `getAccessToken` refreshes them for us. We only map a brand to the site/property
+ * GSC sync functions. The OAuth tokens live in better-auth's `account` table;
+ * `getAccessToken` refreshes them for us. We only map a brand to the site
  * it pulls from (in `traffic_connections`) and drive the sync. Proof is never metered.
  */
 
 export {
   GSC_SCOPE,
-  GA4_SCOPE,
   GOOGLE_TRAFFIC_SCOPES,
 } from "@/lib/integrations/google-scopes";
 
-export type TrafficSource = "gsc" | "ga4";
+export type TrafficSource = "gsc";
+export type DeletableTrafficSource = TrafficSource | "ga4";
 
 /** The user's Google grant is missing or lacks the traffic-proof scopes. */
 export class GoogleReconnectError extends Error {
@@ -88,7 +87,7 @@ export async function upsertTrafficConnection(
   brandId: string,
   source: TrafficSource,
   connectedByUserId: string,
-  target: { siteUrl?: string | null; propertyId?: string | null },
+  target: { siteUrl?: string | null },
 ): Promise<void> {
   await getDb()
     .insert(trafficConnections)
@@ -97,21 +96,24 @@ export async function upsertTrafficConnection(
       source,
       connectedByUserId,
       siteUrl: target.siteUrl ?? null,
-      propertyId: target.propertyId ?? null,
+      propertyId: null,
     })
     .onConflictDoUpdate({
       target: [trafficConnections.brandId, trafficConnections.source],
       set: {
         connectedByUserId,
         siteUrl: target.siteUrl ?? null,
-        propertyId: target.propertyId ?? null,
+        propertyId: null,
         lastError: null,
       },
     });
 }
 
 /** Remove a brand's connection(s). Does not revoke the Google grant itself. */
-export async function deleteTrafficConnection(brandId: string, source?: TrafficSource): Promise<void> {
+export async function deleteTrafficConnection(
+  brandId: string,
+  source?: DeletableTrafficSource,
+): Promise<void> {
   const where = source
     ? and(eq(trafficConnections.brandId, brandId), eq(trafficConnections.source, source))
     : eq(trafficConnections.brandId, brandId);
@@ -126,9 +128,9 @@ export interface TrafficSyncResult {
 }
 
 /**
- * Best-effort: pull traffic proof for every connected source of a brand. Never
- * throws: a failed source stamps `last_error` and the others still run. Unmetered.
- * A connection that's saved but not fully configured (no site/property) is skipped.
+ * Best-effort: pull Search Console traffic proof for a brand. Never throws:
+ * a failed sync stamps `last_error`. Unmetered. Incomplete and historical
+ * non-Search-Console connection rows are skipped.
  */
 export async function syncTrafficForBrand(
   scope: BrandScope,
@@ -138,25 +140,19 @@ export async function syncTrafficForBrand(
   const results: TrafficSyncResult[] = [];
 
   for (const conn of connections) {
-    const source = conn.source as TrafficSource;
+    if (conn.source !== "gsc" || !conn.siteUrl) continue;
+    const source: TrafficSource = "gsc";
     try {
       const token = await getGoogleToken(conn.connectedByUserId);
-      let days: number;
-      if (source === "gsc" && conn.siteUrl) {
-        days = await syncGsc(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
-        // C2: the query×page report refreshes weekly, riding the daily sync's
-        // token. Best-effort: a failed report never fails the daily pull.
-        try {
-          if (await isQueryDataStale(scope.brandId)) {
-            await syncGscQueries(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
-          }
-        } catch (error) {
-          console.error("[google-traffic] query report sync failed", error);
+      const days = await syncGsc(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
+      // C2: the query×page report refreshes weekly, riding the daily sync's
+      // token. Best-effort: a failed report never fails the daily pull.
+      try {
+        if (await isQueryDataStale(scope.brandId)) {
+          await syncGscQueries(scope.brandId, conn.siteUrl, token, { fetchImpl: opts.fetchImpl });
         }
-      } else if (source === "ga4" && conn.propertyId) {
-        days = await syncGa4(scope.brandId, conn.propertyId, token, { fetchImpl: opts.fetchImpl });
-      } else {
-        continue; // saved but not fully configured yet
+      } catch (error) {
+        console.error("[google-traffic] query report sync failed", error);
       }
       await getDb()
         .update(trafficConnections)

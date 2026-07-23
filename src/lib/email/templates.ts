@@ -190,3 +190,112 @@ export function setupRunStalledEmail(input: SetupRunStalledEmailInput): EmailCon
   });
   return { subject, html, text };
 }
+
+export type SetupRunCompletedEmailInput = {
+  brandName: string;
+  summary: string;
+  dashboardUrl: string;
+};
+
+export function setupRunCompletedEmail(input: SetupRunCompletedEmailInput): EmailContent {
+  const subject = `Claudia finished setting up ${input.brandName}`;
+  const text = [
+    `The initial setup for ${input.brandName} is complete.`,
+    "",
+    input.summary,
+    "",
+    `See what Claudia found and what she is doing next: ${input.dashboardUrl}`,
+  ].join("\n");
+  const body =
+    `<p style="margin:12px 0;">I've finished the initial setup for <strong style="color:#eef1f7;">${escapeHtml(input.brandName)}</strong>.</p>` +
+    `<p style="margin:12px 0;">${escapeHtml(input.summary)}</p>`;
+  return {
+    subject,
+    text,
+    html: claudiaEmailHtml(
+      "Claudia · milestone",
+      "Initial setup is complete",
+      body,
+      { href: input.dashboardUrl, label: "Open Claudia" },
+    ),
+  };
+}
+
+export type ArticleReviewNeededEmailInput = {
+  brandName: string;
+  articleTitle: string;
+  articleUrl: string;
+  reason: "review_mode" | "quality_hold";
+};
+
+export function articleReviewNeededEmail(input: ArticleReviewNeededEmailInput): EmailContent {
+  const reason =
+    input.reason === "review_mode"
+      ? "Your Review mode keeps every article with you until you mark it ready to publish."
+      : "My checks found something that needs your judgment before this article can go live.";
+  const subject = `Review “${input.articleTitle}”`;
+  const text = [
+    `I drafted "${input.articleTitle}" for ${input.brandName}.`,
+    "",
+    reason,
+    "",
+    `Review the article: ${input.articleUrl}`,
+  ].join("\n");
+  const body =
+    `<p style="margin:12px 0;">I drafted <strong style="color:#eef1f7;">${escapeHtml(input.articleTitle)}</strong> for ${escapeHtml(input.brandName)}.</p>` +
+    `<p style="margin:12px 0;">${escapeHtml(reason)}</p>`;
+  return {
+    subject,
+    text,
+    html: claudiaEmailHtml(
+      "Claudia · review needed",
+      "An article is ready for you",
+      body,
+      { href: input.articleUrl, label: "Review article" },
+    ),
+  };
+}
+
+export type DailyStandupEmailInput = {
+  brandName: string;
+  runDate: string;
+  articlesWritten: number;
+  topicsResearched: number;
+  failures: number;
+  status: string;
+  dashboardUrl: string;
+};
+
+export function dailyStandupEmail(input: DailyStandupEmailInput): EmailContent {
+  const lines = [
+    `Wrote ${input.articlesWritten} article${input.articlesWritten === 1 ? "" : "s"}.`,
+    `Researched ${input.topicsResearched} new topic${input.topicsResearched === 1 ? "" : "s"}.`,
+    ...(input.failures > 0
+      ? [`Held ${input.failures} item${input.failures === 1 ? "" : "s"} for recovery.`]
+      : []),
+  ];
+  const subject = `Claudia's daily standup for ${input.brandName}`;
+  const text = [
+    `Daily update for ${input.runDate}:`,
+    "",
+    ...lines.map((line) => `- ${line}`),
+    "",
+    `Run status: ${input.status.replaceAll("_", " ")}`,
+    `Open Claudia: ${input.dashboardUrl}`,
+  ].join("\n");
+  const body =
+    `<p style="margin:12px 0;">Here's what I did for <strong style="color:#eef1f7;">${escapeHtml(input.brandName)}</strong> today:</p>` +
+    `<ul style="margin:12px 0;padding-left:20px;">${lines
+      .map((line) => `<li style="margin:8px 0;color:#eef1f7;">${escapeHtml(line)}</li>`)
+      .join("")}</ul>`;
+  return {
+    subject,
+    text,
+    html: claudiaEmailHtml(
+      "Claudia · daily standup",
+      `My update for ${input.runDate}`,
+      body,
+      { href: input.dashboardUrl, label: "Open Claudia" },
+    ),
+  };
+}

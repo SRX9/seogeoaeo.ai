@@ -103,6 +103,7 @@ export type DailyRunRow = {
   topicsResearched: number;
   status: string;
   note: string | null;
+  summaryEmailedAt: Date | null;
 };
 
 type Store = {
@@ -203,8 +204,12 @@ export const agentControls = {
 };
 
 /** Captures out-of-credits emails the daily agent tried to send. */
-export const email: { sent: Array<{ workspaceId: string; brandName?: string; pendingTopics: number }> } = {
+export const email: {
+  sent: Array<{ workspaceId: string; brandName?: string; pendingTopics: number }>;
+  updates: Array<{ workspaceId: string; subject: string }>;
+} = {
   sent: [],
+  updates: [],
 };
 
 export function resetStore() {
@@ -260,6 +265,7 @@ export function resetStore() {
   agentControls.priorityInstructions = [];
   agentControls.grantedCapabilities = [];
   email.sent = [];
+  email.updates = [];
 }
 
 // ---- Seed helpers ----
@@ -629,6 +635,16 @@ export const workspaceRepo = {
   async getWorkspaceById(workspaceId: string) {
     return store.workspaces.get(workspaceId) ?? null;
   },
+  async getClaudiaEmailPreferences() {
+    return {
+      milestoneEmailsEnabled: true,
+      reviewEmailsEnabled: true,
+      dailySummaryEmailsEnabled: true,
+    };
+  },
+  async getWorkspaceOwnerEmail() {
+    return "owner@example.com";
+  },
 };
 
 export const jobsRepo = {
@@ -988,12 +1004,26 @@ export const dailyRepo = {
       topicsResearched: input.topicsResearched,
       status: input.status,
       note: input.note ?? null,
+      summaryEmailedAt:
+        store.dailyRuns.get(`${scope.brandId}:${runDate}`)?.summaryEmailedAt ?? null,
     });
+  },
+  async markDailySummaryEmailed(brandId: string, runDate: string) {
+    const row = store.dailyRuns.get(`${brandId}:${runDate}`);
+    if (row && !row.summaryEmailedAt) row.summaryEmailedAt = new Date();
   },
 };
 
 export const emailNotify = {
   async sendOutOfCreditsEmail(notice: { workspaceId: string; brandName?: string; pendingTopics: number }) {
     email.sent.push(notice);
+  },
+  async sendToWorkspaceOwnerWhenEnabled(
+    workspaceId: string,
+    _preference: string,
+    content: { subject: string },
+  ) {
+    email.updates.push({ workspaceId, subject: content.subject });
+    return true;
   },
 };

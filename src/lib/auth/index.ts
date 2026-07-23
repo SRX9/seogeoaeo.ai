@@ -11,11 +11,10 @@ function socialProviders() {
       ? {
           clientId: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          // Ask for a refresh token so the daily job can pull GSC/GA4 traffic proof
-          // long after the user connected. The Search Console / Analytics readonly
-          // scopes are NOT requested at login: they're added on demand when the
-          // user clicks "Connect Search Console" (authClient.linkSocial). `consent`
-          // guarantees Google returns a refresh token on re-consent.
+          // Ask for a refresh token so the daily job can pull Search Console
+          // traffic proof long after the user connected. The readonly scope is
+          // added on demand when the user clicks "Connect Search Console".
+          // `consent` guarantees Google returns a refresh token on re-consent.
           accessType: "offline" as const,
           prompt: "select_account consent" as const,
         }

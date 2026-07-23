@@ -3,9 +3,9 @@ export type AutonomyMode = (typeof AUTONOMY_MODES)[number];
 
 /** Human-readable labels for autonomy modes: never show the raw enum in the UI. */
 const AUTONOMY_LABELS: Record<AutonomyMode, string> = {
-  REVIEW: "Review mode",
-  FULL_AUTO: "Auto-publish",
-  AUTO_PUBLISH_FAST: "Fast auto-publish",
+  REVIEW: "Review",
+  FULL_AUTO: "Auto",
+  AUTO_PUBLISH_FAST: "Auto-fast",
 };
 
 export function autonomyLabel(mode: string): string {

@@ -158,14 +158,23 @@ function PublishingPreferences({
     <div className="space-y-4">
       <Card className="rounded-3xl p-0">
         <Card.Header className="p-5 pb-3 sm:p-6 sm:pb-3">
-          <Card.Title>How should Claudia publish?</Card.Title>
-          <Card.Description>Choose once. You can change this whenever you need.</Card.Description>
+          <Card.Title>Operating mode</Card.Title>
+          <Card.Description>Choose how Claudia handles review and publishing. Change modes at any time.</Card.Description>
         </Card.Header>
         <Card.Content className="grid gap-3 p-5 pt-2 lg:grid-cols-3 sm:p-6 sm:pt-2">
           <PreferenceChoice
+            selected={preference === "REVIEW"}
+            title="Review"
+            description="Every article waits for you to review, edit, and mark ready to publish."
+            icon={<UserInputIcon className="size-4" />}
+            disabled={update.isPending}
+            pending={update.isPending && update.variables?.autonomyMode === "REVIEW"}
+            onPress={() => apply("REVIEW")}
+          />
+          <PreferenceChoice
             selected={preference === "FULL_AUTO"}
-            title="Publish automatically after quality checks"
-            description="Claudia publishes approved content to connected destinations without waiting."
+            title="Auto"
+            description="Claudia publishes articles that pass her checks and asks you to review only when needed."
             icon={<CheckIcon className="size-4" />}
             disabled={update.isPending}
             pending={update.isPending && update.variables?.autonomyMode === "FULL_AUTO"}
@@ -174,18 +183,9 @@ function PublishingPreferences({
             }}
           />
           <PreferenceChoice
-            selected={preference === "REVIEW"}
-            title="Let me review before publishing"
-            description="Claudia prepares content and asks for your decision before it goes live."
-            icon={<UserInputIcon className="size-4" />}
-            disabled={update.isPending}
-            pending={update.isPending && update.variables?.autonomyMode === "REVIEW"}
-            onPress={() => apply("REVIEW")}
-          />
-          <PreferenceChoice
             selected={preference === "AUTO_PUBLISH_FAST"}
-            title="Publish fast, skip editorial holds"
-            description="Minor style, metadata, originality, duplication, or link issues may go live."
+            title="Auto-fast"
+            description="No editorial review is requested. Eligible articles publish to every connected destination."
             icon={<AlertTriangleIcon className="size-4" />}
             disabled={update.isPending}
             pending={update.isPending && update.variables?.autonomyMode === "AUTO_PUBLISH_FAST"}
@@ -237,11 +237,11 @@ function PublishingPreferences({
               <AlertDialog.Heading>Publish automatically?</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
-              Claudia will publish only after quality, source, originality, and permission checks pass. Every publication stays recorded.
+              Claudia will publish articles that pass her checks. When an article needs your judgment, she will hold it and ask you to review.
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">Keep review first</Button>
-              <LoadingButton slot="close" isPending={update.isPending} onPress={() => apply("FULL_AUTO")}>Publish automatically</LoadingButton>
+              <LoadingButton slot="close" isPending={update.isPending} onPress={() => apply("FULL_AUTO")}>Use Auto mode</LoadingButton>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>
         </AlertDialog.Container>
@@ -256,9 +256,9 @@ function PublishingPreferences({
               <AlertDialog.Heading>Skip editorial publishing holds?</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
-              Claudia may publish when style, metadata, originality, duplication, or link checks
-              report issues. Factual grounding, citations, risk controls, permissions, pauses, and
-              destination checks will still block publishing.
+              Claudia will never request editorial review in this mode. Factual grounding,
+              citations, safety, permissions, pauses, and destination checks can still block an
+              unsafe or unsupported publication.
             </AlertDialog.Body>
             <AlertDialog.Footer>
               <Button slot="close" variant="tertiary">Keep current mode</Button>
@@ -268,7 +268,7 @@ function PublishingPreferences({
                 isPending={update.isPending}
                 onPress={() => apply("AUTO_PUBLISH_FAST", true)}
               >
-                Enable fast auto-publish
+                Use Auto-fast mode
               </LoadingButton>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>

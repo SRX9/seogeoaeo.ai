@@ -11,6 +11,10 @@ const BrandSection = dynamic(
   () => import("@/components/settings/brand-section").then((module) => module.BrandSection),
   { loading: () => <SettingsPanelSkeleton /> },
 );
+const ClaudiaSection = dynamic(
+  () => import("@/components/settings/claudia-section").then((module) => module.ClaudiaSection),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
 const IntegrationsSection = dynamic(
   () => import("@/components/settings/integrations-section").then((module) => module.IntegrationsSection),
   { loading: () => <SettingsPanelSkeleton /> },
@@ -26,6 +30,7 @@ const AccountSection = dynamic(
 
 const tabs = [
   { id: "brand", label: "Brand" },
+  { id: "claudia", label: "Claudia" },
   { id: "integrations", label: "Connections" },
   { id: "billing", label: "Billing" },
   { id: "account", label: "Account" },
@@ -34,12 +39,12 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const TAB_ALIASES: Record<string, TabId> = {
-  automation: "brand",
+  automation: "claudia",
   connections: "integrations",
-  goals: "brand",
-  publishing: "brand",
-  preferences: "brand",
-  advanced: "brand",
+  goals: "claudia",
+  publishing: "claudia",
+  preferences: "claudia",
+  advanced: "claudia",
 };
 
 function SettingsPanelSkeleton() {
@@ -61,6 +66,7 @@ function selectedTab(requested: string | null): TabId {
 
 function panelFor(tab: TabId) {
   if (tab === "brand") return <BrandSection />;
+  if (tab === "claudia") return <ClaudiaSection />;
   if (tab === "integrations") return <IntegrationsSection />;
   if (tab === "billing") return <BillingSection />;
   return <AccountSection />;
@@ -75,7 +81,7 @@ function SettingsContent() {
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4">
       <PageHeader
         title="Settings"
-        description="Manage your brand, operational connections, plan, and account."
+        description="Manage your brand, Claudia, connections, plan, and account."
       />
 
       <Tabs

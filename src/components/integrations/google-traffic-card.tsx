@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Input, Label, toast } from "@heroui/react";
+import { Card, Label, toast } from "@heroui/react";
 import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,11 +14,9 @@ import { GOOGLE_TRAFFIC_SCOPES } from "@/lib/integrations/google-scopes";
 /**
  * V6.6 connect: "Connect Search Console" card. The OAuth grant is requested on
  * demand with authClient.linkSocial (never at login); once granted the user picks
- * which verified GSC site (and optionally a GA4 property) maps to this brand. The
- * daily job then pulls real traffic into the Proof panel. Proof is never metered.
+ * which verified GSC site maps to this brand. The daily job then pulls real
+ * traffic into the Proof panel. Proof is never metered.
  */
-
-
 function lastSyncLabel(iso: string | null): string {
   if (!iso) return "Not synced yet";
   return `Last synced ${new Date(iso).toLocaleDateString()}`;
@@ -27,8 +25,8 @@ function lastSyncLabel(iso: string | null): string {
 export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
   const queryClient = useQueryClient();
   const [selectedSite, setSelectedSite] = useState<string>(status.gsc.siteUrl ?? "");
-  const [propertyId, setPropertyId] = useState<string>(status.ga4.propertyId ?? "");
   const [connecting, setConnecting] = useState(false);
+  const connectedSiteUrl = status.gsc.siteUrl;
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.googleTraffic });
 
@@ -56,8 +54,7 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
   }
 
   const save = useMutation({
-    mutationFn: (body: { siteUrl?: string; propertyId?: string }) =>
-      apiPost("/api/integrations/google", body),
+    mutationFn: (body: { siteUrl: string }) => apiPost("/api/integrations/google", body),
     onSuccess: () => {
       toast.success("Connection saved. We are pulling your traffic now.");
       invalidate();
@@ -80,10 +77,10 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Card.Title className="tracking-tight">Search Console & Analytics</Card.Title>
+          <Card.Title className="tracking-tight">Google Search Console</Card.Title>
           <Card.Description className="leading-relaxed">
-            Compare your visibility score with real Google traffic. Add clicks to the score trend and
-            use GA4 to track visits from AI assistants.
+            Compare your visibility score with real Google search traffic and add clicks to the
+            score trend.
           </Card.Description>
         </div>
         {status.gsc.connected ? (
@@ -162,38 +159,16 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
             )}
           </div>
 
-          {/* GA4 (optional, manual property id) */}
-          <div className="space-y-2">
-            <Label htmlFor="ga4-property">GA4 property ID (optional)</Label>
-            <Input
-              id="ga4-property"
-              value={propertyId}
-              onChange={(event) => setPropertyId(event.target.value)}
-              placeholder="e.g. 123456789"
-              variant="secondary"
-              fullWidth
-            />
-            <p className="text-xs leading-relaxed text-muted">
-              Adds AI-referral sessions to the Proof panel. Find it in GA4 → Admin → Property
-              settings. Leave blank to skip; clear it to stop GA4 sync.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <LoadingButton
-              isPending={save.isPending}
-              pendingLabel="Saving…"
-              isDisabled={busy}
-              onPress={() =>
-                save.mutate({
-                  ...(status.gsc.connected && status.gsc.siteUrl ? { siteUrl: status.gsc.siteUrl } : {}),
-                  propertyId,
-                })
-              }
-            >
-              {status.gsc.connected ? "Sync now" : "Save"}
-            </LoadingButton>
-            {(status.gsc.connected || status.ga4.connected) && (
+          {status.gsc.connected && connectedSiteUrl ? (
+            <div className="flex flex-wrap gap-2">
+              <LoadingButton
+                isPending={save.isPending}
+                pendingLabel="Syncing…"
+                isDisabled={busy}
+                onPress={() => save.mutate({ siteUrl: connectedSiteUrl })}
+              >
+                Sync now
+              </LoadingButton>
               <LoadingButton
                 variant="ghost"
                 isPending={disconnect.isPending}
@@ -203,8 +178,8 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
               >
                 Disconnect
               </LoadingButton>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       )}
     </Card>

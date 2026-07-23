@@ -1,4 +1,5 @@
 import type { AgentState } from "@/lib/agent/types";
+import type { AutonomyMode } from "@/lib/workspace/settings";
 
 export type OwnerRequestType =
   | "content_review"
@@ -58,7 +59,7 @@ export type OwnerRequestInput = {
   agent: AgentState;
   approvals: OwnerApprovalInput[];
   articles: OwnerArticleInput[];
-  reviewBeforePublishing: boolean;
+  autonomyMode: AutonomyMode;
   publishingConnected: boolean;
 };
 
@@ -210,13 +211,17 @@ function connectionRequest(firstDraft: OwnerArticleInput): OwnerRequestView {
 function articleRequest(
   article: OwnerArticleInput,
   publishingConnected: boolean,
+  autonomyMode: AutonomyMode,
 ): OwnerRequestView {
   return {
     id: `article-${article.id}`,
     type: "content_review",
     title: `Review “${article.title}”`,
     recommendation: "Claudia recommends reviewing this article and publishing it when it is ready.",
-    reason: "This appeared because your publishing preference requires review.",
+    reason:
+      autonomyMode === "REVIEW"
+        ? "This appeared because your operating mode requires review before publishing."
+        : "Claudia's checks found something that needs your judgment before this can go live.",
     changeSummary: publishingConnected
       ? "The article will be published to your connected destination after final checks."
       : "The article will remain a draft until you choose a publishing destination.",
@@ -347,8 +352,12 @@ export function buildOwnerRequests(input: OwnerRequestInput): OwnerRequestView[]
     requests.push(waiting);
   }
 
-  if (input.reviewBeforePublishing) {
-    requests.push(...drafts.map((article) => articleRequest(article, input.publishingConnected)));
+  if (input.autonomyMode !== "AUTO_PUBLISH_FAST") {
+    requests.push(
+      ...drafts.map((article) =>
+        articleRequest(article, input.publishingConnected, input.autonomyMode),
+      ),
+    );
   }
 
   return requests;
@@ -357,7 +366,7 @@ export function buildOwnerRequests(input: OwnerRequestInput): OwnerRequestView[]
 export function countOwnerRequestsFromParts(parts: {
   approvalCount: number;
   draftCount: number;
-  reviewBeforePublishing: boolean;
+  autonomyMode: AutonomyMode;
   publishingConnected: boolean;
   billingPaused: boolean;
 }) {
@@ -365,6 +374,6 @@ export function countOwnerRequestsFromParts(parts: {
     parts.approvalCount +
     (parts.billingPaused ? 1 : 0) +
     (parts.draftCount > 0 && !parts.publishingConnected ? 1 : 0) +
-    (parts.reviewBeforePublishing ? parts.draftCount : 0)
+    (parts.autonomyMode !== "AUTO_PUBLISH_FAST" ? parts.draftCount : 0)
   );
 }
