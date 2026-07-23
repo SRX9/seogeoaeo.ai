@@ -18,6 +18,7 @@ export {
 } from "@/lib/integrations/google-scopes";
 
 export type TrafficSource = "gsc";
+export type DeletableTrafficSource = TrafficSource | "ga4";
 
 /** The user's Google grant is missing or lacks the traffic-proof scopes. */
 export class GoogleReconnectError extends Error {
@@ -109,7 +110,10 @@ export async function upsertTrafficConnection(
 }
 
 /** Remove a brand's connection(s). Does not revoke the Google grant itself. */
-export async function deleteTrafficConnection(brandId: string, source?: TrafficSource): Promise<void> {
+export async function deleteTrafficConnection(
+  brandId: string,
+  source?: DeletableTrafficSource,
+): Promise<void> {
   const where = source
     ? and(eq(trafficConnections.brandId, brandId), eq(trafficConnections.source, source))
     : eq(trafficConnections.brandId, brandId);

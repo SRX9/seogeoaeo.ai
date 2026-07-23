@@ -77,16 +77,50 @@ export type ClaudiaEmailPreferences = {
   dailySummaryEmailsEnabled: boolean;
 };
 
+export type OwnerEmailPreferences = Partial<ClaudiaEmailPreferences> & {
+  creditEmailsEnabled?: boolean;
+};
+
+/** Atomically update workspace- and subscription-scoped email preferences. */
+export async function setOwnerEmailPreferences(
+  workspaceId: string,
+  preferences: OwnerEmailPreferences,
+) {
+  const {
+    creditEmailsEnabled,
+    milestoneEmailsEnabled,
+    reviewEmailsEnabled,
+    dailySummaryEmailsEnabled,
+  } = preferences;
+  const claudiaPreferences = {
+    ...(milestoneEmailsEnabled === undefined ? {} : { milestoneEmailsEnabled }),
+    ...(reviewEmailsEnabled === undefined ? {} : { reviewEmailsEnabled }),
+    ...(dailySummaryEmailsEnabled === undefined ? {} : { dailySummaryEmailsEnabled }),
+  };
+
+  await getDb().transaction(async (tx) => {
+    if (Object.keys(claudiaPreferences).length > 0) {
+      await tx
+        .update(workspaces)
+        .set({ ...claudiaPreferences, updatedAt: new Date() })
+        .where(eq(workspaces.id, workspaceId));
+    }
+    if (creditEmailsEnabled !== undefined) {
+      await tx
+        .update(subscriptions)
+        .set({ creditEmailsEnabled, updatedAt: new Date() })
+        .where(eq(subscriptions.workspaceId, workspaceId));
+    }
+  });
+}
+
 /** Update any subset of Claudia's workspace-level email preferences. */
 export async function setClaudiaEmailPreferences(
   workspaceId: string,
   preferences: Partial<ClaudiaEmailPreferences>,
 ) {
   if (Object.keys(preferences).length === 0) return;
-  await getDb()
-    .update(workspaces)
-    .set({ ...preferences, updatedAt: new Date() })
-    .where(eq(workspaces.id, workspaceId));
+  await setOwnerEmailPreferences(workspaceId, preferences);
 }
 
 /** Read Claudia's communication preferences, defaulting on for legacy rows. */
@@ -111,10 +145,7 @@ export async function getClaudiaEmailPreferences(
 
 /** Toggle the owner's low/out-of-credits email notifications for a workspace. */
 export async function setCreditEmailsEnabled(workspaceId: string, enabled: boolean) {
-  await getDb()
-    .update(subscriptions)
-    .set({ creditEmailsEnabled: enabled, updatedAt: new Date() })
-    .where(eq(subscriptions.workspaceId, workspaceId));
+  await setOwnerEmailPreferences(workspaceId, { creditEmailsEnabled: enabled });
 }
 
 /** Email address of the workspace owner (workspaces.ownerId → user.email). */

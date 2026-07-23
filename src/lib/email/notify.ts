@@ -1,13 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { subscriptions } from "@/lib/db/schema";
+import { ownerEmailDeliveries, subscriptions, user, workspaces } from "@/lib/db/schema";
 import { getServerEnv } from "@/lib/env";
 import { logWarn } from "@/lib/logging/logger";
 import { getWorkspaceOwnerEmail } from "@/lib/workspace";
-import {
-  getClaudiaEmailPreferences,
-  type ClaudiaEmailPreferences,
-} from "@/lib/workspace";
+import type { ClaudiaEmailPreferences } from "@/lib/workspace";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send";
 import { outOfCreditsEmail, type EmailContent } from "@/lib/email/templates";
 
@@ -32,15 +29,75 @@ export async function sendToWorkspaceOwner(workspaceId: string, content: EmailCo
 
 export type ClaudiaEmailPreference = keyof ClaudiaEmailPreferences;
 
-/** Send only when the owner has left this Claudia communication enabled. */
+/**
+ * Send only when the owner has left this communication enabled. Preference
+ * reads are row-locked through delivery so a completed opt-out cannot race a
+ * send. An idempotency key additionally serializes and records one delivery.
+ */
 export async function sendToWorkspaceOwnerWhenEnabled(
   workspaceId: string,
   preference: ClaudiaEmailPreference,
   content: EmailContent,
+  options: { idempotencyKey?: string } = {},
 ): Promise<boolean> {
-  const preferences = await getClaudiaEmailPreferences(workspaceId);
-  if (!preferences[preference]) return false;
-  return sendToWorkspaceOwner(workspaceId, content);
+  try {
+    if (!isEmailConfigured()) return false;
+
+    return await getDb().transaction(async (tx) => {
+      if (options.idempotencyKey) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${`owner-email:${workspaceId}:${options.idempotencyKey}`}))`,
+        );
+        const [delivered] = await tx
+          .select({ id: ownerEmailDeliveries.id })
+          .from(ownerEmailDeliveries)
+          .where(
+            and(
+              eq(ownerEmailDeliveries.workspaceId, workspaceId),
+              eq(ownerEmailDeliveries.idempotencyKey, options.idempotencyKey),
+            ),
+          )
+          .limit(1);
+        if (delivered) return false;
+      }
+
+      const [owner] = await tx
+        .select({
+          email: user.email,
+          milestoneEmailsEnabled: workspaces.milestoneEmailsEnabled,
+          reviewEmailsEnabled: workspaces.reviewEmailsEnabled,
+          dailySummaryEmailsEnabled: workspaces.dailySummaryEmailsEnabled,
+        })
+        .from(workspaces)
+        .innerJoin(user, eq(user.id, workspaces.ownerId))
+        .where(eq(workspaces.id, workspaceId))
+        .limit(1)
+        .for("update", { of: workspaces });
+      if (!owner?.email || !owner[preference]) return false;
+
+      const sent = await sendEmail({
+        to: owner.email,
+        subject: content.subject,
+        html: content.html,
+        text: content.text,
+      });
+      if (!sent) return false;
+
+      if (options.idempotencyKey) {
+        await tx.insert(ownerEmailDeliveries).values({
+          workspaceId,
+          idempotencyKey: options.idempotencyKey,
+        });
+      }
+      return true;
+    });
+  } catch (error) {
+    logWarn("email.owner_send_skipped", {
+      workspaceId,
+      reason: error instanceof Error ? error.message : "Unknown error",
+    });
+    return false;
+  }
 }
 
 /**

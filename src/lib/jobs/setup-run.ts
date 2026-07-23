@@ -212,6 +212,7 @@ async function notifySetupRunFailure(
 
 async function notifySetupRunCompletion(
   scope: BrandScope,
+  setupRunId: string,
   summary: string | null,
 ) {
   const [
@@ -234,6 +235,7 @@ async function notifySetupRunCompletion(
         "I learned the brand, checked the available signals, and prepared the first priorities.",
       dashboardUrl: `${origin}/dashboard`,
     }),
+    { idempotencyKey: `setup-completed:${setupRunId}` },
   );
 }
 
@@ -783,7 +785,7 @@ export async function finalizeSetupRun(scope: BrandScope) {
   });
   if (materialDone) {
     try {
-      await notifySetupRunCompletion(scope, run.briefText);
+      await notifySetupRunCompletion(scope, run.id, run.briefText);
     } catch (error) {
       logWarn("setup_run.completion_notify_failed", {
         workspaceId: scope.workspaceId,

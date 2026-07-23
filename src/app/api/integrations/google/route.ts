@@ -81,7 +81,9 @@ export async function POST(request: Request) {
   });
 }
 
-const deleteSchema = z.object({ source: z.literal("gsc").optional() });
+const deleteSchema = z.object({
+  source: z.union([z.literal("gsc"), z.literal("ga4")]).optional(),
+});
 
 /** Disconnect: clear the brand's connection rows (does not revoke the Google grant). */
 export async function DELETE(request: Request) {

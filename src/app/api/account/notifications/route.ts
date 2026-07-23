@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { getApiContext, handleApi, jsonOk, parseBody, readJson } from "@/lib/api/server";
-import {
-  setClaudiaEmailPreferences,
-  setCreditEmailsEnabled,
-} from "@/lib/workspace";
+import { setOwnerEmailPreferences } from "@/lib/workspace";
 
 /** Update Claudia's owner-scoped email preferences. */
 export async function PATCH(request: Request) {
@@ -28,16 +25,12 @@ export async function PATCH(request: Request) {
       reviewEmailsEnabled,
       dailySummaryEmailsEnabled,
     } = preferences;
-    await Promise.all([
-      creditEmailsEnabled === undefined
-        ? Promise.resolve()
-        : setCreditEmailsEnabled(workspace.id, creditEmailsEnabled),
-      setClaudiaEmailPreferences(workspace.id, {
-        ...(milestoneEmailsEnabled === undefined ? {} : { milestoneEmailsEnabled }),
-        ...(reviewEmailsEnabled === undefined ? {} : { reviewEmailsEnabled }),
-        ...(dailySummaryEmailsEnabled === undefined ? {} : { dailySummaryEmailsEnabled }),
-      }),
-    ]);
+    await setOwnerEmailPreferences(workspace.id, {
+      ...(creditEmailsEnabled === undefined ? {} : { creditEmailsEnabled }),
+      ...(milestoneEmailsEnabled === undefined ? {} : { milestoneEmailsEnabled }),
+      ...(reviewEmailsEnabled === undefined ? {} : { reviewEmailsEnabled }),
+      ...(dailySummaryEmailsEnabled === undefined ? {} : { dailySummaryEmailsEnabled }),
+    });
     return jsonOk(preferences);
   });
 }

@@ -1,4 +1,12 @@
-import { boolean, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -47,3 +55,25 @@ export const subscriptions = pgTable("subscriptions", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * Durable idempotency ledger for owner-facing transactional email. The sender
+ * serializes on this key, sends, and inserts the row in one transaction.
+ */
+export const ownerEmailDeliveries = pgTable(
+  "owner_email_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("owner_email_deliveries_workspace_key_idx").on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+  ],
+);

@@ -570,6 +570,7 @@ export async function executeDailySettlementOperation(
               status,
               dashboardUrl: `${origin}/dashboard`,
             }),
+            { idempotencyKey: `daily-summary:${scope.brandId}:${runDate}` },
           );
           if (sent) await markDailySummaryEmailed(scope.brandId, runDate);
         }

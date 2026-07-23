@@ -77,6 +77,7 @@ async function notifyArticleReviewNeeded(input: {
       articleUrl: `${origin}/articles/${input.article.id}`,
       reason: input.autonomyMode === "REVIEW" ? "review_mode" : "quality_hold",
     }),
+    { idempotencyKey: `article-review:${input.article.id}` },
   );
 }
 
