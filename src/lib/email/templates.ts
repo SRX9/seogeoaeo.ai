@@ -1,3 +1,5 @@
+import { SITE_URL } from "@/lib/site";
+
 export type OutOfCreditsEmailInput = {
   brandName: string;
   pendingTopics: number;
@@ -7,6 +9,14 @@ export type OutOfCreditsEmailInput = {
 
 export type EmailContent = { subject: string; html: string; text: string };
 
+type EmailAction = {
+  href: string;
+  label: string;
+};
+
+const CLAUDIA_LOGO_URL = `${SITE_URL}/claudia-bg-free-logo.png`;
+const GEIST_FONT_URL = `${SITE_URL}/geist-latin.woff2`;
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -15,27 +25,92 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Shared shell so every Claudia email matches the out-of-credits styling. */
-function claudiaEmailHtml(kicker: string, title: string, bodyHtml: string, cta: { href: string; label: string }): string {
+function paragraph(content: string): string {
+  return `<p style="margin:0 0 20px;">${content}</p>`;
+}
+
+function list(items: string[]): string {
+  return `<ul style="margin:0 0 20px;padding:0 0 0 22px;">${items
+    .map((item) => `<li style="margin:0 0 8px;">${escapeHtml(item)}</li>`)
+    .join("")}</ul>`;
+}
+
+function claudiaEmailText(lines: string[], action?: EmailAction): string {
+  return [
+    "Hi,",
+    "",
+    ...lines,
+    ...(action ? ["", `${action.label}: ${action.href}`] : []),
+    "",
+    "Claudia",
+  ].join("\n");
+}
+
+/**
+ * A plain, letter-like shell for customer emails. Email clients that support
+ * Geist use it; Arial is the metric-compatible fallback elsewhere.
+ */
+function claudiaEmailHtml(bodyHtml: string, action?: EmailAction): string {
+  const actionHtml = action
+    ? `<p style="margin:28px 0 0;"><a href="${escapeHtml(action.href)}" style="color:inherit;font-weight:600;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;">${escapeHtml(action.label)}</a></p>`
+    : "";
+
   return `<!doctype html>
-<html>
-  <body style="margin:0;background:#0a0b10;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#eef1f7;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
-      <tr><td align="center">
-        <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#14161f;border:1px solid #242838;border-radius:16px;overflow:hidden;">
-          <tr><td style="padding:28px 32px 8px;">
-            <div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#b06cff;">${escapeHtml(kicker)}</div>
-            <h1 style="margin:10px 0 0;font-size:22px;font-weight:700;color:#ffffff;">${escapeHtml(title)}</h1>
-          </td></tr>
-          <tr><td style="padding:8px 32px 0;font-size:15px;line-height:1.6;color:#9aa3b8;">${bodyHtml}</td></tr>
-          <tr><td style="padding:20px 32px 28px;">
-            <a href="${cta.href}" style="display:inline-block;background:linear-gradient(135deg,#7c6cff,#b06cff);color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px;">${escapeHtml(cta.label)}</a>
-          </td></tr>
-        </table>
-      </td></tr>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>Claudia</title>
+    <style>
+      @font-face {
+        font-family: "Geist";
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+        src: url("${GEIST_FONT_URL}") format("woff2");
+      }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;font-family:Geist,Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" style="padding:48px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;">
+            <tr>
+              <td style="font-family:Geist,Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;text-align:left;overflow-wrap:break-word;">
+                <img src="${CLAUDIA_LOGO_URL}" width="48" height="48" alt="Claudia" style="display:block;width:48px;height:48px;object-fit:contain;margin:0 0 32px;">
+                ${paragraph("Hi,")}
+                ${bodyHtml}
+                ${actionHtml}
+                <p style="margin:32px 0 0;">Claudia</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
     </table>
   </body>
 </html>`;
+}
+
+function formatRunDate(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function weeklyAskLabel(href: string): string {
+  const path = new URL(href, SITE_URL).pathname;
+  if (path === "/settings") return "Connect Search Console";
+  if (path === "/visibility/fixes") return "Review fixes";
+  if (path === "/articles") return "Review drafts";
+  return "Review this";
 }
 
 export type VisibilityAlertEmailInput = {
@@ -46,22 +121,21 @@ export type VisibilityAlertEmailInput = {
 
 /** V7.3 alert: score drop or new critical finding on a monitored site. */
 export function visibilityAlertEmail(input: VisibilityAlertEmailInput): EmailContent {
-  const subject = `Visibility alert for ${input.siteUrl}`;
-  const text = [
-    `Claudia's scheduled check of ${input.siteUrl} found something that needs your attention:`,
-    "",
-    ...input.reasons.map((r) => `- ${r}`),
-    "",
-    `See the details and fixes: ${input.dashboardUrl}`,
-  ].join("\n");
+  const subject = `I found a visibility issue on ${input.siteUrl}`;
+  const action = { href: input.dashboardUrl, label: "Review visibility issues" };
+  const text = claudiaEmailText(
+    [
+      `I checked ${input.siteUrl} and found something that needs your attention:`,
+      "",
+      ...input.reasons.map((reason) => `- ${reason}`),
+    ],
+    action,
+  );
   const body =
-    `<p style="margin:12px 0;">My scheduled check of <strong style="color:#eef1f7;">${escapeHtml(input.siteUrl)}</strong> found something that needs your attention:</p>` +
-    `<ul style="margin:12px 0;padding-left:20px;">${input.reasons.map((r) => `<li style="margin:6px 0;">${escapeHtml(r)}</li>`).join("")}</ul>`;
-  const html = claudiaEmailHtml("Claudia · visibility alert", "Something moved on your site", body, {
-    href: input.dashboardUrl,
-    label: "See details & fixes",
-  });
-  return { subject, html, text };
+    paragraph(`I checked ${escapeHtml(input.siteUrl)} and found something that needs your attention:`) +
+    list(input.reasons);
+
+  return { subject, html: claudiaEmailHtml(body, action), text };
 }
 
 export type WeeklyReportEmailInput = {
@@ -76,89 +150,60 @@ export type WeeklyReportEmailInput = {
 
 /** AP5: the full weekly report: both halves of Claudia's job, one ask max. */
 export function weeklyReportEmail(input: WeeklyReportEmailInput): EmailContent {
-  const subject = `Claudia's weekly report for ${input.brandName}`;
-  const text = [
-    `Here's my week on ${input.siteUrl}:`,
-    "",
-    ...input.lines.map((line) => `- ${line}`),
-    ...(input.ask ? ["", `One thing from you: ${input.ask.what} ${input.ask.href}`] : []),
-    "",
-    `Every report: ${input.reportsUrl}`,
-  ].join("\n");
-
-  const body =
-    `<p style="margin:12px 0;">Here's my week on <strong style="color:#eef1f7;">${escapeHtml(input.siteUrl)}</strong>:</p>` +
-    `<ul style="margin:12px 0;padding-left:20px;">${input.lines
-      .map((line) => `<li style="margin:8px 0;color:#eef1f7;">${escapeHtml(line)}</li>`)
-      .join("")}</ul>` +
-    (input.ask
-      ? `<p style="margin:16px 0 4px;color:#eef1f7;"><strong>One thing from you:</strong> ${escapeHtml(input.ask.what)}</p>`
-      : `<p style="margin:16px 0 4px;">You do not need to do anything this week. I'll keep working.</p>`);
-
-  const html = claudiaEmailHtml(
-    "Claudia · weekly report",
-    `My week on ${input.brandName}`,
-    body,
-    input.ask
-      ? { href: input.ask.href, label: "Take care of it" }
-      : { href: input.reportsUrl, label: "View the full report" },
+  const subject = `What I did for ${input.brandName} this week`;
+  const action = input.ask
+    ? { href: input.ask.href, label: weeklyAskLabel(input.ask.href) }
+    : { href: input.reportsUrl, label: "View the full report" };
+  const text = claudiaEmailText(
+    [
+      `Here's what changed on ${input.siteUrl} this week:`,
+      "",
+      ...input.lines.map((line) => `- ${line}`),
+      ...(input.ask ? ["", "I need your help with one thing:", input.ask.what] : []),
+    ],
+    action,
   );
-  return { subject, html, text };
+  const body =
+    paragraph(`Here's what changed on ${escapeHtml(input.siteUrl)} this week:`) +
+    (input.lines.length > 0
+      ? list(input.lines)
+      : paragraph("There is nothing new to report this week.")) +
+    (input.ask
+      ? paragraph(`I need your help with one thing: ${escapeHtml(input.ask.what)}`)
+      : "");
+
+  return { subject, html: claudiaEmailHtml(body, action), text };
 }
 
 /**
- * "Your content agent is out of credits" notice. Framed as a hired content
- * employee who's ready to keep working but needs the account topped up.
+ * Let the owner know that Claudia stopped because the account ran out of
+ * credits, with one direct path to resume work.
  */
 export function outOfCreditsEmail(input: OutOfCreditsEmailInput): EmailContent {
-  const brand = escapeHtml(input.brandName);
   const topics = Math.max(0, input.pendingTopics);
   const queued =
     topics > 0
       ? `${topics} researched ${topics === 1 ? "topic is" : "topics are"} queued and ready to write`
-      : "new topics are queued and ready to write";
+      : "The next work is queued and ready";
+  const action = { href: input.creditsUrl, label: "Add credits" };
+  const subject = `I paused work for ${input.brandName} because your credits ran out`;
+  const text = claudiaEmailText(
+    [
+      `I paused work for ${input.brandName} because the account ran out of credits.`,
+      "",
+      `${queued}. I'll continue from the same place as soon as credits are available.`,
+    ],
+    action,
+  );
+  const body =
+    paragraph(
+      `I paused work for ${escapeHtml(input.brandName)} because the account ran out of credits.`,
+    ) +
+    paragraph(
+      `${escapeHtml(queued)}. I'll continue from the same place as soon as credits are available.`,
+    );
 
-  const subject = `Claudia paused because your credits ran out`;
-
-  const text = [
-    `Claudia has paused work for ${input.brandName}.`,
-    "",
-    `Your account is out of credits, so Claudia cannot write today's articles. ${queued}.`,
-    "",
-    `Add credits to resume the work: ${input.creditsUrl}`,
-    `View Claudia's work: ${input.dashboardUrl}`,
-    "",
-    "Claudia will resume from the same place as soon as credits are available.",
-  ].join("\n");
-
-  const html = `<!doctype html>
-<html>
-  <body style="margin:0;background:#0a0b10;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#eef1f7;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
-      <tr><td align="center">
-        <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#14161f;border:1px solid #242838;border-radius:16px;overflow:hidden;">
-          <tr><td style="padding:28px 32px 8px;">
-            <div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#b06cff;">Content agent · paused</div>
-            <h1 style="margin:10px 0 0;font-size:22px;font-weight:700;color:#ffffff;">Out of credits</h1>
-          </td></tr>
-          <tr><td style="padding:8px 32px 0;font-size:15px;line-height:1.6;color:#9aa3b8;">
-            <p style="margin:12px 0;">Claudia has paused work for <strong style="color:#eef1f7;">${brand}</strong> because your account is out of credits.</p>
-            <p style="margin:12px 0;">${escapeHtml(queued)}. Add credits when you want her to continue.</p>
-          </td></tr>
-          <tr><td style="padding:20px 32px 28px;">
-            <a href="${input.creditsUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c6cff,#b06cff);color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px;">Buy add-on credits</a>
-            <a href="${input.dashboardUrl}" style="display:inline-block;margin-left:10px;color:#cdd3e6;text-decoration:none;font-weight:600;font-size:15px;padding:12px 14px;">View agent →</a>
-          </td></tr>
-          <tr><td style="padding:0 32px 28px;font-size:13px;color:#6b7388;border-top:1px solid #242838;">
-            <p style="margin:16px 0 0;">Claudia will resume from the same place as soon as credits are available.</p>
-          </td></tr>
-        </table>
-      </td></tr>
-    </table>
-  </body>
-</html>`;
-
-  return { subject, html, text };
+  return { subject, html: claudiaEmailHtml(body, action), text };
 }
 
 export type SetupRunStalledEmailInput = {
@@ -167,28 +212,27 @@ export type SetupRunStalledEmailInput = {
 };
 
 /**
- * Setup Run hit a terminal technical failure. Honest, calm, no jargon: the
- * owner's saved work is safe, the team is alerted, and there is one clear
- * action (open the dashboard, where a retry is offered).
+ * Setup hit a terminal technical failure. The customer's saved work is safe,
+ * the team is alerted, and the dashboard offers the only useful action.
  */
 export function setupRunStalledEmail(input: SetupRunStalledEmailInput): EmailContent {
-  const subject = `Claudia hit a snag setting up ${input.brandName}`;
-  const text = [
-    `While setting up ${input.brandName}, I ran into a technical problem I couldn't work around.`,
-    "",
-    "Everything I finished is saved, and the team has been alerted automatically.",
-    "You can retry from your dashboard, or just wait — I'll pick the work back up as soon as it's resolved.",
-    "",
-    `Open your dashboard: ${input.dashboardUrl}`,
-  ].join("\n");
+  const subject = `I hit a problem while setting up ${input.brandName}`;
+  const action = { href: input.dashboardUrl, label: "Retry setup" };
+  const text = claudiaEmailText(
+    [
+      `I ran into a technical problem while setting up ${input.brandName}.`,
+      "",
+      "Everything I finished is saved, and my team has been alerted. You can retry now, or wait while we fix it.",
+    ],
+    action,
+  );
   const body =
-    `<p style="margin:12px 0;">While setting up <strong style="color:#eef1f7;">${escapeHtml(input.brandName)}</strong>, I ran into a technical problem I couldn't work around.</p>` +
-    `<p style="margin:12px 0;">Everything I finished is saved, and the team has been alerted automatically. You can retry from your dashboard, or just wait — I'll pick the work back up as soon as it's resolved.</p>`;
-  const html = claudiaEmailHtml("Claudia · setup paused", "I hit a snag — your work is safe", body, {
-    href: input.dashboardUrl,
-    label: "Open your dashboard",
-  });
-  return { subject, html, text };
+    paragraph(`I ran into a technical problem while setting up ${escapeHtml(input.brandName)}.`) +
+    paragraph(
+      "Everything I finished is saved, and my team has been alerted. You can retry now, or wait while we fix it.",
+    );
+
+  return { subject, html: claudiaEmailHtml(body, action), text };
 }
 
 export type SetupRunCompletedEmailInput = {
@@ -198,27 +242,21 @@ export type SetupRunCompletedEmailInput = {
 };
 
 export function setupRunCompletedEmail(input: SetupRunCompletedEmailInput): EmailContent {
-  const subject = `Claudia finished setting up ${input.brandName}`;
-  const text = [
-    `The initial setup for ${input.brandName} is complete.`,
-    "",
-    input.summary,
-    "",
-    `See what Claudia found and what she is doing next: ${input.dashboardUrl}`,
-  ].join("\n");
+  const subject = `I finished setting up ${input.brandName}`;
+  const action = { href: input.dashboardUrl, label: "See what I found" };
+  const text = claudiaEmailText(
+    [
+      `I finished the initial setup for ${input.brandName}.`,
+      "",
+      input.summary,
+    ],
+    action,
+  );
   const body =
-    `<p style="margin:12px 0;">I've finished the initial setup for <strong style="color:#eef1f7;">${escapeHtml(input.brandName)}</strong>.</p>` +
-    `<p style="margin:12px 0;">${escapeHtml(input.summary)}</p>`;
-  return {
-    subject,
-    text,
-    html: claudiaEmailHtml(
-      "Claudia · milestone",
-      "Initial setup is complete",
-      body,
-      { href: input.dashboardUrl, label: "Open Claudia" },
-    ),
-  };
+    paragraph(`I finished the initial setup for ${escapeHtml(input.brandName)}.`) +
+    paragraph(escapeHtml(input.summary));
+
+  return { subject, html: claudiaEmailHtml(body, action), text };
 }
 
 export type ArticleReviewNeededEmailInput = {
@@ -231,29 +269,24 @@ export type ArticleReviewNeededEmailInput = {
 export function articleReviewNeededEmail(input: ArticleReviewNeededEmailInput): EmailContent {
   const reason =
     input.reason === "review_mode"
-      ? "Your Review mode keeps every article with you until you mark it ready to publish."
-      : "My checks found something that needs your judgment before this article can go live.";
-  const subject = `Review “${input.articleTitle}”`;
-  const text = [
-    `I drafted "${input.articleTitle}" for ${input.brandName}.`,
-    "",
-    reason,
-    "",
-    `Review the article: ${input.articleUrl}`,
-  ].join("\n");
+      ? "You asked me to hold every article for review before publishing."
+      : "One of my checks found something that needs your judgment before I can publish it.";
+  const subject = `Review: ${input.articleTitle}`;
+  const action = { href: input.articleUrl, label: "Review the article" };
+  const text = claudiaEmailText(
+    [
+      `I drafted "${input.articleTitle}" for ${input.brandName}.`,
+      "",
+      reason,
+    ],
+    action,
+  );
   const body =
-    `<p style="margin:12px 0;">I drafted <strong style="color:#eef1f7;">${escapeHtml(input.articleTitle)}</strong> for ${escapeHtml(input.brandName)}.</p>` +
-    `<p style="margin:12px 0;">${escapeHtml(reason)}</p>`;
-  return {
-    subject,
-    text,
-    html: claudiaEmailHtml(
-      "Claudia · review needed",
-      "An article is ready for you",
-      body,
-      { href: input.articleUrl, label: "Review article" },
-    ),
-  };
+    paragraph(
+      `I drafted <strong>${escapeHtml(input.articleTitle)}</strong> for ${escapeHtml(input.brandName)}.`,
+    ) + paragraph(reason);
+
+  return { subject, html: claudiaEmailHtml(body, action), text };
 }
 
 export type DailyStandupEmailInput = {
@@ -271,31 +304,20 @@ export function dailyStandupEmail(input: DailyStandupEmailInput): EmailContent {
     `Wrote ${input.articlesWritten} article${input.articlesWritten === 1 ? "" : "s"}.`,
     `Researched ${input.topicsResearched} new topic${input.topicsResearched === 1 ? "" : "s"}.`,
     ...(input.failures > 0
-      ? [`Held ${input.failures} item${input.failures === 1 ? "" : "s"} for recovery.`]
+      ? [`Held ${input.failures} item${input.failures === 1 ? "" : "s"} to try again.`]
+      : []),
+    ...(input.status === "paused_no_credits"
+      ? ["Paused after the account ran out of credits."]
       : []),
   ];
-  const subject = `Claudia's daily standup for ${input.brandName}`;
-  const text = [
-    `Daily update for ${input.runDate}:`,
+  const date = formatRunDate(input.runDate);
+  const subject = `What I did for ${input.brandName} today`;
+  const text = claudiaEmailText([
+    `Here's my update for ${date}:`,
     "",
     ...lines.map((line) => `- ${line}`),
-    "",
-    `Run status: ${input.status.replaceAll("_", " ")}`,
-    `Open Claudia: ${input.dashboardUrl}`,
-  ].join("\n");
-  const body =
-    `<p style="margin:12px 0;">Here's what I did for <strong style="color:#eef1f7;">${escapeHtml(input.brandName)}</strong> today:</p>` +
-    `<ul style="margin:12px 0;padding-left:20px;">${lines
-      .map((line) => `<li style="margin:8px 0;color:#eef1f7;">${escapeHtml(line)}</li>`)
-      .join("")}</ul>`;
-  return {
-    subject,
-    text,
-    html: claudiaEmailHtml(
-      "Claudia · daily standup",
-      `My update for ${input.runDate}`,
-      body,
-      { href: input.dashboardUrl, label: "Open Claudia" },
-    ),
-  };
+  ]);
+  const body = paragraph(`Here's my update for ${escapeHtml(date)}:`) + list(lines);
+
+  return { subject, html: claudiaEmailHtml(body), text };
 }

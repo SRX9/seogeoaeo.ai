@@ -33,6 +33,7 @@ import { createWorkflowInstance } from "@/lib/jobs/workflow";
 import { generateJson, getLlmConfig } from "@/lib/llm/client";
 import { day0BriefPrompt, seedTrackedPromptsPrompt } from "@/lib/llm/prompts";
 import { logError, logInfo, logWarn } from "@/lib/logging/logger";
+import { resolveSiteOrigin } from "@/lib/site";
 import {
   assertHasCredits,
   InsufficientCreditsError,
@@ -191,7 +192,7 @@ async function notifySetupRunFailure(
   const [{ sendToWorkspaceOwner, sendOperatorAlert }, { setupRunStalledEmail }] =
     await Promise.all([import("@/lib/email/notify"), import("@/lib/email/templates")]);
   const brand = await getBrand(scope.workspaceId, scope.brandId).catch(() => null);
-  const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "https://seogeoaeo.ai";
+  const origin = resolveSiteOrigin(process.env.BETTER_AUTH_URL);
   await sendToWorkspaceOwner(
     scope.workspaceId,
     setupRunStalledEmail({
@@ -224,7 +225,7 @@ async function notifySetupRunCompletion(
     import("@/lib/email/templates"),
     getBrand(scope.workspaceId, scope.brandId).catch(() => null),
   ]);
-  const origin = process.env.BETTER_AUTH_URL?.replace(/\/$/, "") || "https://seogeoaeo.ai";
+  const origin = resolveSiteOrigin(process.env.BETTER_AUTH_URL);
   await sendToWorkspaceOwnerWhenEnabled(
     scope.workspaceId,
     "milestoneEmailsEnabled",

@@ -6,6 +6,11 @@
 
 export const SITE_URL = "https://seogeoaeo.ai";
 
+/** Return a clean app origin so transactional links never contain a double slash. */
+export function resolveSiteOrigin(configuredOrigin?: string | null): string {
+  return (configuredOrigin?.trim() || SITE_URL).replace(/\/+$/, "");
+}
+
 export const SITE_NAME = "SeoGeoAeo AI";
 
 export const SITE_DESCRIPTION =

@@ -19,6 +19,7 @@ import { weeklyReportEmail, type EmailContent } from "@/lib/email/templates";
 import { getServerEnv } from "@/lib/env";
 import { latestVisibilityMonitorMeta } from "@/lib/jobs/repository";
 import { logInfo } from "@/lib/logging/logger";
+import { resolveSiteOrigin } from "@/lib/site";
 import { computeShare, type EngineName } from "@/lib/visibility/answers";
 import { compareAudits } from "@/lib/visibility/compare";
 import { resolveBrandForSite } from "@/server/visibility/autonomy";
@@ -437,7 +438,7 @@ export async function assembleWeeklyReport(
 export async function sendWeeklyReports(): Promise<number> {
   const db = getDb();
   const sites = await activeOwnedSites();
-  const origin = getServerEnv().BETTER_AUTH_URL ?? "https://seogeoaeo.ai";
+  const origin = resolveSiteOrigin(getServerEnv().BETTER_AUTH_URL);
   const weekStart = getWeekStart();
   let sent = 0;
 

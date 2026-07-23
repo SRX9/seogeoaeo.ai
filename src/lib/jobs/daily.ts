@@ -39,6 +39,7 @@ import { createAgentJob, finishAgentJob } from "@/lib/jobs/repository";
 import { maybeRunWeeklySiteHealth } from "@/lib/jobs/site-health-weekly";
 import { runResearch } from "@/lib/research/run";
 import type { ResearchSourceType } from "@/lib/research/types";
+import { resolveSiteOrigin } from "@/lib/site";
 import { assertHasCredits, InsufficientCreditsError, spendCredits } from "@/lib/usage/credits";
 
 /**
@@ -555,9 +556,7 @@ export async function executeDailySettlementOperation(
       {
         const dailyRun = await getDailyRun(scope.brandId, runDate);
         if (!dailyRun?.summaryEmailedAt) {
-          const origin =
-            process.env.BETTER_AUTH_URL?.replace(/\/$/, "") ||
-            "https://seogeoaeo.ai";
+          const origin = resolveSiteOrigin(process.env.BETTER_AUTH_URL);
           const sent = await sendToWorkspaceOwnerWhenEnabled(
             scope.workspaceId,
             "dailySummaryEmailsEnabled",

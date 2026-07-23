@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { ownerEmailDeliveries, subscriptions, user, workspaces } from "@/lib/db/schema";
 import { getServerEnv } from "@/lib/env";
 import { logWarn } from "@/lib/logging/logger";
+import { resolveSiteOrigin } from "@/lib/site";
 import { getWorkspaceOwnerEmail } from "@/lib/workspace";
 import type { ClaudiaEmailPreferences } from "@/lib/workspace";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send";
@@ -162,12 +163,12 @@ export async function sendOutOfCreditsEmail(notice: OutOfCreditsNotice): Promise
     const email = await getWorkspaceOwnerEmail(notice.workspaceId);
     if (!email) return;
 
-    const origin = getServerEnv().BETTER_AUTH_URL ?? "https://seogeoaeo.ai";
+    const origin = resolveSiteOrigin(getServerEnv().BETTER_AUTH_URL);
     const { subject, html, text } = outOfCreditsEmail({
       brandName: notice.brandName ?? "your brand",
       pendingTopics: notice.pendingTopics,
       dashboardUrl: `${origin}/dashboard`,
-      creditsUrl: `${origin}/pricing`,
+      creditsUrl: `${origin}/settings?tab=billing`,
     });
 
     const sent = await sendEmail({ to: email, subject, html, text });
