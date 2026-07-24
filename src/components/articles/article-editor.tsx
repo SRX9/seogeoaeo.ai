@@ -154,7 +154,7 @@ export function ArticleEditor({
 
   function handleApiError(error: unknown) {
     if (error instanceof ApiError && error.status === 402) {
-      router.push("/settings?tab=billing&upgrade=1");
+      router.push("/account?tab=billing&upgrade=1");
       return;
     }
     toast.danger(getErrorMessage(error));

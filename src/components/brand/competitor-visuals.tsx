@@ -65,7 +65,7 @@ export function CompetitorRadar({
     <Card>
       <Card.Content className="flex flex-col gap-4 p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-accent">
+          <span className="flex size-10 shrink-0 items-center justify-center text-accent">
             {scanning ? <ThinkingOrb state="searching" size={20} aria-hidden /> : <span className="size-2 rounded-full bg-accent" />}
           </span>
           <div className="min-w-0">

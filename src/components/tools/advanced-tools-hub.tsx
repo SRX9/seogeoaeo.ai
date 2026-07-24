@@ -67,7 +67,7 @@ function AdvancedToolCard({ href, title, description, eyebrow, icon: Icon }: Too
     <HeroLink href={href} className="group block h-full no-underline">
       <Card className="h-full transition-colors group-hover:bg-surface-secondary">
         <Card.Header className="flex-row items-start justify-between gap-4 p-5 sm:p-6">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-muted">
+          <span className="flex size-10 shrink-0 items-center justify-center text-muted">
             <Icon className="size-5" aria-hidden />
           </span>
           <ArrowRightIcon className="size-4 shrink-0 text-muted" aria-hidden />

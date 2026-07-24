@@ -122,7 +122,7 @@ export function ProductTour() {
         </Card.Header>
         <Card.Content className="p-6 pt-5">
           <span
-            className="grid size-12 place-items-center rounded-xl bg-surface-secondary text-accent"
+            className="grid size-12 place-items-center text-accent"
             aria-hidden
           >
             <step.Icon className="size-6" />

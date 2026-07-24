@@ -82,7 +82,7 @@ function ContentRow({ content }: { content: ClaudiaRecentContent }) {
       className="group flex min-h-24 items-start gap-4 border-t border-separator py-5 no-underline outline-none transition-[transform,background-color] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus active:scale-[0.98]"
     >
       <span
-        className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+        className="grid size-10 shrink-0 place-items-center text-muted"
         aria-hidden
       >
         <ArticlesIcon className="size-5" />
@@ -206,7 +206,7 @@ export function ClaudiaLiveWorkspace({ home }: { home: ClaudiaHomeView }) {
         <section className={styles.ownerRequest} aria-labelledby="owner-request-title">
           <div className="flex min-w-0 items-start gap-4">
             <span
-              className="grid size-11 shrink-0 place-items-center rounded-xl bg-warning/10 text-warning"
+              className="grid size-11 shrink-0 place-items-center text-warning"
               aria-hidden
             >
               <UserInputIcon className="size-5" />
@@ -277,4 +277,3 @@ export function ClaudiaLiveWorkspace({ home }: { home: ClaudiaHomeView }) {
     </div>
   );
 }
-

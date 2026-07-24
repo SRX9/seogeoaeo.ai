@@ -278,7 +278,7 @@ export function MemoryConflictResolver() {
     <Card className="p-0">
       <Card.Header className="px-5 pt-5">
         <div className="flex items-start gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-warning" aria-hidden>
+          <span className="grid size-10 shrink-0 place-items-center text-warning" aria-hidden>
             <LayersIcon className="size-5" />
           </span>
           <div className="min-w-0">

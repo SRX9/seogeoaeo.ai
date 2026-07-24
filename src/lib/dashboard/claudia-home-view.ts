@@ -77,10 +77,10 @@ function buildOwnerRequest(input: ClaudiaHomeInput): ClaudiaOwnerRequest | null 
 function pausedAction(agent: AgentState): ClaudiaHomeAction {
   const reason = agent.presence.reason.toLowerCase();
   if (reason.includes("credit")) {
-    return { href: "/settings?tab=billing", label: "Add capacity" };
+    return { href: "/account?tab=billing", label: "Add capacity" };
   }
   if (reason.includes("plan") || reason.includes("subscription")) {
-    return { href: "/settings?tab=billing", label: "Review plan" };
+    return { href: "/account?tab=billing", label: "Review plan" };
   }
   return { href: "/settings", label: "Review settings" };
 }

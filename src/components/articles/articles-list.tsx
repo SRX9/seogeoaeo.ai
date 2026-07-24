@@ -194,7 +194,7 @@ function ContentSection({
       <Card className="overflow-hidden rounded-3xl p-0">
         <Card.Header className="flex-row items-start gap-3 px-5 py-5 sm:px-6">
           <span
-            className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            className="grid size-10 shrink-0 place-items-center text-muted"
             aria-hidden
           >
             <copy.Icon className="size-5" />
@@ -298,7 +298,7 @@ export function ArticlesList({ articles, topics, autoPublish }: ArticlesListProp
         <Card.Content className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <span
-              className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+              className="grid size-11 shrink-0 place-items-center text-muted"
               aria-hidden
             >
               <ResearchIcon className="size-5" />

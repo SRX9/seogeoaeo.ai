@@ -506,7 +506,7 @@ function BrandOnboardingClient({ showDashboardEscape }: { showDashboardEscape: b
       void queryClient.invalidateQueries({ queryKey: queryKeys.agentState });
       void queryClient.invalidateQueries({ queryKey: queryKeys.integrations });
       await releaseExitGuard();
-      router.replace(canIgnite ? "/dashboard" : "/settings?tab=billing&next=ignition");
+      router.replace(canIgnite ? "/dashboard" : "/account?tab=billing&next=ignition");
     },
     onError: (failure) => {
       rearmExitGuard();
@@ -1183,7 +1183,7 @@ function SummaryField({
       <Card.Content className="p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-3">
           <span
-            className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            className="grid size-10 shrink-0 place-items-center text-muted"
             aria-hidden
           >
             <Icon className="size-5" />
@@ -1223,7 +1223,7 @@ function OutcomeStep({
               onPress={() => setFields((current) => ({ ...current, firstOutcome: id }))}
             >
               <span
-                className="grid size-11 shrink-0 place-items-center rounded-xl bg-background text-muted"
+                className="grid size-11 shrink-0 place-items-center text-muted"
                 aria-hidden
               >
                 <Icon className="size-5" />
@@ -1347,7 +1347,7 @@ function PublishingModeStep({
             }}
           >
             <span
-              className="grid size-11 shrink-0 place-items-center rounded-xl bg-background text-muted"
+              className="grid size-11 shrink-0 place-items-center text-muted"
               aria-hidden
             >
               <Icon className="size-5" />

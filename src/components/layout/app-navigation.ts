@@ -22,6 +22,7 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
 
 export const APP_BRAND_ITEMS: readonly AppNavItem[] = [
   { href: "/settings", label: "Brand settings", icon: SettingsIcon },
+  { href: "/settings?tab=claudia", label: "Claudia settings", icon: ClaudiaIcon },
   { href: "/settings?tab=integrations", label: "Connections", icon: PlugIcon },
 ];
 
@@ -37,8 +38,8 @@ const ROUTE_TITLES = [
   { prefix: "/visibility", title: "Checklist" },
   { prefix: "/reports", title: "Checklist" },
   { prefix: "/tools", title: "Checklist" },
-  { prefix: "/settings", title: "Settings" },
-  { prefix: "/account", title: "Settings" },
+  { prefix: "/settings", title: "Brand settings" },
+  { prefix: "/account", title: "Account" },
 ] as const;
 
 export function appRouteTitle(pathname: string, firstName: string) {
@@ -60,6 +61,12 @@ export function isAppRouteCurrent(currentHref: string, href: string) {
   if (destination.pathname === "/settings") {
     const currentTab = current.searchParams.get("tab") ?? "brand";
     const destinationTab = destination.searchParams.get("tab") ?? "brand";
+    return pathname === destination.pathname && currentTab === destinationTab;
+  }
+
+  if (destination.pathname === "/account") {
+    const currentTab = current.searchParams.get("tab") ?? "account";
+    const destinationTab = destination.searchParams.get("tab") ?? "account";
     return pathname === destination.pathname && currentTab === destinationTab;
   }
 

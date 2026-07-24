@@ -117,7 +117,7 @@ export function ActivityPanel({ items }: ActivityPanelProps) {
                 <Table.Row key={`${item.type}-${item.id}`} id={`${item.type}-${item.id}`}>
                   <Table.Cell>
                     <div className="flex items-center gap-3">
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-muted">
+                      <span className="flex size-8 shrink-0 items-center justify-center text-muted">
                         <Icon className="size-4" />
                       </span>
                       <div className="flex flex-col">

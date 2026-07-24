@@ -70,7 +70,7 @@ function ToolCard({
     <HeroLink href={`/tools/${tool.slug}`} className="group block h-full no-underline">
       <Card className="h-full transition-colors group-hover:bg-surface-secondary">
         <Card.Header className="flex-row items-start gap-3 p-5 pb-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-secondary text-muted">
+          <span className="flex size-10 shrink-0 items-center justify-center text-muted">
             <Icon className="size-5" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">

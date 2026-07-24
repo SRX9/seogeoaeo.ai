@@ -56,13 +56,13 @@ function PreferenceChoice({
   return (
     <LoadingButton
       variant={selected ? "secondary" : "outline"}
-      className="h-auto min-h-32 justify-start gap-4 whitespace-normal p-5 text-left transition-transform active:scale-[0.96]"
+      className="h-auto min-h-28 justify-start gap-3.5 whitespace-normal rounded-xl p-4 text-left transition-transform active:scale-[0.96]"
       aria-pressed={selected}
       isDisabled={disabled}
       isPending={pending}
       onPress={onPress}
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+      <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
         {icon}
       </span>
       <span className="min-w-0">
@@ -155,11 +155,16 @@ function PublishingPreferences({
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="rounded-3xl p-0">
-        <Card.Header className="p-5 pb-3 sm:p-6 sm:pb-3">
-          <Card.Title>Operating mode</Card.Title>
-          <Card.Description>Choose how Claudia handles review and publishing. Change modes at any time.</Card.Description>
+    <div className="space-y-5">
+      <Card className="rounded-2xl p-0">
+        <Card.Header className="flex-row items-start gap-3 p-5 pb-3 sm:p-6 sm:pb-3">
+          <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
+            <UserInputIcon className="size-[18px]" />
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <Card.Title>Operating mode</Card.Title>
+            <Card.Description>Choose how Claudia handles review and publishing. Change modes at any time.</Card.Description>
+          </div>
         </Card.Header>
         <Card.Content className="grid gap-3 p-5 pt-2 lg:grid-cols-3 sm:p-6 sm:pt-2">
           <PreferenceChoice
@@ -196,10 +201,10 @@ function PublishingPreferences({
         </Card.Content>
       </Card>
 
-      <Card className="rounded-3xl p-0">
+      <Card className="rounded-2xl p-0">
         <Card.Content className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex items-start gap-4">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+            <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
               <GlobeIcon className="size-4" />
             </span>
             <div>

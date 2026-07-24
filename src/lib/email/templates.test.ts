@@ -68,7 +68,7 @@ describe("Claudia communication emails", () => {
         brandName: "Acme",
         pendingTopics: 3,
         dashboardUrl: "https://example.com/dashboard",
-        creditsUrl: "https://example.com/settings?tab=billing",
+        creditsUrl: "https://example.com/account?tab=billing",
       }),
     ];
 
@@ -125,11 +125,11 @@ describe("Claudia communication emails", () => {
       brandName: "Acme",
       pendingTopics: 3,
       dashboardUrl: "https://example.com/dashboard",
-      creditsUrl: "https://example.com/settings?tab=billing",
+      creditsUrl: "https://example.com/account?tab=billing",
     });
 
     expect(email.text).toContain("3 researched topics are queued");
-    expect(email.html).toContain('href="https://example.com/settings?tab=billing"');
+    expect(email.html).toContain('href="https://example.com/account?tab=billing"');
     expect(email.html).not.toContain("https://example.com/dashboard");
   });
 

@@ -15,7 +15,7 @@ import {
   toast,
 } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { CompetitorsPanel } from "@/components/brand/competitors-panel";
 import { UseCasesPanel } from "@/components/brand/use-cases-panel";
 import {
@@ -24,6 +24,10 @@ import {
   PenIcon,
   RefreshIcon,
   InsightIcon,
+  QuoteIcon,
+  ResearchIcon,
+  TopicsIcon,
+  UsersIcon,
   XIcon,
 } from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -71,9 +75,9 @@ function BrandIdentity({
   const palette = identity?.colors.slice(0, 4) ?? [];
 
   return (
-    <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" aria-labelledby="brand-identity-heading">
-      <Card>
-        <Card.Header className="flex-row flex-wrap items-center gap-4">
+    <section className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]" aria-labelledby="brand-identity-heading">
+      <Card className="rounded-2xl p-0">
+        <Card.Header className="flex-row flex-wrap items-center gap-4 p-5 sm:p-6">
           <Avatar className="size-12 shrink-0">
             {identity?.logoUrl ? (
               <Avatar.Image alt={`${brandName} logo`} src={identity.logoUrl} />
@@ -120,8 +124,13 @@ function BrandIdentity({
             )}
           </div>
         </Card.Header>
-        <Card.Footer className="justify-end">
-          <LoadingButton variant="ghost" isPending={refresh.isPending} onPress={() => refresh.mutate()}>
+        <Card.Footer className="justify-end px-5 pb-5 sm:px-6 sm:pb-6">
+          <LoadingButton
+            variant="ghost"
+            className="min-h-10 transition-transform active:scale-[0.96]"
+            isPending={refresh.isPending}
+            onPress={() => refresh.mutate()}
+          >
             <RefreshIcon className="size-4" />
             {refresh.isPending ? "Refreshing" : "Refresh identity"}
           </LoadingButton>
@@ -129,7 +138,7 @@ function BrandIdentity({
       </Card>
 
       {showNote ? (
-        <Alert status="accent">
+        <Alert status="accent" className="rounded-2xl">
           <Alert.Indicator>
             <InsightIcon className="size-4" />
           </Alert.Indicator>
@@ -160,6 +169,7 @@ function BrandIdentity({
 function EditableNarrativeCard({
   title,
   description,
+  icon,
   value,
   placeholder,
   rows,
@@ -171,6 +181,7 @@ function EditableNarrativeCard({
 }: {
   title: string;
   description: string;
+  icon: ReactNode;
   value: string;
   placeholder: string;
   rows: number;
@@ -181,20 +192,30 @@ function EditableNarrativeCard({
   onCancel: () => void;
 }) {
   return (
-    <Card>
-      <Card.Header className="flex-row items-start justify-between gap-4">
-        <div>
+    <Card className="rounded-2xl p-0">
+      <Card.Header className="flex-row items-start gap-3 p-5 pb-3 sm:p-6 sm:pb-3">
+        <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1 pt-0.5">
           <Card.Title>{title}</Card.Title>
           <Card.Description>{description}</Card.Description>
         </div>
         <Tooltip delay={250}>
-          <Button isIconOnly size="sm" variant="ghost" aria-label={`Edit ${title.toLowerCase()}`} onPress={onEdit}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            className="size-10 shrink-0"
+            aria-label={`Edit ${title.toLowerCase()}`}
+            onPress={onEdit}
+          >
             <PenIcon />
           </Button>
           <Tooltip.Content>Edit {title}</Tooltip.Content>
         </Tooltip>
       </Card.Header>
-      <Card.Content>
+      <Card.Content className="px-5 pb-5 sm:px-6 sm:pb-6">
         {isEditing ? (
           <TextArea
             aria-label={title}
@@ -209,8 +230,8 @@ function EditableNarrativeCard({
         ) : (
           <Button
             fullWidth
-            variant="secondary"
-            className="h-auto min-h-24 justify-start whitespace-normal px-4 py-4 text-left leading-6"
+            variant="outline"
+            className="h-auto min-h-24 justify-start whitespace-normal px-4 py-4 text-left leading-6 transition-transform active:scale-[0.96]"
             onPress={onEdit}
           >
             <span className={value ? "text-foreground" : "text-muted"}>{value || placeholder}</span>
@@ -218,7 +239,7 @@ function EditableNarrativeCard({
         )}
       </Card.Content>
       {isEditing ? (
-        <Card.Footer className="gap-2">
+        <Card.Footer className="gap-2 px-5 pb-5 sm:px-6 sm:pb-6">
           <LoadingButton type="submit" size="sm" isPending={isSaving}>
             Save
           </LoadingButton>
@@ -274,6 +295,7 @@ function ProfileSettings({ profile }: { profile: BrandProfile }) {
         <EditableNarrativeCard
           title="Positioning"
           description="What makes you different and why it matters."
+          icon={<TopicsIcon className="size-[18px]" />}
           value={fields.productDescription}
           placeholder="Describe what your brand does differently."
           rows={4}
@@ -286,6 +308,7 @@ function ProfileSettings({ profile }: { profile: BrandProfile }) {
         <EditableNarrativeCard
           title="Voice"
           description="How your brand speaks and shows up."
+          icon={<QuoteIcon className="size-[18px]" />}
           value={fields.tone}
           placeholder="Clear, expert, friendly."
           rows={4}
@@ -297,13 +320,18 @@ function ProfileSettings({ profile }: { profile: BrandProfile }) {
         />
       </div>
 
-      <Accordion variant="surface">
+      <Accordion variant="surface" className="rounded-2xl">
         <Accordion.Item id="discovery">
           <Accordion.Heading>
             <Accordion.Trigger>
-              <span className="flex min-w-0 flex-1 flex-col items-start text-left">
-                <span className="font-semibold text-foreground">Discovery</span>
-                <span className="mt-1 text-sm font-normal text-muted">Market, audience, and query signals.</span>
+              <span className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
+                  <ResearchIcon className="size-[18px]" />
+                </span>
+                <span className="flex min-w-0 flex-col pt-0.5">
+                  <span className="font-semibold text-foreground">Discovery</span>
+                  <span className="mt-1 text-sm font-normal text-muted">Market, audience, and query signals.</span>
+                </span>
               </span>
               <Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator>
             </Accordion.Trigger>
@@ -364,16 +392,21 @@ function CollectionAccordion({
   useCases: UseCase[];
 }) {
   return (
-    <Accordion variant="surface" allowsMultipleExpanded>
+    <Accordion variant="surface" className="rounded-2xl" allowsMultipleExpanded>
       <Accordion.Item id="competitors">
         <Accordion.Heading>
           <Accordion.Trigger>
-            <span className="flex min-w-0 flex-1 flex-col items-start text-left">
-              <span className="flex items-center gap-2 font-semibold text-foreground">
-                Competitors
-                {competitors.length > 0 ? <span className="text-sm font-medium text-accent tabular-nums">{competitors.length}</span> : null}
+            <span className="flex min-w-0 flex-1 items-start gap-3 text-left">
+              <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
+                <UsersIcon className="size-[18px]" />
               </span>
-              <span className="mt-1 text-sm font-normal text-muted">Your landscape and differentiators.</span>
+              <span className="flex min-w-0 flex-col pt-0.5">
+                <span className="flex items-center gap-2 font-semibold text-foreground">
+                  Competitors
+                  {competitors.length > 0 ? <span className="text-sm font-medium text-accent tabular-nums">{competitors.length}</span> : null}
+                </span>
+                <span className="mt-1 text-sm font-normal text-muted">Your landscape and differentiators.</span>
+              </span>
             </span>
             <Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator>
           </Accordion.Trigger>
@@ -385,12 +418,17 @@ function CollectionAccordion({
       <Accordion.Item id="buyer-profiles">
         <Accordion.Heading>
           <Accordion.Trigger>
-            <span className="flex min-w-0 flex-1 flex-col items-start text-left">
-              <span className="flex items-center gap-2 font-semibold text-foreground">
-                Buyer Profiles
-                {useCases.length > 0 ? <span className="text-sm font-medium text-accent tabular-nums">{useCases.length}</span> : null}
+            <span className="flex min-w-0 flex-1 items-start gap-3 text-left">
+              <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
+                <TopicsIcon className="size-[18px]" />
               </span>
-              <span className="mt-1 text-sm font-normal text-muted">Who you serve and what they care about.</span>
+              <span className="flex min-w-0 flex-col pt-0.5">
+                <span className="flex items-center gap-2 font-semibold text-foreground">
+                  Buyer profiles
+                  {useCases.length > 0 ? <span className="text-sm font-medium text-accent tabular-nums">{useCases.length}</span> : null}
+                </span>
+                <span className="mt-1 text-sm font-normal text-muted">Who you serve and what they care about.</span>
+              </span>
             </span>
             <Accordion.Indicator><ChevronRightIcon /></Accordion.Indicator>
           </Accordion.Trigger>
@@ -411,14 +449,14 @@ export function BrandSettingsCanvas({
   useCases,
 }: BrandSettingsCanvasProps) {
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl space-y-5">
       <BrandIdentity brandName={brandName} profile={profile} intelligence={intelligence} />
       <ProfileSettings profile={profile} />
       <CollectionAccordion competitors={competitors} useCases={useCases} />
-      <p className="flex items-center gap-2 text-sm text-muted">
-        <InsightIcon className="size-4 text-accent" aria-hidden />
-        Claudia keeps these signals aligned across research, answers, and articles.
-      </p>
+      <div className="flex items-start gap-3 rounded-2xl bg-surface-secondary px-4 py-3.5 text-sm leading-6 text-muted">
+        <InsightIcon className="mt-1 size-4 shrink-0 text-accent" aria-hidden />
+        <p>Claudia keeps these signals aligned across research, answers, and articles.</p>
+      </div>
     </div>
   );
 }

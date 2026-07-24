@@ -1256,10 +1256,6 @@ export async function prefetchRouteQueries(
             queryClient.prefetchQuery(googleTrafficQueryOptions()),
           ]);
           break;
-        case "billing":
-        case "account":
-          await queryClient.prefetchQuery(creditsQueryOptions());
-          break;
         default:
           await Promise.all([
             queryClient.prefetchQuery(brandProfileQueryOptions()),

@@ -149,7 +149,7 @@ function ReportCanvas({ model, auditId, previousOverall }: { model: ReportModel;
   const runAudit = useMutation({
     mutationFn: () => apiPost<{ auditId: string }>("/api/visibility/audit", {}),
     onSuccess: (result) => { queryClient.invalidateQueries({ queryKey: queryKeys.visibilitySummary }); toast.success("Audit started."); router.push(`/visibility?audit=${result.auditId}`); },
-    onError: (error) => { if (error instanceof ApiError && error.status === 402) { router.push("/settings?tab=billing&upgrade=1"); return; } toast.danger(getErrorMessage(error, "Could not start the audit.")); },
+    onError: (error) => { if (error instanceof ApiError && error.status === 402) { router.push("/account?tab=billing&upgrade=1"); return; } toast.danger(getErrorMessage(error, "Could not start the audit.")); },
   });
   return (
     <article className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 pb-10 pt-4" aria-labelledby="visibility-report-title">

@@ -199,7 +199,7 @@ function SetupWorkspace({
                   </Button>
                 ) : (
                   <Link
-                    href="/settings?tab=billing"
+                    href="/account?tab=billing"
                     className={cn(buttonVariants(), "min-h-11 transition-transform active:scale-[0.96]")}
                   >
                     Choose work capacity

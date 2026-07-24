@@ -154,7 +154,7 @@ function EvidenceLink({
 }) {
   const content = (
     <>
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-tertiary text-muted">
+      <span className="flex size-9 shrink-0 items-center justify-center text-muted">
         <ArticlesIcon className="size-4" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">

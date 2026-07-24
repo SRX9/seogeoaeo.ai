@@ -86,7 +86,7 @@ function RecentWork({ events }: { events: AgentEventView[] }) {
           <div className="space-y-1">
             {visible.map((event) => (
               <div key={event.id} className="flex min-w-0 items-start gap-3 rounded-2xl px-3 py-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                <span className="grid size-9 shrink-0 place-items-center text-muted" aria-hidden>
                   <EventIcon type={event.type} />
                 </span>
                 <p className="min-w-0 flex-1 text-sm leading-6 text-foreground">{event.summary}</p>

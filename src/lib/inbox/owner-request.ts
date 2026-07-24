@@ -273,7 +273,7 @@ function billingRequest(reason: string): OwnerRequestView {
     primaryAction: {
       kind: "link",
       label: needsCredits ? "Add credits" : "Review plan",
-      href: "/settings?tab=billing",
+      href: "/account?tab=billing",
     },
     alternativeAction: {
       kind: "link",
