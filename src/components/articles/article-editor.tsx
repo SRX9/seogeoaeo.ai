@@ -279,7 +279,6 @@ export function ArticleEditor({
           styleGate={styleGate}
           qualityChecks={qualityChecks}
           destinations={[...destinationMap.values()]}
-          gates={gates}
         />
       </div>
       </div>

@@ -73,7 +73,7 @@
 
 .heroSupport {
   display: grid;
-  max-width: 48rem;
+  max-width: 62rem;
   gap: 1.75rem;
   margin-top: 2rem;
 }
@@ -84,6 +84,23 @@
   font-size: 1rem;
   line-height: 1.65;
   text-wrap: pretty;
+}
+
+.heroActions {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.heroReassurance {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgb(255 255 255 / 0.5);
+  font-size: 0.75rem;
+}
+
+.heroReassurance svg {
+  color: #9fff00;
 }
 
 .primaryCta,
@@ -116,18 +133,33 @@
 
 .glassCta:hover { background: rgb(255 255 255 / 0.12); }
 
-.signalRail {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.signalBlock {
   margin-top: 3rem;
   background: rgb(255 255 255 / 0.055);
-  box-shadow: inset 0 1px rgb(255 255 255 / 0.13);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 24px 70px -42px rgb(0 0 0 / 0.8);
   backdrop-filter: blur(14px) saturate(120%);
   animation: hero-rail-in 900ms 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.signalIntro {
+  padding: 0.85rem 1rem 0;
+  color: rgb(255 255 255 / 0.38);
+  font-size: 0.65rem;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.signalRail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .signalItem {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.5rem 1.25rem 1fr;
   min-height: 5.2rem;
   align-items: center;
   gap: 0.8rem;
@@ -138,6 +170,13 @@
 .signalItem:nth-child(n + 3) { border-top: 1px solid rgb(255 255 255 / 0.1); }
 .signalItem p { color: white; font-size: 0.8rem; font-weight: 600; }
 .signalItem span { display: block; margin-top: 0.2rem; color: rgb(255 255 255 / 0.42); font-size: 0.68rem; }
+.signalItem .signalNumber {
+  align-self: start;
+  margin-top: 0.18rem;
+  color: rgb(255 255 255 / 0.24);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
 
 .editorialSection,
 .howSection,
@@ -160,9 +199,26 @@
   line-height: 1.6;
 }
 
-.outcomeGrid { display: grid; margin-top: clamp(4rem, 8vw, 7rem); border-top: 1px solid rgb(24 24 27 / 0.18); }
+.outcomeGrid { display: grid; gap: 1rem; margin-top: clamp(4rem, 8vw, 7rem); }
 
-.outcomeCard { padding-block: 2rem; border-bottom: 1px solid rgb(24 24 27 / 0.18); }
+.outcomeCard {
+  padding: 1.75rem;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.66);
+  box-shadow:
+    0 0 0 1px rgb(24 24 27 / 0.06),
+    0 16px 45px -38px rgb(24 24 27 / 0.55);
+  transition-property: transform, box-shadow, background-color;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.outcomeCard:hover {
+  background: rgb(255 255 255 / 0.86);
+  box-shadow:
+    0 0 0 1px rgb(24 24 27 / 0.08),
+    0 24px 55px -38px rgb(24 24 27 / 0.65);
+  transform: translateY(-4px);
+}
 .outcomeCard h3 { max-width: 22rem; margin-top: 4rem; font-size: clamp(1.55rem, 2.2vw, 2rem); font-weight: 600; line-height: 1.15; letter-spacing: -0.03em; text-wrap: balance; }
 .outcomeCard > p { max-width: 26rem; margin-top: 1.2rem; color: #606168; font-size: 0.93rem; line-height: 1.7; }
 .outcomeResult { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid rgb(24 24 27 / 0.12); }
@@ -257,16 +313,10 @@
 
 @media (min-width: 40rem) {
   .heroInner { padding-inline: 2rem; padding-bottom: 2rem; }
-  .heroSupport { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
-  .signalRail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .signalItem:nth-child(n) { border-top: 0; border-left: 1px solid rgb(255 255 255 / 0.1); }
-  .signalItem:first-child { border-left: 0; }
   .deliverableRow { grid-template-columns: 2.5rem 3rem minmax(7rem, 0.4fr) minmax(0, 0.8fr) minmax(0, 1.1fr); gap: 1.25rem; align-items: center; }
   .deliverableRow h3, .deliverableText { grid-column: auto; margin-top: 0; }
   .outcomeGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .outcomeCard { padding: 2rem; border-right: 1px solid rgb(24 24 27 / 0.18); }
-  .outcomeCard:first-child { padding-left: 0; }
-  .outcomeCard:last-child { padding-right: 0; border-right: 0; }
+  .outcomeCard { padding: 2rem; }
   .evidenceGrid { grid-template-columns: 1fr 1fr; }
   .priceCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .priceCard { padding: 2rem; border-right: 1px solid rgb(24 24 27 / 0.18); }
@@ -276,6 +326,10 @@
 
 @media (min-width: 64rem) {
   .heroInner { padding-inline: 3rem; padding-bottom: 3rem; }
+  .heroSupport { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .signalRail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .signalItem:nth-child(n) { border-top: 0; border-left: 1px solid rgb(255 255 255 / 0.1); }
+  .signalItem:first-child { border-left: 0; }
   .sectionIntro { grid-template-columns: minmax(0, 1fr) 20rem; }
   .sideNote { justify-self: end; }
   .howGrid, .pricingGrid { grid-template-columns: minmax(0, 0.85fr) minmax(32rem, 1.15fr); gap: 8rem; align-items: start; }
@@ -292,11 +346,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .heroCopy, .signalRail { animation: none; }
+  .heroCopy, .signalBlock { animation: none; }
   .heroVideo { display: none; }
-  .faqList summary svg, .primaryCta, .glassCta, .finalSecondary { transition: none; }
+  .faqList summary svg, .primaryCta, .glassCta, .finalSecondary, .outcomeCard { transition: none; }
+  .outcomeCard:hover { transform: none; }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .signalRail, .glassCta { background: #25262a; backdrop-filter: none; }
+  .signalBlock, .glassCta { background: #25262a; backdrop-filter: none; }
 }

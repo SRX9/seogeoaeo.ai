@@ -29,14 +29,21 @@ export function SiteHeader({ className, variant = "default" }: SiteHeaderProps) 
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow,backdrop-filter] duration-300",
-        overHero
-          ? "bg-transparent text-white"
-          : "bg-background/92 text-foreground shadow-[0_1px_0_color-mix(in_oklab,var(--border)_65%,transparent)] backdrop-blur-xl",
+        "fixed inset-x-0 top-0 z-50 bg-transparent transition-colors duration-300",
+        overHero ? "text-white" : "text-foreground",
         className,
       )}
     >
-      <div className="mx-auto flex h-[4.75rem] max-w-[90rem] items-center justify-between px-5 sm:px-8 lg:px-12">
+      <div
+        className={cn(
+          "mx-auto flex items-center justify-between transition-[width,max-width,height,margin,background-color,box-shadow,padding] duration-300",
+          overHero
+            ? "h-[4.75rem] w-full max-w-[90rem] px-5 sm:px-8 lg:px-12"
+            : variant === "overlay"
+              ? "mt-3 h-16 w-[calc(100%-1.5rem)] max-w-[88rem] rounded-xl bg-background/84 px-4 shadow-[0_0_0_1px_color-mix(in_oklab,var(--border)_68%,transparent),0_12px_40px_-20px_rgb(0_0_0/0.38)] backdrop-blur-2xl sm:w-[calc(100%-2rem)] sm:px-6 lg:px-8"
+              : "h-[4.75rem] w-full max-w-none bg-background/92 px-5 shadow-[0_1px_0_color-mix(in_oklab,var(--border)_65%,transparent)] backdrop-blur-xl sm:px-8 lg:px-12",
+        )}
+      >
         <Link
           href="/"
           aria-label="SeoGeoAeo AI home"
@@ -101,7 +108,8 @@ export function SiteHeader({ className, variant = "default" }: SiteHeaderProps) 
 
       <div
         className={cn(
-          "grid overflow-hidden bg-background transition-[grid-template-rows,opacity] duration-300 lg:hidden",
+          "grid overflow-hidden bg-background transition-[grid-template-rows,opacity,margin,box-shadow,border-radius] duration-300 lg:hidden",
+          variant === "overlay" && "mx-3 mt-2 rounded-xl shadow-[0_0_0_1px_color-mix(in_oklab,var(--border)_68%,transparent),0_18px_45px_-24px_rgb(0_0_0/0.45)] sm:mx-4",
           menuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
         )}
       >
