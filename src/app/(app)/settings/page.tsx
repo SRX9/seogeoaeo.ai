@@ -108,10 +108,7 @@ function SettingsContent() {
         }}
       >
         <Tabs.ListContainer className="w-fit max-w-full">
-          <Tabs.List
-            aria-label="Settings sections"
-            className="w-fit gap-0 rounded-xl bg-surface-secondary p-1 *:h-10 *:w-fit *:min-w-0 *:gap-2 *:px-3 *:text-sm *:font-medium *:transition-colors *:duration-200 *:data-[selected=true]:text-foreground sm:*:px-4"
-          >
+          <Tabs.List aria-label="Settings sections">
             {tabs.map((tab) => {
               const TabIcon = tab.icon;
               return (

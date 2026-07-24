@@ -2,7 +2,6 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import {
   createLogger,
   errorFields,
-  logError,
   logInfo,
   sanitizeLogFields,
 } from "./logger";
@@ -18,6 +17,7 @@ describe("logging", () => {
         workspaceId: "ws_1",
         apiKey: "should-not-leak",
         token: "nope",
+        access_token: "also-nope",
         count: 3,
         nested: { a: 1 },
       }),
@@ -25,8 +25,25 @@ describe("logging", () => {
       workspaceId: "ws_1",
       apiKey: "[redacted]",
       token: "[redacted]",
+      access_token: "[redacted]",
       count: 3,
       nested: '{"a":1}',
+    });
+  });
+
+  it("redacts credentials embedded inside error and nested text", () => {
+    expect(
+      sanitizeLogFields({
+        error_summary:
+          "Request used Authorization: Bearer abc.def and api_key=secret-value",
+        nested: { password: "hidden-value" },
+        endpoint: "https://admin:password@example.com/posts",
+      }),
+    ).toEqual({
+      error_summary:
+        "Request used Authorization: Bearer [redacted] and api_key=[redacted]",
+      nested: '{"password":[redacted]}',
+      endpoint: "https://[redacted]@example.com/posts",
     });
   });
 
@@ -34,6 +51,13 @@ describe("logging", () => {
     expect(errorFields(new Error("boom"))).toEqual({
       error_name: "Error",
       error_message: "boom",
+    });
+  });
+
+  it("redacts credentials from formatted errors", () => {
+    expect(errorFields(new Error("Token private-value was rejected"))).toEqual({
+      error_name: "Error",
+      error_message: "Token [redacted] was rejected",
     });
   });
 
@@ -45,6 +69,7 @@ describe("logging", () => {
     expect(line.event).toBe("cron.daily.started");
     expect(line.level).toBe("info");
     expect(line["service.name"]).toBe("seo-ai");
+    expect(line["deployment.environment.name"]).toBe("test");
     expect(line.workspaceId).toBe("ws_1");
     expect(line.secret).toBe("[redacted]");
   });

@@ -441,10 +441,7 @@ export function ArticleCanvas({
       >
         <div className="flex items-center justify-between gap-3 px-6 pt-6">
           <Tabs.ListContainer className="w-fit max-w-full">
-            <Tabs.List
-              aria-label="Article views"
-              className="w-fit min-w-0 *:min-w-24 *:w-auto *:px-5"
-            >
+            <Tabs.List aria-label="Article views">
               <Tabs.Tab id="editor">
                 Editor
                 <Tabs.Indicator />

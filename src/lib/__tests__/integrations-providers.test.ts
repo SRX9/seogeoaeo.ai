@@ -26,6 +26,30 @@ describe("integration provider definitions", () => {
     ]);
   });
 
+  it("defines the first five new connectors as configurable publishing destinations", () => {
+    const expected = {
+      qiita: { fields: [], secrets: ["qiita_access_token"] },
+      beehiiv: {
+        fields: ["publicationId"],
+        secrets: ["beehiiv_api_key"],
+      },
+      writeas: {
+        fields: ["collectionAlias"],
+        secrets: ["writeas_access_token"],
+      },
+      paragraph: { fields: ["siteUrl"], secrets: ["paragraph_api_key"] },
+      buttondown: { fields: [], secrets: ["buttondown_api_key"] },
+    };
+
+    for (const [providerId, setup] of Object.entries(expected)) {
+      const provider = getIntegrationProvider(providerId);
+      expect(provider?.status).toBe("available");
+      expect(provider?.publishMode).toBe("article");
+      expect(provider?.fields.map((field) => field.key)).toEqual(setup.fields);
+      expect(provider?.secrets.map((secret) => secret.key)).toEqual(setup.secrets);
+    }
+  });
+
   it("keeps OAuth-heavy providers gated instead of configurable", () => {
     for (const providerId of ["medium", "reddit", "x_post", "x_article", "linkedin_post", "linkedin_article"]) {
       const provider = getIntegrationProvider(providerId);
@@ -47,6 +71,18 @@ describe("integration provider definitions", () => {
       .toThrow("Unsupported config field");
     expect(() => validateIntegrationConfigInput("webhook", { webhookUrl: "not-a-url" }))
       .toThrow("must be a valid URL");
+    expect(
+      validateIntegrationConfigInput("beehiiv", { publicationId: "pub_abc123-def" }),
+    ).toEqual({ publicationId: "pub_abc123-def" });
+    expect(() =>
+      validateIntegrationConfigInput("beehiiv", { publicationId: "publication-123" }),
+    ).toThrow("must start with pub_");
+    expect(
+      validateIntegrationConfigInput("writeas", { collectionAlias: "my-blog-2" }),
+    ).toEqual({ collectionAlias: "my-blog-2" });
+    expect(() =>
+      validateIntegrationConfigInput("writeas", { collectionAlias: "my blog" }),
+    ).toThrow("only letters, numbers, and hyphens");
 
     expect(
       validateIntegrationSecretsInput("wordpress", {

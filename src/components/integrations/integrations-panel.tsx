@@ -13,7 +13,7 @@ import { Sheet } from "@heroui-pro/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
-import { ArticlesIcon, LinkIcon, ShieldIcon } from "@/components/icons";
+import { ArticlesIcon, LaunchIcon, LinkIcon, ShieldIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiDelete, apiPatch, apiPut, getErrorMessage } from "@/lib/api/fetcher";
@@ -24,6 +24,7 @@ import {
   integrationRequirements,
   type IntegrationConfig,
   type IntegrationConfigKey,
+  type IntegrationRequirements,
   type IntegrationSecretKey,
   type IntegrationSecretStates,
 } from "@/lib/integrations/providers";
@@ -171,14 +172,19 @@ function connectionState(integration: IntegrationView): {
 }
 
 const PROVIDER_DOMAINS: Partial<Record<IntegrationView["provider"], string>> = {
+  beehiiv: "beehiiv.com",
+  buttondown: "buttondown.com",
   devto: "dev.to",
   ghost: "ghost.org",
   hashnode: "hashnode.com",
   linkedin_article: "linkedin.com",
   linkedin_post: "linkedin.com",
   medium: "medium.com",
+  paragraph: "paragraph.com",
+  qiita: "qiita.com",
   reddit: "reddit.com",
   wordpress: "wordpress.org",
+  writeas: "write.as",
   x_article: "x.com",
   x_post: "x.com",
 };
@@ -342,6 +348,7 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
 
   return (
     <Form aria-label={`${integration.name} connection`} onSubmit={handleSave} className="mt-5 space-y-4">
+      <ConnectionHelp requirements={integration.requirements} />
       {integration.fields.map((field) => (
         <Field
           key={field.key}
@@ -376,6 +383,25 @@ function IntegrationForm({ integration }: { integration: IntegrationView }) {
       </div>
       {!canToggle ? <p className="text-sm text-muted">Add {requirements.missing.join(", ")} before enabling this integration.</p> : null}
     </Form>
+  );
+}
+
+function ConnectionHelp({ requirements }: { requirements: IntegrationRequirements }) {
+  return (
+    <div className="space-y-2 border-s border-divider ps-3">
+      <p className="text-pretty text-sm leading-6 text-muted">{requirements.helpText}</p>
+      {requirements.docsUrl ? (
+        <a
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-link no-underline"
+          href={requirements.docsUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {requirements.docsLabel ?? "Official documentation"}
+          <LaunchIcon className="size-3.5" />
+        </a>
+      ) : null}
+    </div>
   );
 }
 

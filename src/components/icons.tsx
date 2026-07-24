@@ -20,6 +20,7 @@ import {
   CodeSquareIcon,
   Copy01Icon,
   CreditCardIcon as HugeCreditCardIcon,
+  CustomerSupportIcon,
   CursorPointer01Icon,
   DashboardSpeed01Icon,
   DashboardSquare01Icon,
@@ -111,6 +112,12 @@ export const MoonIcon = iconComponent(Moon02Icon);
 export const SearchIcon = iconComponent(Search01Icon);
 export const GlobeIcon = iconComponent(Globe02Icon);
 export const HelpIcon = iconComponent(HelpCircleIcon);
+const SupportIconBase = iconComponent(CustomerSupportIcon);
+
+export function SupportIcon(props: IconProps) {
+  return <SupportIconBase {...props} />;
+}
+
 export const UsersIcon = iconComponent(UserGroupIcon);
 export const TrendingUpIcon = iconComponent(ChartUpIcon);
 export const PenIcon = iconComponent(PencilEdit01Icon);

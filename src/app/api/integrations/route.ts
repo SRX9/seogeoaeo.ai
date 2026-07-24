@@ -20,6 +20,7 @@ import {
   setIntegrationEnabled,
   updateIntegrationConfig,
 } from "@/lib/integrations/repository";
+import { errorFields, logError, logInfo, logWarn } from "@/lib/logging/logger";
 
 const providerSchema = z.enum(INTEGRATION_PROVIDER_IDS);
 
@@ -38,6 +39,19 @@ function invalidIntegrationInput(error: unknown): never {
   throw error;
 }
 
+function integrationLogFields(
+  scope: { workspaceId: string; brandId: string },
+  provider: z.infer<typeof providerSchema>,
+  operation: "disconnect" | "enable" | "save",
+) {
+  return {
+    workspaceId: scope.workspaceId,
+    brandId: scope.brandId,
+    provider,
+    operation,
+  };
+}
+
 async function integrationProviderFromDeleteRequest(request: Request) {
   const provider = new URL(request.url).searchParams.get("provider");
   if (provider !== null) {
@@ -50,9 +64,18 @@ async function integrationProviderFromDeleteRequest(request: Request) {
 /** List all integration providers and their state for the active brand. */
 export async function GET() {
   return handleApi(async () => {
-    const { brand } = await requireApiBrand();
-    const integrations = await listIntegrations(brand.id);
-    return jsonOk({ integrations });
+    const { brand, scope } = await requireApiBrand();
+    try {
+      const integrations = await listIntegrations(brand.id);
+      return jsonOk({ integrations });
+    } catch (error) {
+      logError("integration.list_failed", {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        ...errorFields(error),
+      });
+      throw error;
+    }
   });
 }
 
@@ -66,16 +89,44 @@ export async function PATCH(request: Request) {
     );
 
     if (enabled) {
-      const integrations = await listIntegrations(scope.brandId);
+      let integrations: Awaited<ReturnType<typeof listIntegrations>>;
+      try {
+        integrations = await listIntegrations(scope.brandId);
+      } catch (error) {
+        logError("integration.configuration_failed", {
+          ...integrationLogFields(scope, provider, "enable"),
+          enabled,
+          failure_stage: "readiness_check",
+          ...errorFields(error),
+        });
+        throw error;
+      }
       const integration = integrations.find((item) => item.provider === provider);
       if (!integration?.requirementsMet) {
+        logWarn("integration.configuration_rejected", {
+          ...integrationLogFields(scope, provider, "enable"),
+          reason_code: "requirements_unmet",
+        });
         throw new HttpError(400, "Complete required setup before enabling this integration.", {
           code: "INTEGRATION_REQUIREMENTS_UNMET",
         });
       }
     }
 
-    await setIntegrationEnabled(scope, provider, enabled);
+    try {
+      await setIntegrationEnabled(scope, provider, enabled);
+    } catch (error) {
+      logError("integration.configuration_failed", {
+        ...integrationLogFields(scope, provider, "enable"),
+        enabled,
+        ...errorFields(error),
+      });
+      throw error;
+    }
+    logInfo("integration.enabled_changed", {
+      ...integrationLogFields(scope, provider, "enable"),
+      enabled,
+    });
     return jsonOk({ ok: true });
   });
 }
@@ -93,6 +144,11 @@ export async function PUT(request: Request) {
       try {
         return validateIntegrationConfigInput(provider, configInput);
       } catch (error) {
+        logWarn("integration.configuration_rejected", {
+          ...integrationLogFields(scope, provider, "save"),
+          reason_code: "invalid_config",
+          ...errorFields(error, "validation_error"),
+        });
         invalidIntegrationInput(error);
       }
     })();
@@ -100,18 +156,38 @@ export async function PUT(request: Request) {
       try {
         return validateIntegrationSecretsInput(provider, secretsInput);
       } catch (error) {
+        logWarn("integration.configuration_rejected", {
+          ...integrationLogFields(scope, provider, "save"),
+          reason_code: "invalid_secrets",
+          ...errorFields(error, "validation_error"),
+        });
         invalidIntegrationInput(error);
       }
     })();
 
-    if (configInput !== undefined) {
-      await updateIntegrationConfig(scope, provider, config);
-    }
-    for (const [secretKey, secretValue] of Object.entries(secrets)) {
-      if (secretValue) {
-        await saveIntegrationSecret(scope, provider, secretKey, secretValue);
+    try {
+      if (configInput !== undefined) {
+        await updateIntegrationConfig(scope, provider, config);
       }
+      for (const [secretKey, secretValue] of Object.entries(secrets)) {
+        if (secretValue) {
+          await saveIntegrationSecret(scope, provider, secretKey, secretValue);
+        }
+      }
+    } catch (error) {
+      logError("integration.configuration_failed", {
+        ...integrationLogFields(scope, provider, "save"),
+        config_field_count: Object.keys(config).length,
+        secret_field_count: Object.values(secrets).filter(Boolean).length,
+        ...errorFields(error),
+      });
+      throw error;
     }
+    logInfo("integration.configuration_saved", {
+      ...integrationLogFields(scope, provider, "save"),
+      config_field_count: Object.keys(config).length,
+      secret_field_count: Object.values(secrets).filter(Boolean).length,
+    });
     return jsonOk({ ok: true });
   });
 }
@@ -121,7 +197,18 @@ export async function DELETE(request: Request) {
   return handleApi(async () => {
     const { scope } = await requireApiBrand();
     const provider = await integrationProviderFromDeleteRequest(request);
-    await clearIntegration(scope, provider);
+    try {
+      await clearIntegration(scope, provider);
+    } catch (error) {
+      logError("integration.configuration_failed", {
+        ...integrationLogFields(scope, provider, "disconnect"),
+        ...errorFields(error),
+      });
+      throw error;
+    }
+    logInfo("integration.disconnected", {
+      ...integrationLogFields(scope, provider, "disconnect"),
+    });
     return jsonOk({ ok: true });
   });
 }

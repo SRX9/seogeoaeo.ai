@@ -144,7 +144,7 @@ export function ExtraToolsExplorer() {
       ) : null}
 
       <Tabs defaultSelectedKey="geo" className="w-full">
-        <Tabs.ListContainer className="max-w-full overflow-x-auto">
+        <Tabs.ListContainer className="w-fit max-w-full">
           <Tabs.List aria-label="Tool category">
             {PILLARS.map((pillar) => (
               <Tabs.Tab key={pillar.id} id={pillar.id}>

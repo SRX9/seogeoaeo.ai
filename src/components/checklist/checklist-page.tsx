@@ -354,10 +354,7 @@ function ChecklistContent() {
               }}
             >
               <Tabs.ListContainer className="w-fit max-w-full">
-                <Tabs.List
-                  aria-label="Checklist views"
-                  className="w-fit min-w-0 *:h-10 *:w-auto *:min-w-20 *:px-4"
-                >
+                <Tabs.List aria-label="Checklist views">
                   <Tabs.Tab id="next">Do these next<Tabs.Indicator /></Tabs.Tab>
                   <Tabs.Tab id="seo">SEO<Tabs.Indicator /></Tabs.Tab>
                   <Tabs.Tab id="aeo">AEO<Tabs.Indicator /></Tabs.Tab>

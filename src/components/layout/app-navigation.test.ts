@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   APP_BRAND_ITEMS,
+  APP_FOOTER_ITEMS,
   APP_NAV_ITEMS,
   appRouteTitle,
   isAppRouteCurrent,
@@ -21,6 +22,14 @@ describe("app navigation", () => {
       { href: "/settings?tab=claudia", label: "Claudia settings" },
       { href: "/settings?tab=integrations", label: "Connections" },
     ]);
+  });
+
+  it("keeps help and support actions in the sidebar footer", () => {
+    expect(APP_FOOTER_ITEMS.map(({ href, label }) => ({ href, label }))).toEqual([
+      { href: "/dashboard?tour=1", label: "Product tour" },
+      { href: "/contact", label: "Contact support" },
+    ]);
+    expect(appRouteTitle("/contact", "Sam")).toBe("Contact support");
   });
 
   it("groups legacy detail routes under their customer-facing destination", () => {

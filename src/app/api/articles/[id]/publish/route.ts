@@ -2,7 +2,7 @@ import { handleApi, HttpError, jsonOk, requireApiBrand } from "@/lib/api/server"
 import { isActiveSubscription } from "@/lib/billing/plans";
 import { publishArticleToDestinations } from "@/lib/publishing/publish";
 import { assertWorkspaceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
-import { logError } from "@/lib/logging/logger";
+import { errorFields, logError, logWarn } from "@/lib/logging/logger";
 import { captureServerEvent } from "@/lib/posthog-server";
 
 type RouteProps = { params: Promise<{ id: string }> };
@@ -24,6 +24,13 @@ export async function POST(_request: Request, { params }: RouteProps) {
       await assertWorkspaceRateLimit(workspace.id, "publish_article", 30, ONE_HOUR_MS);
     } catch (error) {
       if (error instanceof RateLimitError) {
+        logWarn("publish.request_rejected", {
+          workspaceId: workspace.id,
+          brandId: scope.brandId,
+          articleId: id,
+          actor: "owner",
+          reason_code: "rate_limited",
+        });
         throw new HttpError(429, "Several publish requests are already running. Wait a moment and try again.", { code: "RATE_LIMITED" });
       }
       throw error;
@@ -35,8 +42,11 @@ export async function POST(_request: Request, { params }: RouteProps) {
     } catch (error) {
       logError("publish.failed", {
         workspaceId: workspace.id,
+        brandId: scope.brandId,
         articleId: id,
-        error: error instanceof Error ? error.message : "Unknown error",
+        actor: "owner",
+        failure_stage: "orchestration",
+        ...errorFields(error),
       });
       throw new HttpError(502, "Publishing failed. Check your connections and try again.");
     }

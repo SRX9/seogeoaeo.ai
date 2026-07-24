@@ -64,7 +64,7 @@ function AccountContent() {
           });
         }}
       >
-        <Tabs.ListContainer>
+        <Tabs.ListContainer className="w-fit max-w-full">
           <Tabs.List aria-label="Account sections">
             {tabs.map((tab) => (
               <Tabs.Tab key={tab.id} id={tab.id}>

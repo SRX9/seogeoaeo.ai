@@ -58,6 +58,11 @@ const DESTINATIONS: Array<[RegExp, string]> = [
   [/\bdev(?:\s*\.\s*|\s+)to\b/i, "devto"],
   [/\bghost\b/i, "ghost"],
   [/\bhashnode\b/i, "hashnode"],
+  [/\bqiita\b/i, "qiita"],
+  [/\bbeehiiv\b/i, "beehiiv"],
+  [/\bwrite\s*\.?\s*as\b/i, "writeas"],
+  [/\bparagraph\b/i, "paragraph"],
+  [/\bbuttondown\b/i, "buttondown"],
   [/\bwebhook\b/i, "webhook"],
   [/\bmarkdown\b/i, "markdown_export"],
 ];
