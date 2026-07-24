@@ -43,17 +43,6 @@ function createAuth() {
       provider: "pg",
       schema,
     }),
-    // Most authenticated API calls only need the same session identity. Keep a
-    // short encrypted cookie copy so page-to-page reads do not hit Postgres just
-    // to resolve an unchanged session. Database revocations take effect within
-    // this bounded window.
-    session: {
-      cookieCache: {
-        enabled: true,
-        maxAge: 5 * 60,
-        strategy: "jwe",
-      },
-    },
     socialProviders: socialProviders(),
     // Let a user attach Google to an existing account (e.g. GitHub signup) and
     // re-consent an existing Google account with the added traffic-proof scopes.

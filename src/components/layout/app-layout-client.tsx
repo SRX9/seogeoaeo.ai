@@ -1,14 +1,20 @@
 "use client";
 
 import { redirect, usePathname } from "next/navigation";
-import { type ReactNode, useEffect } from "react";
+import {
+  HydrationBoundary,
+  QueryClientProvider,
+  type DehydratedState,
+} from "@tanstack/react-query";
+import { type ReactNode, useEffect, useState } from "react";
 import posthog from "posthog-js";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageError, PageLoader } from "@/components/feedback/states";
+import { createBrowserQueryClient } from "@/lib/api/browser-query-client";
 import { ApiError } from "@/lib/api/fetcher";
 import { useMe } from "@/lib/api/queries";
 
-export function AppLayoutClient({ children }: { children: ReactNode }) {
+function AuthenticatedAppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { data, isLoading, error, refetch } = useMe();
 
@@ -52,5 +58,27 @@ export function AppLayoutClient({ children }: { children: ReactNode }) {
     <AppShell user={data.user} brands={data.brands} activeBrandId={data.activeBrandId}>
       {children}
     </AppShell>
+  );
+}
+
+/**
+ * Authenticated data lives in a user-keyed QueryClient. Leaving this layout
+ * destroys the session's cache; a different user can never observe its entries.
+ */
+export function AppLayoutClient({
+  children,
+  dehydratedState,
+}: {
+  children: ReactNode;
+  dehydratedState: DehydratedState;
+}) {
+  const [queryClient] = useState(createBrowserQueryClient);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HydrationBoundary state={dehydratedState}>
+        <AuthenticatedAppLayout>{children}</AuthenticatedAppLayout>
+      </HydrationBoundary>
+    </QueryClientProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { dehydrate } from "@tanstack/react-query";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
@@ -34,8 +34,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   queryClient.setQueryData(queryKeys.me, me);
 
   return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <AppLayoutClient>{children}</AppLayoutClient>
-    </HydrationBoundary>
+    <AppLayoutClient
+      key={me.user.id}
+      dehydratedState={dehydrate(queryClient)}
+    >
+      {children}
+    </AppLayoutClient>
   );
 }
