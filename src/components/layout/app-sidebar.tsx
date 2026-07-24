@@ -76,11 +76,11 @@ function AccountMenu({ user }: { user: SessionUser }) {
           Account
         </div>
         <Dropdown.Menu onAction={(key) => router.push(String(key))}>
-          <Dropdown.Item id="/settings?tab=account" textValue="Account settings">
+          <Dropdown.Item id="/account" textValue="Account settings">
             <ClaudiaIcon className="size-4" />
             <Label>Account settings</Label>
           </Dropdown.Item>
-          <Dropdown.Item id="/settings?tab=billing" textValue="Billing">
+          <Dropdown.Item id="/account?tab=billing" textValue="Billing">
             <CreditCardIcon className="size-4" />
             <Label>Billing</Label>
           </Dropdown.Item>

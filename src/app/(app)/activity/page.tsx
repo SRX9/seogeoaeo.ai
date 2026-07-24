@@ -213,7 +213,7 @@ export default function WorkPage() {
 
       <Card variant="secondary">
         <Card.Header className="flex-row items-start gap-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background text-accent" aria-hidden>
+          <span className="grid size-10 shrink-0 place-items-center text-accent" aria-hidden>
             <ActivityIcon className="size-5" />
           </span>
           <div className="min-w-0">

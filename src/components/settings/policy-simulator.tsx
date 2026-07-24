@@ -66,7 +66,7 @@ export function PolicySimulator() {
   return (
     <Card>
       <Card.Header className="gap-3">
-        <div className="grid size-10 place-items-center rounded-xl bg-surface-secondary text-accent" aria-hidden>
+        <div className="grid size-10 place-items-center text-accent" aria-hidden>
           <ShieldIcon className="size-4" />
         </div>
         <div>

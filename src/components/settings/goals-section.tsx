@@ -53,7 +53,7 @@ export function GoalsSection() {
         <div className="space-y-4">
           <Card className="rounded-3xl p-0">
             <Card.Content className="flex items-start gap-4 p-5 sm:p-6">
-              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+              <span className="grid size-11 shrink-0 place-items-center text-muted" aria-hidden>
                 <GaugeIcon className="size-5" />
               </span>
               <div className="min-w-0">
@@ -87,7 +87,7 @@ export function GoalsSection() {
                     if (!selected) update.mutate(option.id);
                   }}
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                  <span className="grid size-9 shrink-0 place-items-center text-muted" aria-hidden>
                     {selected ? <CheckIcon className="size-4 text-success" /> : <GaugeIcon className="size-4" />}
                   </span>
                   <span className="min-w-0">

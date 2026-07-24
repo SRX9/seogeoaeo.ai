@@ -32,7 +32,7 @@ export function AdvancedSettingsSection() {
           <div className="space-y-6">
             <Card className="rounded-3xl p-0">
               <Card.Content className="flex items-start gap-4 p-5 sm:p-6">
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-secondary text-warning" aria-hidden>
+                <span className="grid size-11 shrink-0 place-items-center text-warning" aria-hidden>
                   <ShieldIcon className="size-5" />
                 </span>
                 <div>
@@ -74,7 +74,7 @@ export function AdvancedSettingsSection() {
                 <ActionHistory />
                 <Card className="rounded-3xl p-0">
                   <Card.Content className="p-5 sm:p-6">
-                    <span className="grid size-10 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                    <span className="grid size-10 place-items-center text-muted" aria-hidden>
                       <WorkshopIcon className="size-4" />
                     </span>
                     <h3 className="mt-4 text-base font-semibold text-foreground">Advanced diagnostics</h3>

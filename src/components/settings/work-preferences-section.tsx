@@ -44,10 +44,10 @@ export function WorkPreferencesSection() {
           const systemPaused = stateData.presence.id === "paused" && !ownerPaused;
           const schedule = automationData.schedule?.split("·")[0]?.trim() || "Every day";
           return (
-            <div className="grid items-start gap-4 lg:grid-cols-2">
-              <Card className="rounded-3xl p-0">
+            <div className="grid items-start gap-5 lg:grid-cols-2">
+              <Card className="rounded-2xl p-0">
                 <Card.Header className="flex-row items-start gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                  <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
                     <CalendarIcon className="size-4" />
                   </span>
                   <div>
@@ -55,15 +55,15 @@ export function WorkPreferencesSection() {
                     <Card.Description>When Claudia checks, creates, and improves work.</Card.Description>
                   </div>
                 </Card.Header>
-                <Card.Content className="space-y-4 px-5 pb-5 sm:px-6 sm:pb-6">
-                  <div className="flex items-start justify-between gap-4 border-t border-separator pt-4">
+                <Card.Content className="divide-y divide-separator px-5 pb-5 sm:px-6 sm:pb-6">
+                  <div className="flex items-start justify-between gap-4 py-4 first:pt-1">
                     <div>
                       <p className="text-sm font-medium text-foreground">Daily work</p>
                       <p className="mt-1 text-xs leading-5 text-muted">Research, writing, and monitoring</p>
                     </div>
                     <p className="shrink-0 text-sm text-foreground">{schedule}</p>
                   </div>
-                  <div className="flex items-start justify-between gap-4 border-t border-separator pt-4">
+                  <div className="flex items-start justify-between gap-4 py-4 last:pb-0">
                     <div>
                       <p className="text-sm font-medium text-foreground">Content pace</p>
                       <p className="mt-1 text-xs leading-5 text-muted">Always limited by your plan and quality checks</p>
@@ -77,9 +77,9 @@ export function WorkPreferencesSection() {
                 </Card.Content>
               </Card>
 
-              <Card className="rounded-3xl p-0">
+              <Card className="rounded-2xl p-0">
                 <Card.Header className="flex-row items-start gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+                  <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
                     <ClaudiaIcon className="size-4" />
                   </span>
                   <div>

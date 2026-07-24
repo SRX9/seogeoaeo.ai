@@ -18,6 +18,7 @@ describe("app navigation", () => {
   it("keeps brand-scoped destinations in their own navigation group", () => {
     expect(APP_BRAND_ITEMS.map(({ href, label }) => ({ href, label }))).toEqual([
       { href: "/settings", label: "Brand settings" },
+      { href: "/settings?tab=claudia", label: "Claudia settings" },
       { href: "/settings?tab=integrations", label: "Connections" },
     ]);
   });
@@ -28,7 +29,8 @@ describe("app navigation", () => {
     expect(isAppRouteCurrent("/reports/weekly", "/checklist")).toBe(true);
     expect(isAppRouteCurrent("/visibility/health", "/checklist")).toBe(true);
     expect(appRouteTitle("/visibility/answers", "Sam")).toBe("Checklist");
-    expect(appRouteTitle("/settings", "Sam")).toBe("Settings");
+    expect(appRouteTitle("/settings", "Sam")).toBe("Brand settings");
+    expect(appRouteTitle("/account", "Sam")).toBe("Account");
     expect(appRouteTitle("/inbox", "Sam")).toBe("Claudia");
   });
 
@@ -38,8 +40,26 @@ describe("app navigation", () => {
     expect(isAppRouteCurrent("/settings?tab=integrations", "/settings")).toBe(false);
     expect(
       isAppRouteCurrent(
+        "/settings?tab=claudia",
+        "/settings?tab=claudia",
+      ),
+    ).toBe(true);
+    expect(
+      isAppRouteCurrent(
         "/settings?tab=integrations",
         "/settings?tab=integrations",
+      ),
+    ).toBe(true);
+  });
+
+  it("marks the selected account tab as current", () => {
+    expect(isAppRouteCurrent("/account", "/account")).toBe(true);
+    expect(isAppRouteCurrent("/account?tab=account", "/account")).toBe(true);
+    expect(isAppRouteCurrent("/account?tab=billing", "/account")).toBe(false);
+    expect(
+      isAppRouteCurrent(
+        "/account?tab=billing",
+        "/account?tab=billing",
       ),
     ).toBe(true);
   });

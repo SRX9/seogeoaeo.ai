@@ -147,7 +147,7 @@ export function ArticleEditorTopbar({
               {intent === "publish" ? "Publishing" : "Approve & Publish"}
             </LoadingButton>
           ) : (
-            <Link href="/settings?tab=billing&upgrade=1" className={buttonVariants({ variant: "primary", size: "sm" })}>
+            <Link href="/account?tab=billing&upgrade=1" className={buttonVariants({ variant: "primary", size: "sm" })}>
               Upgrade to Publish
             </Link>
           )}

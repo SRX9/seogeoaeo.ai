@@ -125,7 +125,7 @@ function IdeaCard({
             </Button>
           ) : (
             <Link
-              href="/settings?tab=billing&upgrade=1"
+              href="/account?tab=billing&upgrade=1"
               className={cn(
                 buttonVariants({ variant: "outline" }),
                 "min-h-11 shrink-0 transition-transform active:scale-[0.96]",
@@ -168,7 +168,7 @@ export function TopicQueuePage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/settings?tab=billing&upgrade=1");
+        router.push("/account?tab=billing&upgrade=1");
         return;
       }
       toast.danger(getErrorMessage(error, "Claudia couldn't complete that research."));
@@ -187,7 +187,7 @@ export function TopicQueuePage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/settings?tab=billing&upgrade=1");
+        router.push("/account?tab=billing&upgrade=1");
         return;
       }
       toast.danger(getErrorMessage(error, "Claudia couldn't start this article."));
@@ -216,7 +216,7 @@ export function TopicQueuePage() {
       <Card className="rounded-3xl p-0">
         <Card.Content className="flex items-start gap-4 p-5 sm:p-6">
           <span
-            className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+            className="grid size-11 shrink-0 place-items-center text-muted"
             aria-hidden
           >
             <ResearchIcon className="size-5" />

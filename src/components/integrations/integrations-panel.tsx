@@ -1,21 +1,19 @@
 "use client";
 
 import {
-  Alert,
-  Button,
   Card,
   Form,
   Input,
   Label,
   ListBox,
   Switch,
-  Tooltip,
   toast,
-  type Selection,
 } from "@heroui/react";
+import { Sheet } from "@heroui-pro/react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState, type ChangeEventHandler, type FormEvent } from "react";
-import { ShieldIcon, XIcon } from "@/components/icons";
+import { ArticlesIcon, LinkIcon, ShieldIcon } from "@/components/icons";
 import { ToneText } from "@/components/ui/status-text";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiDelete, apiPatch, apiPut, getErrorMessage } from "@/lib/api/fetcher";
@@ -48,116 +46,170 @@ function patchIntegration(
 type IntegrationsPanelProps = { integrations: IntegrationView[] };
 
 export function IntegrationsPanel({ integrations }: IntegrationsPanelProps) {
-  const initialProvider =
-    integrations.find((item) => item.provider === "wordpress" && item.enabled)?.provider ??
-    integrations.find((item) => item.enabled)?.provider ??
-    integrations.find((item) => item.provider === "wordpress")?.provider ??
-    integrations.find((item) => item.status === "available")?.provider ??
-    null;
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(initialProvider);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const selected = integrations.find((item) => item.provider === selectedProvider) ?? null;
-  const available = integrations.filter((item) => item.status === "available");
-
-  function changeSelection(keys: Selection) {
-    if (keys === "all") return;
-    const next = Array.from(keys)[0];
-    setSelectedProvider(next == null ? null : String(next));
-  }
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
-      <div className="min-w-0 space-y-6">
-        <Card className="overflow-hidden p-0">
-          <Card.Header className="px-5 pt-5 sm:px-6 sm:pt-6">
-            <Card.Title>Publishing Destinations</Card.Title>
-            <Card.Description>Select a destination to review or update its connection.</Card.Description>
-          </Card.Header>
-          <Card.Content className="p-2">
-            <ListBox
-              aria-label="Publishing destinations"
-              selectionMode="single"
-              selectedKeys={selectedProvider ? new Set([selectedProvider]) : new Set()}
-              onSelectionChange={changeSelection}
-            >
-              {available.map((integration) => (
-                <ListBox.Item key={integration.provider} id={integration.provider} textValue={integration.name}>
-                  <ProviderMark provider={integration.provider} name={integration.name} />
+    <div className="space-y-5">
+      <Card className="overflow-hidden rounded-2xl p-0">
+        <Card.Header className="px-5 pt-5 sm:px-6 sm:pt-6">
+          <Card.Title>All destinations</Card.Title>
+          <Card.Description>
+            Connected, available, and upcoming publishers are shown together.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content className="p-2">
+          <ListBox
+            aria-label="Publishing destinations"
+            selectionMode="none"
+            onAction={(key) => setSelectedProvider(String(key))}
+          >
+            {integrations.map((integration) => {
+              const state = connectionState(integration);
+              return (
+                <ListBox.Item
+                  key={integration.provider}
+                  id={integration.provider}
+                  textValue={integration.name}
+                  className="min-h-16 py-3"
+                >
+                  <ProviderLogo provider={integration.provider} name={integration.name} />
                   <div className="min-w-0 flex-1">
                     <Label className="truncate">{integration.name}</Label>
-                    <p className="mt-0.5 truncate text-xs text-muted">{capabilityLabel(integration)}</p>
+                    <p className="mt-0.5 text-pretty text-xs leading-5 text-muted">
+                      {capabilityLabel(integration)}
+                    </p>
                   </div>
-                  <ToneText
-                    tone={integration.enabled ? "success" : integration.requirementsMet ? "accent" : "warning"}
-                    className="text-xs"
-                  >
-                    {integration.enabled ? "Connected" : integration.requirementsMet ? "Ready" : "Setup"}
+                  <ToneText tone={state.tone} className="shrink-0 text-xs">
+                    {state.label}
                   </ToneText>
-                  <ListBox.ItemIndicator />
                 </ListBox.Item>
-              ))}
-            </ListBox>
-          </Card.Content>
-        </Card>
+              );
+            })}
+          </ListBox>
+        </Card.Content>
+      </Card>
 
-        <Alert>
-          <Alert.Indicator><ShieldIcon className="size-4" /></Alert.Indicator>
-          <Alert.Content>
-            <Alert.Title>Credentials Stay Protected</Alert.Title>
-            <Alert.Description>
-              Credentials are encrypted, and Claudia never publishes outside your authority settings.
-            </Alert.Description>
-          </Alert.Content>
-          <Link href="/help/integrations" className="text-sm font-medium text-link no-underline">Learn more</Link>
-        </Alert>
+      <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-start" role="note">
+        <ShieldIcon className="mt-0.5 size-4 shrink-0 text-muted" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground">Credentials stay protected</p>
+          <p className="mt-1 text-pretty text-sm leading-6 text-muted">
+            Credentials are encrypted, and Claudia never publishes outside your authority settings.
+          </p>
+        </div>
+        <Link href="/help/integrations" className="text-sm font-medium text-link no-underline">
+          Learn more
+        </Link>
       </div>
 
-      {selected ? (
-        <Card className="sticky top-6" aria-label={`${selected.name} connection settings`}>
-          <Card.Header className="flex-row items-start gap-3">
-            <ProviderMark provider={selected.provider} name={selected.name} large />
-            <div className="min-w-0 flex-1">
-              <Card.Title>{selected.name}</Card.Title>
-              <ToneText tone={selected.enabled ? "success" : "warning"} className="text-xs">
-                {selected.enabled ? "Connected" : "Setup Required"}
-              </ToneText>
-            </div>
-            <Tooltip delay={250}>
-              <Button isIconOnly variant="ghost" aria-label="Close connection details" onPress={() => setSelectedProvider(null)}>
-                <XIcon />
-              </Button>
-              <Tooltip.Content>Close details</Tooltip.Content>
-            </Tooltip>
-          </Card.Header>
-          <Card.Content>
-            <p className="text-sm leading-6 text-muted">{selected.description}</p>
-            <IntegrationForm integration={selected} />
-          </Card.Content>
-        </Card>
-      ) : (
-        <Card variant="secondary" className="sticky top-6">
-          <Card.Content className="py-10 text-center text-sm text-muted">
-            Select a destination to view its setup.
-          </Card.Content>
-        </Card>
-      )}
+      <Sheet
+        isOpen={selected !== null}
+        placement="right"
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setSelectedProvider(null);
+        }}
+      >
+        <Sheet.Backdrop variant="blur">
+          <Sheet.Content className="w-full sm:w-[min(30rem,100vw)]">
+            <Sheet.Dialog className="h-full">
+              <Sheet.CloseTrigger />
+              {selected ? (
+                <>
+                  <Sheet.Header className="flex-row items-center gap-3 pe-12">
+                    <ProviderLogo provider={selected.provider} name={selected.name} large />
+                    <div className="min-w-0">
+                      <Sheet.Heading>{selected.name}</Sheet.Heading>
+                      <ToneText tone={connectionState(selected).tone} className="mt-1 text-xs">
+                        {connectionState(selected).label}
+                      </ToneText>
+                    </div>
+                  </Sheet.Header>
+                  <Sheet.Body className="overflow-y-auto">
+                    <p className="text-pretty text-sm leading-6 text-muted">
+                      {selected.description}
+                    </p>
+                    {selected.status === "available" ? (
+                      <IntegrationForm key={selected.provider} integration={selected} />
+                    ) : (
+                      <div className="mt-6 space-y-2">
+                        <p className="text-sm font-medium text-foreground">
+                          This connection is not available yet.
+                        </p>
+                        <p className="text-pretty text-sm leading-6 text-muted">
+                          {selected.requirements.helpText}
+                        </p>
+                      </div>
+                    )}
+                  </Sheet.Body>
+                </>
+              ) : null}
+            </Sheet.Dialog>
+          </Sheet.Content>
+        </Sheet.Backdrop>
+      </Sheet>
     </div>
   );
 }
 
 function capabilityLabel(integration: IntegrationView) {
+  if (integration.status !== "available") return integration.requirements.summary;
   if (integration.publishMode === "webhook") return "Send content via POST";
   if (integration.publishMode === "export") return "Export .md files";
   if (integration.publishMode === "social_post") return "Publish social posts";
   return integration.provider === "wordpress" ? "Publish posts and pages" : "Publish articles";
 }
 
-function ProviderMark({ provider, name, large = false }: { provider: string; name: string; large?: boolean }) {
-  const short = provider === "wordpress" ? "W" : provider === "markdown_export" ? "MD" : name.slice(0, 2);
-  return (
-    <span className={`${large ? "size-11 text-sm" : "size-9 text-xs"} grid shrink-0 place-items-center rounded-xl bg-surface-secondary font-semibold text-foreground`} aria-hidden>
-      {short.toUpperCase()}
-    </span>
-  );
+function connectionState(integration: IntegrationView): {
+  label: string;
+  tone: "success" | "accent" | "warning" | "default";
+} {
+  if (integration.enabled) return { label: "Connected", tone: "success" };
+  if (integration.status !== "available") return { label: "Coming later", tone: "default" };
+  if (integration.requirementsMet) return { label: "Ready", tone: "accent" };
+  return { label: "Setup needed", tone: "warning" };
+}
+
+const PROVIDER_DOMAINS: Partial<Record<IntegrationView["provider"], string>> = {
+  devto: "dev.to",
+  ghost: "ghost.org",
+  hashnode: "hashnode.com",
+  linkedin_article: "linkedin.com",
+  linkedin_post: "linkedin.com",
+  medium: "medium.com",
+  reddit: "reddit.com",
+  wordpress: "wordpress.org",
+  x_article: "x.com",
+  x_post: "x.com",
+};
+
+function ProviderLogo({
+  provider,
+  large = false,
+}: {
+  provider: IntegrationView["provider"];
+  name: string;
+  large?: boolean;
+}) {
+  const size = large ? 44 : 36;
+  const domain = PROVIDER_DOMAINS[provider];
+
+  if (domain) {
+    return (
+      <Image
+        alt=""
+        aria-hidden
+        className="shrink-0 object-contain"
+        height={size}
+        sizes={`${size}px`}
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
+        width={size}
+      />
+    );
+  }
+
+  const Icon = provider === "markdown_export" ? ArticlesIcon : LinkIcon;
+  return <Icon className={`${large ? "size-7" : "size-5"} shrink-0 text-muted`} aria-hidden />;
 }
 
 function EnableSwitch({ name, enabled, disabled, onToggle }: { name: string; enabled: boolean; disabled: boolean; onToggle: (next: boolean) => void }) {

@@ -57,7 +57,7 @@ function ResultArea({ area }: { area: ResultAreaView }) {
     <Card id={`${area.id}-discovery`} className="scroll-mt-24 rounded-3xl p-0">
       <Card.Header className="flex-row items-start gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
         <span
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+          className="grid size-10 shrink-0 place-items-center text-muted"
           aria-hidden
         >
           {AREA_ICONS[area.id]}
@@ -99,7 +99,7 @@ function DiscoveryHealth({ view }: { view: ResultsOverviewView["discoveryHealth"
     <Card className="rounded-3xl p-0">
       <Card.Header className="flex-row items-start gap-4 p-5 sm:p-6">
         <span
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
+          className="grid size-10 shrink-0 place-items-center text-muted"
           aria-hidden
         >
           <ChartBarIcon className="size-5" />

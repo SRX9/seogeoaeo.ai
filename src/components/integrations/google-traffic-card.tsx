@@ -5,6 +5,7 @@ import { ListBox } from "@heroui/react/list-box";
 import { Select } from "@heroui/react/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { ChartBarIcon } from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { apiDelete, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, type GoogleTrafficStatus } from "@/lib/api/queries";
@@ -74,14 +75,19 @@ export function GoogleTrafficCard({ status }: { status: GoogleTrafficStatus }) {
   const busy = save.isPending || disconnect.isPending;
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Card.Title className="tracking-tight">Google Search Console</Card.Title>
-          <Card.Description className="leading-relaxed">
-            Compare your visibility score with real Google search traffic and add clicks to the
-            score trend.
-          </Card.Description>
+    <Card className="rounded-2xl p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-1 shrink-0 text-muted" aria-hidden>
+            <ChartBarIcon className="size-[18px]" />
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <Card.Title className="tracking-tight">Google Search Console</Card.Title>
+            <Card.Description className="leading-relaxed">
+              Compare your visibility score with real Google search traffic and add clicks to the
+              score trend.
+            </Card.Description>
+          </div>
         </div>
         {status.gsc.connected ? (
           <span className="text-xs font-medium text-success">Connected</span>

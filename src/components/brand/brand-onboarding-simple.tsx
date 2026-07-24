@@ -381,7 +381,7 @@ function WebsiteStep({ fields, setFields, onContinue }: {
     <Card className="mt-8 overflow-hidden p-0 sm:mt-10">
       <Card.Content className="p-6 sm:p-8">
         <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden>
+          <span className="grid size-10 place-items-center text-muted" aria-hidden>
             <GlobeIcon className="size-5" />
           </span>
           <div><Card.Title>Website</Card.Title><Card.Description>Public pages only. No connection is needed.</Card.Description></div>
@@ -442,7 +442,7 @@ function SummaryField({ className, label, Icon, children }: {
     <Card className={cn("p-0", className)}>
       <Card.Content className="p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-surface-secondary text-muted" aria-hidden><Icon className="size-5" /></span>
+          <span className="grid size-10 place-items-center text-muted" aria-hidden><Icon className="size-5" /></span>
           <h2 className="text-sm font-semibold text-foreground">{label}</h2>
         </div>
         {children}

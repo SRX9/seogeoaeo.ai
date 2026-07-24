@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Section } from "@/components/feedback/section";
 import { CardSkeleton } from "@/components/feedback/skeletons";
+import { InboxIcon } from "@/components/icons";
 import { apiPatch, getErrorMessage } from "@/lib/api/fetcher";
 import { queryKeys, useMe, type MeResponse } from "@/lib/api/queries";
 
@@ -77,14 +78,19 @@ function NotificationsPanel({ data }: { data: MeResponse }) {
   }
 
   return (
-    <Card>
-      <Card.Header>
-        <Card.Title className="tracking-tight">Email updates</Card.Title>
-        <Card.Description className="leading-relaxed">
-          Choose what Claudia sends you. Every update is on by default.
-        </Card.Description>
+    <Card className="rounded-2xl p-0">
+      <Card.Header className="flex-row items-start gap-3 p-5 pb-3 sm:p-6 sm:pb-3">
+        <span className="grid size-10 shrink-0 place-items-center text-muted" aria-hidden>
+          <InboxIcon className="size-[18px]" />
+        </span>
+        <div className="min-w-0 pt-0.5">
+          <Card.Title className="tracking-tight">Email updates</Card.Title>
+          <Card.Description className="leading-relaxed">
+            Choose what Claudia sends you. Every update is on by default.
+          </Card.Description>
+        </div>
       </Card.Header>
-      <Card.Content>
+      <Card.Content className="px-5 pb-5 sm:px-6 sm:pb-6">
         <div className="divide-y divide-separator">
           {preferenceCopy.map((preference) => (
             <div

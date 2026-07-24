@@ -168,7 +168,7 @@ export async function sendOutOfCreditsEmail(notice: OutOfCreditsNotice): Promise
       brandName: notice.brandName ?? "your brand",
       pendingTopics: notice.pendingTopics,
       dashboardUrl: `${origin}/dashboard`,
-      creditsUrl: `${origin}/settings?tab=billing`,
+      creditsUrl: `${origin}/account?tab=billing`,
     });
 
     const sent = await sendEmail({ to: email, subject, html, text });

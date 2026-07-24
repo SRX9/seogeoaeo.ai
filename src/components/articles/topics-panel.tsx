@@ -241,7 +241,7 @@ function TopicList({ topics, canGenerate, articleCost }: { topics: Topic[]; canG
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 402) {
-        router.push("/settings?tab=billing&upgrade=1");
+        router.push("/account?tab=billing&upgrade=1");
         return;
       }
       toast.danger(getErrorMessage(error, "Could not generate article."));
@@ -280,7 +280,7 @@ function TopicList({ topics, canGenerate, articleCost }: { topics: Topic[]; canG
                   <Tooltip.Content>{settingUp ? "Available after brand setup" : `Generate Article · ${articleCost} credits`}</Tooltip.Content>
                 </Tooltip>
               ) : (
-                <Link href="/settings?tab=billing&upgrade=1" className={buttonVariants({ variant: "outline", size: "sm" })}>Add Capacity</Link>
+                <Link href="/account?tab=billing&upgrade=1" className={buttonVariants({ variant: "outline", size: "sm" })}>Add Capacity</Link>
               )}
             </div>
           </Card>
