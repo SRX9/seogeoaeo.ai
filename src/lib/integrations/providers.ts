@@ -5,6 +5,11 @@ export const INTEGRATION_PROVIDER_IDS = [
   "hashnode",
   "wordpress",
   "ghost",
+  "qiita",
+  "beehiiv",
+  "writeas",
+  "paragraph",
+  "buttondown",
   "medium",
   "reddit",
   "x_post",
@@ -17,13 +22,18 @@ export type IntegrationProviderId = (typeof INTEGRATION_PROVIDER_IDS)[number];
 
 export type IntegrationProviderStatus = "available" | "gated" | "unavailable";
 export type IntegrationPublishMode = "article" | "social_post" | "webhook" | "export";
-export type IntegrationFieldValidation = "text" | "url";
+export type IntegrationFieldValidation =
+  | "text"
+  | "url"
+  | "beehiiv_publication_id"
+  | "writeas_collection_alias";
 
 export type IntegrationConfig = {
   webhookUrl?: string;
   siteUrl?: string;
   username?: string;
   publicationId?: string;
+  collectionAlias?: string;
   adminApiUrl?: string;
   subreddit?: string;
   postType?: string;
@@ -39,7 +49,12 @@ export type IntegrationSecretKey =
   | "devto_api_key"
   | "hashnode_token"
   | "wordpress_application_password"
-  | "ghost_admin_api_key";
+  | "ghost_admin_api_key"
+  | "qiita_access_token"
+  | "beehiiv_api_key"
+  | "writeas_access_token"
+  | "paragraph_api_key"
+  | "buttondown_api_key";
 
 export type IntegrationFieldDefinition = {
   key: IntegrationConfigKey;
@@ -63,6 +78,7 @@ export type IntegrationRequirements = {
   summary: string;
   helpText: string;
   docsLabel?: string;
+  docsUrl?: string;
 };
 
 export type IntegrationProviderDefinition = {
@@ -281,6 +297,157 @@ const PROVIDER_DEFINITIONS: Record<IntegrationProviderId, IntegrationProviderDef
       docsLabel: "Ghost Admin API",
     },
   },
+  qiita: {
+    id: "qiita",
+    name: "Qiita",
+    description: "Publish technical articles to Qiita using an access token.",
+    publishMode: "article",
+    status: "available",
+    fields: [],
+    secrets: [
+      {
+        key: "qiita_access_token",
+        label: "Qiita access token",
+        placeholder: "Required",
+        required: true,
+        legacyKeys: legacyApiKey,
+        helpText: "The token needs the write_qiita scope.",
+      },
+    ],
+    requirements: {
+      summary: "Requires a Qiita access token with write_qiita access.",
+      helpText:
+        "Qiita requires at least one article tag. The access token is stored encrypted and sent as a Bearer token.",
+      docsLabel: "Qiita API v2",
+      docsUrl: "https://qiita.com/api/v2/docs",
+    },
+  },
+  beehiiv: {
+    id: "beehiiv",
+    name: "beehiiv",
+    description: "Publish posts to a beehiiv publication through the v2 API.",
+    publishMode: "article",
+    status: "available",
+    fields: [
+      {
+        key: "publicationId",
+        label: "Publication ID",
+        placeholder: "pub_00000000-0000-0000-0000-000000000000",
+        required: true,
+        validation: "beehiiv_publication_id",
+        helpText: "Copy the pub_... identifier for the publication this API key can access.",
+      },
+    ],
+    secrets: [
+      {
+        key: "beehiiv_api_key",
+        label: "beehiiv API key",
+        placeholder: "Required",
+        required: true,
+        legacyKeys: legacyApiKey,
+      },
+    ],
+    requirements: {
+      summary: "Requires a publication ID and an Enterprise API key.",
+      helpText:
+        "beehiiv's create/update post API is an Enterprise beta. The credential must allow posts:write and posts:read so creation can be verified.",
+      docsLabel: "beehiiv Create Post API",
+      docsUrl: "https://developers.beehiiv.com/api-reference/posts/create",
+    },
+  },
+  writeas: {
+    id: "writeas",
+    name: "Write.as",
+    description: "Publish Markdown posts to a Write.as collection.",
+    publishMode: "article",
+    status: "available",
+    fields: [
+      {
+        key: "collectionAlias",
+        label: "Collection alias",
+        placeholder: "my-blog",
+        required: true,
+        validation: "writeas_collection_alias",
+        helpText: "Use the alphanumeric-and-hyphen alias from write.as/your-alias.",
+      },
+    ],
+    secrets: [
+      {
+        key: "writeas_access_token",
+        label: "Write.as access token",
+        placeholder: "Required",
+        required: true,
+        legacyKeys: legacyApiKey,
+        helpText:
+          "Generate a user access token through POST /api/auth/login using the primary account alias, then paste only the returned access_token here.",
+      },
+    ],
+    requirements: {
+      summary: "Requires a collection alias and authenticated user access token.",
+      helpText:
+        "Write.as accepts Markdown and uses an Authorization: Token header. Never enter or store the Write.as account password here.",
+      docsLabel: "Write.as API",
+      docsUrl: "https://developers.write.as/docs/api/",
+    },
+  },
+  paragraph: {
+    id: "paragraph",
+    name: "Paragraph",
+    description: "Publish Markdown posts to a Paragraph publication.",
+    publishMode: "article",
+    status: "available",
+    fields: [
+      {
+        key: "siteUrl",
+        label: "Publication URL",
+        placeholder: "https://paragraph.com/@your-publication",
+        required: false,
+        validation: "url",
+        helpText:
+          "Optional. Add the public publication or custom-domain URL so published article links can be returned.",
+      },
+    ],
+    secrets: [
+      {
+        key: "paragraph_api_key",
+        label: "Paragraph API key",
+        placeholder: "Required",
+        required: true,
+        legacyKeys: legacyApiKey,
+      },
+    ],
+    requirements: {
+      summary: "Requires a Paragraph publication API key.",
+      helpText:
+        "Create a key under Publication settings > Developer. Posts publish publicly without emailing subscribers. Paragraph currently labels this API alpha.",
+      docsLabel: "Paragraph API",
+      docsUrl: "https://docs.paragraph.com/developers",
+    },
+  },
+  buttondown: {
+    id: "buttondown",
+    name: "Buttondown",
+    description: "Publish Markdown newsletters and public archive pages through Buttondown.",
+    publishMode: "article",
+    status: "available",
+    fields: [],
+    secrets: [
+      {
+        key: "buttondown_api_key",
+        label: "Buttondown API key",
+        placeholder: "Required",
+        required: true,
+        legacyKeys: legacyApiKey,
+      },
+    ],
+    requirements: {
+      summary: "Requires a Buttondown API key.",
+      helpText:
+        "New articles are queued as public newsletters and appear in the web archive. The API key is stored encrypted.",
+      docsLabel: "Buttondown Emails API",
+      docsUrl: "https://docs.buttondown.com/api-emails-create",
+    },
+  },
   medium: {
     id: "medium",
     name: "Medium",
@@ -401,7 +568,14 @@ function fieldValueSatisfies(field: IntegrationFieldDefinition, value: string | 
   if (!trimmed) {
     return false;
   }
-  return field.validation !== "url" || isUrl(trimmed);
+  if (field.validation === "url") return isUrl(trimmed);
+  if (field.validation === "beehiiv_publication_id") {
+    return /^pub_[0-9a-f-]+$/i.test(trimmed);
+  }
+  if (field.validation === "writeas_collection_alias") {
+    return /^[a-z0-9-]+$/i.test(trimmed);
+  }
+  return true;
 }
 
 function allowedFieldKeys(provider: IntegrationProviderDefinition) {
@@ -475,6 +649,22 @@ export function validateIntegrationConfigInput(
     }
     if (field.validation === "url" && !isUrl(value)) {
       throw new IntegrationValidationError(`${field.label} must be a valid URL.`);
+    }
+    if (
+      field.validation === "beehiiv_publication_id" &&
+      !/^pub_[0-9a-f-]+$/i.test(value)
+    ) {
+      throw new IntegrationValidationError(
+        `${field.label} must start with pub_ and contain only hexadecimal characters and hyphens.`,
+      );
+    }
+    if (
+      field.validation === "writeas_collection_alias" &&
+      !/^[a-z0-9-]+$/i.test(value)
+    ) {
+      throw new IntegrationValidationError(
+        `${field.label} can contain only letters, numbers, and hyphens.`,
+      );
     }
     config[key] = value;
   }

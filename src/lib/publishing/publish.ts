@@ -14,7 +14,7 @@ import { assertFreshAutomaticPublicationGate } from "@/lib/grounding/service";
 import { hashFinalPublicationContent } from "@/lib/grounding/publication-gate";
 import { getRequestOrigin } from "@/lib/billing/access";
 import { incrementArticlesPublished } from "@/lib/jobs/repository";
-import { logError, logWarn } from "@/lib/logging/logger";
+import { logError, logInfo, logWarn } from "@/lib/logging/logger";
 import {
   listIntegrations,
   readIntegrationSecrets,
@@ -22,6 +22,7 @@ import {
 import type { IntegrationProviderId } from "@/lib/integrations/providers";
 import { isIntegrationOperational } from "@/lib/integrations/providers";
 import { getPublishingAdapter } from "@/lib/publishing/adapters";
+import { logPublishingDestinationFailure } from "@/lib/publishing/observability";
 import { getPublication, upsertPublication } from "@/lib/publishing/repository";
 import type { PublishArticle, PublishResult } from "@/lib/publishing/types";
 import { isFastAutoPublish } from "@/lib/workspace/settings";
@@ -66,47 +67,61 @@ async function publishToDestination(
     approvalId?: string | null;
   },
 ) {
-  const adapter = getPublishingAdapter(provider);
-  if (!adapter) {
+  function blocked(
+    error: string,
+    operation: "create" | "update" = "create",
+    remoteIdPresent = false,
+  ) {
+    logPublishingDestinationFailure(
+      {
+        workspaceId: scope.workspaceId,
+        brandId: scope.brandId,
+        articleId: article.id,
+        provider,
+        actor: authority.actor,
+        operation,
+        deliveryState: "blocked",
+        remoteIdPresent,
+        error,
+      },
+      "warn",
+    );
     return {
       provider,
-      result: { ok: false, error: "Publishing adapter is not available" } satisfies PublishResult,
+      result: { ok: false, error } satisfies PublishResult,
     };
+  }
+
+  const adapter = getPublishingAdapter(provider);
+  if (!adapter) {
+    return blocked("Publishing adapter is not available");
   }
 
   const integrations = await listIntegrations(scope.brandId);
   const integration = integrations.find((item) => item.provider === provider);
   if (!integration?.enabled) {
-    return {
-      provider,
-      result: { ok: false, error: "Integration is not enabled" } satisfies PublishResult,
-    };
+    return blocked("Integration is not enabled");
   }
   if (!integration.requirementsMet) {
-    return {
-      provider,
-      result: { ok: false, error: "Integration setup is incomplete" } satisfies PublishResult,
-    };
+    return blocked("Integration setup is incomplete");
   }
 
   const existing = await getPublication(scope.brandId, article.id, provider);
+  const operation = existing?.externalId ? "update" : "create";
   const liveControls =
     authority.actor === "agent" ? await getAgentControlState(scope.brandId) : null;
   if (
     authority.actor === "agent" &&
     (liveControls?.paused || liveControls?.publishingPaused || authority.publishingPaused)
   ) {
-    return {
-      provider,
-      result: {
-        ok: false,
-        error:
-          liveControls?.pauseInstruction ??
-          liveControls?.publishingPauseInstruction ??
-          authority.publishingPauseInstruction ??
-          "Publishing is paused by the owner.",
-      } satisfies PublishResult,
-    };
+    return blocked(
+      liveControls?.pauseInstruction ??
+        liveControls?.publishingPauseInstruction ??
+        authority.publishingPauseInstruction ??
+        "Publishing is paused by the owner.",
+      operation,
+      Boolean(existing?.externalId),
+    );
   }
   const capability = existing?.externalId ? "article.update" : "article.create";
   const actionType = existing?.externalId ? "update article" : "publish article";
@@ -156,16 +171,13 @@ async function publishToDestination(
       authorityResult.decision === "require_approval" &&
       approvalValidation?.valid !== true)
   ) {
-    return {
-      provider,
-      result: {
-        ok: false,
-        error:
-          approvalValidation?.valid === false
-            ? approvalValidation.reason
-            : authorityResult.reason,
-      } satisfies PublishResult,
-    };
+    return blocked(
+      approvalValidation?.valid === false
+        ? approvalValidation.reason
+        : authorityResult.reason,
+      operation,
+      Boolean(existing?.externalId),
+    );
   }
 
   async function recordPublicationAction(remoteRef?: string | null) {
@@ -226,15 +238,12 @@ async function publishToDestination(
   // definitive result. Without provider read-back (Phase 6), retrying could
   // create a duplicate. Keep the item operator-visible and fail closed.
   if (existing?.status === "pending") {
-    return {
-      provider,
-      result: {
-        ok: false,
-        error:
-          existing.errorMessage ??
-          "Previous publish delivery is uncertain; verify the destination before retrying.",
-      } satisfies PublishResult,
-    };
+    return blocked(
+      existing.errorMessage ??
+        "Previous publish delivery is uncertain; verify the destination before retrying.",
+      operation,
+      Boolean(existing.externalId),
+    );
   }
 
   const attemptCount = (existing?.attemptCount ?? 0) + 1;
@@ -289,7 +298,53 @@ async function publishToDestination(
       publishedHash: fingerprint,
     });
     await recordPublicationAction(result.externalUrl ?? result.externalId);
+    logInfo("publish.destination_succeeded", {
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      articleId: article.id,
+      provider,
+      actor: authority.actor,
+      operation,
+      attemptCount,
+      remote_id_present: Boolean(result.externalId ?? existing?.externalId),
+      public_url_present: Boolean(result.externalUrl ?? existing?.externalUrl),
+    });
   } else {
+    const deliveryState = result.externalId || deliveryUncertain
+      ? "pending"
+      : wasPublished
+        ? "published"
+        : "failed";
+    logPublishingDestinationFailure({
+      workspaceId: scope.workspaceId,
+      brandId: scope.brandId,
+      articleId: article.id,
+      provider,
+      actor: authority.actor,
+      operation,
+      attemptCount,
+      deliveryState,
+      deliveryUncertain,
+      remoteIdPresent: Boolean(result.externalId ?? existing?.externalId),
+      error: result.error ?? "Publishing provider returned an unknown error",
+    });
+    if (result.externalId) {
+      // Some providers acknowledge a stable remote ID before asynchronous
+      // processing finishes. Preserve it and fail closed so a retry cannot
+      // create a duplicate remote article.
+      await upsertPublication(scope, article.id, provider, {
+        status: "pending",
+        externalUrl: result.externalUrl ?? existing?.externalUrl ?? null,
+        externalId: result.externalId,
+        errorMessage:
+          result.error ??
+          "The provider accepted the article but has not confirmed publication yet.",
+        attemptCount,
+        publishedAt: existing?.publishedAt ?? null,
+        publishedHash: existing?.publishedHash ?? null,
+      });
+      return { provider, result };
+    }
     if (deliveryUncertain) {
       await upsertPublication(scope, article.id, provider, {
         status: "pending",
@@ -417,6 +472,27 @@ export async function publishArticleToDestinations(
   // no-op re-publish where every destination was skipped doesn't count). Metrics
   // are non-critical, so a counter failure never breaks publishing.
   const newlyPublished = results.some((entry) => entry.result.ok && !entry.result.skipped);
+  const failedDestinations = results.filter((entry) => !entry.result.ok).length;
+  const publishedDestinations = results.filter(
+    (entry) => entry.result.ok && !entry.result.skipped,
+  ).length;
+  const skippedDestinations = results.filter((entry) => entry.result.skipped).length;
+  const batchFields = {
+    workspaceId: scope.workspaceId,
+    brandId: scope.brandId,
+    articleId,
+    actor: options.actor ?? "owner",
+    destination_count: results.length,
+    published_destinations: publishedDestinations,
+    skipped_destinations: skippedDestinations,
+    failed_destinations: failedDestinations,
+  };
+  if (failedDestinations > 0) {
+    logWarn("publish.batch_completed_with_failures", batchFields);
+  } else {
+    logInfo("publish.batch_completed", batchFields);
+  }
+
   if (newlyPublished) {
     try {
       await incrementArticlesPublished(scope);

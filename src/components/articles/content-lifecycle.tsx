@@ -178,10 +178,7 @@ export function ContentLifecycle({
       onSelectionChange={(key) => onViewChange(String(key) as ContentView)}
     >
       <Tabs.ListContainer className="w-fit max-w-full">
-        <Tabs.List
-          aria-label="Content lifecycle"
-          className="w-fit min-w-0 *:min-w-24 *:w-auto *:px-5"
-        >
+        <Tabs.List aria-label="Content lifecycle">
           <Tabs.Tab id="ideas">
             Ideas
             <Tabs.Indicator />

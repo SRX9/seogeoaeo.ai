@@ -6,6 +6,7 @@ import {
   HelpIcon,
   PlugIcon,
   SettingsIcon,
+  SupportIcon,
 } from "@/components/icons";
 
 export type AppNavItem = {
@@ -28,6 +29,7 @@ export const APP_BRAND_ITEMS: readonly AppNavItem[] = [
 
 export const APP_FOOTER_ITEMS: readonly AppNavItem[] = [
   { href: "/dashboard?tour=1", label: "Product tour", icon: HelpIcon },
+  { href: "/contact", label: "Contact support", icon: SupportIcon },
 ];
 
 const ROUTE_TITLES = [

@@ -6,7 +6,6 @@ import {
   Input,
   Label,
   ProgressBar,
-  ScrollShadow,
   Skeleton,
   Table,
   Tabs,
@@ -23,7 +22,6 @@ import {
   AlertTriangleIcon,
   ArrowDownIcon,
   ArrowLeftIcon,
-  CheckIcon,
   CircleCheckIcon,
   GlobeIcon,
   LayersIcon,
@@ -56,11 +54,6 @@ export type DestinationItem = {
   name: string;
   status: string;
   externalUrl: string | null;
-};
-
-const GATE_LABELS: Record<string, string> = {
-  "style-lint": "Brand Voice",
-  "eeat-source": "Sources",
 };
 
 const providerNames = new Map<string, string>(
@@ -448,10 +441,7 @@ export function ArticleCanvas({
       >
         <div className="flex items-center justify-between gap-3 px-6 pt-6">
           <Tabs.ListContainer className="w-fit max-w-full">
-            <Tabs.List
-              aria-label="Article views"
-              className="w-fit min-w-0 *:min-w-24 *:w-auto *:px-5"
-            >
+            <Tabs.List aria-label="Article views">
               <Tabs.Tab id="editor">
                 Editor
                 <Tabs.Indicator />
@@ -501,7 +491,6 @@ export function ArticleInspector({
   styleGate,
   qualityChecks,
   destinations,
-  gates,
 }: {
   targetQuery: string;
   thesis: string;
@@ -509,13 +498,12 @@ export function ArticleInspector({
   styleGate: GateResult | undefined;
   qualityChecks: QualityCheck[];
   destinations: DestinationItem[];
-  gates: GateResult[];
 }) {
   const voiceScore = styleGate ? (styleGate.passed ? 100 : 35) : 0;
 
   return (
     <Card
-      className="gap-0 overflow-hidden xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)]"
+      className="gap-0 overflow-hidden"
       aria-label="Article brief"
     >
       <Card.Header className="shrink-0 flex-row items-start gap-2 pb-5">
@@ -526,8 +514,7 @@ export function ArticleInspector({
         </div>
       </Card.Header>
 
-      <ScrollShadow className="min-h-0 flex-1">
-        <Card.Content className="space-y-6 pb-6">
+      <Card.Content className="space-y-6 pb-6">
           <section>
             <p className="text-xs font-medium text-muted">Target Query</p>
             <div className="mt-2 flex items-start gap-2 rounded-xl bg-surface-secondary p-3">
@@ -626,19 +613,7 @@ export function ArticleInspector({
               </Link>
             </div>
           </section>
-        </Card.Content>
-
-        {gates.length > 0 ? (
-          <Card.Footer className="flex-wrap gap-x-4 gap-y-2 border-t border-separator/60 py-5">
-            {gates.map((gate) => (
-              <ToneText key={gate.gate} tone={gate.passed ? "success" : "danger"} className="inline-flex items-center gap-1.5 text-xs">
-                {gate.passed ? <CheckIcon className="size-3.5" /> : <AlertTriangleIcon className="size-3.5" />}
-                {GATE_LABELS[gate.gate] ?? titleCase(gate.gate)}
-              </ToneText>
-            ))}
-          </Card.Footer>
-        ) : null}
-      </ScrollShadow>
+      </Card.Content>
     </Card>
   );
 }

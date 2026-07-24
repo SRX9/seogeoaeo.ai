@@ -49,10 +49,10 @@ function SectionHeading({
 }
 
 const signals = [
-  { icon: SearchIcon, label: "Search", detail: "Rankings and demand" },
-  { icon: InsightIcon, label: "Answers", detail: "Citability and coverage" },
-  { icon: GlobeIcon, label: "AI visibility", detail: "Mentions and share" },
-  { icon: RefreshIcon, label: "Follow-through", detail: "Impact after launch" },
+  { icon: ResearchIcon, label: "Find", detail: "The highest-impact job" },
+  { icon: PenIcon, label: "Prepare", detail: "A finished deliverable" },
+  { icon: UserInputIcon, label: "Approve", detail: "You decide what ships" },
+  { icon: ChartBarIcon, label: "Prove", detail: "Recheck what changed" },
 ] as const;
 
 export function Hero() {
@@ -85,30 +85,40 @@ export function Hero() {
           </h1>
           <div className={styles.heroSupport}>
             <p>
-              Give Claudia your website. She finds what to write and what to fix, prepares the work, and checks the result while keeping final decisions with you.
+              Share your website and goals. Claudia finds the best next move, prepares the work, and checks the result—while every sensitive decision stays with you.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/login" className={styles.primaryCta}>
-                Start free
-                <ArrowRightIcon className="size-4" />
-              </Link>
-              <Link href="#how-it-works" className={styles.glassCta}>
-                See how she works
-              </Link>
+            <div className={styles.heroActions}>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/login" className={styles.primaryCta}>
+                  Give Claudia a job
+                  <ArrowRightIcon className="size-4" />
+                </Link>
+                <Link href="#how-it-works" className={styles.glassCta}>
+                  See how it works
+                </Link>
+              </div>
+              <p className={styles.heroReassurance}>
+                <CheckIcon className="size-4" />
+                First job free. No card required.
+              </p>
             </div>
           </div>
         </div>
 
-        <div className={styles.signalRail}>
-          {signals.map((item) => (
-            <div key={item.label} className={styles.signalItem}>
-              <item.icon className="size-5 shrink-0 text-white/74" />
-              <div>
-                <p>{item.label}</p>
-                <span>{item.detail}</span>
+        <div className={styles.signalBlock}>
+          <p className={styles.signalIntro}>From your URL to a measured result</p>
+          <div className={styles.signalRail}>
+            {signals.map((item, index) => (
+              <div key={item.label} className={styles.signalItem}>
+                <span className={styles.signalNumber}>{String(index + 1).padStart(2, "0")}</span>
+                <item.icon className="size-5 shrink-0 text-white/74" />
+                <div>
+                  <p>{item.label}</p>
+                  <span>{item.detail}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>

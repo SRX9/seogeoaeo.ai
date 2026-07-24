@@ -7,7 +7,18 @@ const MAX_STRING = 2_000;
 const MAX_NESTED = 500;
 
 const REDACT_KEY =
-  /^(authorization|cookie|password|passwd|secret|token|api[_-]?key|encryption[_-]?key|database_url|private[_-]?key|bearer)$/i;
+  /^(authorization|cookie|password|passwd|secret|token|access[_-]?token|refresh[_-]?token|id[_-]?token|api[_-]?key|encryption[_-]?key|database_url|private[_-]?key|bearer)$/i;
+
+function redactSensitiveText(value: string): string {
+  return value
+    .replace(/\b(Bearer|Token)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [redacted]")
+    .replace(
+      /(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\b["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;]+)/gi,
+      "$1[redacted]",
+    )
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted]")
+    .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/gi, "$1[redacted]@");
+}
 
 function serviceName(): string {
   return process.env.POSTHOG_SERVICE_NAME?.trim() || DEFAULT_SERVICE;
@@ -48,17 +59,17 @@ function severityNumber(level: LogLevel): number {
 
 function scalarize(value: unknown, depth = 0): string | number | boolean | undefined {
   if (value === null || value === undefined) return undefined;
-  if (typeof value === "string") return value.slice(0, MAX_STRING);
+  if (typeof value === "string") return redactSensitiveText(value).slice(0, MAX_STRING);
   if (typeof value === "number" || typeof value === "boolean") return value;
   if (typeof value === "bigint") return value.toString();
   if (value instanceof Error) {
-    return `${value.name}: ${value.message}`.slice(0, MAX_STRING);
+    return redactSensitiveText(`${value.name}: ${value.message}`).slice(0, MAX_STRING);
   }
-  if (depth > 2) return String(value).slice(0, MAX_NESTED);
+  if (depth > 2) return redactSensitiveText(String(value)).slice(0, MAX_NESTED);
   try {
-    return JSON.stringify(value).slice(0, MAX_NESTED);
+    return redactSensitiveText(JSON.stringify(value)).slice(0, MAX_NESTED);
   } catch {
-    return String(value).slice(0, MAX_NESTED);
+    return redactSensitiveText(String(value)).slice(0, MAX_NESTED);
   }
 }
 
@@ -86,10 +97,12 @@ export function errorFields(error: unknown, key = "error"): LogFields {
   if (error instanceof Error) {
     return {
       [`${key}_name`]: error.name,
-      [`${key}_message`]: error.message.slice(0, 500),
+      [`${key}_message`]: redactSensitiveText(error.message).slice(0, 500),
     };
   }
-  return { [`${key}_message`]: String(error).slice(0, 500) };
+  return {
+    [`${key}_message`]: redactSensitiveText(String(error)).slice(0, 500),
+  };
 }
 
 type OtlpAnyValue =
@@ -129,6 +142,10 @@ async function shipOtlp(
             { key: "service.name", value: { stringValue: serviceName() } },
             {
               key: "deployment.environment",
+              value: { stringValue: deploymentEnvironment() },
+            },
+            {
+              key: "deployment.environment.name",
               value: { stringValue: deploymentEnvironment() },
             },
           ],
@@ -173,6 +190,7 @@ function write(level: LogLevel, event: string, fields: LogFields = {}) {
     timestamp: new Date().toISOString(),
     "service.name": serviceName(),
     "deployment.environment": deploymentEnvironment(),
+    "deployment.environment.name": deploymentEnvironment(),
     ...sanitized,
   };
 

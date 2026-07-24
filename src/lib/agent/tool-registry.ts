@@ -139,6 +139,11 @@ export const articlePublishInputSchema = z
       "hashnode",
       "wordpress",
       "ghost",
+      "qiita",
+      "beehiiv",
+      "writeas",
+      "paragraph",
+      "buttondown",
     ]),
   })
   .strict();
@@ -152,6 +157,11 @@ export const articlePublishOutputSchema = z
       "hashnode",
       "wordpress",
       "ghost",
+      "qiita",
+      "beehiiv",
+      "writeas",
+      "paragraph",
+      "buttondown",
     ]),
     status: z.enum(["published", "skipped", "failed"]),
     remoteRef: z.string().max(2_000).nullable(),
