@@ -6,13 +6,15 @@ import {
   Input,
   Label,
   ProgressBar,
+  ScrollShadow,
   Skeleton,
   Table,
+  Tabs,
   TextArea,
   Tooltip,
 } from "@heroui/react";
 import { buttonVariants } from "@heroui/react/button";
-import { EmptyState, Segment } from "@heroui-pro/react";
+import { EmptyState } from "@heroui-pro/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
@@ -111,7 +113,7 @@ export function ArticleEditorTopbar({
   onPublish: () => void;
 }) {
   return (
-    <Card className="gap-4">
+    <Card className="sticky top-3 z-30 gap-4 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/85">
       <Card.Header className="flex-col items-stretch gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Link href="/articles" className={buttonVariants({ variant: "ghost", size: "sm" })}>
@@ -120,7 +122,7 @@ export function ArticleEditorTopbar({
           </Link>
           <ToneText tone={statusColor(status)} className="text-xs">{titleCase(status)}</ToneText>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
-            {pending ? "Saving changes" : <><CheckIcon className="size-3.5 text-success" />All changes saved</>}
+            {pending ? "Saving changes" : <><SaveIcon className="size-3.5 text-success" />All changes saved</>}
           </span>
         </div>
 
@@ -192,7 +194,7 @@ function EditorPanel({
   }
 
   return (
-    <section className="space-y-6" role="tabpanel" aria-label="Article editor">
+    <section className="space-y-6" aria-label="Article editor">
       <div className="space-y-2">
         <Label htmlFor="article-title">Article Title</Label>
         <TextArea
@@ -220,7 +222,14 @@ function EditorPanel({
               fullWidth
             />
             <Tooltip delay={300}>
-              <Button isIconOnly size="sm" variant="outline" onPress={onCopySlug} aria-label="Copy article slug">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                className="bg-transparent text-muted data-[hovered=true]:bg-transparent"
+                onPress={onCopySlug}
+                aria-label="Copy article slug"
+              >
                 <LayersIcon className="size-4" />
               </Button>
               <Tooltip.Content>Copy Slug</Tooltip.Content>
@@ -247,13 +256,20 @@ function EditorPanel({
 
       <div className="space-y-2">
         <Label>Tags</Label>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface-secondary px-3 py-2">
           {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-0.5">
+            <span key={tag} className="inline-flex items-center gap-1 border-r border-separator pr-2 last:border-r-0">
               <span className="text-sm font-medium text-muted">{tag}</span>
               {!isPreview ? (
                 <Tooltip delay={300}>
-                  <Button isIconOnly size="sm" variant="ghost" onPress={() => onRemoveTag(tag)} aria-label={`Remove ${tag} tag`}>
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    className="bg-transparent text-muted data-[hovered=true]:bg-transparent"
+                    onPress={() => onRemoveTag(tag)}
+                    aria-label={`Remove ${tag} tag`}
+                  >
                     <XIcon className="size-3.5" />
                   </Button>
                   <Tooltip.Content>Remove Tag</Tooltip.Content>
@@ -284,7 +300,7 @@ function EditorPanel({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3 pt-2">
         <Label>Article Body</Label>
         <ArticleBodyEditor
           defaultMarkdown={article.bodyMarkdown}
@@ -326,7 +342,7 @@ function HistoryPanel({
   onRepublish: () => void;
 }) {
   return (
-    <section className="space-y-6" role="tabpanel" aria-label="Publishing history">
+    <section className="space-y-6" aria-label="Publishing history">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Publishing History</h2>
@@ -424,16 +440,31 @@ export function ArticleCanvas({
   const [view, setView] = useState<"editor" | "history">("editor");
 
   return (
-    <Card className="min-w-0 gap-6">
-      <Card.Header className="justify-between gap-3">
-        <Segment aria-label="Article views" selectedKey={view} size="sm" variant="ghost" onSelectionChange={(key) => setView(String(key) as "editor" | "history")}>
-          <Segment.Item id="editor">Editor</Segment.Item>
-          <Segment.Item id="history">History</Segment.Item>
-        </Segment>
-        {isPreview ? <ToneText tone="accent" className="text-xs">Preview Mode</ToneText> : null}
-      </Card.Header>
-      <Card.Content>
-        {view === "editor" ? (
+    <Card className="min-w-0 gap-0">
+      <Tabs
+        variant="secondary"
+        selectedKey={view}
+        onSelectionChange={(key) => setView(String(key) as "editor" | "history")}
+      >
+        <div className="flex items-center justify-between gap-3 px-6 pt-6">
+          <Tabs.ListContainer className="w-fit max-w-full">
+            <Tabs.List
+              aria-label="Article views"
+              className="w-fit min-w-0 *:min-w-24 *:w-auto *:px-5"
+            >
+              <Tabs.Tab id="editor">
+                Editor
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="history">
+                History
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+          {isPreview ? <ToneText tone="accent" className="text-xs">Preview Mode</ToneText> : null}
+        </div>
+        <Tabs.Panel id="editor" className="p-6">
           <EditorPanel
             article={article}
             fields={fields}
@@ -447,7 +478,8 @@ export function ArticleCanvas({
             onBodyChange={onBodyChange}
             onSaveDraft={onSaveDraft}
           />
-        ) : (
+        </Tabs.Panel>
+        <Tabs.Panel id="history" className="p-6">
           <HistoryPanel
             publications={publications}
             canPublish={canPublish}
@@ -456,8 +488,8 @@ export function ArticleCanvas({
             intent={intent}
             onRepublish={onRepublish}
           />
-        )}
-      </Card.Content>
+        </Tabs.Panel>
+      </Tabs>
     </Card>
   );
 }
@@ -482,109 +514,131 @@ export function ArticleInspector({
   const voiceScore = styleGate ? (styleGate.passed ? 100 : 35) : 0;
 
   return (
-    <Card className="gap-6 xl:sticky xl:top-8" aria-label="Article brief">
-      <Card.Header className="flex-row items-center gap-2">
-        <InsightIcon className="size-5 text-accent" />
+    <Card
+      className="gap-0 overflow-hidden xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)]"
+      aria-label="Article brief"
+    >
+      <Card.Header className="shrink-0 flex-row items-start gap-2 pb-5">
+        <InsightIcon className="mt-0.5 size-5 shrink-0 text-accent" />
         <div>
           <Card.Title>Article Brief</Card.Title>
           <Card.Description>Research context and publishing readiness.</Card.Description>
         </div>
       </Card.Header>
 
-      <Card.Content className="space-y-6">
-        <section>
-          <p className="text-xs font-medium text-muted">Target Query</p>
-          <div className="mt-2 flex items-start gap-2 rounded-xl bg-surface-secondary p-3">
-            <LinkIcon className="mt-0.5 size-4 shrink-0 text-muted" />
-            <p className="text-sm leading-5 text-foreground">{targetQuery}</p>
-          </div>
-        </section>
-
-        <section>
-          <p className="text-xs font-medium text-muted">Content Thesis</p>
-          <p className="mt-2 text-sm leading-6 text-foreground">{thesis}</p>
-        </section>
-
-        <section>
-          <p className="text-xs font-medium text-muted">Research Signals</p>
-          {evidenceSignals.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {evidenceSignals.map((signal) => <span key={signal} className="text-xs font-medium text-muted">{titleCase(signal)}</span>)}
+      <ScrollShadow className="min-h-0 flex-1">
+        <Card.Content className="space-y-6 pb-6">
+          <section>
+            <p className="text-xs font-medium text-muted">Target Query</p>
+            <div className="mt-2 flex items-start gap-2 rounded-xl bg-surface-secondary p-3">
+              <LinkIcon className="mt-0.5 size-4 shrink-0 text-accent" />
+              <p className="text-sm leading-5 text-foreground">{targetQuery}</p>
             </div>
-          ) : (
-            <p className="mt-2 text-sm text-muted">No research signals are attached yet.</p>
-          )}
-        </section>
+          </section>
 
-        <section>
-          <div className="flex items-center justify-between gap-3">
+          <section>
+            <p className="text-xs font-medium text-muted">Content Thesis</p>
+            <div className="mt-2 rounded-xl bg-surface-secondary p-3">
+              <p className="text-sm leading-6 text-foreground">{thesis}</p>
+            </div>
+          </section>
+
+          <section>
+            <p className="text-xs font-medium text-muted">Research Signals</p>
+            <div className="mt-2 rounded-xl bg-surface-secondary p-3">
+              {evidenceSignals.length > 0 ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {evidenceSignals.map((signal) => (
+                    <span key={signal} className="text-xs font-medium text-accent">
+                      {titleCase(signal)}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted">No research signals are attached yet.</p>
+              )}
+            </div>
+          </section>
+
+          <section>
             <p className="text-xs font-medium text-muted">Brand Voice</p>
-            <ToneText tone={styleGate?.passed ? "success" : styleGate ? "danger" : "default"} className="text-xs">
-              {styleGate ? (styleGate.passed ? "Aligned" : "Review") : "Not Scored"}
-            </ToneText>
-          </div>
-          <ProgressBar value={voiceScore} size="sm" color={styleGate?.passed ? "success" : styleGate ? "danger" : "default"} aria-label="Brand voice score" className="mt-3">
-            <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
-          </ProgressBar>
-          <p className="mt-2 text-xs leading-5 text-muted">{styleGate?.detail ?? "Run a quality check to compare this draft with your brand voice."}</p>
-        </section>
-
-        <section>
-          <p className="text-xs font-medium text-muted">Citability Checklist</p>
-          <ul className="mt-3 space-y-3">
-            {qualityChecks.map((check) => (
-              <li key={check.label} className="flex items-start gap-2.5 text-sm">
-                {check.passed === null ? (
-                  <span className="mt-1 size-3.5 shrink-0 rounded-full bg-surface-tertiary" />
-                ) : check.passed ? (
-                  <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-success" />
-                ) : (
-                  <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
-                )}
-                <span className={check.passed === false ? "text-foreground" : "text-muted"}>{check.label}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section>
-          <p className="text-xs font-medium text-muted">Publishing Destinations</p>
-          {destinations.length > 0 ? (
-            <div className="mt-3 space-y-2">
-              {destinations.map((destination) => {
-                const content = (
-                  <>
-                    <GlobeIcon className="size-4 shrink-0 text-muted" />
-                    <span className="min-w-0 flex-1 truncate">{destination.name}</span>
-                    <ToneText tone={destination.status === "Ready" || destination.status === "Published" ? "success" : "default"} className="text-xs">{destination.status}</ToneText>
-                  </>
-                );
-                return destination.externalUrl ? (
-                  <a key={destination.provider} href={destination.externalUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm no-underline hover:bg-surface-secondary">{content}</a>
-                ) : (
-                  <div key={destination.provider} className="flex items-center gap-2 px-2 py-1.5 text-sm">{content}</div>
-                );
-              })}
+            <div className="mt-2 rounded-xl bg-surface-secondary p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted">Style and structure</span>
+                <ToneText tone={styleGate?.passed ? "success" : styleGate ? "danger" : "default"} className="text-xs">
+                  {styleGate ? (styleGate.passed ? "Aligned" : "Review") : "Not Scored"}
+                </ToneText>
+              </div>
+              <ProgressBar value={voiceScore} size="sm" color={styleGate?.passed ? "success" : styleGate ? "danger" : "default"} aria-label="Brand voice score" className="mt-3">
+                <ProgressBar.Track><ProgressBar.Fill /></ProgressBar.Track>
+              </ProgressBar>
+              <p className="mt-2 text-xs leading-5 text-muted">{styleGate?.detail ?? "Run a quality check to compare this draft with your brand voice."}</p>
             </div>
-          ) : (
-            <p className="mt-2 text-sm text-muted">No publishing destination is connected.</p>
-          )}
-          <Link href="/settings?tab=integrations" className={`${buttonVariants({ variant: "ghost", size: "sm" })} mt-2`}>
-            <PlusIcon className="size-4" />Add Destination
-          </Link>
-        </section>
-      </Card.Content>
+          </section>
 
-      {gates.length > 0 ? (
-        <Card.Footer className="flex-wrap gap-2 border-t border-separator/60 pt-5">
-          {gates.map((gate) => (
-            <ToneText key={gate.gate} tone={gate.passed ? "success" : "danger"} className="inline-flex items-center gap-1.5 text-xs">
-              {gate.passed ? <CheckIcon className="size-3.5" /> : <AlertTriangleIcon className="size-3.5" />}
-              {GATE_LABELS[gate.gate] ?? titleCase(gate.gate)}
-            </ToneText>
-          ))}
-        </Card.Footer>
-      ) : null}
+          <section>
+            <p className="text-xs font-medium text-muted">Citability Checklist</p>
+            <ul className="mt-2 space-y-3 rounded-xl bg-surface-secondary p-3">
+              {qualityChecks.map((check) => (
+                <li key={check.label} className="flex items-start gap-2.5 text-sm">
+                  {check.passed === null ? (
+                    <span className="mt-1 size-3.5 shrink-0 rounded-full bg-surface-tertiary" />
+                  ) : check.passed ? (
+                    <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-success" />
+                  ) : (
+                    <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+                  )}
+                  <span className={check.passed === false ? "text-foreground" : "text-muted"}>{check.label}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <p className="text-xs font-medium text-muted">Publishing Destinations</p>
+            <div className="mt-2 rounded-xl bg-surface-secondary p-3">
+              {destinations.length > 0 ? (
+                <div className="space-y-2">
+                  {destinations.map((destination) => {
+                    const content = (
+                      <>
+                        <GlobeIcon className="size-4 shrink-0 text-accent" />
+                        <span className="min-w-0 flex-1 truncate">{destination.name}</span>
+                        <ToneText tone={destination.status === "Ready" || destination.status === "Published" ? "success" : "default"} className="text-xs">{destination.status}</ToneText>
+                      </>
+                    );
+                    return destination.externalUrl ? (
+                      <a key={destination.provider} href={destination.externalUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg py-1.5 text-sm no-underline">{content}</a>
+                    ) : (
+                      <div key={destination.provider} className="flex items-center gap-2 py-1.5 text-sm">{content}</div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted">No publishing destination is connected.</p>
+              )}
+              <Link
+                href="/settings?tab=integrations"
+                className={`${buttonVariants({ variant: "outline", size: "sm" })} mt-3 w-full justify-center`}
+              >
+                <PlusIcon className="size-4" />
+                Add Destination
+              </Link>
+            </div>
+          </section>
+        </Card.Content>
+
+        {gates.length > 0 ? (
+          <Card.Footer className="flex-wrap gap-x-4 gap-y-2 border-t border-separator/60 py-5">
+            {gates.map((gate) => (
+              <ToneText key={gate.gate} tone={gate.passed ? "success" : "danger"} className="inline-flex items-center gap-1.5 text-xs">
+                {gate.passed ? <CheckIcon className="size-3.5" /> : <AlertTriangleIcon className="size-3.5" />}
+                {GATE_LABELS[gate.gate] ?? titleCase(gate.gate)}
+              </ToneText>
+            ))}
+          </Card.Footer>
+        ) : null}
+      </ScrollShadow>
     </Card>
   );
 }

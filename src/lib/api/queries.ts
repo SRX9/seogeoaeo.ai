@@ -90,18 +90,11 @@ export type MeResponse = {
 /** All read-only data needed to render the Overview in one request. */
 export type DashboardData = {
   brand: {
-    id: string;
-    name: string;
     autonomyMode: "FULL_AUTO" | "REVIEW" | "AUTO_PUBLISH_FAST";
-    identity: BrandIdentitySummary | null;
   };
   setup: SetupRunResponse;
   home: ClaudiaHomeView;
   agent: AgentOperatingState;
-  summary: VisibilitySummary;
-  answers: VisibilityAnswers;
-  traffic: VisibilityTraffic;
-  articles: Article[];
   findings: VisibilityFinding[];
   integrations: IntegrationView[];
   automation: AutomationStats;
@@ -366,7 +359,7 @@ const agentBriefQueryOptions = () => queryOptions({
   queryKey: queryKeys.agentBrief,
   queryFn: apiQuery<{ brief: AgentBrief }>("/api/dashboard/brief"),
 });
-const dashboardQueryOptions = () => queryOptions({
+export const dashboardQueryOptions = () => queryOptions({
   ...queryPolicy.live,
   queryKey: queryKeys.dashboard,
   queryFn: apiQuery<DashboardData>("/api/dashboard"),
@@ -1178,8 +1171,8 @@ export function useSetupInProgress(): boolean {
  * intent. Fresh entries are skipped automatically by TanStack Query, so this
  * remains cheap when data is already cached.
  *
- * Dashboard and Inbox are hydrated by their Server Component routes and are
- * intentionally omitted here to avoid racing a duplicate browser request.
+ * Overview and Inbox use the same persistent client cache as the rest of the
+ * app, so navigation intent can start their request before the route changes.
  */
 export async function prefetchRouteQueries(
   queryClient: QueryClient,
@@ -1191,6 +1184,12 @@ export async function prefetchRouteQueries(
   const pathname = destination.pathname;
 
   switch (pathname) {
+    case "/dashboard":
+      await queryClient.prefetchQuery(dashboardQueryOptions());
+      break;
+    case "/inbox":
+      await queryClient.prefetchQuery(inboxQueryOptions());
+      break;
     case "/topics":
       await Promise.all([
         queryClient.prefetchQuery(topicsQueryOptions()),

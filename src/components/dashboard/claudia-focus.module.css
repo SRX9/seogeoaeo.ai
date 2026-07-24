@@ -33,6 +33,17 @@
   pointer-events: none;
 }
 
+.heroMeta {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: clamp(3rem, 6vw, 5.5rem);
+  inset-inline: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
 .copy {
   max-width: 58rem;
   padding-block: clamp(4rem, 8vw, 8rem);
@@ -72,8 +83,16 @@
     gap: 0;
   }
 
+  .heroMeta {
+    position: relative;
+    inset: auto;
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    margin-block-start: 3rem;
+  }
+
   .copy {
-    padding-block: 4rem 2rem;
+    padding-block: 2rem;
   }
 
   .orb {

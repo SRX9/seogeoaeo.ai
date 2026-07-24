@@ -1,6 +1,6 @@
 import { getAgentState } from "@/lib/agent/state";
 import { listPendingAgentApprovals } from "@/lib/agent/events";
-import { listArticles } from "@/lib/articles/repository";
+import { listOwnerReviewArticles } from "@/lib/articles/repository";
 import type { requireApiBrand } from "@/lib/api/server";
 import type { AgentApprovalView, InboxData } from "@/lib/api/queries";
 import { buildOwnerRequests } from "@/lib/inbox/owner-request";
@@ -38,7 +38,7 @@ export async function getInboxData(context: InboxContext): Promise<InboxData> {
   const setupPromise = getSetupRun(brand.id);
   const creditsPromise = getCreditBalance(workspace.id);
   const weeklyPromise = getWeeklyPipelineStats(brand.id);
-  const articlesPromise = listArticles(brand.id);
+  const articlesPromise = listOwnerReviewArticles(brand.id);
   const findingsPromise = getOpenFindings(workspace.id, { brandId: brand.id });
   const connectionsPromise = listTrafficConnections(brand.id);
   const integrationsPromise = listIntegrations(brand.id);
@@ -52,10 +52,7 @@ export async function getInboxData(context: InboxContext): Promise<InboxData> {
       credits: creditsPromise,
       weekly: weeklyPromise,
       draftRows: articlesPromise.then((rows) =>
-        rows
-          .filter((article) => article.status === "draft")
-          .slice(0, 1)
-          .map(({ id, title }) => ({ id, title }))),
+        rows.slice(0, 1).map(({ id, title }) => ({ id, title }))),
       findings: findingsPromise,
       gscRows: connectionsPromise,
       integrations: integrationsPromise,
@@ -74,12 +71,7 @@ export async function getInboxData(context: InboxContext): Promise<InboxData> {
   const requests = buildOwnerRequests({
     agent,
     approvals,
-    articles: articleRows.map((article) => ({
-      id: article.id,
-      title: article.title,
-      status: article.status,
-      metaDescription: article.metaDescription,
-    })),
+    articles: articleRows,
     autonomyMode:
       brand.autonomyMode === "FULL_AUTO" || brand.autonomyMode === "AUTO_PUBLISH_FAST"
         ? brand.autonomyMode

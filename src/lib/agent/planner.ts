@@ -237,6 +237,38 @@ export async function ensureDefaultMission(
   return winner;
 }
 
+/**
+ * Read the current operating plan without mutating state. Overview requests use
+ * this fast path; cadence jobs remain responsible for creating future work.
+ */
+export async function getCurrentAgentPlan(
+  scope: BrandScope,
+  at = new Date(),
+) {
+  const { start } = planningWindow(at);
+  const [row] = await getDb()
+    .select({
+      mission: agentMissions,
+      plan: agentPlanVersions,
+    })
+    .from(agentMissions)
+    .innerJoin(
+      agentPlanVersions,
+      eq(agentPlanVersions.missionId, agentMissions.id),
+    )
+    .where(
+      and(
+        eq(agentMissions.brandId, scope.brandId),
+        eq(agentMissions.key, "primary"),
+        eq(agentPlanVersions.windowStart, start),
+      ),
+    )
+    .orderBy(desc(agentPlanVersions.version))
+    .limit(1);
+
+  return row ?? null;
+}
+
 export async function ensureWeeklyPlan(
   scope: BrandScope,
   options: {

@@ -16,6 +16,12 @@ type EmailAction = {
 
 const CLAUDIA_LOGO_URL = `${SITE_URL}/claudia-bg-free-logo.png`;
 const GEIST_FONT_URL = `${SITE_URL}/geist-latin.woff2`;
+const RUN_DATE_FORMATTER = new Intl.DateTimeFormat("en", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 function escapeHtml(value: string): string {
   return value
@@ -97,12 +103,7 @@ function claudiaEmailHtml(bodyHtml: string, action?: EmailAction): string {
 function formatRunDate(value: string): string {
   const date = new Date(`${value}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(date);
+  return RUN_DATE_FORMATTER.format(date);
 }
 
 function weeklyAskLabel(href: string): string {

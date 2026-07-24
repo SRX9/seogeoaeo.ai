@@ -6,13 +6,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  AlertTriangleIcon,
+  ArrowRightIcon,
   ArticlesIcon,
   ChevronRightIcon,
+  CheckIcon,
   CreditCardIcon,
+  HelpIcon,
+  InsightIcon,
+  LaunchIcon,
   PenIcon,
   PlugIcon,
+  RefreshIcon,
   ShieldIcon,
   UserInputIcon,
+  XIcon,
 } from "@/components/icons";
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/api/fetcher";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -47,15 +55,73 @@ function actionBelongsToRequest(
 
 const REQUEST_COPY: Record<
   OwnerRequestType,
-  { label: string; Icon: typeof ShieldIcon }
+  { label: string; Icon: typeof ShieldIcon; className: string }
 > = {
-  content_review: { label: "Content review", Icon: ArticlesIcon },
-  connection: { label: "Connection", Icon: PlugIcon },
-  permission: { label: "Permission", Icon: ShieldIcon },
-  preference: { label: "Your preference", Icon: UserInputIcon },
-  billing: { label: "Account", Icon: CreditCardIcon },
-  brand_correction: { label: "Brand knowledge", Icon: PenIcon },
+  content_review: {
+    label: "Content review",
+    Icon: ArticlesIcon,
+    className: "text-accent",
+  },
+  connection: {
+    label: "Connection",
+    Icon: PlugIcon,
+    className: "text-success",
+  },
+  permission: {
+    label: "Permission",
+    Icon: ShieldIcon,
+    className: "text-warning",
+  },
+  preference: {
+    label: "Your preference",
+    Icon: UserInputIcon,
+    className: "text-accent",
+  },
+  billing: {
+    label: "Account",
+    Icon: CreditCardIcon,
+    className: "text-danger",
+  },
+  brand_correction: {
+    label: "Brand knowledge",
+    Icon: PenIcon,
+    className: "text-warning",
+  },
 };
+
+function actionIcon(action: OwnerRequestAction) {
+  if (action.kind === "link") {
+    if (action.href.includes("tab=integrations")) return PlugIcon;
+    if (action.href.includes("tab=billing")) return CreditCardIcon;
+    if (action.href.startsWith("/articles/")) return ArticlesIcon;
+    return ArrowRightIcon;
+  }
+  if (action.kind === "approve_change") return CheckIcon;
+  if (action.kind === "decline_change") return XIcon;
+  return LaunchIcon;
+}
+
+function RequestDetail({
+  Icon,
+  label,
+  value,
+  className,
+}: {
+  Icon: typeof ShieldIcon;
+  label: string;
+  value: string;
+  className: string;
+}) {
+  return (
+    <div>
+      <p className={cn("flex items-center gap-2 text-xs font-medium", className)}>
+        <Icon className="size-4 shrink-0" aria-hidden />
+        {label}
+      </p>
+      <p className="mt-1.5 text-sm leading-6 text-foreground">{value}</p>
+    </div>
+  );
+}
 
 function invalidateOwnerRequests(queryClient: ReturnType<typeof useQueryClient>) {
   for (const queryKey of [
@@ -100,6 +166,8 @@ function ActionControl({
   pending: boolean;
   onExecute: (action: ExecutableAction) => void;
 }) {
+  const Icon = actionIcon(action);
+
   if (action.kind === "link") {
     return (
       <Link
@@ -109,6 +177,7 @@ function ActionControl({
           "min-h-10 active:scale-[0.96]",
         )}
       >
+        <Icon className="size-4 shrink-0" aria-hidden />
         {action.label}
       </Link>
     );
@@ -122,6 +191,7 @@ function ActionControl({
       className="min-h-10 active:scale-[0.96]"
       onPress={() => onExecute(action)}
     >
+      <Icon className="size-4 shrink-0" aria-hidden />
       {action.label}
     </LoadingButton>
   );
@@ -140,7 +210,7 @@ function RequestCard({
   onToggle: () => void;
   onExecute: (action: ExecutableAction) => void;
 }) {
-  const { Icon, label } = REQUEST_COPY[request.type];
+  const { Icon, label, className } = REQUEST_COPY[request.type];
 
   return (
     <Card className="p-0" aria-labelledby={`owner-request-${request.id}`}>
@@ -150,14 +220,9 @@ function RequestCard({
         aria-expanded={open}
         onPress={onToggle}
       >
-        <span
-          className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-muted"
-          aria-hidden
-        >
-          <Icon className="size-5" />
-        </span>
+        <Icon className={cn("size-5 shrink-0", className)} aria-hidden />
         <span className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-muted">{label}</span>
+          <span className={cn("block text-xs font-medium", className)}>{label}</span>
           <span
             id={`owner-request-${request.id}`}
             className="mt-1 block text-sm font-semibold text-foreground"
@@ -182,22 +247,30 @@ function RequestCard({
       {open ? (
         <div className="space-y-5 px-4 pb-5 sm:px-5">
           <div className="grid gap-4 border-t border-border pt-5 sm:grid-cols-2">
-            <div>
-              <p className="text-xs font-medium text-muted">What Claudia recommends</p>
-              <p className="mt-1 text-sm leading-6 text-foreground">{request.recommendation}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted">Why it matters</p>
-              <p className="mt-1 text-sm leading-6 text-foreground">{request.reason}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted">What will change</p>
-              <p className="mt-1 text-sm leading-6 text-foreground">{request.changeSummary}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted">If you do nothing</p>
-              <p className="mt-1 text-sm leading-6 text-foreground">{request.noActionOutcome}</p>
-            </div>
+            <RequestDetail
+              Icon={InsightIcon}
+              label="What Claudia recommends"
+              value={request.recommendation}
+              className="text-accent"
+            />
+            <RequestDetail
+              Icon={HelpIcon}
+              label="Why it matters"
+              value={request.reason}
+              className="text-warning"
+            />
+            <RequestDetail
+              Icon={RefreshIcon}
+              label="What will change"
+              value={request.changeSummary}
+              className="text-success"
+            />
+            <RequestDetail
+              Icon={AlertTriangleIcon}
+              label="If you do nothing"
+              value={request.noActionOutcome}
+              className="text-warning"
+            />
           </div>
 
           {request.readableDetails.length > 0 ? (

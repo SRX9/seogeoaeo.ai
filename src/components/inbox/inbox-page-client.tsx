@@ -45,9 +45,7 @@ export function InboxPageClient() {
               <Card>
                 <EmptyState>
                   <EmptyState.Header>
-                    <EmptyState.Media variant="icon">
-                      <CircleCheckIcon />
-                    </EmptyState.Media>
+                    <CircleCheckIcon className="size-8 text-success" />
                     <EmptyState.Title>Nothing needs you right now</EmptyState.Title>
                     <EmptyState.Description>
                       Claudia will keep working and ask here only when your input is necessary.

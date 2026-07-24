@@ -13,7 +13,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { Suspense, useEffect, useState } from "react";
-import { ArrowRightIcon, CheckIcon } from "@/components/icons";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  CopyIcon,
+  DownloadIcon,
+  InlineCodeIcon,
+} from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Section } from "@/components/feedback/section";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
@@ -41,6 +47,18 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 
 function titleCase(value: string) {
   return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function pillarTextColor(pillar: VisibilityFinding["pillar"]) {
+  if (pillar === "seo") return "text-success";
+  if (pillar === "aeo") return "text-accent";
+  return "text-warning";
+}
+
+function severityTextColor(severity: VisibilityFinding["severity"]) {
+  if (severity === "critical" || severity === "high") return "text-danger";
+  if (severity === "medium") return "text-warning";
+  return "text-muted";
 }
 
 async function copyText(text: string) {
@@ -119,8 +137,14 @@ function OpenChecklistItem({
       >
         <div className="grid gap-5 p-6 sm:p-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted">
-              {finding.pillar.toUpperCase()} · {titleCase(finding.severity)} priority
+            <p className="flex flex-wrap items-center gap-x-1.5 text-xs font-medium">
+              <span className={pillarTextColor(finding.pillar)}>
+                {finding.pillar.toUpperCase()}
+              </span>
+              <span className="text-muted" aria-hidden>·</span>
+              <span className={severityTextColor(finding.severity)}>
+                {titleCase(finding.severity)} priority
+              </span>
             </p>
             <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground text-pretty">
               {finding.title}
@@ -168,28 +192,37 @@ function OpenChecklistItem({
                 ) : null}
                 <div className="mt-5 flex flex-wrap gap-2">
                   {hasArtifact ? (
-                    <Button size="sm" variant="outline" onPress={() => {
+                    <Button className="min-h-10 transition-transform active:scale-[0.96]" size="sm" variant="outline" onPress={() => {
                       posthog.capture("checklist_fix_copied", { finding_id: finding.id, format: "artifact" });
                       void copyText(artifact.content);
                     }}>
+                      <CopyIcon className="size-4 text-accent" aria-hidden />
                       Copy prepared fix
                     </Button>
                   ) : null}
                   {artifact.mode === "file" && artifact.filename ? (
-                    <Button size="sm" variant="outline" onPress={() => downloadFile(artifact.filename!, artifact.content)}>
+                    <Button
+                      className="min-h-10 transition-transform active:scale-[0.96]"
+                      size="sm"
+                      variant="outline"
+                      onPress={() => downloadFile(artifact.filename!, artifact.content)}
+                    >
+                      <DownloadIcon className="size-4 text-success" aria-hidden />
                       Download {artifact.filename}
                     </Button>
                   ) : null}
-                  <Button size="sm" variant="ghost" onPress={() => {
+                  <Button className="min-h-10 transition-transform active:scale-[0.96]" size="sm" variant="outline" onPress={() => {
                     posthog.capture("checklist_fix_copied", { finding_id: finding.id, format: "coding_agent" });
                     void copyText(prompt);
                   }}>
+                    <InlineCodeIcon className="size-4 text-accent" aria-hidden />
                     Copy coding-agent prompt
                   </Button>
-                  <Button size="sm" variant="ghost" onPress={() => {
+                  <Button className="min-h-10 transition-transform active:scale-[0.96]" size="sm" variant="outline" onPress={() => {
                     posthog.capture("checklist_fix_copied", { finding_id: finding.id, format: "manual" });
                     void copyText(manualGuide);
                   }}>
+                    <CopyIcon className="size-4 text-success" aria-hidden />
                     Copy manual steps
                   </Button>
                 </div>
@@ -311,6 +344,7 @@ function ChecklistContent() {
 
           return (
             <Tabs
+              variant="secondary"
               selectedKey={selectedView}
               onSelectionChange={(key) => {
                 const view = String(key) as ChecklistView;
@@ -319,13 +353,16 @@ function ChecklistContent() {
                 });
               }}
             >
-              <Tabs.ListContainer>
-                <Tabs.List aria-label="Checklist views">
+              <Tabs.ListContainer className="w-fit max-w-full">
+                <Tabs.List
+                  aria-label="Checklist views"
+                  className="w-fit min-w-0 *:h-10 *:w-auto *:min-w-20 *:px-4"
+                >
                   <Tabs.Tab id="next">Do these next<Tabs.Indicator /></Tabs.Tab>
-                  <Tabs.Tab id="seo">SEO <span className="tabular-nums text-muted">{byPillar.seo.length}</span><Tabs.Indicator /></Tabs.Tab>
-                  <Tabs.Tab id="aeo">AEO <span className="tabular-nums text-muted">{byPillar.aeo.length}</span><Tabs.Indicator /></Tabs.Tab>
-                  <Tabs.Tab id="geo">GEO <span className="tabular-nums text-muted">{byPillar.geo.length}</span><Tabs.Indicator /></Tabs.Tab>
-                  <Tabs.Tab id="completed">Completed <span className="tabular-nums text-muted">{data.completed.length}</span><Tabs.Indicator /></Tabs.Tab>
+                  <Tabs.Tab id="seo">SEO<Tabs.Indicator /></Tabs.Tab>
+                  <Tabs.Tab id="aeo">AEO<Tabs.Indicator /></Tabs.Tab>
+                  <Tabs.Tab id="geo">GEO<Tabs.Indicator /></Tabs.Tab>
+                  <Tabs.Tab id="completed">Completed<Tabs.Indicator /></Tabs.Tab>
                 </Tabs.List>
               </Tabs.ListContainer>
 

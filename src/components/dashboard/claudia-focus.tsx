@@ -4,7 +4,13 @@ import { buttonVariants, toast } from "@heroui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ClaudiaOrb } from "@/components/claudia/claudia-orb";
-import { ArrowRightIcon, ArticlesIcon, CheckIcon } from "@/components/icons";
+import {
+  ArrowRightIcon,
+  ArticlesIcon,
+  CheckIcon,
+  CreditCardIcon,
+  PlugIcon,
+} from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { OwnerRequestList } from "@/components/inbox/owner-request-list";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
@@ -48,6 +54,13 @@ function nextUpdateLabel(value: string | null) {
     : `Next check ${nextUpdateFormatter.format(date)}`;
 }
 
+function primaryActionIcon(href: string) {
+  if (href.includes("tab=integrations")) return PlugIcon;
+  if (href.includes("tab=billing")) return CreditCardIcon;
+  if (href.startsWith("/articles/")) return ArticlesIcon;
+  return ArrowRightIcon;
+}
+
 export function ClaudiaFocus({
   home,
   ownerRequests = EMPTY_OWNER_REQUESTS,
@@ -62,6 +75,9 @@ export function ClaudiaFocus({
   const status = STATUS[home.status];
   const nextUpdate = nextUpdateLabel(home.nextUpdateAt);
   const opportunity = home.contentOpportunity;
+  const PrimaryActionIcon = home.primaryAction
+    ? primaryActionIcon(home.primaryAction.href)
+    : null;
   const createContent = useMutation({
     mutationFn: (topicId: string) =>
       apiPost<{ articleId: string }>("/api/articles/generate", { topicId }),
@@ -82,7 +98,7 @@ export function ClaudiaFocus({
   return (
     <div className={styles.workspace}>
       <section className={styles.hero} aria-labelledby="claudia-home-title">
-        <div className={styles.copy}>
+        <div className={styles.heroMeta}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <p className={cn("flex items-center gap-2 text-sm font-medium", status.className)}>
               <span className="relative flex size-2" aria-hidden>
@@ -94,15 +110,21 @@ export function ClaudiaFocus({
               {status.label}
             </p>
             {nextUpdate ? <p className="text-xs text-muted tabular-nums">{nextUpdate}</p> : null}
-            <p className="text-xs text-muted">
-              Mode: <span className="font-medium text-foreground">{autonomyLabel(autonomyMode)}</span>
-              {" · "}
-              <Link className="text-muted no-underline hover:text-foreground" href="/settings?tab=claudia">
-                Change
-              </Link>
-            </p>
           </div>
+          <p className="text-xs text-muted">
+            Mode:{" "}
+            <span className="font-medium text-accent">{autonomyLabel(autonomyMode)}</span>
+            {" · "}
+            <Link
+              className="font-medium text-accent no-underline hover:underline"
+              href="/settings?tab=claudia"
+            >
+              Change
+            </Link>
+          </p>
+        </div>
 
+        <div className={styles.copy}>
           <h1
             id="claudia-home-title"
             className="type-display mt-7 max-w-[15ch] text-balance text-5xl leading-[1.02] tracking-[-0.035em] text-foreground sm:text-6xl lg:text-7xl"
@@ -121,6 +143,9 @@ export function ClaudiaFocus({
                 "mt-8 min-h-11 transition-transform active:scale-[0.96]",
               )}
             >
+              {PrimaryActionIcon ? (
+                <PrimaryActionIcon className="size-4 shrink-0" aria-hidden />
+              ) : null}
               {home.primaryAction.label}
             </Link>
           ) : opportunity ? (
@@ -129,6 +154,7 @@ export function ClaudiaFocus({
               isPending={createContent.isPending}
               onPress={() => createContent.mutate(opportunity.id)}
             >
+              <ArticlesIcon className="size-4 shrink-0" aria-hidden />
               Create this content
             </LoadingButton>
           ) : null}
@@ -156,7 +182,7 @@ export function ClaudiaFocus({
 
       <div className={styles.priorities}>
         <section className={styles.priority} aria-labelledby="content-opportunity-title">
-          <div className="flex items-center gap-3 text-muted">
+          <div className="flex items-center gap-3 text-accent">
             <ArticlesIcon className="size-5" aria-hidden />
             <p className="text-sm font-medium">What to write</p>
           </div>
@@ -190,7 +216,7 @@ export function ClaudiaFocus({
         </section>
 
         <section className={styles.priority} aria-labelledby="checklist-priority-title">
-          <div className="flex items-center gap-3 text-muted">
+          <div className="flex items-center gap-3 text-warning">
             <CheckIcon className="size-5" aria-hidden />
             <p className="text-sm font-medium">What to fix</p>
           </div>

@@ -1,21 +1,20 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getAgentState } from "@/lib/agent/state";
 import { listPendingAgentApprovals } from "@/lib/agent/events";
-import { getBrandIdentitySummary } from "@/lib/brand/intelligence";
-import { listArticles, listTopics } from "@/lib/articles/repository";
+import {
+  getAutomationTopicQueue,
+  listOwnerReviewArticles,
+} from "@/lib/articles/repository";
 import { CREDIT_COSTS } from "@/lib/billing/credits";
 import { dailyArticleCapForPlan, isActiveSubscription } from "@/lib/billing/plans";
 import type { requireApiBrand } from "@/lib/api/server";
 import type {
-  Article,
   AutomationStats,
   DashboardData,
-  VisibilityAnswers,
   VisibilitySummary,
-  VisibilityTraffic,
 } from "@/lib/api/queries";
 import { getDb } from "@/lib/db";
-import { answerRuns, audits, trafficSnapshots } from "@/lib/db/schema/visibility";
+import { audits } from "@/lib/db/schema/visibility";
 import { buildClaudiaHomeView } from "@/lib/dashboard/claudia-home-view";
 import { buildOwnerRequests } from "@/lib/inbox/owner-request";
 import { listTrafficConnections } from "@/lib/integrations/google-traffic";
@@ -31,7 +30,6 @@ import {
   SETUP_STEPS,
 } from "@/lib/jobs/setup-run";
 import { getCreditBalance } from "@/lib/usage/credits";
-import { computeShare, type EngineName } from "@/lib/visibility/answers";
 import { scoreBand } from "@/lib/visibility/display";
 import { getOpenFindings } from "@/lib/visibility/findings-repository";
 import {
@@ -56,19 +54,16 @@ export async function getDashboardAutomation(
 ): Promise<AutomationStats> {
   const { workspace, subscription, brand } = context;
   const active = isActiveSubscription(subscription?.status);
-  const [credits, topics, weeklyStats, usageTotals, todayRun] = await Promise.all([
+  const [credits, queue, weeklyStats, usageTotals, todayRun] = await Promise.all([
     preload.credits ?? getCreditBalance(workspace.id),
-    listTopics(brand.id),
+    getAutomationTopicQueue(brand.id),
     preload.weekly ?? getWeeklyPipelineStats(brand.id),
     getUsageTotals(brand.id),
     getDailyRun(brand.id, getUtcDayKey()),
   ]);
 
-  const writable = topics
-    .filter((topic) => topic.status === "pending" && topic.score != null)
-    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0));
-  const nextUp = writable[0];
-  const pendingTopics = writable.length;
+  const nextUp = queue.next;
+  const pendingTopics = queue.pendingCount;
   const dailyCap = active ? dailyArticleCapForPlan(subscription?.planId) : 0;
 
   let agentState: AutomationStats["agentState"];
@@ -169,91 +164,6 @@ export async function getDashboardVisibilitySummary(
   };
 }
 
-async function getVisibilityAnswers(brandId: string): Promise<VisibilityAnswers> {
-  const runs = await getDb()
-    .select({
-      engine: answerRuns.engine,
-      brandMentioned: answerRuns.brandMentioned,
-      brandCited: answerRuns.brandCited,
-    })
-    .from(answerRuns)
-    .where(eq(answerRuns.brandId, brandId))
-    .orderBy(desc(answerRuns.ranAt))
-    .limit(200);
-  const share = computeShare(
-    runs.map((run) => ({
-      engine: run.engine as EngineName,
-      brandMentioned: run.brandMentioned,
-      brandCited: run.brandCited,
-    })),
-  );
-
-  return {
-    // The Overview only renders the aggregate share; the full prompt x engine
-    // grid remains scoped to /visibility/answers.
-    prompts: [],
-    runs: [],
-    share,
-  };
-}
-
-async function getVisibilityTraffic(
-  brandId: string,
-  connections: MaybePromise<Awaited<ReturnType<typeof listTrafficConnections>>>,
-): Promise<VisibilityTraffic> {
-  const db = getDb();
-  const [snapshots, trafficConnections] = await Promise.all([
-    db
-      .select()
-      .from(trafficSnapshots)
-      .where(
-        and(
-          eq(trafficSnapshots.brandId, brandId),
-          eq(trafficSnapshots.source, "gsc"),
-        ),
-      )
-      .orderBy(asc(trafficSnapshots.date)),
-    connections,
-  ]);
-
-  return {
-    connected: {
-      gsc: trafficConnections.some((connection) => connection.source === "gsc"),
-      ga4: trafficConnections.some((connection) => connection.source === "ga4"),
-    },
-    engines: [],
-    gsc: snapshots.map((snapshot) => ({
-      date: snapshot.date,
-      clicks: snapshot.clicks ?? 0,
-      impressions: snapshot.impressions ?? 0,
-      position: snapshot.avgPosition,
-    })),
-    // Overview does not render GA4 referral detail or audit markers.
-    aiReferrals: [],
-    auditMarkers: [],
-  };
-}
-
-function toDashboardArticles(rows: Awaited<ReturnType<typeof listArticles>>): Article[] {
-  return rows.map((article) => ({
-    id: article.id,
-    topicId: article.topicId,
-    title: article.title,
-    slug: article.slug,
-    metaDescription: article.metaDescription,
-    tags: article.tags,
-    bodyMarkdown: "",
-    bodyLength: article.bodyLength,
-    status: article.status,
-    version: article.version,
-    shape: article.shape,
-    gateResultsJson: article.gateResultsJson,
-    updatedAt: article.updatedAt.toISOString(),
-    createdAt: article.createdAt.toISOString(),
-    performance: null,
-  }));
-}
-
 /**
  * Page-scoped dashboard bundle. Every independent read starts immediately;
  * overlapping agent/inbox/proof dependencies share the same promises.
@@ -264,11 +174,10 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const setupPromise = getSetupRun(brand.id);
   const creditsPromise = getCreditBalance(workspace.id);
   const weeklyPromise = getWeeklyPipelineStats(brand.id);
-  const articlesPromise = listArticles(brand.id);
+  const articlesPromise = listOwnerReviewArticles(brand.id);
   const findingsPromise = getOpenFindings(workspace.id, { brandId: brand.id });
   const connectionsPromise = listTrafficConnections(brand.id);
   const integrationsPromise = listIntegrations(brand.id);
-  const identityPromise = getBrandIdentitySummary(brand.id);
   const approvalsPromise = listPendingAgentApprovals(brand.id);
 
   const setupDataPromise = setupPromise.then(async (initialRun) => {
@@ -303,10 +212,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
       credits: creditsPromise,
       weekly: weeklyPromise,
       draftRows: articlesPromise.then((articles) =>
-        articles
-          .filter((article) => article.status === "draft")
-          .slice(0, 1)
-          .map(({ id, title }) => ({ id, title })),
+        articles.slice(0, 1).map(({ id, title }) => ({ id, title })),
       ),
       findings: findingsPromise,
       gscRows: connectionsPromise,
@@ -319,26 +225,18 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
     credits: creditsPromise,
     weekly: weeklyPromise,
   });
-  const summaryPromise = getDashboardVisibilitySummary(workspace.id, brand.id);
-  const answersPromise = getVisibilityAnswers(brand.id);
-  const trafficPromise = getVisibilityTraffic(brand.id, connectionsPromise);
 
-  const [setup, agent, automation, summary, answers, traffic, articleRows, rawFindings, integrations, identity, approvalRows] =
+  const [setup, agent, automation, articleRows, rawFindings, integrations, approvalRows] =
     await Promise.all([
       setupDataPromise,
       agentPromise,
       automationPromise,
-      summaryPromise,
-      answersPromise,
-      trafficPromise,
       articlesPromise,
       findingsPromise,
       integrationsPromise,
-      identityPromise,
       approvalsPromise,
     ]);
 
-  const articles = toDashboardArticles(articleRows);
   const findings = rawFindings.map((finding) => ({
     id: finding.id,
     pillar: finding.pillar,
@@ -365,7 +263,7 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
   const ownerRequests = buildOwnerRequests({
     agent,
     approvals,
-    articles,
+    articles: articleRows,
     autonomyMode:
       brand.autonomyMode === "FULL_AUTO" || brand.autonomyMode === "AUTO_PUBLISH_FAST"
         ? brand.autonomyMode
@@ -382,21 +280,14 @@ export async function getDashboardData(context: DashboardContext): Promise<Dashb
 
   return {
     brand: {
-      id: brand.id,
-      name: brand.name,
       autonomyMode:
         brand.autonomyMode === "FULL_AUTO" || brand.autonomyMode === "AUTO_PUBLISH_FAST"
           ? brand.autonomyMode
           : "REVIEW",
-      identity,
     },
     setup,
     home,
     agent,
-    summary,
-    answers,
-    traffic,
-    articles,
     findings,
     integrations,
     automation,

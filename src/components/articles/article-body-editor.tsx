@@ -42,9 +42,9 @@ export function ArticleBodyEditor({
   const initialDoc = useMemo(() => markdownToTiptapDoc(defaultMarkdown), [defaultMarkdown]);
 
   return (
-    <div className={cn("overflow-hidden rounded-2xl bg-surface-secondary", className)}>
+    <div className={cn("overflow-hidden rounded-2xl bg-surface", className)}>
       <RichTextEditor
-        className="w-full"
+        className="w-full [--field-border:var(--separator)]"
         defaultValue={initialDoc}
         isReadOnly={isReadOnly}
         placeholder="Write the article body…"

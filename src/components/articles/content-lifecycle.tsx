@@ -5,7 +5,7 @@ import { buttonVariants } from "@heroui/react/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import posthog from "posthog-js";
-import { ArrowRightIcon, ArticlesIcon, CheckIcon, ResearchIcon } from "@/components/icons";
+import { ArrowRightIcon, ArticlesIcon, ResearchIcon } from "@/components/icons";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { useProgressRouter } from "@/components/feedback/navigation-progress";
 import { ApiError, apiPost, getErrorMessage } from "@/lib/api/fetcher";
@@ -173,21 +173,25 @@ export function ContentLifecycle({
 
   return (
     <Tabs
+      variant="secondary"
       selectedKey={selectedView}
       onSelectionChange={(key) => onViewChange(String(key) as ContentView)}
     >
-      <Tabs.ListContainer>
-        <Tabs.List aria-label="Content lifecycle">
+      <Tabs.ListContainer className="w-fit max-w-full">
+        <Tabs.List
+          aria-label="Content lifecycle"
+          className="w-fit min-w-0 *:min-w-24 *:w-auto *:px-5"
+        >
           <Tabs.Tab id="ideas">
-            Ideas <span className="tabular-nums text-muted">{ideas.length}</span>
+            Ideas
             <Tabs.Indicator />
           </Tabs.Tab>
           <Tabs.Tab id="drafts">
-            Drafts <span className="tabular-nums text-muted">{drafts.length + generatingIdeas.length}</span>
+            Drafts
             <Tabs.Indicator />
           </Tabs.Tab>
           <Tabs.Tab id="completed">
-            Completed <span className="tabular-nums text-muted">{completed.length}</span>
+            Completed
             <Tabs.Indicator />
           </Tabs.Tab>
         </Tabs.List>
